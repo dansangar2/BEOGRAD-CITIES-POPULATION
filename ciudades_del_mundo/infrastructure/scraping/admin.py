@@ -1,0 +1,137 @@
+from __future__ import annotations
+
+import re
+
+from bs4 import BeautifulSoup
+
+from ciudades_del_mundo.domain import ScrapedAdminArea, ScrapingPageConfig
+from ciudades_del_mundo.infrastructure.scraping.urls import build_page_url
+from ciudades_del_mundo.utils.citypop import CityPopulationScraper
+
+
+class CityPopulationAdminScraper:
+    html_format = "admin"
+
+    def __init__(self, debug: bool = False):
+        self.debug = debug
+        self._scraper = CityPopulationScraper(debug=debug)
+
+    def scrape(self, base_url: str, country_code: str, page: ScrapingPageConfig) -> list[ScrapedAdminArea]:
+        url = build_page_url(base_url, page.path)
+        html = self._scraper._get(url)
+        return self.scrape_html(html=html, url=url, country_code=country_code, level=page.lowest_level)
+
+    def scrape_html(self, html: str, url: str, country_code: str, level: int) -> list[ScrapedAdminArea]:
+        soup = BeautifulSoup(html, self._scraper.parser)
+        table = soup.find("table", id="tl")
+        root = self._parse_root(soup, country_code=country_code, level=level, url=url)
+
+        entities = [root] if root else []
+        if not table:
+            return entities
+
+        last_pop_idx, last_pop_date = self._scraper._detect_last_visible_pop_column(table)
+        last_year = self._scraper._year_from_date(last_pop_date)
+        parent_stack: dict[int, ScrapedAdminArea] = {}
+        if root:
+            parent_stack[root.level] = root
+
+        for tbody in table.find_all("tbody", recursive=False):
+            relative_level = self._relative_level(tbody)
+            if relative_level is None:
+                continue
+
+            entity_level = level + relative_level
+            for tr in tbody.find_all("tr", recursive=False):
+                parsed = self._scraper._parse_tr_tl(
+                    tr=tr,
+                    explicit_level=entity_level,
+                    last_visible_pop_idx=last_pop_idx,
+                    last_visible_date=last_pop_date,
+                    default_last_census_year=last_year,
+                    country_code=country_code,
+                    base_url=self._scraper._base_for_urljoin(url),
+                )
+                if not parsed:
+                    continue
+
+                parent = parent_stack.get(entity_level - 1)
+                entity = ScrapedAdminArea(
+                    code=parsed.entity_id,
+                    name=parsed.name,
+                    level=entity_level,
+                    country_code=country_code,
+                    entity_type=parsed.entity_type,
+                    parent_code=parent.code if parent else None,
+                    area_km2=parsed.area_km2,
+                    density=parsed.density,
+                    pop_latest=parsed.pop_latest,
+                    pop_latest_date=parsed.pop_latest_date,
+                    last_census_year=parsed.last_census_year,
+                    url=parsed.url,
+                )
+                if root and entity.code == root.code and entity.level == root.level:
+                    continue
+
+                entities.append(entity)
+                parent_stack[entity.level] = entity
+                for stacked_level in [stacked_level for stacked_level in parent_stack if stacked_level > entity.level]:
+                    del parent_stack[stacked_level]
+
+        return entities
+
+    def _parse_root(
+        self,
+        soup: BeautifulSoup,
+        *,
+        country_code: str,
+        level: int,
+        url: str,
+    ) -> ScrapedAdminArea | None:
+        section = soup.find("div", class_=lambda value: value and "infosection" in value and "mainsection" in value)
+        if not section:
+            return None
+
+        name_node = section.find(class_="infoname")
+        name = self._clean_root_name(name_node.get_text(" ", strip=True)) if name_node else country_code
+        entity_type = self._root_entity_type(section)
+
+        pop_node = section.find(attrs={"data-newpop": True}) or section.find(attrs={"data-oldpop": True})
+        pop_latest = int(pop_node.get("data-newpop") or pop_node.get("data-oldpop")) if pop_node else None
+        pop_latest_date = (pop_node.get("data-newdate") or pop_node.get("data-olddate")) if pop_node else None
+        last_census_year = self._scraper._year_from_date(pop_latest_date)
+        area_node = section.find(attrs={"data-area": True})
+        density_node = section.find(attrs={"data-density": True})
+
+        return ScrapedAdminArea(
+            code=country_code,
+            name=name,
+            level=level,
+            country_code=country_code,
+            entity_type=entity_type,
+            area_km2=self._scraper._safe_float(area_node.get("data-area")) if area_node else None,
+            density=self._scraper._safe_float(density_node.get("data-density")) if density_node else None,
+            pop_latest=pop_latest,
+            pop_latest_date=pop_latest_date,
+            last_census_year=last_census_year,
+            url=url,
+        )
+
+    def _relative_level(self, tbody) -> int | None:
+        for class_name in tbody.get("class") or []:
+            match = re.fullmatch(r"admin(\d+)", class_name)
+            if match:
+                return int(match.group(1))
+        return None
+
+    def _clean_root_name(self, value: str) -> str:
+        return re.sub(r"^Contents:\s*", "", value).strip()
+
+    def _root_entity_type(self, section) -> str | None:
+        for node in section.find_all(class_="infotext", recursive=False):
+            if node.find(class_="val"):
+                continue
+            text = node.get_text(" ", strip=True)
+            if text:
+                return text
+        return None

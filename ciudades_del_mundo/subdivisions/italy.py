@@ -1,0 +1,11 @@
+DIVISIONS = {
+      "subdivision": {
+  "1": { "admin": "admin" },
+        "2": { "asNotAdmin": [
+          "abruzzi", "basilicata", "calabria", "campania", "emiliaromagna",
+          "friuliveneziagiulia", "lazio", "liguria", "lombardia", "marche",
+          "molise", "piemonte", "puglia", "sardegna", "sicilia",
+          "toscana", "trentinoaltoadige", "umbria", "valledaosta", "veneto"
+        ] }
+      }
+    }

@@ -1,0 +1,16 @@
+DIVISIONS = {
+        "subdivision": {
+            "1": {"admin": ["admin"]},
+            "2": {"admin": ["mun"]},
+        }
+    }
+
+CITIES = [
+        {
+            "city": "Nouakchott",
+            "id": "13000",
+            "district_types": ["City District"],
+            "new_type": "Commune",
+            "from": {2: ["Nouakchott-Ouest", "Nouakchott-Nord", "Nouakchott-Sud"]},
+        },
+    ]

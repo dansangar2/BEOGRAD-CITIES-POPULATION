@@ -1,0 +1,55 @@
+{% extends "ciudades_del_mundo/base.html" %}
+
+{% block title %}Panel - Ciudades del Mundo{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div>
+    <p class="eyebrow">Scraping y administracion territorial</p>
+    <h1>Panel de datos</h1>
+  </div>
+</section>
+
+<section class="metrics">
+  <article class="metric"><span>Admin areas</span><strong>{{ admin_area_count }}</strong></article>
+  <article class="metric"><span>Nuevas areas</span><strong>{{ nuevo_area_count }}</strong></article>
+  <article class="metric"><span>Escanos</span><strong>{{ seat_count }}</strong></article>
+</section>
+
+<section class="grid">
+  <div>
+    <h2>Paises importados</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Pais</th><th>Areas</th><th>Poblacion</th></tr></thead>
+        <tbody>
+          {% for country in countries %}
+          <tr>
+            <td><a href="{% url 'ciudades_del_mundo:admin_area_list' %}?country={{ country.country_code }}">{{ country.country_code }}</a></td>
+            <td>{{ country.total }}</td>
+            <td>{{ country.population|default:"-" }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="3">Sin datos importados.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div>
+    <h2>Configuraciones</h2>
+    <div class="config-list">
+      {% for config in configs %}
+      <article class="config-item">
+        <strong>{{ config.name|default:config.slug }}</strong>
+        <span>{{ config.country_code }} · {{ config.pages|length }} pagina(s)</span>
+        <code>python manage.py scrape_subdivisions {{ config.slug }}</code>
+      </article>
+      {% empty %}
+      <p>No hay ficheros Python en subdivisions.</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,16 @@
+DIVISIONS = {
+      "subdivision": {
+        "1": { "admin": "admin" }
+      }
+    }
+
+CITIES = [
+        {
+            "city": "Sarajevo",
+            "id": "11584",
+            "district_types": [],
+            "new_type": "City",
+            "from": {1: ["Federacija Bosna i Hercegovina"]},
+            "communes": ["Novo Sarajevo", "Centar Sarajevo", "Stari Grad Sarajevo", "Novi Grad Sarajevo"],
+        },
+    ]

@@ -1,0 +1,59 @@
+{% extends "ciudades_del_mundo/base.html" %}
+
+{% block title %}Areas - Ciudades del Mundo{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <h1>Areas administrativas</h1>
+</section>
+
+<form class="filters" method="get">
+  <input type="search" name="q" value="{{ query }}" placeholder="Buscar por nombre">
+  <select name="country">
+    <option value="">Todos los paises</option>
+    {% for country in countries %}
+    <option value="{{ country }}" {% if country == selected_country %}selected{% endif %}>{{ country }}</option>
+    {% endfor %}
+  </select>
+  <select name="level">
+    <option value="">Todos los niveles</option>
+    {% for value in "012345" %}
+    <option value="{{ value }}" {% if value == selected_level %}selected{% endif %}>L{{ value }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Filtrar</button>
+</form>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Nombre</th><th>Pais</th><th>Nivel</th><th>Tipo</th><th>Padre</th><th>Poblacion</th></tr>
+    </thead>
+    <tbody>
+      {% for area in page_obj %}
+      <tr>
+        <td><code>{{ area.id }}</code></td>
+        <td>{{ area.name }}</td>
+        <td>{{ area.country_code }}</td>
+        <td>L{{ area.level }}</td>
+        <td>{{ area.entity_type|default:"-" }}</td>
+        <td>{{ area.parent.name|default:"-" }}</td>
+        <td>{{ area.pop_latest|default:"-" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7">No hay areas para estos filtros.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<nav class="pagination">
+  {% if page_obj.has_previous %}
+  <a href="?page={{ page_obj.previous_page_number }}&country={{ selected_country }}&level={{ selected_level }}&q={{ query }}">Anterior</a>
+  {% endif %}
+  <span>Pagina {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}
+  <a href="?page={{ page_obj.next_page_number }}&country={{ selected_country }}&level={{ selected_level }}&q={{ query }}">Siguiente</a>
+  {% endif %}
+</nav>
+{% endblock %}

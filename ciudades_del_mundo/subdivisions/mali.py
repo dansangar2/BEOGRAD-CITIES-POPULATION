@@ -1,0 +1,15 @@
+DIVISIONS = {
+        "subdivision": {
+            "1": {"admin": ["admin"]},
+        }
+    }
+
+CITIES = [
+        {
+            "city": "Bamako",
+            "id": "9100",
+            "district_types": ["Urban Commune"],
+            "new_type": "Commune",
+            "from": {1: ["Bamako"]},
+        },
+    ]
