@@ -11,7 +11,7 @@ class AdminAreaAdmin(admin.ModelAdmin):
 
     list_display = (
         "id", "country_code", "code", "name", "level","entity_type",
-        "parent_pk", "pop_latest", "pop_latest_date", "updated_at",
+        "parent_pk", "pop_latest", "representatives", "pop_latest_date", "updated_at",
     )
     list_filter  = ("country_code", "level","entity_type")
     search_fields = ("id", "code", "name")   # antes incluía 'entity_id'

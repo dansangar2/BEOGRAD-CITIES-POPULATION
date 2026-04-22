@@ -1,0 +1,5 @@
+﻿DIVISIONS = {
+      "subdivision": {
+        "1": { "admin": "admin" }
+      }
+    }

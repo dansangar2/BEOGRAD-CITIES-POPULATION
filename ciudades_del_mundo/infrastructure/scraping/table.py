@@ -6,9 +6,9 @@ from bs4 import BeautifulSoup
 
 from ciudades_del_mundo.domain import ScrapedAdminArea, ScrapingPageConfig
 from ciudades_del_mundo.infrastructure.scraping.admin import CityPopulationAdminScraper
+from ciudades_del_mundo.infrastructure.scraping.city_population_client import CityPopulationClient
 from ciudades_del_mundo.infrastructure.scraping.double import CityPopulationDoubleScraper
 from ciudades_del_mundo.infrastructure.scraping.urls import build_page_url
-from ciudades_del_mundo.utils.citypop import CityPopulationScraper
 
 
 class CityPopulationStructuredTableScraper:
@@ -16,18 +16,18 @@ class CityPopulationStructuredTableScraper:
 
     def __init__(self, debug: bool = False):
         self.debug = debug
-        self._scraper = CityPopulationScraper(debug=debug)
+        self._client = CityPopulationClient(debug=debug)
         self._admin_scraper = CityPopulationAdminScraper(debug=debug)
         self._double_scraper = CityPopulationDoubleScraper(debug=debug)
 
     def scrape(self, base_url: str, country_code: str, page: ScrapingPageConfig) -> list[ScrapedAdminArea]:
         url = build_page_url(base_url, page.path)
-        html = self._scraper._get(url)
+        html = self._client.get(url)
         return self.scrape_html(html=html, url=url, country_code=country_code, level=page.lowest_level)
 
     def scrape_html(self, html: str, url: str, country_code: str, level: int) -> list[ScrapedAdminArea]:
-        soup = BeautifulSoup(html, self._scraper.parser)
-        base_for_urljoin = self._scraper._base_for_urljoin(url)
+        soup = BeautifulSoup(html, self._client.parser)
+        base_for_urljoin = self._client.base_for_urljoin(url)
         root = self._parse_root(soup=soup, country_code=country_code, level=level, url=url)
 
         entities = [root] if root else []
@@ -82,14 +82,14 @@ class CityPopulationStructuredTableScraper:
         if not tr:
             return None
 
-        last_pop_idx, last_pop_date = self._scraper._detect_last_visible_pop_column(table)
-        parsed = self._scraper._parse_tr_tl(
+        last_pop_idx, last_pop_date = self._client.detect_last_visible_pop_column(table)
+        parsed = self._client.parse_tr_tl(
             tr=tr,
             explicit_level=level,
             last_visible_pop_idx=last_pop_idx,
             last_visible_date=last_pop_date,
-            default_last_census_year=self._scraper._year_from_date(last_pop_date),
+            default_last_census_year=self._client.year_from_date(last_pop_date),
             country_code=country_code,
-            base_url=self._scraper._base_for_urljoin(url),
+            base_url=self._client.base_for_urljoin(url),
         )
         return parsed.entity_id if parsed else None

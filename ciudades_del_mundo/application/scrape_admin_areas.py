@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
-from ciudades_del_mundo.domain import ScrapedAdminArea, ScrapingJobConfig
+from ciudades_del_mundo.domain import ScrapedAdminArea, ScrapingJobConfig, calculate_most_populated_assignments
 from ciudades_del_mundo.ports import AdminAreaRepository, HtmlScraper
 
 
@@ -12,6 +12,8 @@ class ScrapeResult:
     created: int
     updated: int
     found: int
+    most_populated_updated: int = 0
+    representatives_updated: int = 0
 
 
 @dataclass(frozen=True)
@@ -69,7 +71,21 @@ class ScrapeAdminAreas:
 
         entities = _keep_first_scraped_entity(entities)
         created, updated = self.repository.save_many(config.country_code, entities)
-        return ScrapeResult(created=created, updated=updated, found=len(entities))
+        assignments = calculate_most_populated_assignments(
+            self.repository.list_summaries(config.country_code),
+            config.legal_subdivision_level,
+        )
+        most_populated_updated = self.repository.save_most_populated_assignments(assignments)
+        representatives_updated = 0
+        if config.representation:
+            representatives_updated = self.repository.save_representatives(config.country_code, config.representation)
+        return ScrapeResult(
+            created=created,
+            updated=updated,
+            found=len(entities),
+            most_populated_updated=most_populated_updated,
+            representatives_updated=representatives_updated,
+        )
 
 
 def _keep_first_scraped_entity(entities: list[ScrapedAdminArea]) -> list[ScrapedAdminArea]:

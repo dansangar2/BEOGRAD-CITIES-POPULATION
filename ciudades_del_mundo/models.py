@@ -34,6 +34,7 @@ class AdminArea(models.Model):
     area_km2         = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     density          = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
     pop_latest       = models.BigIntegerField(null=True, blank=True)
+    representatives  = models.PositiveIntegerField(null=True, blank=True)
     pop_latest_date  = models.DateField(null=True, blank=True)
     last_census_year = models.IntegerField(null=True, blank=True)
     url              = models.URLField(max_length=500, null=True, blank=True)

@@ -1,0 +1,15 @@
+﻿DIVISIONS = {
+      "subdivision": {
+  "1": { "admin": "admin" },
+        #"2": { "asAdmin": [
+        #  "admin/C11__capellen", "admin/C21__clervaux", "admin/C22__diekirch", "admin/C31__echternach", "admin/C12__esch_sur_alzette",
+        #  "admin/C32__grevenmacher", "admin/C13__luxembourg", "admin/C14__mersch", "admin/C23__redange", "admin/C33__remich",
+        #  "admin/C24__vianden", "admin/C25__wiltz"
+        #] },
+        #"3": { "asNotAdmin": [
+        #  "capellen", "clervaux", "diekirch", "echternach", "eschsuralzette",
+        #  "grevenmacher", "luxembourg", "mersch", "redange", "remich",
+        #  "vianden", "wiltz"
+        #] }
+      }
+    }

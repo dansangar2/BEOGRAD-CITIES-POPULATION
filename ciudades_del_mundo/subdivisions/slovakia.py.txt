@@ -1,0 +1,20 @@
+﻿DIVISIONS = {
+        "subdivision": {
+            "1": {"admin": "admin"},
+            "2": {
+                "asNotAdmin": [
+                    "banskobystrickykraj", "bratislavskykraj", "kosickykraj", "nitrianskykraj", "presovskykraj", "trencianskykraj", "trnavskykraj", "zilinskykraj",
+                ],
+            },
+        }
+    }
+
+#CITIES = [
+#        {
+#            "city": "Bratislava",
+#            "id": ["100", "100001"],
+#            "district_types": ["City District"],
+#            "new_type": "City",
+#            "from": {1: ["Bratislavský kraj"]},
+#        },
+#    ]
