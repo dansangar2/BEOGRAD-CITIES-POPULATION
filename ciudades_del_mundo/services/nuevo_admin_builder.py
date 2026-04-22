@@ -241,6 +241,7 @@ def create_nuevo_area_from_spec(
     m2m_field: str = "municipios_originales",
     new_code: str | None = None,
     capitals: list[str] | None = None,
+    capital_level_by_country: dict[str, int] | None = None,
     auto_set_most_populated: bool = True,
 ) -> NuevoAdminArea:
     """
@@ -439,7 +440,39 @@ def create_nuevo_area_from_spec(
             if not label:
                 continue
 
-            chosen = _resolve_adminarea_in_qs(atomic_qs, label)
+            chosen = None
+            if capital_level_by_country:
+                for cc, capital_level in capital_level_by_country.items():
+                    if capital_level is None:
+                        continue
+
+                    candidate_qs = AdminArea.objects.filter(
+                        country_code=cc,
+                        level=capital_level,
+                    )
+                    candidate = _resolve_adminarea_in_qs(candidate_qs, label)
+                    if not candidate:
+                        continue
+
+                    atomic_level = _municipal_level_for(cc)
+                    if candidate.level == atomic_level and candidate.id in mun_final_ids:
+                        chosen = candidate
+                        break
+
+                    if candidate.level < atomic_level:
+                        descendant_ids = {
+                            d.id for d in _descendants_at_level(candidate, atomic_level)
+                        }
+                        if descendant_ids & mun_final_ids:
+                            chosen = candidate
+                            break
+
+                    if candidate.id in macro_ids:
+                        chosen = candidate
+                        break
+
+            if not chosen:
+                chosen = _resolve_adminarea_in_qs(atomic_qs, label)
             if not chosen:
                 chosen = _resolve_adminarea_in_qs(macro_qs, label)
 

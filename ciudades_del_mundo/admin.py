@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import AdminArea, Escanho, NuevoAdminArea
+from .models import AdminArea, NuevoAdminArea
 
 
 @admin.register(AdminArea)
@@ -26,19 +26,8 @@ class NuevoAdminAreaAdmin(admin.ModelAdmin):
 
     list_display = (
         "id", "country_code", "code", "name", "level", "entity_type",
-        "parent_pk", "pop_latest", "updated_at",
+        "parent_pk", "pop_latest", "representatives", "updated_at",
     )
     list_filter = ("country_code", "level", "entity_type")
     search_fields = ("id", "code", "name")
     ordering = ("country_code", "level", "name")
-
-
-@admin.register(Escanho)
-class EscanhoAdmin(admin.ModelAdmin):
-    list_display = (
-        "country_code", "subdivision_code", "seats", "country_id",
-        "subdivision_id", "updated_at",
-    )
-    list_filter = ("country_code",)
-    search_fields = ("country_code", "subdivision_code", "country_id", "subdivision_id")
-    ordering = ("country_code", "subdivision_code")

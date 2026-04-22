@@ -45,6 +45,33 @@ class DivisionConfig:
 
 
 @dataclass(frozen=True)
+class CityConfig:
+    name: str
+    code: str
+    level: int
+    entity_type: str
+    district_types: tuple[str, ...]
+    parent_from: dict[int, tuple[str, ...]]
+    communes: tuple[str, ...]
+
+    @classmethod
+    def from_mapping(cls, data: dict) -> "CityConfig":
+        raw_parent = data.get("from") or {}
+        if not isinstance(raw_parent, dict):
+            raise ValueError("CITIES['from'] debe ser un dict {level: [labels]}.")
+
+        return cls(
+            name=str(data["city"]),
+            code=str(data["id"]),
+            level=int(data["level"]),
+            entity_type=str(data["type"]),
+            district_types=_as_tuple(data.get("district_types") or ()),
+            parent_from={int(level): _as_tuple(labels) for level, labels in raw_parent.items()},
+            communes=_as_tuple(data.get("communes") or ()),
+        )
+
+
+@dataclass(frozen=True)
 class RepresentationConfig:
     level: int
     system: RepresentationSystem
@@ -103,7 +130,18 @@ class ScrapingJobConfig:
     reset_before_import: bool = False
     representation: RepresentationConfig | None = None
     pages: list[ScrapingPageConfig] = field(default_factory=list)
+    cities: list[CityConfig] = field(default_factory=list)
 
 
 def parse_divisions(items: Iterable[dict]) -> list[DivisionConfig]:
     return [DivisionConfig.from_mapping(item) for item in items]
+
+
+def parse_cities(items: Iterable[dict] | None) -> list[CityConfig]:
+    return [CityConfig.from_mapping(item) for item in (items or [])]
+
+
+def _as_tuple(value) -> tuple[str, ...]:
+    if isinstance(value, (str, int)):
+        return (str(value),)
+    return tuple(str(item) for item in value)

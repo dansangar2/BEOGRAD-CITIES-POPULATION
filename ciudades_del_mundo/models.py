@@ -80,14 +80,9 @@ class AdminArea(models.Model):
     @property
     def escanhos(self):
         """
-        Devuelve el número de escaños para este AdminArea, buscando
-        por (country_code, code) en el modelo Escanho.
+        Alias de compatibilidad para el campo representatives.
         """
-        es = Escanho.objects.filter(
-            country_code=self.country_code,
-            subdivision_code=self.code,
-        ).first()
-        return es.seats if es else None
+        return self.representatives
 
 
 class NuevoAdminArea(models.Model):
@@ -118,6 +113,7 @@ class NuevoAdminArea(models.Model):
     area_km2         = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     density          = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
     pop_latest       = models.BigIntegerField(null=True, blank=True)
+    representatives  = models.PositiveIntegerField(null=True, blank=True)
     # ELIMINADOS:
     # pop_latest_date  = models.DateField(null=True, blank=True)
     # last_census_year = models.IntegerField(null=True, blank=True)
@@ -190,21 +186,13 @@ class NuevoAdminArea(models.Model):
         """
         Devuelve los escaños asignados a esta subdivisión.
 
-        - Si existe un registro directo en Escanho → devuelve esos escaños.
-        - Si no existe, suma los escaños de sus hijos (si los hay).
+        - Si tiene representatives directo, devuelve ese valor.
+        - Si no, suma los escaños de sus hijos (si los hay).
         - Si tampoco hay hijos con escaños → None.
         """
-        from .models import Escanho  # import local para evitar problemas de orden
+        if self.representatives is not None:
+            return self.representatives
 
-        # 1) Intentar encontrar escaños directos para este código
-        e = Escanho.objects.filter(
-            country_code=self.country_code,
-            subdivision_code=self.code,
-        ).first()
-        if e:
-            return e.seats
-
-        # 2) Si no hay escaños directos, sumar los de los hijos
         child_seats = 0
         has_children = False
         for child in self.children.all():
@@ -219,44 +207,3 @@ class NuevoAdminArea(models.Model):
         return None
 
 
-# ---------------------------------------------------------------------------
-# NUEVO MODELO DE ESCAÑOS
-# ---------------------------------------------------------------------------
-
-class Escanho(models.Model):
-    """
-    Asigna un número de escaños a una subdivisión concreta de un país
-    (tanto para AdminArea como para NuevoAdminArea, se accede por código).
-
-    - country_id: id del país en NuevoAdminArea (ej: "austria-spanish-empire")
-    - subdivision_id: id de la subdivisión en NuevoAdminArea (ej: "austria-spanish-empire_CAT")
-    - country_code: código del país (mismo que NuevoAdminArea.country_code)
-    - subdivision_code: código de la subdivisión (NuevoAdminArea.code o AdminArea.code)
-    """
-
-    country_id       = models.CharField(max_length=128, db_index=True)
-    subdivision_id   = models.CharField(max_length=128, db_index=True)
-
-    country_code     = models.CharField(max_length=64, db_index=True)
-    subdivision_code = models.CharField(max_length=64, db_index=True)
-
-    seats            = models.PositiveIntegerField()
-
-    created_at       = models.DateTimeField(auto_now_add=True)
-    updated_at       = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["country_code", "subdivision_code"],
-                name="uniq_escanhos_country_subdivision",
-            ),
-        ]
-        indexes = [
-            models.Index(fields=["country_code", "subdivision_code"]),
-            models.Index(fields=["country_id"]),
-            models.Index(fields=["subdivision_id"]),
-        ]
-
-    def __str__(self):
-        return f"{self.country_code}:{self.subdivision_code} -> {self.seats} escaños"

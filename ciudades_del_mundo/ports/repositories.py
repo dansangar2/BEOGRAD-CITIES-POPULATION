@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import AbstractContextManager
 from typing import Protocol
 
 from ciudades_del_mundo.domain import (
@@ -33,4 +34,9 @@ class ScrapingConfigRepository(Protocol):
         ...
 
     def get(self, slug: str) -> ScrapingJobConfig:
+        ...
+
+
+class UnitOfWork(Protocol):
+    def transaction(self) -> AbstractContextManager[None]:
         ...

@@ -3,7 +3,7 @@ from __future__ import annotations
 from django.core.management.base import BaseCommand, CommandError
 
 from ciudades_del_mundo.application import ScrapeAdminAreas
-from ciudades_del_mundo.infrastructure.django.admin_area_repository import DjangoAdminAreaRepository
+from ciudades_del_mundo.infrastructure.django.admin_area_repository import DjangoAdminAreaRepository, DjangoUnitOfWork
 from ciudades_del_mundo.infrastructure.scraping import (
     CityPopulationAdminScraper,
     CityPopulationCitiesScraper,
@@ -34,6 +34,7 @@ class Command(BaseCommand):
 
         use_case = ScrapeAdminAreas(
             repository=DjangoAdminAreaRepository(),
+            unit_of_work=DjangoUnitOfWork(),
             scrapers=[
                 CityPopulationAdminScraper(debug=options["debug"]),
                 CityPopulationCitiesScraper(debug=options["debug"]),

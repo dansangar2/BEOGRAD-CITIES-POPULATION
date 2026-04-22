@@ -5,27 +5,8 @@ from collections import defaultdict
 from datetime import datetime
 
 from django.core.management.base import BaseCommand, CommandError
-from django.db.models import Sum
 
-from ciudades_del_mundo.models import NuevoAdminArea, Escanho
-
-
-import csv
-from collections import defaultdict
-from datetime import datetime
-
-from django.core.management.base import BaseCommand, CommandError
-
-from ciudades_del_mundo.models import NuevoAdminArea, Escanho
-
-
-import csv
-from collections import defaultdict
-from datetime import datetime
-
-from django.core.management.base import BaseCommand, CommandError
-
-from ciudades_del_mundo.models import NuevoAdminArea, Escanho
+from ciudades_del_mundo.models import NuevoAdminArea
 
 
 class Command(BaseCommand):
@@ -124,22 +105,18 @@ class Command(BaseCommand):
             children_by_parent[a.parent_id].append(a)
 
         # ------------------------------------------------------------
-        # 4) Escaños directos por subdivisión (tabla Escanho)
+        # 4) Escaños directos por subdivisión (campo representatives)
         # ------------------------------------------------------------
-        escanhos_qs = Escanho.objects.filter(country_id=country_id)
         seats_direct: dict[str, int] = {}
-        for e in escanhos_qs:
-            seats_direct[e.subdivision_id] = e.seats
+        for area in areas:
+            if area.representatives is not None:
+                seats_direct[area.id] = area.representatives
 
         # Nivel de representación (si todos los escaños están en un mismo nivel)
         rep_level = None
-        first_e = escanhos_qs.first()
-        if first_e:
-            try:
-                rep_area = NuevoAdminArea.objects.get(id=first_e.subdivision_id)
-                rep_level = rep_area.level
-            except NuevoAdminArea.DoesNotExist:
-                rep_level = None
+        first_rep = next((area for area in areas if area.representatives is not None), None)
+        if first_rep:
+            rep_level = first_rep.level
 
         # ------------------------------------------------------------
         # 5) Escaños totales (directos + descendientes) bottom-up

@@ -192,3 +192,8 @@ def _next_dhondt_candidate(
             best_area = area
 
     return best_area
+
+
+class DjangoUnitOfWork:
+    def transaction(self):
+        return transaction.atomic()

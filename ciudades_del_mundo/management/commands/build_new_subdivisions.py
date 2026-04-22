@@ -6,51 +6,144 @@ from django.db.models import Sum
 from decimal import Decimal, InvalidOperation
 from collections import defaultdict
 
-from ciudades_del_mundo.models import NuevoAdminArea, Escanho, AdminArea
+from ciudades_del_mundo.models import NuevoAdminArea, AdminArea
 import importlib
 import pkgutil
 from ciudades_del_mundo.services.nuevo_admin_builder import create_nuevo_area_from_spec, _round_area
+from ciudades_del_mundo.services.nuevo_admin_representatives import (
+    assign_nuevo_admin_representatives,
+    representation_config_from_mapping,
+)
 import ciudades_del_mundo.historical_divisions as subdivisions_pkg
+import ciudades_del_mundo.new_subdivisions as new_subdivisions_pkg
 
 
 CONFIGS: dict[str, list[dict]] = {}
-ESCANHOS: dict[str, dict] = {}
+REPRESENTATIONS: dict[str, object] = {}
 MUNICIPAL_LEVEL: dict[str, int] = {}
+SOURCE_COUNTRIES: dict[str, str] = {}
+LEGAL_SUBDIVISION_LEVELS: dict[str, int | None] = {}
 
 
 # Cargar módulos de configuración
-for module_info in pkgutil.iter_modules(subdivisions_pkg.__path__):
-    mod_name = module_info.name
-    full_name = f"{subdivisions_pkg.__name__}.{module_info.name}"
+def _load_config_package(package):
+    for module_info in pkgutil.iter_modules(package.__path__):
+        mod_name = module_info.name
+        full_name = f"{package.__name__}.{module_info.name}"
+        try:
+            mod = importlib.import_module(full_name)
+        except Exception:
+            continue
+
+        divs = getattr(mod, "DIVISIONS", None)
+        if divs:
+            CONFIGS[mod_name] = divs
+
+        representation = getattr(mod, "REPRESENTATION", None)
+        if representation is None:
+            representation = getattr(mod, "ESCANHOS", None)
+        parsed_representation = representation_config_from_mapping(representation)
+        if parsed_representation:
+            REPRESENTATIONS[mod_name] = parsed_representation
+
+        munl = getattr(mod, "MUNICIPAL_LEVEL", None)
+        if munl is not None:
+            MUNICIPAL_LEVEL[mod_name] = munl
+
+        source_country = getattr(mod, "SOURCE_COUNTRY", None)
+        if source_country:
+            SOURCE_COUNTRIES[mod_name] = source_country
+
+
+def _source_country_for(country_id: str) -> str:
+    configured = SOURCE_COUNTRIES.get(country_id)
+    if configured:
+        return configured
+    if country_id.startswith("spanish_") or country_id.startswith("spain_"):
+        return "spain"
+    if country_id.startswith("morocco_"):
+        return "morocco"
+    return country_id
+
+
+def _legal_subdivision_level(country_code: str) -> int | None:
+    if country_code in LEGAL_SUBDIVISION_LEVELS:
+        return LEGAL_SUBDIVISION_LEVELS[country_code]
+
     try:
-        mod = importlib.import_module(full_name)
+        mod = importlib.import_module(f"ciudades_del_mundo.subdivisions.{country_code}")
     except Exception:
-        continue
+        LEGAL_SUBDIVISION_LEVELS[country_code] = None
+        return None
 
-    divs = getattr(mod, "DIVISIONS", None)
-    if divs:
-        CONFIGS[mod_name] = divs
+    level = getattr(mod, "LEGAL_SUBDIVISIONS", None)
+    LEGAL_SUBDIVISION_LEVELS[country_code] = level
+    return level
 
-    esca = getattr(mod, "ESCANHOS", None)
-    if esca:
-        ESCANHOS[mod_name] = esca
 
-    munl = getattr(mod, "MUNICIPAL_LEVEL", None)
-    if munl is not None:
-        MUNICIPAL_LEVEL[mod_name] = munl
+def _dat_to_spec(dat, source_country: str):
+    if dat is None:
+        return None
+    if not isinstance(dat, dict):
+        raise CommandError(
+            f"'dat' debe ser un dict {{nivel: [nombres]}} o {{nivel: {{pais: [nombres]}}}}, "
+            f"recibido {type(dat).__name__}."
+        )
+
+    spec = {}
+    for level, value in dat.items():
+        if isinstance(value, dict):
+            spec[level] = value
+        else:
+            spec[level] = {source_country: value}
+    return spec
+
+
+def _iter_dat_countries(dat, source_country: str):
+    if not dat:
+        return
+    for value in dat.values():
+        if isinstance(value, dict):
+            yield from value.keys()
+        else:
+            yield source_country
+
+
+def _iter_spec_countries(spec):
+    if not spec:
+        return
+    for level, value in spec.items():
+        if level == "restar":
+            for restar_value in (value or {}).values():
+                if isinstance(restar_value, dict):
+                    yield from restar_value.keys()
+            continue
+        if isinstance(value, dict):
+            yield from value.keys()
+
+
+def _iter_recipe_source_countries(recipe, source_country: str):
+    yield from _iter_dat_countries(recipe.get("dat"), source_country)
+    yield from _iter_spec_countries(recipe.get("spec"))
+    for child in recipe.get("childs") or []:
+        yield from _iter_recipe_source_countries(child, source_country)
+
+
+_load_config_package(subdivisions_pkg)
+_load_config_package(new_subdivisions_pkg)
 
 
 class Command(BaseCommand):
     help = (
         "Construye nuevas subdivisiones en NuevoAdminArea a partir de AdminArea "
         "para un país dado, respetando jerarquías definidas con 'childs' y "
-        "asignando escaños según ESCANHOS.\n"
+        "asignando escaños según REPRESENTATION/ESCANHOS.\n"
         "- Si el país (nodo raíz) no existe en NuevoAdminArea, se crea.\n"
         "- Si existe, se actualiza.\n"
-        "- Antes de crear subdivisiones, se borran TODAS las subdivisiones y escaños "
-        "relacionados con ese país, dejando solo el nodo raíz.\n"
-        "- Las recetas con 'spec' agregan datos desde AdminArea.\n"
-        "- Las recetas sin 'spec' se crean como contenedores y, al final, "
+        "- Antes de crear subdivisiones, se borran TODAS las subdivisiones "
+        "relacionadas con ese país, dejando solo el nodo raíz.\n"
+        "- Las recetas con 'spec' o 'dat' agregan datos desde AdminArea.\n"
+        "- Las recetas sin 'spec' ni 'dat' se crean como contenedores y, al final, "
         "toman la suma de sus subdivisiones inferiores."
     )
 
@@ -69,22 +162,28 @@ class Command(BaseCommand):
 
         return f"{parent.code}-{raw_code}" if parent.code else raw_code
 
-    def _assign_container_capitals(self, obj: NuevoAdminArea, capitals):
+    def _assign_container_capitals(self, obj: NuevoAdminArea, capitals, source_countries):
         if not capitals:
             return
 
         cap_objs = []
+        countries = list(dict.fromkeys(source_countries or []))
         for label in capitals:
             if not label:
                 continue
 
-            q = AdminArea.objects.filter(name__iexact=label).order_by("-level")
-            if not q.exists():
-                q = AdminArea.objects.filter(code__iexact=label).order_by("-level")
+            for country_code in countries:
+                legal_level = _legal_subdivision_level(country_code)
+                candidate_q = AdminArea.objects.filter(country_code=country_code)
+                if legal_level is not None:
+                    candidate_q = candidate_q.filter(level=legal_level)
 
-            cap = q.first()
-            if cap:
-                cap_objs.append(cap)
+                candidate = candidate_q.filter(name__iexact=label).first()
+                if not candidate:
+                    candidate = candidate_q.filter(code__iexact=label).first()
+                if candidate:
+                    cap_objs.append(candidate)
+                    break
 
         if cap_objs:
             obj.capitals.set(cap_objs)
@@ -127,6 +226,7 @@ class Command(BaseCommand):
         country_id = opts["country_id"]
         m2m_field = opts["m2m_field"]
         code_prefix = opts["code_prefix"]
+        source_country = _source_country_for(country_id)
 
         recipes = CONFIGS.get(country_id)
         if not recipes:
@@ -217,11 +317,10 @@ class Command(BaseCommand):
             .delete()
         )
 
-        deleted_seats, _ = Escanho.objects.filter(country_code=root.country_code).delete()
+        NuevoAdminArea.objects.filter(country_code=root.country_code).update(representatives=None)
 
         self.stdout.write(self.style.WARNING(
-            f"Eliminadas {deleted_areas} subdivisiones antiguas y "
-            f"{deleted_seats} registros de escaños para '{root.country_code}'."
+            f"Eliminadas {deleted_areas} subdivisiones antiguas para '{root.country_code}'."
         ))
 
         created: list[NuevoAdminArea] = []
@@ -229,6 +328,7 @@ class Command(BaseCommand):
             recipes=recipes,
             parent_id=root.id,
             country_id=country_id,
+            source_country=source_country,
             m2m_field=m2m_field,
             code_prefix=code_prefix,
             created=created,
@@ -249,6 +349,7 @@ class Command(BaseCommand):
         recipes,
         parent_id,
         country_id,
+        source_country,
         m2m_field,
         code_prefix,
         created,
@@ -281,8 +382,19 @@ class Command(BaseCommand):
             new_id = f"{parent.country_code}-{full_code}"
 
             spec = r.get("spec")
+            if spec is None:
+                spec = _dat_to_spec(r.get("dat"), source_country)
 
             if spec is not None:
+                source_countries = list(dict.fromkeys(_iter_spec_countries(spec)))
+                if not source_countries:
+                    source_countries = [source_country]
+                capital_levels = {}
+                for cc in source_countries:
+                    legal_level = _legal_subdivision_level(cc)
+                    if legal_level is not None:
+                        capital_levels[cc] = legal_level
+
                 obj = create_nuevo_area_from_spec(
                     parent_country_id=parent_id,
                     new_name=name,
@@ -292,6 +404,7 @@ class Command(BaseCommand):
                     m2m_field=m2m_field,
                     new_code=full_code,  # <- guardamos code jerárquico
                     capitals=capitals,
+                    capital_level_by_country=capital_levels,
                     auto_set_most_populated=r.get("auto_set_most_populated", True),
                 )
             else:
@@ -329,6 +442,7 @@ class Command(BaseCommand):
                     recipes=childs,
                     parent_id=obj.id,
                     country_id=country_id,
+                    source_country=source_country,
                     m2m_field=m2m_field,
                     code_prefix=code_prefix,
                     created=created,
@@ -356,83 +470,27 @@ class Command(BaseCommand):
                 obj.density = density
                 obj.save(update_fields=["area_km2", "pop_latest", "density"])
 
-                self._assign_container_capitals(obj, capitals)
+                source_countries = list(_iter_recipe_source_countries(r, source_country))
+                if not source_countries:
+                    source_countries = [source_country]
+                self._assign_container_capitals(obj, capitals, source_countries)
 
     def _assign_escanhos(self, country_id: str):
-        cfg = ESCANHOS.get(country_id)
+        cfg = REPRESENTATIONS.get(country_id)
         if not cfg:
             return
 
-        nivel = cfg.get("nivel")
-        total_seats = cfg.get("escanhos")
-        min_per = cfg.get("min", 0)
-
-        if nivel is None or total_seats is None:
-            raise CommandError(f"ESCANHOS['{country_id}'] debe tener 'nivel' y 'escanhos'.")
-
         try:
-            root = NuevoAdminArea.objects.get(id=country_id)
+            updated = assign_nuevo_admin_representatives(country_id, cfg)
         except NuevoAdminArea.DoesNotExist:
             raise CommandError(f"No existe NuevoAdminArea con id='{country_id}' para asignar escaños.")
+        except ValueError as exc:
+            raise CommandError(str(exc))
 
-        cod_pais = root.country_code
-
-        qs = NuevoAdminArea.objects.filter(
-            country_code=cod_pais,
-            level=nivel,
-        )
-
-        n = qs.count()
-        if n == 0:
+        if updated == 0:
             raise CommandError(
-                f"No hay subdivisiones con country_code='{cod_pais}' y level={nivel} para asignar escaños."
+                f"No hay subdivisiones actualizables en level={cfg.level} para asignar escaños."
             )
+        return
 
-        if n * min_per > total_seats:
-            raise CommandError(
-                f"Imposible asignar escaños: {n} subdivisiones * min={min_per} "
-                f"= {n * min_per} > total={total_seats}."
-            )
 
-        remaining = total_seats - n * min_per
-        objs = list(qs.order_by("code"))
-        total_pop = sum((o.pop_latest or 0) for o in objs)
-
-        base = {o.id: min_per for o in objs}
-        extra = {o.id: 0 for o in objs}
-
-        if remaining > 0:
-            if total_pop <= 0:
-                base_extra = remaining // n
-                rem = remaining % n
-                for idx, o in enumerate(objs):
-                    extra[o.id] = base_extra + (1 if idx < rem else 0)
-            else:
-                shares = []
-                used = 0
-                for o in objs:
-                    pop = o.pop_latest or 0
-                    if pop < 0:
-                        pop = 0
-                    share = remaining * (pop / total_pop)
-                    floor_share = int(share)
-                    extra[o.id] = floor_share
-                    used += floor_share
-                    shares.append((share - floor_share, o.id))
-
-                leftover = remaining - used
-                shares.sort(reverse=True)
-                for frac, oid in shares[:leftover]:
-                    extra[oid] += 1
-
-        for o in objs:
-            seats = base[o.id] + extra[o.id]
-            Escanho.objects.update_or_create(
-                country_code=o.country_code,
-                subdivision_code=o.code,
-                defaults={
-                    "country_id": country_id,
-                    "subdivision_id": o.id,
-                    "seats": seats,
-                },
-            )

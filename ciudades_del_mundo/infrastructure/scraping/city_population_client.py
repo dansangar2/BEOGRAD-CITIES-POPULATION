@@ -10,6 +10,8 @@ from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import Tag
 
+from ciudades_del_mundo.ports import ScrapingPageNotFoundError
+
 
 @dataclass
 class CityPopulationEntity:
@@ -49,6 +51,8 @@ class CityPopulationClient:
         for attempt in range(attempts):
             try:
                 response = self._session.get(url, timeout=30)
+                if response.status_code == 404:
+                    raise ScrapingPageNotFoundError(url)
                 if response.status_code == 403:
                     raise requests.HTTPError("403 Forbidden.")
                 response.raise_for_status()
@@ -60,6 +64,8 @@ class CityPopulationClient:
                 return text
             except Exception as exc:
                 last_exc = exc
+                if isinstance(exc, ScrapingPageNotFoundError):
+                    raise
                 if self.debug:
                     print(f"[citypopulation] attempt {attempt + 1}/{attempts} failed: {exc}")
                 time.sleep(0.8)

@@ -5,7 +5,7 @@ from django.db.models import Count, Sum
 from django.shortcuts import render
 
 from ciudades_del_mundo.infrastructure.scraping import PythonScrapingConfigRepository
-from ciudades_del_mundo.models import AdminArea, Escanho, NuevoAdminArea
+from ciudades_del_mundo.models import AdminArea, NuevoAdminArea
 
 
 def dashboard(request):
@@ -17,7 +17,7 @@ def dashboard(request):
     context = {
         "admin_area_count": AdminArea.objects.count(),
         "nuevo_area_count": NuevoAdminArea.objects.count(),
-        "seat_count": Escanho.objects.count(),
+        "seat_count": NuevoAdminArea.objects.exclude(representatives__isnull=True).count(),
         "countries": countries,
         "configs": PythonScrapingConfigRepository().list_configs(),
     }

@@ -69,6 +69,7 @@ CITIES = [
             "city": "El Djazaïr",
             "id": "algr2005",
             "district_types": [],
+            "level": 2,
             "type": "Province Capital",
             "from": {1: ["El Djazaïr"]},
             "communes": ["Bologhine", "Bab El Oued", "Casbah", "Oued Koriche", "El Djazaïr",

@@ -3,7 +3,13 @@ from __future__ import annotations
 import importlib
 from importlib import resources
 
-from ciudades_del_mundo.domain import RepresentationConfig, ScrapingJobConfig, ScrapingPageConfig, parse_divisions
+from ciudades_del_mundo.domain import (
+    RepresentationConfig,
+    ScrapingJobConfig,
+    ScrapingPageConfig,
+    parse_cities,
+    parse_divisions,
+)
 
 
 CITYPOPULATION_BASE_URL = "https://www.citypopulation.de/en/"
@@ -47,6 +53,7 @@ class PythonScrapingConfigRepository:
             ),
             representation=RepresentationConfig.from_mapping(getattr(module, "REPRESENTATION", None)),
             pages=pages,
+            cities=parse_cities(getattr(module, "CITIES", None)),
         )
 
     def _path_for(self, country_code: str, configured_url: str) -> str:

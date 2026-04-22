@@ -1,7 +1,15 @@
 from .admin_area import ScrapedAdminArea
 from .hierarchy import assign_parent_codes_by_level
 from .most_populated import AdminAreaSummary, MostPopulatedAssignment, calculate_most_populated_assignments
+from .nuevo_admin_export import (
+    NuevoAdminAreaSummary,
+    NuevoAdminCitySummary,
+    NuevoAdminExportData,
+    Sheet,
+    Workbook,
+)
 from .scraping_config import (
+    CityConfig,
     DivisionConfig,
     DivisionSourceType,
     RepresentationConfig,
@@ -9,21 +17,29 @@ from .scraping_config import (
     ScrapingJobConfig,
     ScrapingPageConfig,
     ScrapingPlanPage,
+    parse_cities,
     parse_divisions,
 )
 
 __all__ = [
     "AdminAreaSummary",
+    "CityConfig",
     "DivisionConfig",
     "DivisionSourceType",
     "MostPopulatedAssignment",
+    "NuevoAdminAreaSummary",
+    "NuevoAdminCitySummary",
+    "NuevoAdminExportData",
     "RepresentationConfig",
     "RepresentationSystem",
     "ScrapedAdminArea",
     "ScrapingJobConfig",
     "ScrapingPageConfig",
     "ScrapingPlanPage",
+    "Sheet",
     "assign_parent_codes_by_level",
     "calculate_most_populated_assignments",
+    "parse_cities",
     "parse_divisions",
+    "Workbook",
 ]
