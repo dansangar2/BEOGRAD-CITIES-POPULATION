@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 
 from bs4 import BeautifulSoup
@@ -27,7 +28,6 @@ class CityPopulationStructuredTableScraper:
 
     def scrape_html(self, html: str, url: str, country_code: str, level: int) -> list[ScrapedAdminArea]:
         soup = BeautifulSoup(html, self._client.parser)
-        base_for_urljoin = self._client.base_for_urljoin(url)
         root = self._parse_root(soup=soup, country_code=country_code, level=level, url=url)
 
         entities = [root] if root else []
@@ -39,7 +39,7 @@ class CityPopulationStructuredTableScraper:
                 table=tl,
                 country_code=country_code,
                 level=level + 1,
-                base_url=base_for_urljoin,
+                base_url=url,
                 parser="tl",
             ):
                 entity = replace(entity, parent_code=root.code if root else None)
@@ -53,7 +53,7 @@ class CityPopulationStructuredTableScraper:
                     table=ts,
                     country_code=country_code,
                     level=level + 2,
-                    base_url=base_for_urljoin,
+                    base_url=url,
                     parser="ts",
                     parents_by_name=parents_by_name,
                 )
@@ -70,10 +70,71 @@ class CityPopulationStructuredTableScraper:
         url: str,
     ) -> ScrapedAdminArea | None:
         root = self._admin_scraper._parse_root(soup, country_code=country_code, level=level, url=url)
+        if not root:
+            root = self._root_from_cpage(soup=soup, country_code=country_code, level=level, url=url)
+        if root and not root.entity_type:
+            root = replace(root, entity_type=self._root_entity_type_from_cpage(soup=soup, root_name=root.name))
         code = self._root_code_from_tfoot(soup=soup, country_code=country_code, level=level, url=url)
         if root and code:
             return replace(root, code=code)
         return root
+
+    def _root_from_cpage(
+        self,
+        *,
+        soup: BeautifulSoup,
+        country_code: str,
+        level: int,
+        url: str,
+    ) -> ScrapedAdminArea | None:
+        header = soup.find("header", class_=lambda value: value and "cpage" in value.split())
+        if not header:
+            return None
+
+        name_node = header.find(attrs={"itemprop": "name"}) or header.find("h1")
+        name = name_node.get_text(" ", strip=True) if name_node else country_code
+        name = re.sub(r"\s+", " ", name).strip()
+        if not name:
+            return None
+
+        return ScrapedAdminArea(
+            code=country_code,
+            name=name,
+            level=level,
+            country_code=country_code,
+            entity_type=self._root_entity_type_from_cpage(soup=soup, root_name=name),
+            area_km2=None,
+            density=None,
+            pop_latest=None,
+            pop_latest_date=None,
+            last_census_year=None,
+            url=url,
+        )
+
+    def _root_entity_type_from_cpage(self, *, soup: BeautifulSoup, root_name: str) -> str | None:
+        header = soup.find("header", class_=lambda value: value and "cpage" in value.split())
+        if not header:
+            return None
+
+        description = header.find("p", attrs={"itemprop": "description"})
+        if not description:
+            return None
+
+        text = description.get_text(" ", strip=True)
+        if not text:
+            return None
+
+        root_name = re.sub(r"\s+", " ", root_name).strip()
+        if root_name:
+            match = re.fullmatch(
+                rf"(?P<entity_type>.+?)\s+of\s+{re.escape(root_name)}",
+                text,
+                flags=re.IGNORECASE,
+            )
+            if match:
+                return match.group("entity_type").strip()
+
+        return text.strip()
 
     def _root_code_from_tfoot(self, *, soup: BeautifulSoup, country_code: str, level: int, url: str) -> str | None:
         table = soup.find("table", id="tl")

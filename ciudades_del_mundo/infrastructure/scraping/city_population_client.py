@@ -108,6 +108,7 @@ class CityPopulationClient:
         default_last_census_year: int | None,
         country_code: str,
         base_url: str,
+        default_entity_type: str | None = None,
     ) -> CityPopulationEntity | None:
         main_td = self._main_name_cell(tr)
         if not main_td:
@@ -118,6 +119,11 @@ class CityPopulationClient:
             return None
 
         status_td = tr.find(["td", "th"], class_="rstatus")
+        entity_type = (
+            status_td.get_text(" ", strip=True)
+            if status_td
+            else main_td.get("title") or main_td.get("data-status") or default_entity_type
+        )
         area_km2 = self.safe_float(main_td.get("data-area"))
         if area_km2 is None:
             area_cell = tr.find(["td", "th"], class_="rarea")
@@ -127,7 +133,7 @@ class CityPopulationClient:
             entity_id=entity_id,
             name=self._extract_name(main_td),
             level=explicit_level,
-            entity_type=status_td.get_text(" ", strip=True) if status_td else None,
+            entity_type=entity_type,
             area_km2=area_km2,
             density=self._density_or_calculated(main_td.get("data-density"), pop_latest, area_km2),
             pop_latest=pop_latest,
@@ -148,6 +154,7 @@ class CityPopulationClient:
         country_code: str,
         base_url: str,
         has_radm: bool,
+        default_entity_type: str | None = None,
     ) -> CityPopulationEntity | None:
         main_td = self._main_name_cell(tr)
         if not main_td:
@@ -158,7 +165,11 @@ class CityPopulationClient:
             return None
 
         status_td = tr.find(["td", "th"], class_="rstatus")
-        entity_type = status_td.get_text(" ", strip=True) if status_td else main_td.get("data-status")
+        entity_type = (
+            status_td.get_text(" ", strip=True)
+            if status_td
+            else main_td.get("data-status") or default_entity_type
+        )
         area_km2 = self.safe_float(main_td.get("data-area"))
         pop_latest = self._extract_last_visible_population(tr, last_visible_pop_idx)
         return CityPopulationEntity(
@@ -251,10 +262,23 @@ class CityPopulationClient:
 
     def _row_url(self, tr: Tag, base_url: str) -> str | None:
         sc_td = tr.find("td", class_="sc")
-        if not sc_td:
-            return None
-        anchor = sc_td.find("a", href=True)
-        return urljoin(base_url, anchor["href"]) if anchor and anchor["href"] else None
+        anchor = sc_td.find("a", href=True) if sc_td else None
+        if not anchor:
+            main_td = self._main_name_cell(tr)
+            anchor = main_td.find("a", href=True) if main_td else None
+        if not anchor or not anchor["href"]:
+            main_td = self._main_name_cell(tr)
+            return urljoin(base_url, f"#{main_td.get('id')}") if main_td and main_td.get("id") else None
+
+        href = anchor["href"]
+        if href.startswith("javascript:"):
+            main_td = self._main_name_cell(tr)
+            if main_td and main_td.get("id"):
+                return urljoin(base_url, f"#{main_td.get('id')}")
+            match = re.search(r"sym(?:Area)?\((\d+)", href)
+            return urljoin(base_url, f"#i{match.group(1)}") if match else None
+
+        return urljoin(base_url, href)
 
     def _extract_name(self, td: Tag) -> str:
         span = td.find("span", attrs={"itemprop": "name"})

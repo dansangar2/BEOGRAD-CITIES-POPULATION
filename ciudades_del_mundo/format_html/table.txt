@@ -1,3 +1,9 @@
+<header class="cpage" style="left: 702px;">
+  <a href="javascript:openMap()"><img id="smap" alt="Andorra Map" src="/images/smaps/andorra-cities.png"></a>
+  <h1 itemprop="name">Andorra</h1>
+  <p itemprop="description">Principality of Andorra</p>
+  <span itemprop="geo" itemscope="" itemtype="http://schema.org/GeoCoordinates"><meta itemprop="latitude" content="42.53"><meta itemprop="longitude" content="1.56"></span>
+</header>
 <article class="cpage swapped" id="table" style="top: 26px; left: 634.8px;">
 <header class="citypage" style="left: 634.8px;">
 <a href="javascript:openMap()"><img id="smap" title="Show Map" alt="Show Map" src="/images/smaps/spain-cities.png"></a>

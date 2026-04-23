@@ -29,7 +29,6 @@ class CityPopulationCitiesScraper:
 
     def scrape_html(self, html: str, url: str, country_code: str, level: int) -> list[ScrapedAdminArea]:
         soup = BeautifulSoup(html, self._client.parser)
-        base_for_urljoin = self._client.base_for_urljoin(url)
         root = self._admin_scraper._parse_root(soup, country_code=country_code, level=level, url=url)
         if not root:
             roots = self._infosection_scraper.scrape_html(
@@ -49,7 +48,7 @@ class CityPopulationCitiesScraper:
                 table=tl,
                 country_code=country_code,
                 level=level + 1,
-                base_url=base_for_urljoin,
+                base_url=url,
                 parser="tl",
             ):
                 entity = replace(entity, parent_code=root.code if root else None)
@@ -63,7 +62,7 @@ class CityPopulationCitiesScraper:
                     table=ts,
                     country_code=country_code,
                     level=level + 2,
-                    base_url=base_for_urljoin,
+                    base_url=url,
                     parser="ts",
                     parents_by_name=parents_by_name,
                 )

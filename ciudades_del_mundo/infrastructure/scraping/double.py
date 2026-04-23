@@ -23,8 +23,6 @@ class CityPopulationDoubleScraper:
 
     def scrape_html(self, html: str, url: str, country_code: str, level: int) -> list[ScrapedAdminArea]:
         soup = BeautifulSoup(html, self._client.parser)
-        base_for_urljoin = self._client.base_for_urljoin(url)
-
         entities: list[ScrapedAdminArea] = []
         parents_by_name: dict[str, ScrapedAdminArea] = {}
 
@@ -34,7 +32,7 @@ class CityPopulationDoubleScraper:
                 table=tl,
                 country_code=country_code,
                 level=level,
-                base_url=base_for_urljoin,
+                base_url=url,
                 parser="tl",
             ):
                 entities.append(entity)
@@ -46,7 +44,7 @@ class CityPopulationDoubleScraper:
                 table=ts,
                 country_code=country_code,
                 level=level + 1,
-                base_url=base_for_urljoin,
+                base_url=url,
                 parser="ts",
                 parents_by_name=parents_by_name,
             ):
@@ -69,6 +67,7 @@ class CityPopulationDoubleScraper:
         tbody = table.find("tbody")
         if not tbody:
             return []
+        default_entity_type = self._default_entity_type(table)
 
         entities = []
         for tr in tbody.find_all("tr", recursive=False):
@@ -81,6 +80,7 @@ class CityPopulationDoubleScraper:
                     country_code=country_code,
                     base_url=base_url,
                     has_radm=bool(table.find("th", class_=lambda value: value and "radm" in value.split())),
+                    default_entity_type=default_entity_type,
                 )
                 parent_code = self._parent_code_from_radm(tr, parents_by_name or {})
             else:
@@ -92,6 +92,7 @@ class CityPopulationDoubleScraper:
                     default_last_census_year=last_year,
                     country_code=country_code,
                     base_url=base_url,
+                    default_entity_type=default_entity_type,
                 )
                 parent_code = None
 
@@ -116,6 +117,35 @@ class CityPopulationDoubleScraper:
             )
 
         return entities
+
+    def _default_entity_type(self, table) -> str | None:
+        heading = table.find_previous("h2")
+        if not heading:
+            return None
+
+        text = heading.get_text(" ", strip=True)
+        text = re.sub(r"^Contents:\s*", "", text, flags=re.IGNORECASE).strip()
+        if not text:
+            return None
+
+        words = text.split()
+        if not words:
+            return None
+
+        last = words[-1]
+        singular = self._singularize(last)
+        words[-1] = singular
+        return " ".join(words).strip()
+
+    def _singularize(self, value: str) -> str:
+        lowered = value.casefold()
+        if lowered.endswith("ies") and len(value) > 3:
+            return value[:-3] + "y"
+        if lowered.endswith("ses") and len(value) > 3:
+            return value[:-2]
+        if lowered.endswith("s") and not lowered.endswith("ss") and len(value) > 1:
+            return value[:-1]
+        return value
 
     def _parent_code_from_radm(self, tr, parents_by_name: dict[str, ScrapedAdminArea]) -> str | None:
         parent_cell = tr.find("td", class_=lambda value: value and "radm" in value.split())
