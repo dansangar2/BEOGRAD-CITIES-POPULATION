@@ -1,25 +1,19 @@
+"""Scraper for CityPopulation pages using the hierarchical admin table layout."""
+
 from __future__ import annotations
 
 import re
 
 from bs4 import BeautifulSoup
 
-from ciudades_del_mundo.domain import ScrapedAdminArea, ScrapingPageConfig
-from ciudades_del_mundo.infrastructure.scraping.city_population_client import CityPopulationClient
-from ciudades_del_mundo.infrastructure.scraping.urls import build_page_url
+from ciudades_del_mundo.domain import ScrapedAdminArea
+from ciudades_del_mundo.infrastructure.scraping.base import BaseCityPopulationScraper
 
 
-class CityPopulationAdminScraper:
+class CityPopulationAdminScraper(BaseCityPopulationScraper):
+    """Scrape admin pages where nested levels live in `table#tl`."""
+
     html_format = "admin"
-
-    def __init__(self, debug: bool = False):
-        self.debug = debug
-        self._client = CityPopulationClient(debug=debug)
-
-    def scrape(self, base_url: str, country_code: str, page: ScrapingPageConfig) -> list[ScrapedAdminArea]:
-        url = build_page_url(base_url, page.path)
-        html = self._client.get(url)
-        return self.scrape_html(html=html, url=url, country_code=country_code, level=page.lowest_level)
 
     def scrape_html(self, html: str, url: str, country_code: str, level: int) -> list[ScrapedAdminArea]:
         soup = BeautifulSoup(html, self._client.parser)
@@ -31,6 +25,7 @@ class CityPopulationAdminScraper:
             return entities
 
         last_pop_idx, last_pop_date = self._client.detect_last_visible_pop_column(table)
+        visible_pop_columns = self._client.visible_pop_columns(table)
         last_year = self._client.year_from_date(last_pop_date)
         parent_stack: dict[int, ScrapedAdminArea] = {}
         if root:
@@ -51,6 +46,7 @@ class CityPopulationAdminScraper:
                     default_last_census_year=last_year,
                     country_code=country_code,
                     base_url=self._client.base_for_urljoin(url),
+                    visible_pop_columns=visible_pop_columns,
                 )
                 if not parsed:
                     continue
@@ -147,6 +143,7 @@ class CityPopulationAdminScraper:
             return None
 
         last_pop_idx, last_pop_date = self._client.detect_last_visible_pop_column(table)
+        visible_pop_columns = self._client.visible_pop_columns(table)
         parsed = self._client.parse_tr_tl(
             tr=tr,
             explicit_level=level,
@@ -155,6 +152,7 @@ class CityPopulationAdminScraper:
             default_last_census_year=self._client.year_from_date(last_pop_date),
             country_code=country_code,
             base_url=self._client.base_for_urljoin(url),
+            visible_pop_columns=visible_pop_columns,
         )
         if not parsed:
             return None

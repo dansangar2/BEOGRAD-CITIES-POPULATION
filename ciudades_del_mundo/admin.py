@@ -1,9 +1,13 @@
+"""Admin site configuration for scraped and derived area models."""
+
 from django.contrib import admin
 from .models import AdminArea, NuevoAdminArea
 
 
 @admin.register(AdminArea)
 class AdminAreaAdmin(admin.ModelAdmin):
+    """Back-office listing for original scraped administrative areas."""
+
     # Muestra el PK nuevo, el country_code y el code de la subdivisión
     def parent_pk(self, obj):
         return obj.parent_id  # mostrará "spain_AND", etc.
@@ -20,6 +24,8 @@ class AdminAreaAdmin(admin.ModelAdmin):
 
 @admin.register(NuevoAdminArea)
 class NuevoAdminAreaAdmin(admin.ModelAdmin):
+    """Back-office listing for derived or fictional administrative areas."""
+
     def parent_pk(self, obj):
         return obj.parent_id
     parent_pk.short_description = "Parent ID"

@@ -1,3 +1,5 @@
+"""Views for browsing scrape status and stored administrative areas."""
+
 from __future__ import annotations
 
 from django.core.paginator import Paginator
@@ -9,6 +11,7 @@ from ciudades_del_mundo.models import AdminArea, NuevoAdminArea
 
 
 def dashboard(request):
+    """Render project summary metrics and available scrape configs."""
     countries = (
         AdminArea.objects.values("country_code")
         .annotate(total=Count("id"), population=Sum("pop_latest"))
@@ -25,6 +28,7 @@ def dashboard(request):
 
 
 def admin_area_list(request):
+    """Render a searchable, paginated list of persisted `AdminArea` rows."""
     areas = AdminArea.objects.select_related("parent").order_by("country_code", "level", "name")
     country = request.GET.get("country")
     level = request.GET.get("level")

@@ -1,3 +1,5 @@
+"""Domain logic to derive the most populated descendant for each area."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

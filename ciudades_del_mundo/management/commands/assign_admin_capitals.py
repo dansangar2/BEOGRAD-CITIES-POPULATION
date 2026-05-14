@@ -1,4 +1,4 @@
-# ciudades_del_mundo/management/commands/assign_admin_capitals.py
+"""Management command for assigning capital relationships on scraped areas."""
 
 from django.core.management.base import BaseCommand
 from ciudades_del_mundo.services.adminarea_capitals import (

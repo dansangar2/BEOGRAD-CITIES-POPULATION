@@ -1,0 +1,71 @@
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = [
+  "benimellalkhenifra/admin",
+  "draatafilalet/admin",
+  "fesmeknes/admin",
+  "grandcasablancasettat/admin",
+  "guelmimouednoun/admin",
+  "marrakechsafi/admin",
+  "oriental/admin",
+  "soussmassa/admin",
+  "tangertetouanalhoceima/admin",
+  "rabatsalekenitra/admin",
+]
+lowest_level = 2
+
+[[cities]]
+city = "Tanger"
+id = "51101000"
+district_types = ["Arrondissement"]
+level = 3
+type = "City"
+from = { 2 = ["Tanger - Assilah"] }
+communes = []
+
+[[cities]]
+city = "Casablanca"
+id = "14101400"
+district_types = ["Arrondissement"]
+level = 3
+type = "City"
+from = { 2 = ["Casablanca"] }
+
+[[cities]]
+city = "Rabat"
+id = "42101000"
+district_types = ["Arrondissement"]
+level = 3
+type = "City"
+from = { 2 = ["Rabat"] }
+
+[[cities]]
+city = "Salé"
+id = "44101000"
+district_types = ["Arrondissement"]
+level = 3
+type = "City"
+from = { 2 = ["Salé"] }
+
+[[cities]]
+city = "Fès"
+id = "23101000"
+district_types = ["Arrondissement"]
+level = 3
+type = "City"
+from = { 2 = ["Fès"] }
+
+[[cities]]
+city = "Marrakech"
+id = "35101000"
+district_types = ["Arrondissement"]
+level = 3
+type = "City"
+from = { 2 = ["Marrakech"] }

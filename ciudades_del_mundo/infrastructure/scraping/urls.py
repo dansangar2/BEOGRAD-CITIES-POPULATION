@@ -1,3 +1,5 @@
+"""URL helpers shared by scraping infrastructure."""
+
 from __future__ import annotations
 
 from urllib.parse import urljoin

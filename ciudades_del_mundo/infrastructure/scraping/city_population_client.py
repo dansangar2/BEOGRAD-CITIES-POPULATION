@@ -1,3 +1,5 @@
+"""HTTP and HTML parsing helpers shared by all CityPopulation scrapers."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -15,6 +17,8 @@ from ciudades_del_mundo.ports import ScrapingPageNotFoundError
 
 @dataclass
 class CityPopulationEntity:
+    """Parsed row extracted from a page before mapping to the domain."""
+
     entity_id: str
     name: str
     level: int | None
@@ -31,6 +35,8 @@ class CityPopulationEntity:
 
 
 class CityPopulationClient:
+    """Thin client around requests plus row parsing helpers for CityPopulation."""
+
     BASE_HEADERS = {
         "User-Agent": "Mozilla/5.0 (compatible; CityPopulationClient/2.0; +https://example.org)",
         "Accept-Language": "en,es;q=0.9",
@@ -77,27 +83,30 @@ class CityPopulationClient:
         return f"{parsed.scheme}://{parsed.netloc}"
 
     def detect_last_visible_pop_column(self, table: Tag) -> tuple[int, str | None]:
+        visible_columns = self.visible_pop_columns(table)
+        if not visible_columns:
+            return -1, None
+        return visible_columns[-1]
+
+    def visible_pop_columns(self, table: Tag) -> list[tuple[int, str | None]]:
         thead = table.find("thead")
         if not thead:
-            return -1, None
+            return []
 
         pop_headers = [th for th in thead.find_all("th") if "rpop" in (th.get("class") or [])]
-        last_visible_idx = -1
-        last_date = None
+        visible_columns = []
         logical_idx = -1
 
         for th in pop_headers:
             logical_idx += 1
             style = (th.get("style") or "").replace(" ", "").lower()
             if "display:table-cell" in style:
-                last_visible_idx = logical_idx
-                last_date = th.get("data-coldate") or last_date
+                visible_columns.append((logical_idx, th.get("data-coldate")))
 
-        if last_visible_idx == -1 and pop_headers:
-            last_visible_idx = len(pop_headers) - 1
-            last_date = pop_headers[-1].get("data-coldate") or last_date
+        if not visible_columns and pop_headers:
+            return [(idx, th.get("data-coldate")) for idx, th in enumerate(pop_headers)]
 
-        return last_visible_idx, last_date
+        return visible_columns
 
     def parse_tr_tl(
         self,
@@ -109,6 +118,8 @@ class CityPopulationClient:
         country_code: str,
         base_url: str,
         default_entity_type: str | None = None,
+        area_divisor: float = 1,
+        visible_pop_columns: list[tuple[int, str | None]] | None = None,
     ) -> CityPopulationEntity | None:
         main_td = self._main_name_cell(tr)
         if not main_td:
@@ -128,7 +139,16 @@ class CityPopulationClient:
         if area_km2 is None:
             area_cell = tr.find(["td", "th"], class_="rarea")
             area_km2 = self.safe_float_text(area_cell.get_text(" ", strip=True)) if area_cell else None
-        pop_latest = self._extract_last_visible_population(tr, last_visible_pop_idx)
+            if area_km2 is not None:
+                area_km2 = area_km2 / area_divisor
+        if area_km2 is None:
+            area_km2 = self._area_from_noviz_cell(tr)
+        pop_latest, pop_latest_date = self._extract_latest_numeric_population(
+            tr,
+            last_visible_pop_idx,
+            last_visible_date,
+            visible_pop_columns,
+        )
         return CityPopulationEntity(
             entity_id=entity_id,
             name=self._extract_name(main_td),
@@ -137,8 +157,8 @@ class CityPopulationClient:
             area_km2=area_km2,
             density=self._density_or_calculated(main_td.get("data-density"), pop_latest, area_km2),
             pop_latest=pop_latest,
-            pop_latest_date=last_visible_date,
-            last_census_year=self.year_from_date(last_visible_date) or default_last_census_year,
+            pop_latest_date=pop_latest_date,
+            last_census_year=self.year_from_date(pop_latest_date) or default_last_census_year,
             parent_id=None,
             parent_name=None,
             country_code=country_code,
@@ -155,6 +175,7 @@ class CityPopulationClient:
         base_url: str,
         has_radm: bool,
         default_entity_type: str | None = None,
+        visible_pop_columns: list[tuple[int, str | None]] | None = None,
     ) -> CityPopulationEntity | None:
         main_td = self._main_name_cell(tr)
         if not main_td:
@@ -171,7 +192,14 @@ class CityPopulationClient:
             else main_td.get("data-status") or default_entity_type
         )
         area_km2 = self.safe_float(main_td.get("data-area"))
-        pop_latest = self._extract_last_visible_population(tr, last_visible_pop_idx)
+        if area_km2 is None:
+            area_km2 = self._area_from_noviz_cell(tr)
+        pop_latest, pop_latest_date = self._extract_latest_numeric_population(
+            tr,
+            last_visible_pop_idx,
+            last_visible_date,
+            visible_pop_columns,
+        )
         return CityPopulationEntity(
             entity_id=entity_id,
             name=self._extract_name(main_td),
@@ -180,8 +208,8 @@ class CityPopulationClient:
             area_km2=area_km2,
             density=self._density_or_calculated(main_td.get("data-density"), pop_latest, area_km2),
             pop_latest=pop_latest,
-            pop_latest_date=last_visible_date,
-            last_census_year=self.year_from_date(last_visible_date) or default_last_census_year,
+            pop_latest_date=pop_latest_date,
+            last_census_year=self.year_from_date(pop_latest_date) or default_last_census_year,
             parent_id=None,
             parent_name=None,
             country_code=country_code,
@@ -290,9 +318,40 @@ class CityPopulationClient:
         return td.get_text(" ", strip=True)
 
     def _extract_last_visible_population(self, tr: Tag, last_visible_pop_idx: int) -> int | None:
+        population, _date = self._extract_latest_numeric_population(
+            tr,
+            last_visible_pop_idx,
+            None,
+            None,
+        )
+        return population
+
+    def _extract_latest_numeric_population(
+        self,
+        tr: Tag,
+        last_visible_pop_idx: int,
+        last_visible_date: str | None,
+        visible_pop_columns: list[tuple[int, str | None]] | None,
+    ) -> tuple[int | None, str | None]:
         pops = [cell for cell in tr.find_all(["td", "th"], recursive=False) if "rpop" in (cell.get("class") or [])]
         if not pops:
-            return None
+            return None, last_visible_date
+
+        columns = visible_pop_columns or [(last_visible_pop_idx, last_visible_date)]
+        for idx, date in reversed(columns):
+            if not 0 <= idx < len(pops):
+                continue
+            digits = re.sub(r"[^\d]", "", pops[idx].get_text(strip=True))
+            if digits:
+                return int(digits), date
+
         idx = last_visible_pop_idx if 0 <= last_visible_pop_idx < len(pops) else len(pops) - 1
         digits = re.sub(r"[^\d]", "", pops[idx].get_text(strip=True))
-        return int(digits) if digits else None
+        return (int(digits), last_visible_date) if digits else (None, last_visible_date)
+
+    def _area_from_noviz_cell(self, tr: Tag) -> float | None:
+        area_cell = tr.find(["td", "th"], class_="noviz")
+        raw_area = self.safe_float_text(area_cell.get_text(" ", strip=True)) if area_cell else None
+        if raw_area is None:
+            return None
+        return raw_area / 100

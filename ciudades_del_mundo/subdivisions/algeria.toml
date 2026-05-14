@@ -1,0 +1,96 @@
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "infosection"
+path = ["cities"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "double"
+path = [
+  "adrar",
+  "chlef",
+  "laghouat",
+  "oumelbouaghi",
+  "batna",
+  "bejaia",
+  "biskra",
+  "bechar",
+  "blida",
+  "bouira",
+  "tamanrasset",
+  "tebessa",
+  "tlemcen",
+  "tiaret",
+  "tiziouzou",
+  "eldjazair",
+  "djelfa",
+  "jijel",
+  "setif",
+  "saida",
+  "skikda",
+  "sidibelabbes",
+  "annaba",
+  "guelma",
+  "constantine",
+  "medea",
+  "mostaganem",
+  "msila",
+  "mascara",
+  "ouargla",
+  "oran",
+  "elbayadh",
+  "illizi",
+  "bordjbouarreridj",
+  "boumerdes",
+  "eltarf",
+  "tindouf",
+  "tissemsilt",
+  "eloued",
+  "khenchela",
+  "soukahras",
+  "tipaza",
+  "mila",
+  "aindefla",
+  "naama",
+  "aintemouchent",  "Bologhine",
+  "Bab El Oued",
+  "Casbah",
+  "Oued Koriche",
+  "El Djazair",
+  "El Biar",
+  "Sidi M'Hamed",
+  "El Mouradia",
+  "Hydra",
+  "Mohamed Belouizdad (Hamma Annassers)",
+  "El Madania",
+  "Bir Mourad Rais",
+  "Kouba",
+  "Hussein Dey",
+  "El Magharia",
+  "Bachdjerrah",
+  "Mohammadia",
+  "Bab Ezzouar",
+  "Bordj El Kiffan",
+  "Bordj El Bahri",
+  "El Marsa",
+  "ghardaia",
+  "relizane",
+]
+lowest_level = 2
+
+[[cities]]
+city = "El Djazair"
+id = "algr2005"
+district_types = []
+level = 2
+type = "Province Capital"
+from = { 1 = ["El Djazair"] }
+communes = [
+
+]

@@ -1,0 +1,97 @@
+LEGAL_SUBDIVISION = 3
+
+[representation]
+level = 2
+total = 350
+min = 2
+min_exceptions = { spain_51 = 1, spain_52 = 1 }
+max_exceptions = { spain_51 = 1, spain_52 = 1 }
+system = "dhondt"
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "table"
+path = [
+  "andalucia",
+  "aragon",
+  "asturias",
+  "canarias",
+  "cantabria",
+  "castillalamancha",
+  "castillayleon",
+  "cataluna",
+  "ceuta",
+  "comunitatvalenciana",
+  "extremadura",
+  "galicia",
+  "illesbalears",
+  "larioja",
+  "madrid",
+  "melilla",
+  "murcia",
+  "navarra",
+  "paisvasco",
+]
+lowest_level = 1
+
+[[pages]]
+source = "double"
+path = [
+  "localities/acoruna",
+  "localities/alava",
+  "localities/albacete",
+  "localities/alicante",
+  "localities/almeria",
+  "localities/asturias",
+  "localities/avila",
+  "localities/badajoz",
+  "localities/barcelona",
+  "localities/burgos",
+  "localities/caceres",
+  "localities/cadiz",
+  "localities/cantabria",
+  "localities/castellon",
+  "localities/ceuta",
+  "localities/ciudadreal",
+  "localities/cordoba",
+  "localities/cuenca",
+  "localities/girona",
+  "localities/granada",
+  "localities/guadalajara",
+  "localities/guipuzcoa",
+  "localities/huelva",
+  "localities/huesca",
+  "localities/illesbalears",
+  "localities/jaen",
+  "localities/larioja",
+  "localities/laspalmas",
+  "localities/leon",
+  "localities/lleida",
+  "localities/lugo",
+  "localities/madrid",
+  "localities/malaga",
+  "localities/melilla",
+  "localities/murcia",
+  "localities/navarra",
+  "localities/ourense",
+  "localities/palencia",
+  "localities/pontevedra",
+  "localities/salamanca",
+  "localities/santacruzdetenerife",
+  "localities/segovia",
+  "localities/sevilla",
+  "localities/soria",
+  "localities/tarragona",
+  "localities/teruel",
+  "localities/toledo",
+  "localities/valencia",
+  "localities/valladolid",
+  "localities/vizcaya",
+  "localities/zamora",
+  "localities/zaragoza",
+]
+lowest_level = 3

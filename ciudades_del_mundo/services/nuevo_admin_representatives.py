@@ -1,3 +1,5 @@
+"""Services for allocating representatives to derived subdivisions."""
+
 from __future__ import annotations
 
 import re
@@ -10,6 +12,7 @@ from ciudades_del_mundo.models import NuevoAdminArea
 
 
 def representation_config_from_mapping(data: dict | None) -> RepresentationConfig | None:
+    """Normalize multiple legacy shapes into a typed representation config."""
     if not data:
         return None
     if isinstance(data, tuple) and len(data) == 1 and isinstance(data[0], dict):
@@ -29,6 +32,7 @@ def representation_config_from_mapping(data: dict | None) -> RepresentationConfi
 
 @transaction.atomic
 def assign_nuevo_admin_representatives(country_id: str, config: RepresentationConfig) -> int:
+    """Persist representative allocation for one derived country tree."""
     root = NuevoAdminArea.objects.get(id=country_id)
     areas = list(
         NuevoAdminArea.objects.filter(country_code=root.country_code, level=config.level)
@@ -53,6 +57,7 @@ def assign_nuevo_admin_representatives(country_id: str, config: RepresentationCo
 
 
 def allocate_dhondt_representatives(areas, config: RepresentationConfig) -> dict[str, int]:
+    """Compute seat allocation using the D'Hondt method plus min/max rules."""
     total = config.total_for_populations(area.pop_latest for area in areas)
     seats = {area.id: _minimum_for(area, config) for area in areas}
     maximums = {area.id: _maximum_for(area, config) for area in areas}

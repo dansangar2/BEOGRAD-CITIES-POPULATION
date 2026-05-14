@@ -1,3 +1,5 @@
+"""URL routes for the lightweight project dashboard."""
+
 from django.urls import path
 
 from . import views

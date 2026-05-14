@@ -1,3 +1,5 @@
+"""Rules that convert raw scraped areas into configured city entities."""
+
 from __future__ import annotations
 
 import re
@@ -29,7 +31,8 @@ def _apply_configured_city(
         by_level.setdefault(entity.level, []).append(entity)
 
     from_entities = _resolve_from(config, by_level)
-    parent = _single_parent(config, from_entities)
+    by_code = {entity.code: entity for entity in entities}
+    parent = _resolve_parent(config, from_entities, by_code)
     resolved_communes = _resolve_city_communes(config, entities, from_entities)
     total_area = _sum_decimal(entity.area_km2 for entity in resolved_communes)
     total_pop = sum(entity.pop_latest or 0 for entity in resolved_communes)
@@ -48,7 +51,7 @@ def _apply_configured_city(
         last_census_year=max(
             (entity.last_census_year for entity in resolved_communes if entity.last_census_year is not None),
             default=None,
-        )
+        ),
     )
 
     target_commune_level = config.level + 1
@@ -63,8 +66,6 @@ def _apply_configured_city(
         and entity.level > config.level
         and not _matches_district_type(entity, config)
     }
-    by_code = {entity.code: entity for entity in entities}
-
     transformed = []
     for entity in entities:
         if entity.code == config.code:
@@ -157,11 +158,49 @@ def _resolve_from(config: CityConfig, by_level: dict[int, list[ScrapedAdminArea]
     return matches
 
 
-def _single_parent(config: CityConfig, from_entities: list[ScrapedAdminArea]) -> ScrapedAdminArea | None:
-    if len(from_entities) > 1:
+def _resolve_parent(
+    config: CityConfig,
+    from_entities: list[ScrapedAdminArea],
+    by_code: dict[str, ScrapedAdminArea],
+) -> ScrapedAdminArea | None:
+    if not from_entities:
+        return None
+    if len(from_entities) == 1:
+        return from_entities[0]
+
+    common_ancestors = None
+    for entity in from_entities:
+        ancestors = _ancestor_codes(entity, by_code)
+        if common_ancestors is None:
+            common_ancestors = ancestors
+        else:
+            common_ancestors &= ancestors
+
+    if not common_ancestors:
         labels = ", ".join(entity.id for entity in from_entities)
-        raise ValueError(f"CITIES '{config.name}': 'from' debe resolver a un único padre, recibido: {labels}.")
-    return from_entities[0] if from_entities else None
+        raise ValueError(
+            f"CITIES '{config.name}': los elementos de 'from' deben compartir un ancestro comun, recibido: {labels}."
+        )
+
+    resolved = [by_code[code] for code in common_ancestors if code in by_code]
+    if not resolved:
+        return None
+    return max(resolved, key=lambda entity: entity.level)
+
+
+def _ancestor_codes(
+    entity: ScrapedAdminArea,
+    by_code: dict[str, ScrapedAdminArea],
+) -> set[str]:
+    codes = {entity.code}
+    parent_code = entity.parent_code
+    seen = set()
+    while parent_code and parent_code not in seen:
+        seen.add(parent_code)
+        codes.add(parent_code)
+        parent = by_code.get(parent_code)
+        parent_code = parent.parent_code if parent else None
+    return codes
 
 
 def _resolve_city_communes(

@@ -1,4 +1,5 @@
-# ciudades_del_mundo/services/adminarea_capitals.py
+"""Services for assigning capital relationships on scraped admin areas."""
+
 from __future__ import annotations
 from typing import Iterable, List, Tuple, Union
 import importlib

@@ -1,3 +1,5 @@
+"""Run one or more configured scraping jobs from TOML definitions."""
+
 from __future__ import annotations
 
 from django.core.management.base import BaseCommand, CommandError
@@ -16,7 +18,7 @@ from ciudades_del_mundo.infrastructure.scraping.urls import build_page_url
 
 
 class Command(BaseCommand):
-    help = "Runs a CityPopulation scraping job from ciudades_del_mundo/subdivisions/<country>.py."
+    help = "Runs a CityPopulation scraping job from ciudades_del_mundo/subdivisions/<country>.toml."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -66,7 +68,8 @@ class Command(BaseCommand):
 
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"OK {config.slug}: found={result.found}, created={result.created}, updated={result.updated}"
+                    f"OK {config.slug}: found={result.found}, created={result.created}, "
+                    f"updated={result.updated}, deleted={result.deleted}"
                 )
             )
 

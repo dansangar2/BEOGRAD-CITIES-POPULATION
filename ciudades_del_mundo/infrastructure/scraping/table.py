@@ -1,3 +1,5 @@
+"""Scraper for structured table pages without explicit nested admin sections."""
+
 from __future__ import annotations
 
 import re
@@ -5,61 +7,31 @@ from dataclasses import replace
 
 from bs4 import BeautifulSoup
 
-from ciudades_del_mundo.domain import ScrapedAdminArea, ScrapingPageConfig
+from ciudades_del_mundo.domain import ScrapedAdminArea
 from ciudades_del_mundo.infrastructure.scraping.admin import CityPopulationAdminScraper
-from ciudades_del_mundo.infrastructure.scraping.city_population_client import CityPopulationClient
+from ciudades_del_mundo.infrastructure.scraping.base import BaseCityPopulationScraper
 from ciudades_del_mundo.infrastructure.scraping.double import CityPopulationDoubleScraper
-from ciudades_del_mundo.infrastructure.scraping.urls import build_page_url
 
 
-class CityPopulationStructuredTableScraper:
+class CityPopulationStructuredTableScraper(BaseCityPopulationScraper):
     html_format = "table"
 
     def __init__(self, debug: bool = False):
-        self.debug = debug
-        self._client = CityPopulationClient(debug=debug)
+        super().__init__(debug=debug)
         self._admin_scraper = CityPopulationAdminScraper(debug=debug)
         self._double_scraper = CityPopulationDoubleScraper(debug=debug)
-
-    def scrape(self, base_url: str, country_code: str, page: ScrapingPageConfig) -> list[ScrapedAdminArea]:
-        url = build_page_url(base_url, page.path)
-        html = self._client.get(url)
-        return self.scrape_html(html=html, url=url, country_code=country_code, level=page.lowest_level)
 
     def scrape_html(self, html: str, url: str, country_code: str, level: int) -> list[ScrapedAdminArea]:
         soup = BeautifulSoup(html, self._client.parser)
         root = self._parse_root(soup=soup, country_code=country_code, level=level, url=url)
-
-        entities = [root] if root else []
-        parents_by_name: dict[str, ScrapedAdminArea] = {}
-
-        tl = soup.find("table", id="tl")
-        if tl:
-            for entity in self._double_scraper._parse_table(
-                table=tl,
-                country_code=country_code,
-                level=level + 1,
-                base_url=url,
-                parser="tl",
-            ):
-                entity = replace(entity, parent_code=root.code if root else None)
-                entities.append(entity)
-                parents_by_name[self._double_scraper._normalize_name(entity.name)] = entity
-
-        ts = soup.find("table", id="ts")
-        if ts:
-            entities.extend(
-                self._double_scraper._parse_table(
-                    table=ts,
-                    country_code=country_code,
-                    level=level + 2,
-                    base_url=url,
-                    parser="ts",
-                    parents_by_name=parents_by_name,
-                )
-            )
-
-        return entities
+        return self._double_scraper.parse_hierarchical_tables(
+            soup=soup,
+            url=url,
+            country_code=country_code,
+            level=level,
+            root=root,
+            first_table_offset=1,
+        )
 
     def _parse_root(
         self,
@@ -74,9 +46,15 @@ class CityPopulationStructuredTableScraper:
             root = self._root_from_cpage(soup=soup, country_code=country_code, level=level, url=url)
         if root and not root.entity_type:
             root = replace(root, entity_type=self._root_entity_type_from_cpage(soup=soup, root_name=root.name))
-        code = self._root_code_from_tfoot(soup=soup, country_code=country_code, level=level, url=url)
-        if root and code:
-            return replace(root, code=code)
+        tfoot_root = self._root_from_tfoot(soup=soup, country_code=country_code, level=level, url=url)
+        if root and tfoot_root:
+            return replace(
+                tfoot_root,
+                entity_type=tfoot_root.entity_type or root.entity_type,
+                url=tfoot_root.url or root.url,
+            )
+        if tfoot_root:
+            return tfoot_root
         return root
 
     def _root_from_cpage(
@@ -136,7 +114,14 @@ class CityPopulationStructuredTableScraper:
 
         return text.strip()
 
-    def _root_code_from_tfoot(self, *, soup: BeautifulSoup, country_code: str, level: int, url: str) -> str | None:
+    def _root_from_tfoot(
+        self,
+        *,
+        soup: BeautifulSoup,
+        country_code: str,
+        level: int,
+        url: str,
+    ) -> ScrapedAdminArea | None:
         table = soup.find("table", id="tl")
         tfoot = table.find("tfoot") if table else None
         tr = tfoot.find("tr") if tfoot else None
@@ -144,6 +129,7 @@ class CityPopulationStructuredTableScraper:
             return None
 
         last_pop_idx, last_pop_date = self._client.detect_last_visible_pop_column(table)
+        visible_pop_columns = self._client.visible_pop_columns(table)
         parsed = self._client.parse_tr_tl(
             tr=tr,
             explicit_level=level,
@@ -152,5 +138,22 @@ class CityPopulationStructuredTableScraper:
             default_last_census_year=self._client.year_from_date(last_pop_date),
             country_code=country_code,
             base_url=self._client.base_for_urljoin(url),
+            area_divisor=self._double_scraper._area_divisor(table),
+            visible_pop_columns=visible_pop_columns,
         )
-        return parsed.entity_id if parsed else None
+        if not parsed:
+            return None
+
+        return ScrapedAdminArea(
+            code=parsed.entity_id,
+            name=parsed.name,
+            level=level,
+            country_code=country_code,
+            entity_type=parsed.entity_type,
+            area_km2=parsed.area_km2,
+            density=parsed.density,
+            pop_latest=parsed.pop_latest,
+            pop_latest_date=parsed.pop_latest_date,
+            last_census_year=parsed.last_census_year,
+            url=parsed.url,
+        )

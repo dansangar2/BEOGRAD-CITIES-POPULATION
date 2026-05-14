@@ -1,3 +1,5 @@
+"""Application service that orchestrates a full scraping/import job."""
+
 from __future__ import annotations
 
 from contextlib import nullcontext
@@ -11,8 +13,11 @@ from ciudades_del_mundo.ports import AdminAreaRepository, HtmlScraper, UnitOfWor
 
 @dataclass(frozen=True)
 class ScrapeResult:
+    """Summary of persistence side effects for a scraping run."""
+
     created: int
     updated: int
+    deleted: int
     found: int
     most_populated_updated: int = 0
     representatives_updated: int = 0
@@ -20,6 +25,8 @@ class ScrapeResult:
 
 @dataclass(frozen=True)
 class ScrapePageProgress:
+    """Progress event emitted before and after scraping each configured page."""
+
     path: str
     html_format: str
     lowest_level: int
@@ -28,6 +35,8 @@ class ScrapePageProgress:
 
 
 class ScrapeAdminAreas:
+    """Coordinates scrapers, post-processing and repository persistence."""
+
     def __init__(
         self,
         repository: AdminAreaRepository,
@@ -43,42 +52,18 @@ class ScrapeAdminAreas:
         self.on_page_complete = on_page_complete
 
     def run(self, config: ScrapingJobConfig) -> ScrapeResult:
-        entities = []
-        for page in config.pages:
-            scraper = self.scrapers.get(page.html_format)
-            if not scraper:
-                known = ", ".join(sorted(self.scrapers)) or "none"
-                raise ValueError(f"Unknown html_format '{page.html_format}'. Known formats: {known}.")
-            progress = ScrapePageProgress(
-                path=page.path,
-                html_format=page.html_format,
-                lowest_level=page.lowest_level,
-                url=_page_url(config.base_url, page.path),
-            )
-            if self.on_page_start:
-                self.on_page_start(progress)
-            page_entities = scraper.scrape(config.base_url, config.country_code, page)
-            if self.on_page_complete:
-                self.on_page_complete(
-                    ScrapePageProgress(
-                        path=progress.path,
-                        html_format=progress.html_format,
-                        lowest_level=progress.lowest_level,
-                        url=progress.url,
-                        found=len(page_entities),
-                    )
-                )
-            entities.extend(page_entities)
-
-        entities = _keep_first_scraped_entity(entities)
-        if config.cities:
-            entities = apply_configured_cities(config.country_code, entities, config.cities)
-            entities = _keep_first_scraped_entity(entities)
+        """Execute the scraping pipeline for a single country/job config."""
+        entities = self._scrape_pages(config)
+        entities = self._post_process_entities(config, entities)
 
         with self._transaction():
             if config.reset_before_import:
                 self.repository.reset_country(config.country_code)
             created, updated = self.repository.save_many(config.country_code, entities)
+            deleted = self.repository.delete_missing(
+                config.country_code,
+                {entity.id for entity in entities},
+            )
             assignments = calculate_most_populated_assignments(
                 self.repository.list_summaries(config.country_code),
                 config.legal_subdivision_level,
@@ -93,10 +78,63 @@ class ScrapeAdminAreas:
         return ScrapeResult(
             created=created,
             updated=updated,
+            deleted=deleted,
             found=len(entities),
             most_populated_updated=most_populated_updated,
             representatives_updated=representatives_updated,
         )
+
+    def _scrape_pages(self, config: ScrapingJobConfig) -> list[ScrapedAdminArea]:
+        entities = []
+        for page in config.pages:
+            scraper = self._scraper_for(page.html_format)
+            progress = ScrapePageProgress(
+                path=page.path,
+                html_format=page.html_format,
+                lowest_level=page.lowest_level,
+                url=_page_url(config.base_url, page.path),
+            )
+            if self.on_page_start:
+                self.on_page_start(progress)
+
+            page_entities = scraper.scrape(config.base_url, config.country_code, page)
+            self._notify_page_complete(progress, len(page_entities))
+            entities.extend(page_entities)
+        return entities
+
+    def _scraper_for(self, html_format: str) -> HtmlScraper:
+        scraper = self.scrapers.get(html_format)
+        if scraper:
+            return scraper
+
+        known = ", ".join(sorted(self.scrapers)) or "none"
+        raise ValueError(f"Unknown html_format '{html_format}'. Known formats: {known}.")
+
+    def _notify_page_complete(self, progress: ScrapePageProgress, found: int) -> None:
+        if not self.on_page_complete:
+            return
+
+        self.on_page_complete(
+            ScrapePageProgress(
+                path=progress.path,
+                html_format=progress.html_format,
+                lowest_level=progress.lowest_level,
+                url=progress.url,
+                found=found,
+            )
+        )
+
+    def _post_process_entities(
+        self,
+        config: ScrapingJobConfig,
+        entities: list[ScrapedAdminArea],
+    ) -> list[ScrapedAdminArea]:
+        entities = _keep_first_scraped_entity(entities)
+        if not config.cities:
+            return entities
+
+        configured = apply_configured_cities(config.country_code, entities, config.cities)
+        return _keep_first_scraped_entity(configured)
 
     def _transaction(self):
         if self.unit_of_work:
@@ -105,6 +143,7 @@ class ScrapeAdminAreas:
 
 
 def _keep_first_scraped_entity(entities: list[ScrapedAdminArea]) -> list[ScrapedAdminArea]:
+    """Deduplicate by `(country_code, code)` while preserving first appearance."""
     seen = set()
     deduplicated = []
     for entity in entities:
@@ -117,6 +156,7 @@ def _keep_first_scraped_entity(entities: list[ScrapedAdminArea]) -> list[Scraped
 
 
 def _page_url(base_url: str, path: str) -> str:
+    """Build a display URL for progress logs."""
     if path.startswith(("http://", "https://")):
         return path.rstrip("/") + "/"
     return f"{base_url.rstrip('/')}/{path.strip('/')}/"

@@ -1,3 +1,5 @@
+"""Application service for exporting derived administrative areas."""
+
 from __future__ import annotations
 
 from collections import defaultdict

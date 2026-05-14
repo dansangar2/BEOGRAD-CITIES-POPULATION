@@ -1,3 +1,5 @@
+"""Repository and unit-of-work interfaces used by the application layer."""
+
 from __future__ import annotations
 
 from contextlib import AbstractContextManager
@@ -17,6 +19,9 @@ class AdminAreaRepository(Protocol):
         ...
 
     def save_many(self, country_code: str, entities: list[ScrapedAdminArea]) -> tuple[int, int]:
+        ...
+
+    def delete_missing(self, country_code: str, ids: set[str]) -> int:
         ...
 
     def list_summaries(self, country_code: str) -> list[AdminAreaSummary]:

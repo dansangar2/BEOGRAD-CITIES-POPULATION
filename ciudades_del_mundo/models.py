@@ -1,9 +1,11 @@
-# ciudades_del_mundo/models.py
+"""Database models for scraped geography and derived political entities."""
 from django.db import models
 from django.db.models import Q
 
 
 class AdminArea(models.Model):
+    """Administrative area scraped directly from CityPopulation."""
+
     class Level(models.IntegerChoices):
         COUNTRY = 0, "Country"
         ADMIN1  = 1, "Admin1 / Región / CCAA"
@@ -86,6 +88,8 @@ class AdminArea(models.Model):
 
 
 class NuevoAdminArea(models.Model):
+    """Derived administrative area assembled from existing `AdminArea` rows."""
+
     class Level(models.IntegerChoices):
         COUNTRY = 0, "Country"
         ADMIN1  = 1, "Admin1 / Región / CCAA"

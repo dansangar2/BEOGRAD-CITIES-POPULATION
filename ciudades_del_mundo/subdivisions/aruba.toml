@@ -1,0 +1,17 @@
+[[pages]]
+source = "cities"
+path = ["cities"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 1
+
+[[cities]]
+city = "Oranjestad"
+id = "3C"
+district_types = ["Zone"]
+level = 2
+type = "Zone"
+from = { 1 = ["Oranjestad West", "Oranjestad Oost"] }

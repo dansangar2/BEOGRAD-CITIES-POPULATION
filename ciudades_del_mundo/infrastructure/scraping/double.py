@@ -1,40 +1,58 @@
+"""Scraper for pages that expose two stacked table sections per territory."""
+
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 
 from bs4 import BeautifulSoup
 
-from ciudades_del_mundo.domain import ScrapedAdminArea, ScrapingPageConfig
-from ciudades_del_mundo.infrastructure.scraping.city_population_client import CityPopulationClient
-from ciudades_del_mundo.infrastructure.scraping.urls import build_page_url
+from ciudades_del_mundo.domain import ScrapedAdminArea
+from ciudades_del_mundo.infrastructure.scraping.base import BaseCityPopulationScraper
 
 
-class CityPopulationDoubleScraper:
+class CityPopulationDoubleScraper(BaseCityPopulationScraper):
     html_format = "double"
-
-    def __init__(self, debug: bool = False):
-        self.debug = debug
-        self._client = CityPopulationClient(debug=debug)
-
-    def scrape(self, base_url: str, country_code: str, page: ScrapingPageConfig) -> list[ScrapedAdminArea]:
-        url = build_page_url(base_url, page.path)
-        html = self._client.get(url)
-        return self.scrape_html(html=html, url=url, country_code=country_code, level=page.lowest_level)
 
     def scrape_html(self, html: str, url: str, country_code: str, level: int) -> list[ScrapedAdminArea]:
         soup = BeautifulSoup(html, self._client.parser)
-        entities: list[ScrapedAdminArea] = []
+        return self.parse_hierarchical_tables(
+            soup=soup,
+            url=url,
+            country_code=country_code,
+            level=level,
+        )
+
+    def parse_hierarchical_tables(
+        self,
+        *,
+        soup: BeautifulSoup,
+        url: str,
+        country_code: str,
+        level: int,
+        root: ScrapedAdminArea | None = None,
+        first_table_offset: int | None = None,
+    ) -> list[ScrapedAdminArea]:
+        if root and root.parent_code is None and root.level > 0 and root.code != country_code:
+            root = replace(root, parent_code=country_code)
+
+        entities: list[ScrapedAdminArea] = [root] if root else []
         parents_by_name: dict[str, ScrapedAdminArea] = {}
+        tl_level = level + (first_table_offset if first_table_offset is not None else int(root is not None))
 
         tl = soup.find("table", id="tl")
         if tl:
             for entity in self._parse_table(
                 table=tl,
                 country_code=country_code,
-                level=level,
+                level=tl_level,
                 base_url=url,
                 parser="tl",
             ):
+                if root:
+                    entity = replace(entity, parent_code=root.code)
+                elif entity.parent_code is None and entity.level > 0 and entity.code != country_code:
+                    entity = replace(entity, parent_code=country_code)
                 entities.append(entity)
                 parents_by_name[self._normalize_name(entity.name)] = entity
 
@@ -43,7 +61,7 @@ class CityPopulationDoubleScraper:
             for entity in self._parse_table(
                 table=ts,
                 country_code=country_code,
-                level=level + 1,
+                level=tl_level + 1,
                 base_url=url,
                 parser="ts",
                 parents_by_name=parents_by_name,
@@ -63,11 +81,13 @@ class CityPopulationDoubleScraper:
         parents_by_name: dict[str, ScrapedAdminArea] | None = None,
     ) -> list[ScrapedAdminArea]:
         last_pop_idx, last_pop_date = self._client.detect_last_visible_pop_column(table)
+        visible_pop_columns = self._client.visible_pop_columns(table)
         last_year = self._client.year_from_date(last_pop_date)
         tbody = table.find("tbody")
         if not tbody:
             return []
         default_entity_type = self._default_entity_type(table)
+        area_divisor = self._area_divisor(table)
 
         entities = []
         for tr in tbody.find_all("tr", recursive=False):
@@ -81,6 +101,7 @@ class CityPopulationDoubleScraper:
                     base_url=base_url,
                     has_radm=bool(table.find("th", class_=lambda value: value and "radm" in value.split())),
                     default_entity_type=default_entity_type,
+                    visible_pop_columns=visible_pop_columns,
                 )
                 parent_code = self._parent_code_from_radm(tr, parents_by_name or {})
             else:
@@ -93,6 +114,8 @@ class CityPopulationDoubleScraper:
                     country_code=country_code,
                     base_url=base_url,
                     default_entity_type=default_entity_type,
+                    area_divisor=area_divisor,
+                    visible_pop_columns=visible_pop_columns,
                 )
                 parent_code = None
 
@@ -136,6 +159,13 @@ class CityPopulationDoubleScraper:
         singular = self._singularize(last)
         words[-1] = singular
         return " ".join(words).strip()
+
+    def _area_divisor(self, table) -> float:
+        area_header = table.find("th", class_=lambda value: value and "rarea" in value.split())
+        unit = area_header.find(class_="unit") if area_header else None
+        text = unit.get_text(" ", strip=True) if unit else ""
+        data_inv = unit.get("data-inv", "") if unit else ""
+        return 100 if "hect" in f"{text} {data_inv}".casefold() else 1
 
     def _singularize(self, value: str) -> str:
         lowered = value.casefold()

@@ -1,3 +1,5 @@
+"""Domain DTOs used by exports of derived administrative areas."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

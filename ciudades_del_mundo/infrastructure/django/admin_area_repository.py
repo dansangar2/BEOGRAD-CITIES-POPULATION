@@ -16,6 +16,8 @@ from ciudades_del_mundo.domain import (
 )
 from ciudades_del_mundo.models import AdminArea
 
+SQLITE_SAFE_BATCH_SIZE = 500
+
 
 def _to_decimal(value):
     if value in (None, ""):
@@ -69,6 +71,17 @@ class DjangoAdminAreaRepository:
             updated += int(not was_created)
 
         return created, updated
+
+    @transaction.atomic
+    def delete_missing(self, country_code: str, ids: set[str]) -> int:
+        existing_ids = AdminArea.objects.filter(country_code=country_code).values_list("id", flat=True)
+        missing_ids = [existing_id for existing_id in existing_ids if existing_id not in ids]
+        deleted = len(missing_ids)
+        for start in range(0, deleted, SQLITE_SAFE_BATCH_SIZE):
+            AdminArea.objects.filter(
+                id__in=missing_ids[start : start + SQLITE_SAFE_BATCH_SIZE]
+            ).delete()
+        return deleted
 
     def list_summaries(self, country_code: str) -> list[AdminAreaSummary]:
         return [

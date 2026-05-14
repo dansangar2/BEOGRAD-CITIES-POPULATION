@@ -1,14 +1,15 @@
+"""Repository that loads scrape configurations from TOML files."""
+
 from __future__ import annotations
 
-import importlib
 from importlib import resources
+import tomllib
 
 from ciudades_del_mundo.domain import (
     RepresentationConfig,
     ScrapingJobConfig,
-    ScrapingPageConfig,
     parse_cities,
-    parse_divisions,
+    parse_pages,
 )
 
 
@@ -16,54 +17,53 @@ CITYPOPULATION_BASE_URL = "https://www.citypopulation.de/en/"
 
 
 class PythonScrapingConfigRepository:
+    """Load and validate scrape configs stored under `subdivisions/*.toml`."""
+
     def __init__(self, package: str = "ciudades_del_mundo.subdivisions"):
         self.package = package
 
     def list_configs(self) -> list[ScrapingJobConfig]:
-        configs = []
-        for path in sorted(resources.files(self.package).iterdir(), key=lambda item: item.name):
-            if path.name.startswith("_") or not path.name.endswith(".py"):
+        return [self.get(slug) for slug in self.list_slugs()]
+
+    def list_slugs(self) -> list[str]:
+        names = set()
+        for path in resources.files(self.package).iterdir():
+            if path.name.startswith("_") or not path.name.endswith(".toml"):
                 continue
-            slug = path.name.removesuffix(".py")
-            try:
-                configs.append(self.get(slug))
-            except (KeyError, TypeError):
-                continue
-        return configs
+            names.add(path.name.removesuffix(".toml"))
+        return sorted(names)
 
     def get(self, slug: str) -> ScrapingJobConfig:
-        module = self._load_module(slug)
-        divisions = parse_divisions(module.DIVISIONS)
-        pages = [
-            ScrapingPageConfig(
-                path=self._path_for(slug, url),
-                html_format=division.source_type.value,
-                lowest_level=division.lowest_level,
-            )
-            for division in divisions
-            for url in division.urls
-        ]
+        resource = self._config_resource(slug)
+        if resource is None:
+            raise ModuleNotFoundError(f"No config found for slug '{slug}'.")
+
+        data = tomllib.loads(resource.read_text(encoding="utf-8"))
+        pages = parse_pages(data.get("pages"), slug=slug)
+        if not pages:
+            raise ValueError(f"Config '{slug}' must define at least one page.")
+
         return ScrapingJobConfig(
             slug=slug,
-            country_code=slug,
-            base_url=CITYPOPULATION_BASE_URL,
-            legal_subdivision_level=(
-                getattr(module, "LEGAL_SUBDIVISION", None)
-                or getattr(module, "LEGAL_SUBDIVISIONS", None)
-            ),
-            representation=RepresentationConfig.from_mapping(getattr(module, "REPRESENTATION", None)),
+            country_code=str(data.get("country_code") or slug),
+            base_url=str(data.get("base_url") or CITYPOPULATION_BASE_URL),
+            legal_subdivision_level=_int_or_none(data.get("LEGAL_SUBDIVISION")),
+            name=data.get("name"),
+            reset_before_import=bool(data.get("reset_before_import", False)),
+            representation=RepresentationConfig.from_mapping(data.get("representation")),
             pages=pages,
-            cities=parse_cities(getattr(module, "CITIES", None)),
+            cities=parse_cities(data.get("cities")),
         )
 
-    def _path_for(self, country_code: str, configured_url: str) -> str:
-        if configured_url.startswith(("http://", "https://")):
-            return configured_url
-        if configured_url == "infosection":
-            return country_code
-        if configured_url == "admin":
-            return f"{country_code}/admin"
-        return f"{country_code}/{configured_url.strip('/')}"
+    def _config_resource(self, slug: str):
+        root = resources.files(self.package)
+        resource = root / f"{slug}.toml"
+        if resource.is_file():
+            return resource
+        return None
 
-    def _load_module(self, slug: str):
-        return importlib.import_module(f"{self.package}.{slug}")
+
+def _int_or_none(value):
+    if value in (None, ""):
+        return None
+    return int(value)

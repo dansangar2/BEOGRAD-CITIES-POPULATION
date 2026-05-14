@@ -9,6 +9,7 @@ from collections import defaultdict
 from ciudades_del_mundo.models import NuevoAdminArea, AdminArea
 import importlib
 import pkgutil
+from ciudades_del_mundo.infrastructure.scraping.python_config_repository import PythonScrapingConfigRepository
 from ciudades_del_mundo.services.nuevo_admin_builder import create_nuevo_area_from_spec, _round_area
 from ciudades_del_mundo.services.nuevo_admin_representatives import (
     assign_nuevo_admin_representatives,
@@ -23,6 +24,7 @@ REPRESENTATIONS: dict[str, object] = {}
 MUNICIPAL_LEVEL: dict[str, int] = {}
 SOURCE_COUNTRIES: dict[str, str] = {}
 LEGAL_SUBDIVISION_LEVELS: dict[str, int | None] = {}
+SCRAPING_CONFIG_REPOSITORY = PythonScrapingConfigRepository()
 
 
 # Cargar módulos de configuración
@@ -71,12 +73,12 @@ def _legal_subdivision_level(country_code: str) -> int | None:
         return LEGAL_SUBDIVISION_LEVELS[country_code]
 
     try:
-        mod = importlib.import_module(f"ciudades_del_mundo.subdivisions.{country_code}")
+        config = SCRAPING_CONFIG_REPOSITORY.get(country_code)
     except Exception:
         LEGAL_SUBDIVISION_LEVELS[country_code] = None
         return None
 
-    level = getattr(mod, "LEGAL_SUBDIVISIONS", None)
+    level = config.legal_subdivision_level
     LEGAL_SUBDIVISION_LEVELS[country_code] = level
     return level
 

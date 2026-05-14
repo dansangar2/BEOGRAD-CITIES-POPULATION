@@ -1,0 +1,37 @@
+LEGAL_SUBDIVISION = 3
+
+[[pages]]
+source = "infosection"
+path = ["cities"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = [
+  "acores/admin",
+  "aveiro/admin",
+  "beja/admin",
+  "braga/admin",
+  "braganca/admin",
+  "castelobranco/admin",
+  "coimbra/admin",
+  "evora/admin",
+  "faro/admin",
+  "guarda/admin",
+  "leiria/admin",
+  "lisboa/admin",
+  "madeira/admin",
+  "portalegre/admin",
+  "porto/admin",
+  "santarem/admin",
+  "setubal/admin",
+  "vianadocastelo/admin",
+  "vilareal/admin",
+  "viseu/admin",
+]
+lowest_level = 2

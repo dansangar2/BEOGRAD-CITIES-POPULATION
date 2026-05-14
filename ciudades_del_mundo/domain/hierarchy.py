@@ -1,3 +1,5 @@
+"""Helpers for reconstructing parent-child hierarchy from scraped rows."""
+
 from __future__ import annotations
 
 from dataclasses import replace

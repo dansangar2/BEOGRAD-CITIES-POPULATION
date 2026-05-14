@@ -1,0 +1,6 @@
+LEGAL_SUBDIVISION = 3
+
+[[pages]]
+source = "admin"
+path = ["mun/admin"]
+lowest_level = 0

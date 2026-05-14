@@ -1,3 +1,5 @@
+"""Pure domain representation of a scraped administrative area."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,6 +9,8 @@ from decimal import Decimal
 
 @dataclass(frozen=True)
 class ScrapedAdminArea:
+    """Immutable scraped entity before being saved into Django models."""
+
     code: str
     name: str
     level: int
@@ -22,4 +26,5 @@ class ScrapedAdminArea:
 
     @property
     def id(self) -> str:
+        """Return the canonical compound identifier used across the project."""
         return f"{self.country_code}_{self.code}"

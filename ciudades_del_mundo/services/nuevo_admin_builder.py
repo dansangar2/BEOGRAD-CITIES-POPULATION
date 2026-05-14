@@ -1,4 +1,4 @@
-# ciudades_del_mundo/services/nuevo_admin_builder.py
+"""Builder service that assembles `NuevoAdminArea` from inclusion specs."""
 
 from __future__ import annotations
 

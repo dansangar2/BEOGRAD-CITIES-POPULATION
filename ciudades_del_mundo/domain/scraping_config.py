@@ -1,3 +1,5 @@
+"""Typed configuration objects for scraping jobs and post-processing."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -7,6 +9,8 @@ from typing import Iterable
 
 
 class DivisionSourceType(StrEnum):
+    """Supported scraper implementations for CityPopulation page layouts."""
+
     ADMIN = "admin"
     TABLE = "table"
     DOUBLE = "double"
@@ -15,37 +19,36 @@ class DivisionSourceType(StrEnum):
 
 
 class RepresentationSystem(StrEnum):
+    """Seat allocation systems supported by the project."""
+
     DHONDT = "dhondt"
 
 
 @dataclass(frozen=True)
 class ScrapingPageConfig:
+    """One logical scraping page after expanding grouped path arrays."""
+
     path: str
     html_format: str
-    target_level: int | None = None
-    prefer_table: str = "auto"
     lowest_level: int = 1
 
-
-@dataclass(frozen=True)
-class DivisionConfig:
-    source_type: DivisionSourceType
-    urls: tuple[str, ...]
-    lowest_level: int
-
     @classmethod
-    def from_mapping(cls, data: dict) -> "DivisionConfig":
-        raw_urls = data["urls"]
-        urls = (raw_urls,) if isinstance(raw_urls, str) else tuple(raw_urls)
+    def from_mapping(cls, data: dict, *, path: str) -> "ScrapingPageConfig":
+        source = data.get("source", data.get("html_format"))
+        if not source:
+            raise ValueError("PAGE debe declarar 'source' o 'html_format'.")
+
         return cls(
-            source_type=DivisionSourceType(data["type"]),
-            urls=urls,
-            lowest_level=int(data["level"]),
+            path=str(path).strip("/"),
+            html_format=DivisionSourceType(str(source)).value,
+            lowest_level=int(data.get("lowest_level", data.get("level", 1))),
         )
 
 
 @dataclass(frozen=True)
 class CityConfig:
+    """Rule to collapse multiple scraped rows into a single city entity."""
+
     name: str
     code: str
     level: int
@@ -73,6 +76,8 @@ class CityConfig:
 
 @dataclass(frozen=True)
 class RepresentationConfig:
+    """Seat allocation rules applied after scraping/import."""
+
     level: int
     system: RepresentationSystem
     minimum: int = 0
@@ -115,6 +120,8 @@ class RepresentationConfig:
 
 @dataclass(frozen=True)
 class ScrapingPlanPage:
+    """Lightweight DTO used when planning or displaying a scrape."""
+
     url: str
     source_type: str
     lowest_level: int
@@ -122,6 +129,8 @@ class ScrapingPlanPage:
 
 @dataclass(frozen=True)
 class ScrapingJobConfig:
+    """Full configuration for scraping one country or territory."""
+
     slug: str
     country_code: str
     base_url: str
@@ -133,15 +142,39 @@ class ScrapingJobConfig:
     cities: list[CityConfig] = field(default_factory=list)
 
 
-def parse_divisions(items: Iterable[dict]) -> list[DivisionConfig]:
-    return [DivisionConfig.from_mapping(item) for item in items]
-
-
 def parse_cities(items: Iterable[dict] | None) -> list[CityConfig]:
     return [CityConfig.from_mapping(item) for item in (items or [])]
+
+
+def parse_pages(items: Iterable[dict] | None, *, slug: str) -> list[ScrapingPageConfig]:
+    pages = []
+    for item in items or []:
+        raw_paths = item.get("path")
+        if raw_paths is None:
+            raise ValueError("PAGE debe declarar 'path'.")
+
+        paths = raw_paths if isinstance(raw_paths, list) else [raw_paths]
+        if not paths:
+            raise ValueError("PAGE debe declarar al menos una ruta en 'path'.")
+
+        for raw_path in paths:
+            normalized = _normalize_page_path(slug, raw_path)
+            pages.append(ScrapingPageConfig.from_mapping(item, path=normalized))
+    return pages
 
 
 def _as_tuple(value) -> tuple[str, ...]:
     if isinstance(value, (str, int)):
         return (str(value),)
     return tuple(str(item) for item in value)
+
+
+def _normalize_page_path(slug: str, raw_path) -> str:
+    value = str(raw_path or "").strip("/")
+    if value.startswith(("http://", "https://")):
+        return value
+    if not value:
+        return slug
+    if value == slug or value.startswith(f"{slug}/"):
+        return value
+    return f"{slug}/{value}"

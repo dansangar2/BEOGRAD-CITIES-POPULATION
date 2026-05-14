@@ -1,3 +1,5 @@
+"""Export `NuevoAdminArea` hierarchies to Excel workbooks."""
+
 from __future__ import annotations
 
 from datetime import datetime
