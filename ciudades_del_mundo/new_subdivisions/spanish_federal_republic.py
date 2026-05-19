@@ -143,27 +143,27 @@ DIVISIONS = [
         "entity_type": "Estado",
         "capitals": ["Santa Cruz de Tenerife"],
         "childs": [
-            {
-                "name": "Canarias",
-                "code": "CAN",
-                "entity_type": "Provincia",
-                "capitals": ["Santa Cruz de Tenerife"],
-                "dat": {1: ["Canarias"]}
-            },
             #{
-            #    "name": "Las Palmas",
-            #    "code": "LPA",
-            #    "entity_type": "Provincia",
-            #    "capitals": ["Las Palmas de Gran Canaria"],
-            #    "dat": {2: ["Las Palmas"]}
-            #},
-            #{
-            #    "name": "Santa Cruz de Tenerife",
-            #    "code": "SCT",
+            #    "name": "Canarias",
+            #    "code": "CAN",
             #    "entity_type": "Provincia",
             #    "capitals": ["Santa Cruz de Tenerife"],
-            #    "dat": {2: ["Santa Cruz de Tenerife"]}
+            #    "dat": {1: ["Canarias"]}
             #},
+            {
+                "name": "Las Palmas",
+                "code": "LPA",
+                "entity_type": "Provincia",
+                "capitals": ["Las Palmas de Gran Canaria"],
+                "dat": {2: ["Las Palmas"]}
+            },
+            {
+                "name": "Santa Cruz de Tenerife",
+                "code": "SCT",
+                "entity_type": "Provincia",
+                "capitals": ["Santa Cruz de Tenerife"],
+                "dat": {2: ["Santa Cruz de Tenerife"]}
+            },
         ],
     },
     {
@@ -534,7 +534,7 @@ DIVISIONS = [
         "capitals": ["Sidi Ifni"],
         "childs": [
             IFNI,
-            *SAHARA_OCCIDENTAL,
+            SAHARA_OCCIDENTAL,
         ],
     },
 ]
