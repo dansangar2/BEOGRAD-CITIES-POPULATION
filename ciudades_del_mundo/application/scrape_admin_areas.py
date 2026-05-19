@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Callable
 
 from ciudades_del_mundo.application.configured_cities import apply_configured_cities
@@ -98,6 +98,7 @@ class ScrapeAdminAreas:
                 self.on_page_start(progress)
 
             page_entities = scraper.scrape(config.base_url, config.country_code, page)
+            page_entities = _apply_page_area_overrides(page_entities, page.area_km2, page.area_overrides)
             self._notify_page_complete(progress, len(page_entities))
             entities.extend(page_entities)
         return entities
@@ -153,6 +154,41 @@ def _keep_first_scraped_entity(entities: list[ScrapedAdminArea]) -> list[Scraped
         seen.add(key)
         deduplicated.append(entity)
     return deduplicated
+
+
+def _apply_page_area_overrides(
+    entities: list[ScrapedAdminArea],
+    root_area_km2,
+    area_overrides: dict[str, object],
+) -> list[ScrapedAdminArea]:
+    if root_area_km2 is None and not area_overrides:
+        return entities
+
+    updated = []
+    for entity in entities:
+        area_km2 = _custom_area_for(entity, root_area_km2, area_overrides)
+        if area_km2 is None:
+            updated.append(entity)
+            continue
+
+        density = entity.density
+        if entity.pop_latest is not None and area_km2 != 0:
+            density = entity.pop_latest / area_km2
+        updated.append(replace(entity, area_km2=area_km2, density=density))
+    return updated
+
+
+def _custom_area_for(
+    entity: ScrapedAdminArea,
+    root_area_km2,
+    area_overrides: dict[str, object],
+):
+    for key in (entity.id, entity.code, entity.name):
+        if key in area_overrides:
+            return area_overrides[key]
+    if root_area_km2 is not None and entity.code == entity.country_code:
+        return root_area_km2
+    return None
 
 
 def _page_url(base_url: str, path: str) -> str:

@@ -8,3 +8,13 @@ CABO_JUBY = {
         2: {"morocco": ["Tan-Tan", "Assa-Zag"], "westernsahara": ["Tarfaya"]}
     },
 }
+IFNI = {
+    "name": "Ifni",
+    "code": "CJU",
+    "entity_type": "Provincia",
+    "capitals": ["Sidi Ifni"],
+    "forced_area_km2": 1502,
+    "spec": {
+        4: {"morocco": ["Sidi Ifni", "Tioughza", "Tnine Amellou", "Mesti"]}
+    },
+}

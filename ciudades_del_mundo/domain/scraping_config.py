@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 from math import ceil
 from typing import Iterable
@@ -31,6 +32,8 @@ class ScrapingPageConfig:
     path: str
     html_format: str
     lowest_level: int = 1
+    area_km2: Decimal | None = None
+    area_overrides: dict[str, Decimal] = field(default_factory=dict)
 
     @classmethod
     def from_mapping(cls, data: dict, *, path: str) -> "ScrapingPageConfig":
@@ -42,6 +45,10 @@ class ScrapingPageConfig:
             path=str(path).strip("/"),
             html_format=DivisionSourceType(str(source)).value,
             lowest_level=int(data.get("lowest_level", data.get("level", 1))),
+            area_km2=_decimal_or_none(data.get("area_km2", data.get("size", data.get("custom_size")))),
+            area_overrides=_parse_area_overrides(
+                data.get("area_overrides", data.get("size_overrides", data.get("custom_sizes")))
+            ),
         )
 
 
@@ -167,6 +174,32 @@ def _as_tuple(value) -> tuple[str, ...]:
     if isinstance(value, (str, int)):
         return (str(value),)
     return tuple(str(item) for item in value)
+
+
+def _decimal_or_none(value) -> Decimal | None:
+    if value in (None, ""):
+        return None
+    try:
+        decimal = Decimal(str(value))
+    except (InvalidOperation, ValueError) as exc:
+        raise ValueError(f"El tamano personalizado debe ser numerico: {value!r}.") from exc
+    if decimal < 0:
+        raise ValueError("El tamano personalizado no puede ser negativo.")
+    return decimal
+
+
+def _parse_area_overrides(value) -> dict[str, Decimal]:
+    if not value:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError("area_overrides debe ser un dict {codigo: area_km2}.")
+    overrides = {}
+    for key, raw_value in value.items():
+        area_km2 = _decimal_or_none(raw_value)
+        if area_km2 is None:
+            raise ValueError(f"area_overrides[{key!r}] debe declarar un area numerica.")
+        overrides[str(key)] = area_km2
+    return overrides
 
 
 def _normalize_page_path(slug: str, raw_path) -> str:

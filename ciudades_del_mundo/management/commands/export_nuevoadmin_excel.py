@@ -40,8 +40,8 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--output-dir",
-            default=".",
-            help="Directorio donde se escribira el .xlsx.",
+            default="excels",
+            help="Directorio donde se escribira el .xlsx. Por defecto: excels.",
         )
 
     def handle(self, *args, **opts):

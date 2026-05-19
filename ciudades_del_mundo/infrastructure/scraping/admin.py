@@ -103,6 +103,11 @@ class CityPopulationAdminScraper(BaseCityPopulationScraper):
         last_census_year = self._client.year_from_date(pop_latest_date)
         area_node = section.find(attrs={"data-area": True})
         density_node = section.find(attrs={"data-density": True})
+        area_km2 = self._client.safe_float(area_node.get("data-area")) if area_node else None
+        density = self._client.safe_float(density_node.get("data-density")) if density_node else None
+        area_km2 = self._normalize_root_area(country_code, area_km2)
+        if density is None and pop_latest is not None and area_km2 not in (None, 0):
+            density = pop_latest / area_km2
 
         return ScrapedAdminArea(
             code=country_code,
@@ -110,13 +115,18 @@ class CityPopulationAdminScraper(BaseCityPopulationScraper):
             level=level,
             country_code=country_code,
             entity_type=entity_type,
-            area_km2=self._client.safe_float(area_node.get("data-area")) if area_node else None,
-            density=self._client.safe_float(density_node.get("data-density")) if density_node else None,
+            area_km2=area_km2,
+            density=density,
             pop_latest=pop_latest,
             pop_latest_date=pop_latest_date,
             last_census_year=last_census_year,
             url=url,
         )
+
+    def _normalize_root_area(self, country_code: str, area_km2: float | None) -> float | None:
+        if country_code == "puertorico" and area_km2 is not None and area_km2 > 100000:
+            return area_km2 / 100
+        return area_km2
 
     def _relative_level(self, tbody) -> int | None:
         for class_name in tbody.get("class") or []:

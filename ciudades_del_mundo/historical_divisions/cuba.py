@@ -18,144 +18,178 @@ ARTEMISA_A_LA_HABANA = ["Caimito", "Alquízar", "Bauta", "an Antonio de los Bañ
 
 
 
-DIVISIONS = [
+DIVISIONS_XV = [
     {
         "name": "Cuba",
+        "code": "CUB",
         "capitals": ["Santiago de Cuba"],
         "year_start": 1510,
         "year_end": 1606,
-        "spec": {0: {"spain": "Cuba"}}
+        "entity_type": "Provincia",
+        "spec": {0: {"cuba": "Cuba"}}
     },
+]
 
+DIVISIONS_XVII = [
     {
         "name": "Occidente",
+        "code": "OCC",
         "capitals": ["La Habana"],
         "year_start": 1607,
         "year_end": 1773,
+        "entity_type": "Provincia",
         "spec": {
-            1: {"spain": A_CUBA_OCCIDENTAL + A_CUBA_CENTRAL},
-            "restar": {2: {"spain": SANCTI_SPIRITUS_A_ORIENTAL}}
+            1: {"cuba": A_CUBA_OCCIDENTAL + A_CUBA_CENTRAL},
+            "restar": {2: {"cuba": SANCTI_SPIRITUS_A_ORIENTAL}}
         }
     },
     {
         "name": "Oriente",
+        "code": "ORI",
         "capitals": ["Santiago de Cuba"],
         "year_start": 1607,
         "year_end": 1773,
+        "entity_type": "Provincia",
         "spec": {
-            0: {"spain": "Cuba"},
-            2: {"spain": SANCTI_SPIRITUS_A_ORIENTAL},
-            "restar": {1: {"spain": A_CUBA_OCCIDENTAL + A_CUBA_CENTRAL}}
+            0: {"cuba": "Cuba"},
+            2: {"cuba": SANCTI_SPIRITUS_A_ORIENTAL},
+            "restar": {1: {"cuba": A_CUBA_OCCIDENTAL + A_CUBA_CENTRAL}}
         }
     },
+]
 
+DIVISIONS_XVIII = [
     {
         "name": "Occidente",
+        "code": "OCC",
         "capitals": ["La Habana"],
         "year_start": [1774, 1853],
         "year_end": [1826, 1877],
+        "entity_type": "Provincia",
         "spec": {
-            0: {"spain": "Cuba"},
-            2: {"spain": LAS_TUNAS_A_OCCIDENTAL},
-            "restar": {1: {"spain": A_CUBA_ORIENTAL}}
+            0: {"cuba": "Cuba"},
+            2: {"cuba": LAS_TUNAS_A_OCCIDENTAL},
+            "restar": {1: {"cuba": A_CUBA_ORIENTAL}}
         }
     },
     {
         "name": "Oriente",
+        "code": "ORI",
         "capitals": ["Santiago de Cuba"],
         "year_start": [1774, 1853],
         "year_end": [1826, 1877],
+        "entity_type": "Provincia",
         "spec": {
-            1: {"spain": A_CUBA_ORIENTAL},
-            "restar": {2: {"spain": LAS_TUNAS_A_OCCIDENTAL}}
+            1: {"cuba": A_CUBA_ORIENTAL},
+            "restar": {2: {"cuba": LAS_TUNAS_A_OCCIDENTAL}}
         }
     },
-
+]
+DIVISIONS_XVIII_2 = [
     {
         "name": "Occidente",
+        "code": "OCC",
         "capitals": ["La Habana"],
         "year_start": 1850,
         "year_end": 1852,
+        "entity_type": "Provincia",
         "spec": {
-            1: {"spain": A_CUBA_OCCIDENTAL},
-            "restar": {1: {"spain": MATANZAS_A_CENTRAL}}
+            1: {"cuba": A_CUBA_OCCIDENTAL},
+            "restar": {1: {"cuba": MATANZAS_A_CENTRAL}}
         }
     },
     {
         "name": "Central",
+        "code": "CEN",
         "capitals": ["Camagüey"],
         "year_start": 1850,
         "year_end": 1852,
+        "entity_type": "Provincia",
         "spec": {
-            0: {"spain": "Cuba"},
-            2: {"spain": MATANZAS_A_CENTRAL + LAS_TUNAS_A_CENTRO},
-            "restar": {2: {"spain": A_CUBA_OCCIDENTAL + A_CUBA_ORIENTAL}}
+            0: {"cuba": "Cuba"},
+            2: {"cuba": MATANZAS_A_CENTRAL + LAS_TUNAS_A_CENTRO},
+            "restar": {2: {"cuba": A_CUBA_OCCIDENTAL + A_CUBA_ORIENTAL}}
         }
     },
     {
         "name": "Oriente",
+        "code": "ORI",
         "capitals": ["Santiago de Cuba"],
         "year_start": 1850,
         "year_end": 1852,
+        "entity_type": "Provincia",
         "spec": {
-            1: {"spain": A_CUBA_ORIENTAL},
-            "restar": {2: {"spain": LAS_TUNAS_A_CENTRO}}
+            1: {"cuba": A_CUBA_ORIENTAL},
+            "restar": {2: {"cuba": LAS_TUNAS_A_CENTRO}}
         }
     },
-
+]
+DIVISIONS_XIX = [
     {
         "name": "Pinar del Río",
+        "code": "PIR",
         "capitals": ["Pinar del Río"],
         "year_start": 1878,
+        "entity_type": "Provincia",
         "spec": {
-            1: {"spain": A_PINAR_DEL_RIO},
-            "restar": {2: {"spain": ARTEMISA_A_LA_HABANA}}
+            1: {"cuba": A_PINAR_DEL_RIO},
+            "restar": {2: {"cuba": ARTEMISA_A_LA_HABANA}}
         }
     },
     {
         "name": "La Habana",
+        "code": "HAB",
         "capitals": ["La Habana"],
         "year_start": 1878,
+        "entity_type": "Provincia",
         "spec": {
-            1: {"spain": A_LA_HABANA},
-            2: {"spain": ARTEMISA_A_LA_HABANA},
+            1: {"cuba": A_LA_HABANA},
+            2: {"cuba": ARTEMISA_A_LA_HABANA},
         }
     },
     {
         "name": "Matanzas",
+        "code": "MAT",
         "capitals": ["Matanzas"],
         "year_start": 1878,
+        "entity_type": "Provincia",
         "spec": {
-            1: {"spain": A_MATANZAS},
-            "restar": {2: {"spain": MATANZAS_A_SANTA_CLARA}}
+            1: {"cuba": A_MATANZAS},
+            "restar": {2: {"cuba": MATANZAS_A_SANTA_CLARA}}
         }
     },
     {
         "name": "Santa Clara",
+        "code": "SCL",
         "capitals": ["Santa Clara"],
         "year_start": 1878,
+        "entity_type": "Provincia",
         "spec": {
-            1: {"spain": A_SANTA_CLARA},
-            2: {"spain": MATANZAS_A_SANTA_CLARA},
-            "restar": {2: {"spain": LAS_VILLAS_A_PUERTO_PRINCIPE}}
+            1: {"cuba": A_SANTA_CLARA},
+            2: {"cuba": MATANZAS_A_SANTA_CLARA},
+            "restar": {2: {"cuba": LAS_VILLAS_A_PUERTO_PRINCIPE}}
         }
     },
     {
         "name": "Puerto Príncipe",
+        "code": "PPR",
         "capitals": ["Camagüey"],
         "year_start": 1878,
+        "entity_type": "Provincia",
         "spec": {
-            1: {"spain": A_PUERTO_PRINCIPE},
-            2: {"spain": LAS_TUNAS_A_PUERTO_PRINCIPE + LAS_VILLAS_A_PUERTO_PRINCIPE},
+            1: {"cuba": A_PUERTO_PRINCIPE},
+            2: {"cuba": LAS_TUNAS_A_PUERTO_PRINCIPE + LAS_VILLAS_A_PUERTO_PRINCIPE},
         }
     },
     {
         "name": "Santiago de Cuba",
+        "code": "SCU",
         "capitals": ["Santiago de Cuba"],
         "year_start": 1878,
+        "entity_type": "Provincia",
         "spec": {
-            1: {"spain": A_SANTIAGO_DE_CUBA},
-            "restar": {2: {"spain": LAS_TUNAS_A_PUERTO_PRINCIPE}}
+            1: {"cuba": A_SANTIAGO_DE_CUBA},
+            "restar": {2: {"cuba": LAS_TUNAS_A_PUERTO_PRINCIPE}}
         }
     },
 ]

@@ -71,11 +71,13 @@ system = "dhondt"
 source = "admin"
 path = ["admin"]
 lowest_level = 0
+area_km2 = 505990
 
 [[pages]]
 source = "table"
 path = ["andalucia", "aragon", "asturias"]
 lowest_level = 1
+area_overrides = { "51" = 19.00, "52" = 13.40 }
 
 [[pages]]
 source = "double"
@@ -97,6 +99,8 @@ communes = []
 - `pages` agrupa paginas por parser y nivel.
 - `path` siempre es un array, aunque solo haya una ruta.
 - `source` selecciona el scraper.
+- `area_km2` permite indicar un tamano personalizado para la entidad raiz scrapeada en esa pagina.
+- `area_overrides` permite indicar tamanos personalizados por `id`, `code` o `name` de entidad scrapeada.
 - `LEGAL_SUBDIVISION` es el unico nombre aceptado para el nivel legal.
 - `admin` e `infosection` son tipos de scraper, no atajos especiales de ruta.
 
@@ -140,6 +144,8 @@ py manage.py build_new_subdivisions --country-id spanish_federal_republic
 py manage.py export_nuevoadmin_csv --country-id spanish_federal_republic
 py manage.py export_nuevoadmin_excel --country-id spanish_federal_republic
 ```
+
+Los Excel se guardan por defecto en la subcarpeta `excels/`. Puedes cambiarla con `--output-dir`.
 
 ## Estructura del repositorio
 

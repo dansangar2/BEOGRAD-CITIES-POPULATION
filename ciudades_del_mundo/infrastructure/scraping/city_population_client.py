@@ -143,6 +143,12 @@ class CityPopulationClient:
                 area_km2 = area_km2 / area_divisor
         if area_km2 is None:
             area_km2 = self._area_from_noviz_cell(tr)
+        area_km2 = self._normalize_area_km2(
+            country_code=country_code,
+            level=explicit_level,
+            entity_id=entity_id,
+            area_km2=area_km2,
+        )
         pop_latest, pop_latest_date = self._extract_latest_numeric_population(
             tr,
             last_visible_pop_idx,
@@ -223,6 +229,18 @@ class CityPopulationClient:
             return float(value.replace(",", "."))
         except Exception:
             return None
+
+    def _normalize_area_km2(
+        self,
+        *,
+        country_code: str,
+        level: int | None,
+        entity_id: str,
+        area_km2: float | None,
+    ) -> float | None:
+        if country_code == "puertorico" and area_km2 is not None and area_km2 > 100000:
+            return area_km2 / 100
+        return area_km2
 
     def safe_float_text(self, value: str | None) -> float | None:
         if not value:

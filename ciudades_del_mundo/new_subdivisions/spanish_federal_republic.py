@@ -1,4 +1,7 @@
 from ciudades_del_mundo.domain import RepresentationSystem
+from ciudades_del_mundo.historical_divisions.cuba import DIVISIONS_XIX
+from ciudades_del_mundo.historical_divisions.morocco import IFNI
+from ciudades_del_mundo.historical_divisions.sahara import SAHARA_OCCIDENTAL
 
 SOURCE_COUNTRY = "spain"
 
@@ -111,8 +114,8 @@ DIVISIONS = [
         "capitals": ["Oviedo"],
         "childs": [
             {
-                "name": "Asturias",
-                "code": "ASTP",
+                "name": "Oviedo",
+                "code": "OVI",
                 "entity_type": "Provincia",
                 "capitals": ["Oviedo"],
                 "dat": {2: ["Asturias"]}
@@ -127,7 +130,7 @@ DIVISIONS = [
         "childs": [
             {
                 "name": "Baleares",
-                "code": "BALP",
+                "code": "BAL",
                 "entity_type": "Provincia",
                 "capitals": ["Palma"],
                 "dat": {2: ["Illes Balears"]}
@@ -141,19 +144,26 @@ DIVISIONS = [
         "capitals": ["Santa Cruz de Tenerife"],
         "childs": [
             {
-                "name": "Las Palmas",
-                "code": "LPA",
-                "entity_type": "Provincia",
-                "capitals": ["Las Palmas de Gran Canaria"],
-                "dat": {2: ["Las Palmas"]}
-            },
-            {
-                "name": "Santa Cruz de Tenerife",
-                "code": "SCT",
+                "name": "Canarias",
+                "code": "CAN",
                 "entity_type": "Provincia",
                 "capitals": ["Santa Cruz de Tenerife"],
-                "dat": {2: ["Santa Cruz de Tenerife"]}
+                "dat": {1: ["Canarias"]}
             },
+            #{
+            #    "name": "Las Palmas",
+            #    "code": "LPA",
+            #    "entity_type": "Provincia",
+            #    "capitals": ["Las Palmas de Gran Canaria"],
+            #    "dat": {2: ["Las Palmas"]}
+            #},
+            #{
+            #    "name": "Santa Cruz de Tenerife",
+            #    "code": "SCT",
+            #    "entity_type": "Provincia",
+            #    "capitals": ["Santa Cruz de Tenerife"],
+            #    "dat": {2: ["Santa Cruz de Tenerife"]}
+            #},
         ],
     },
     {
@@ -220,15 +230,15 @@ DIVISIONS = [
                 "dat": {2: ["Burgos"]}
             },
             {
-                "name": "Cantabria",
-                "code": "CANP",
+                "name": "Santander",
+                "code": "SAN",
                 "entity_type": "Provincia",
                 "capitals": ["Santander"],
                 "dat": {2: ["Cantabria"]}
             },
             {
-                "name": "La Rioja",
-                "code": "RIO",
+                "name": "Logroño",
+                "code": "LOG",
                 "entity_type": "Provincia",
                 "capitals": ["Logroño"],
                 "dat": {2: ["La Rioja"]}
@@ -270,7 +280,7 @@ DIVISIONS = [
             },
             {
                 "name": "Valladolid",
-                "code": "VLL",
+                "code": "VAL",
                 "entity_type": "Provincia",
                 "capitals": ["Valladolid"],
                 "dat": {2: ["Valladolid"]}
@@ -292,21 +302,21 @@ DIVISIONS = [
         "childs": [
             {
                 "name": "Barcelona",
-                "code": "BCN",
+                "code": "BAR",
                 "entity_type": "Provincia",
                 "capitals": ["Barcelona"],
                 "dat": {2: ["Barcelona"]}
             },
             {
-                "name": "Girona",
-                "code": "GIR",
+                "name": "Gerona",
+                "code": "GER",
                 "entity_type": "Provincia",
                 "capitals": ["Girona"],
                 "dat": {2: ["Girona"]}
             },
             {
-                "name": "Lleida",
-                "code": "LLE",
+                "name": "Lérida",
+                "code": "LER",
                 "entity_type": "Provincia",
                 "capitals": ["Lleida"],
                 "dat": {2: ["Lleida"]}
@@ -319,6 +329,13 @@ DIVISIONS = [
                 "dat": {2: ["Tarragona"]}
             },
         ],
+    },
+    {
+        "name": "Cuba",
+        "code": "CUB",
+        "entity_type": "Estado",
+        "capitals": ["La Habana"],
+        "childs": DIVISIONS_XIX,
     },
     {
         "name": "Extremadura",
@@ -349,8 +366,8 @@ DIVISIONS = [
         "capitals": ["Santiago de Compostela"],
         "childs": [
             {
-                "name": "A Coruña",
-                "code": "CORU",
+                "name": "La Coruña",
+                "code": "COR",
                 "entity_type": "Provincia",
                 "capitals": ["A Coruña"],
                 "dat": {2: ["A Coruña"]}
@@ -363,8 +380,8 @@ DIVISIONS = [
                 "dat": {2: ["Lugo"]}
             },
             {
-                "name": "Ourense",
-                "code": "OUR",
+                "name": "Orense",
+                "code": "ORE",
                 "entity_type": "Provincia",
                 "capitals": ["Ourense"],
                 "dat": {2: ["Ourense"]}
@@ -393,7 +410,7 @@ DIVISIONS = [
             },
             {
                 "name": "Murcia",
-                "code": "MRC",
+                "code": "MUR",
                 "entity_type": "Provincia",
                 "capitals": ["Murcia"],
                 "dat": {2: ["Murcia"]}
@@ -408,10 +425,25 @@ DIVISIONS = [
         "childs": [
             {
                 "name": "Navarra",
-                "code": "NAVP",
+                "code": "NAV",
                 "entity_type": "Provincia",
                 "capitals": ["Pamplona"],
                 "dat": {2: ["Navarra"]}
+            },
+        ],
+    },
+    {
+        "name": "Puerto Rico",
+        "code": "PRI",
+        "entity_type": "Estado",
+        "capitals": ["San Juan"],
+        "childs": [
+            {
+                "name": "Puerto Rico",
+                "code": "PRI",
+                "entity_type": "Provincia",
+                "capitals": ["San Juan"],
+                "spec": {0: {"puertorico": ["Puerto Rico"]}}
             },
         ],
     },
@@ -437,7 +469,7 @@ DIVISIONS = [
             },
             {
                 "name": "Valencia",
-                "code": "VLC",
+                "code": "VAL",
                 "entity_type": "Provincia",
                 "capitals": ["València"],
                 "dat": {2: ["València"]}
@@ -458,26 +490,58 @@ DIVISIONS = [
                 "dat": {2: ["Araba"]}
             },
             {
-                "name": "Gipuzkoa",
-                "code": "GIP",
+                "name": "Guipúzcoa",
+                "code": "GUI",
                 "entity_type": "Provincia",
                 "capitals": ["Donostia"],
                 "dat": {2: ["Gipuzkoa"]}
             },
             {
-                "name": "Bizkaia",
-                "code": "BIZ",
+                "name": "Vizcaya",
+                "code": "VIZ",
                 "entity_type": "Provincia",
                 "capitals": ["Bilbao"],
                 "dat": {2: ["Bizkaia"]}
             },
         ],
     },
+    {
+        "name": "Territorios en el Golfo de Guinea",
+        "code": "GUI",
+        "entity_type": "Estado",
+        "capitals": ["Malabo"],
+        "childs": [
+            {
+                "name": "Fernando Poo",
+                "code": "FEP",
+                "entity_type": "Provincia",
+                "capitals": ["Malabo"],
+                "spec": {1: {"equatorialguinea": ["Bioko Norte", "Bioko Sur", "Annobón"]}}
+            },
+            {
+                "name": "Rio Muni",
+                "code": "RMU",
+                "entity_type": "Provincia",
+                "capitals": ["Bata"],
+                "spec": {1: {"equatorialguinea": ["Centro Sur", "Kié-Ntem", "Litoral", "Wele-Nzas"]}}
+            },
+        ],
+    },
+    {
+        "name": "África Occidental",
+        "code": "AOC",
+        "entity_type": "Estado",
+        "capitals": ["Sidi Ifni"],
+        "childs": [
+            IFNI,
+            *SAHARA_OCCIDENTAL,
+        ],
+    },
 ]
 
 REPRESENTATION = {
     "level": 2,
-    "total": 350,
+    "total": 500,
     "min": 2,
     #"min_exceptions": {"spain_51": 1, "spain_52": 1},
     #"max_exceptions": {"spain_51": 1, "spain_52": 1},

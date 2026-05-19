@@ -20,7 +20,10 @@ ORIGINAL_MUNICIPAL_LEVEL: dict[str, int] = {
     "portugal": 2,
     "andorra": 2,
     "gibraltar": 1,
-    "morocco": 3,
+    "puertorico": 3,
+    "equatorialguinea": 2,
+    "morocco": 4,
+    "cuba": 2,
     "italy": 3,
     "algeria": 2,
     "westernsahara": 3,
@@ -179,6 +182,14 @@ def _descendants_at_level(root: AdminArea, target_level: int) -> list[AdminArea]
         ids = [a.id for a in current]
         current = list(AdminArea.objects.filter(parent_id__in=ids))
         current_level += 1
+
+    if not current and root.level == 0:
+        current = list(
+            AdminArea.objects.filter(
+                country_code=root.country_code,
+                level=target_level,
+            )
+        )
 
     return current
 
