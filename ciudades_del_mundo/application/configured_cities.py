@@ -43,7 +43,7 @@ def _apply_configured_city(
         level=config.level,
         country_code=country_code,
         entity_type=config.entity_type,
-        parent_code=parent.code if parent else None,
+        parent_code=_configured_city_parent_code(config, parent),
         area_km2=total_area,
         density=density,
         pop_latest=total_pop,
@@ -53,12 +53,16 @@ def _apply_configured_city(
             default=None,
         ),
     )
+    child_city = _configured_city_child(config, city)
 
+    source_unit_codes = {commune.code for commune in resolved_communes}
     target_commune_level = config.level + 1
-    shifts_by_code = {
-        commune.code: target_commune_level - commune.level
-        for commune in resolved_communes
-    }
+    shifts_by_code = {}
+    if config.keep_communes:
+        shifts_by_code = {
+            commune.code: target_commune_level - commune.level
+            for commune in resolved_communes
+        }
     stale_configured_children_by_code = {
         entity.code: -1
         for entity in entities
@@ -66,9 +70,14 @@ def _apply_configured_city(
         and entity.level > config.level
         and not _matches_district_type(entity, config)
     }
+    configured_codes = {config.code}
+    if config.child_code:
+        configured_codes.add(config.child_code)
     transformed = []
     for entity in entities:
-        if entity.code == config.code:
+        if not config.keep_communes and _belongs_to_source_unit(entity, source_unit_codes, by_code):
+            continue
+        if entity.code in configured_codes:
             continue
 
         stale_shift = _shift_for_entity(entity, stale_configured_children_by_code, by_code)
@@ -104,7 +113,53 @@ def _apply_configured_city(
         )
 
     transformed.append(city)
+    if child_city:
+        transformed.append(child_city)
     return transformed
+
+
+def _configured_city_child(config: CityConfig, city: ScrapedAdminArea) -> ScrapedAdminArea | None:
+    if not config.child_code:
+        return None
+    return replace(
+        city,
+        code=config.child_code,
+        level=config.child_level or config.level + 1,
+        entity_type=config.child_entity_type or config.entity_type,
+        parent_code=config.code,
+    )
+
+
+def _configured_city_parent_code(config: CityConfig, parent: ScrapedAdminArea | None) -> str | None:
+    if not parent:
+        return None
+    if parent.code == config.code:
+        return parent.parent_code
+    return parent.code
+
+
+def _belongs_to_source_unit(
+    entity: ScrapedAdminArea,
+    source_unit_codes: set[str],
+    by_code: dict[str, ScrapedAdminArea],
+) -> bool:
+    if entity.code in source_unit_codes:
+        return True
+
+    parent_code = entity.parent_code
+    seen = set()
+    while parent_code and parent_code not in seen:
+        if parent_code in source_unit_codes:
+            return True
+        seen.add(parent_code)
+        parent = by_code.get(parent_code)
+        parent_code = parent.parent_code if parent else None
+
+    for code in source_unit_codes:
+        source = by_code.get(code)
+        if source and entity.level > source.level and entity.code.startswith(code):
+            return True
+    return False
 
 
 def _shift_for_entity(

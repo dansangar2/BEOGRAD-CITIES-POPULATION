@@ -1,0 +1,42 @@
+[[pages]]
+source = "infosection"
+path = ["cities"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "table"
+path = [
+  "cerkasy",
+  "cernihiv",
+  "cernivcy",
+  "charkiv",
+  "cherson",
+  "chmelnyckyj",
+  "dnipropetrovsk",
+  "doneck",
+  "ivanofrankivsk",
+  "kievcity",
+  "kirovohrad",
+  "kyiv",
+  "luhansk",
+  "lviv",
+  "mykolaiv",
+  "odesa",
+  "poltava",
+  "rivne",
+  "sumy",
+  "ternopil",
+  "vinnycja",
+  "volyn",
+  "zakarpattja",
+  "zaporizzija",
+  "zytomyr",
+  "krym",
+  "msevastopol",
+]
+lowest_level = 1

@@ -1,0 +1,85 @@
+from ciudades_del_mundo.models import NuevoAdminArea
+
+from ciudades_del_mundo.historical_divisions.espanha import *
+from ciudades_del_mundo.historical_divisions.portugal import *
+from ciudades_del_mundo.historical_divisions.italy import *
+
+
+#================================================================
+
+DIVISIONS = [
+        {
+            "name": "Castilla",
+            "code": "CCAS",
+            "entity_type": "Corona",
+            "capitals": ["Madrid"],
+            "childs": [
+                {
+                    "name": "Castilla",
+                    "code": "CAS",
+                    "entity_type": "Corona",
+                    "capitals": ["Madrid"],
+                    "childs": [ 
+                        ALAVA_A, VIZCAYA, GUIPUZCOA, 
+                        LEON_A, TORO_A, ZAMORA_A, SALAMANCA_A, 
+                        BURGOS_A, SORIA_A, VALLADOLID_A, SEGOVIA_A, AVILA_A, 
+                        MADRID_A, GUADALAJARA_A, TOLEDO_A, CUENCA_A, 
+                        MURCIA_A, 
+                        SEVILLA_A, CORDOBA_A, JAEN_A, 
+                        CANARIAS, 
+                        GRANADA_A, MELILLA, ORAN, 
+                    ]
+                }, 
+                NAVARRA_A,
+            ]
+        },
+        {
+            "name": "Aragón",
+            "code": "CARA",
+            "entity_type": "Corona",
+            "capitals": ["Zaragoza", "Barcelona"],
+            "childs": [
+                ARAGON, 
+                CATALUNHA_A,
+                VALENCIA_A, 
+                MALLORCA,
+                CERDENHA,
+            ]
+        },
+        {
+            "name": "Portugal",
+            "code": "CPOR",
+            "entity_type": "Reino",
+            "capitals": ["Lisboa"],
+            "childs": [
+                {
+                    "name": "Portugal",
+                    "code": "POR",
+                    "entity_type": "Reino",
+                    "capitals": ["Lisboa"],
+                    "childs": [
+                        {
+                            "name": "Portugal",
+                            "code": "POR",
+                            "entity_type": "Reino",
+                            "capitals": ["Lisboa"],
+                            "childs": [ ALENTEJO, BEIRA, ALGARVE, ESTREMADURA, ENTRE_EL_DUERO_Y_MINHO, DETRAS_DE_LOS_MONTES_Y_ALTO_DUERO,]        
+                        }, AZORES, MADEIRA, 
+                        {
+                            "name": "Algarbe de Ultramar",
+                            "code": "ALU",
+                            "entity_type": "Reino",
+                            "capitals": ["Tánger"],
+                            "childs": [CEUTA, TANGER, ALCAZARSEGUIR, ARCILA, CASABLANCA, MAZAGAN,]
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+
+ESCANHOS = {
+        "nivel": NuevoAdminArea.Level.ADMIN2,  # provincias del imperio
+        "escanhos": 80,                        # total de escaños a repartir
+        "min": 2,                              # mínimo por provincia
+    }

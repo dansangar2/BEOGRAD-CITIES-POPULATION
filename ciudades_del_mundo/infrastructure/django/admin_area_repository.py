@@ -6,6 +6,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
+from django.utils import timezone
 
 from ciudades_del_mundo.domain import (
     AdminAreaSummary,
@@ -43,32 +44,53 @@ class DjangoAdminAreaRepository:
 
     @transaction.atomic
     def save_many(self, country_code: str, entities: list[ScrapedAdminArea]) -> tuple[int, int]:
-        created = 0
-        updated = 0
-        cache = {item.code: item for item in AdminArea.objects.filter(country_code=country_code)}
+        if not entities:
+            return 0, 0
 
-        for entity in sorted(entities, key=lambda item: item.level):
-            parent = cache.get(entity.parent_code) if entity.parent_code else None
-            obj, was_created = AdminArea.objects.update_or_create(
-                id=entity.id,
-                defaults={
-                    "country_code": country_code,
-                    "code": entity.code,
-                    "name": entity.name,
-                    "level": entity.level,
-                    "entity_type": entity.entity_type,
-                    "parent": parent,
-                    "area_km2": _to_decimal(entity.area_km2),
-                    "density": _to_decimal(entity.density),
-                    "pop_latest": entity.pop_latest,
-                    "pop_latest_date": _to_date(entity.pop_latest_date),
-                    "last_census_year": entity.last_census_year,
-                    "url": entity.url,
-                },
+        existing = {
+            item.code: item.id
+            for item in AdminArea.objects.filter(country_code=country_code).only("id", "code")
+        }
+        incoming_ids = {entity.id for entity in entities}
+        existing_ids = set(existing.values())
+        created = sum(1 for entity_id in incoming_ids if entity_id not in existing_ids)
+        updated = len(incoming_ids) - created
+
+        known_codes = set(existing)
+        update_fields = [
+            "country_code",
+            "code",
+            "name",
+            "level",
+            "entity_type",
+            "parent",
+            "area_km2",
+            "density",
+            "pop_latest",
+            "pop_latest_date",
+            "last_census_year",
+            "url",
+            "updated_at",
+        ]
+
+        for level in sorted({entity.level for entity in entities}):
+            level_entities = [entity for entity in entities if entity.level == level]
+            objects = [
+                _admin_area_from_entity(
+                    country_code=country_code,
+                    entity=entity,
+                    known_codes=known_codes,
+                )
+                for entity in level_entities
+            ]
+            AdminArea.objects.bulk_create(
+                objects,
+                batch_size=SQLITE_SAFE_BATCH_SIZE,
+                update_conflicts=True,
+                update_fields=update_fields,
+                unique_fields=["id"],
             )
-            cache[obj.code] = obj
-            created += int(was_created)
-            updated += int(not was_created)
+            known_codes.update(entity.code for entity in level_entities)
 
         return created, updated
 
@@ -210,3 +232,30 @@ def _next_dhondt_candidate(
 class DjangoUnitOfWork:
     def transaction(self):
         return transaction.atomic()
+
+
+def _admin_area_from_entity(
+    *,
+    country_code: str,
+    entity: ScrapedAdminArea,
+    known_codes: set[str],
+) -> AdminArea:
+    now = timezone.now()
+    parent_id = f"{country_code}_{entity.parent_code}" if entity.parent_code in known_codes else None
+    return AdminArea(
+        id=entity.id,
+        country_code=country_code,
+        code=entity.code,
+        name=entity.name,
+        level=entity.level,
+        entity_type=entity.entity_type,
+        parent_id=parent_id,
+        area_km2=_to_decimal(entity.area_km2),
+        density=_to_decimal(entity.density),
+        pop_latest=entity.pop_latest,
+        pop_latest_date=_to_date(entity.pop_latest_date),
+        last_census_year=entity.last_census_year,
+        url=entity.url,
+        created_at=now,
+        updated_at=now,
+    )

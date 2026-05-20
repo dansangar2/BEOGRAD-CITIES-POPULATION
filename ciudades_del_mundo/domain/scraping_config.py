@@ -63,21 +63,52 @@ class CityConfig:
     district_types: tuple[str, ...]
     parent_from: dict[int, tuple[str, ...]]
     communes: tuple[str, ...]
+    keep_communes: bool = True
+    child_code: str | None = None
+    child_level: int | None = None
+    child_entity_type: str | None = None
 
     @classmethod
     def from_mapping(cls, data: dict) -> "CityConfig":
         raw_parent = data.get("from") or {}
         if not isinstance(raw_parent, dict):
             raise ValueError("CITIES['from'] debe ser un dict {level: [labels]}.")
+        level = int(data["level"])
+        child_level = int(data["child_level"]) if data.get("child_level") is not None else None
+        if child_level is not None and child_level <= level:
+            raise ValueError("CITIES['child_level'] debe ser mayor que 'level'.")
 
         return cls(
             name=str(data["city"]),
             code=str(data["id"]),
-            level=int(data["level"]),
+            level=level,
             entity_type=str(data["type"]),
             district_types=_as_tuple(data.get("district_types") or ()),
             parent_from={int(level): _as_tuple(labels) for level, labels in raw_parent.items()},
             communes=_as_tuple(data.get("communes") or ()),
+            keep_communes=bool(data.get("keep_communes", True)),
+            child_code=str(data["child_id"]) if data.get("child_id") is not None else None,
+            child_level=child_level,
+            child_entity_type=str(data["child_type"]) if data.get("child_type") is not None else None,
+        )
+
+
+@dataclass(frozen=True)
+class EntityMergeConfig:
+    """Rule to merge same-level scraped entities by parent and normalized base name."""
+
+    entity_types: tuple[str, ...]
+    entity_type: str
+    strip_numeric_suffix: bool = True
+    keep_sources: bool = False
+
+    @classmethod
+    def from_mapping(cls, data: dict) -> "EntityMergeConfig":
+        return cls(
+            entity_types=_as_tuple(data.get("entity_types") or data.get("district_types") or ()),
+            entity_type=str(data.get("type", data.get("entity_type", "City"))),
+            strip_numeric_suffix=bool(data.get("strip_numeric_suffix", True)),
+            keep_sources=bool(data.get("keep_sources", False)),
         )
 
 
@@ -147,10 +178,15 @@ class ScrapingJobConfig:
     representation: RepresentationConfig | None = None
     pages: list[ScrapingPageConfig] = field(default_factory=list)
     cities: list[CityConfig] = field(default_factory=list)
+    entity_merges: list[EntityMergeConfig] = field(default_factory=list)
 
 
 def parse_cities(items: Iterable[dict] | None) -> list[CityConfig]:
     return [CityConfig.from_mapping(item) for item in (items or [])]
+
+
+def parse_entity_merges(items: Iterable[dict] | None) -> list[EntityMergeConfig]:
+    return [EntityMergeConfig.from_mapping(item) for item in (items or [])]
 
 
 def parse_pages(items: Iterable[dict] | None, *, slug: str) -> list[ScrapingPageConfig]:

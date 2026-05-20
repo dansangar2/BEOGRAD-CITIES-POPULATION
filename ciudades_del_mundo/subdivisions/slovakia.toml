@@ -1,0 +1,47 @@
+[[pages]]
+source = "infosection"
+path = ["cities"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "table"
+path = [
+  "banskobystrickykraj",
+  "bratislavskykraj",
+  "kosickykraj",
+  "nitrianskykraj",
+  "presovskykraj",
+  "trencianskykraj",
+  "trnavskykraj",
+  "zilinskykraj",
+]
+lowest_level = 1
+
+[[cities]]
+city = "Bratislava"
+id = "100"
+district_types = ["City District"]
+level = 2
+type = "City"
+from = { 1 = ["1"] }
+keep_communes = false
+child_id = "528000"
+child_level = 3
+child_type = "City"
+
+[[cities]]
+city = "Košice"
+id = "800"
+district_types = ["City District"]
+level = 2
+type = "City"
+from = { 1 = ["8"] }
+keep_communes = false
+child_id = "599000"
+child_level = 3
+child_type = "City"

@@ -106,7 +106,7 @@ PORTUGAL = {
     "spec": {
         0: {"portugal": ["Portugal"]},
         2:{"spain": ["Ceuta"]},
-        3: {"spain": OLIVENZA, "morocco": ["Tanger", "Ksar Sghir", "Assilah", "Casablanca", "El Jadida"]}
+        3: {"spain": OLIVENZA, "morocco": ["Tanger", "Casablanca", "Ksar Sghir", "Assilah", "El Jadida"]},
     }
 }
 

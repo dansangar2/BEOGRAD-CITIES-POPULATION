@@ -7,6 +7,7 @@ from dataclasses import dataclass, replace
 from typing import Callable
 
 from ciudades_del_mundo.application.configured_cities import apply_configured_cities
+from ciudades_del_mundo.application.entity_merges import apply_entity_merges
 from ciudades_del_mundo.domain import ScrapedAdminArea, ScrapingJobConfig, calculate_most_populated_assignments
 from ciudades_del_mundo.ports import AdminAreaRepository, HtmlScraper, UnitOfWork
 
@@ -131,6 +132,9 @@ class ScrapeAdminAreas:
         entities: list[ScrapedAdminArea],
     ) -> list[ScrapedAdminArea]:
         entities = _keep_first_scraped_entity(entities)
+        if config.entity_merges:
+            entities = apply_entity_merges(entities, config.entity_merges)
+            entities = _keep_first_scraped_entity(entities)
         if not config.cities:
             return entities
 

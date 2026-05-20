@@ -1,0 +1,9 @@
+[[pages]]
+source = "cities"
+path = ["cities"]
+lowest_level = 0
+
+[[pages]]
+source = "table"
+path = ["towns"]
+lowest_level = 1

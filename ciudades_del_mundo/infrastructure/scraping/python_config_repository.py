@@ -9,6 +9,7 @@ from ciudades_del_mundo.domain import (
     RepresentationConfig,
     ScrapingJobConfig,
     parse_cities,
+    parse_entity_merges,
     parse_pages,
 )
 
@@ -53,6 +54,7 @@ class PythonScrapingConfigRepository:
             representation=RepresentationConfig.from_mapping(data.get("representation")),
             pages=pages,
             cities=parse_cities(data.get("cities")),
+            entity_merges=parse_entity_merges(data.get("entity_merges", data.get("merge_entities"))),
         )
 
     def _config_resource(self, slug: str):

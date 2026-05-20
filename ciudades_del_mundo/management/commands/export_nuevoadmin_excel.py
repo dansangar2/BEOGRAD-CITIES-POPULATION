@@ -13,6 +13,7 @@ from ciudades_del_mundo.infrastructure.django.nuevo_admin_area_export_repository
 )
 from ciudades_del_mundo.infrastructure.excel import SimpleXlsxWriter
 from ciudades_del_mundo.models import NuevoAdminArea
+from ciudades_del_mundo.services.nuevo_admin_builder import refresh_nuevo_admin_most_populated
 
 
 class Command(BaseCommand):
@@ -62,6 +63,8 @@ class Command(BaseCommand):
             stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             base_name = f"{root.country_code}_{stamp}"
         output_path = output_dir / f"{base_name}.xlsx"
+
+        refresh_nuevo_admin_most_populated(root.country_code)
 
         exporter = ExportNuevoAdminAreasToExcel(
             repository=DjangoNuevoAdminAreaExportRepository(),

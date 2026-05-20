@@ -1,0 +1,6 @@
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "cities"
+path = ["cities"]
+lowest_level = 0

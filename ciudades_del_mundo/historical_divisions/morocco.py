@@ -15,6 +15,6 @@ IFNI = {
     "capitals": ["Sidi Ifni"],
     "forced_area_km2": 1502,
     "spec": {
-        4: {"morocco": ["Sidi Ifni", "Tioughza", "Tnine Amellou", "Mesti"]}
+        3: {"morocco": ["Sidi Ifni", "Tioughza", "Tnine Amellou", "Mesti"]}
     },
 }

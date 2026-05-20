@@ -1,4 +1,4 @@
-LEGAL_SUBDIVISION = 2
+LEGAL_SUBDIVISION = 3
 
 [[pages]]
 source = "admin"
@@ -19,7 +19,7 @@ path = [
   "tangertetouanalhoceima/admin",
   "rabatsalekenitra/admin",
 ]
-lowest_level = 2
+lowest_level = 1
 
 [[cities]]
 city = "Tanger"
@@ -29,6 +29,7 @@ level = 3
 type = "City"
 from = { 2 = ["Tanger - Assilah"] }
 communes = []
+keep_communes = false
 
 [[cities]]
 city = "Casablanca"
@@ -37,6 +38,7 @@ district_types = ["Arrondissement"]
 level = 3
 type = "City"
 from = { 2 = ["Casablanca"] }
+keep_communes = false
 
 [[cities]]
 city = "Rabat"
@@ -45,6 +47,7 @@ district_types = ["Arrondissement"]
 level = 3
 type = "City"
 from = { 2 = ["Rabat"] }
+keep_communes = false
 
 [[cities]]
 city = "Salé"
@@ -53,6 +56,7 @@ district_types = ["Arrondissement"]
 level = 3
 type = "City"
 from = { 2 = ["Salé"] }
+keep_communes = false
 
 [[cities]]
 city = "Fès"
@@ -61,6 +65,7 @@ district_types = ["Arrondissement"]
 level = 3
 type = "City"
 from = { 2 = ["Fès"] }
+keep_communes = false
 
 [[cities]]
 city = "Marrakech"
@@ -69,3 +74,4 @@ district_types = ["Arrondissement"]
 level = 3
 type = "City"
 from = { 2 = ["Marrakech"] }
+keep_communes = false

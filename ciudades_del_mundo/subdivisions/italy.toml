@@ -1,0 +1,58 @@
+LEGAL_SUBDIVISION = 3
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "table"
+path = [
+  "abruzzi",
+  "basilicata",
+  "calabria",
+  "campania",
+  "emiliaromagna",
+  "friuliveneziagiulia",
+  "lazio",
+  "liguria",
+  "lombardia",
+  "marche",
+  "molise",
+  "piemonte",
+  "puglia",
+  "sardegna",
+  "sicilia",
+  "toscana",
+  "trentinoaltoadige",
+  "umbria",
+  "valledaosta",
+  "veneto",
+]
+lowest_level = 1
+
+[[pages]]
+source = "table"
+path = [
+  "localities/abruzzi",
+  "localities/basilicata",
+  "localities/calabria",
+  "localities/campania",
+  "localities/emiliaromagna",
+  "localities/friuliveneziagiulia",
+  "localities/lazio",
+  "localities/liguria",
+  "localities/lombardia",
+  "localities/marche",
+  "localities/molise",
+  "localities/piemonte",
+  "localities/puglia",
+  "localities/sardegna",
+  "localities/sicilia",
+  "localities/toscana",
+  "localities/trentinoaltoadige",
+  "localities/umbria",
+  "localities/valledaosta",
+  "localities/veneto",
+]
+lowest_level = 1

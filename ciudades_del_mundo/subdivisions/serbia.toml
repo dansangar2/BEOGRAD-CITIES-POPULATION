@@ -1,0 +1,40 @@
+[[pages]]
+source = "infosection"
+path = ["cities"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "table"
+path = [
+  "bor",
+  "branicevo",
+  "gradbeograd",
+  "jablanica",
+  "juznabacka",
+  "juznibanat",
+  "kolubara",
+  "macva",
+  "moravica",
+  "nis",
+  "pcinja",
+  "pirot",
+  "podunavlje",
+  "pomoravlje",
+  "rasina",
+  "raska",
+  "severnabacka",
+  "severnibanat",
+  "srednjibanat",
+  "srem",
+  "sumadija",
+  "toplica",
+  "zajecar",
+  "zapadnabacka",
+  "zlatibor",
+]
+lowest_level = 1

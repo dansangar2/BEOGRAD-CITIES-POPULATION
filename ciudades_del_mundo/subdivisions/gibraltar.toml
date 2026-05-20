@@ -1,0 +1,4 @@
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0

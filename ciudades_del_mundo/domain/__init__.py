@@ -11,12 +11,14 @@ from .nuevo_admin_export import (
 from .scraping_config import (
     CityConfig,
     DivisionSourceType,
+    EntityMergeConfig,
     RepresentationConfig,
     RepresentationSystem,
     ScrapingJobConfig,
     ScrapingPageConfig,
     ScrapingPlanPage,
     parse_cities,
+    parse_entity_merges,
     parse_pages,
 )
 
@@ -24,6 +26,7 @@ __all__ = [
     "AdminAreaSummary",
     "CityConfig",
     "DivisionSourceType",
+    "EntityMergeConfig",
     "MostPopulatedAssignment",
     "NuevoAdminAreaSummary",
     "NuevoAdminCitySummary",
@@ -38,6 +41,7 @@ __all__ = [
     "assign_parent_codes_by_level",
     "calculate_most_populated_assignments",
     "parse_cities",
+    "parse_entity_merges",
     "parse_pages",
     "Workbook",
 ]

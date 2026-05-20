@@ -22,12 +22,12 @@ ORIGINAL_MUNICIPAL_LEVEL: dict[str, int] = {
     "gibraltar": 1,
     "puertorico": 3,
     "equatorialguinea": 2,
-    "morocco": 4,
+    "morocco": 3,
     "cuba": 2,
     "italy": 3,
     "algeria": 2,
     "westernsahara": 3,
-    "austria": 3,
+    "austria": 4,
     "hungary": 3,
     "slovakia": 3,
     "czechrep": 3,
@@ -40,9 +40,11 @@ ORIGINAL_MUNICIPAL_LEVEL: dict[str, int] = {
     "malta": 2,
     "capeverde": 1,
     "mauritania": 3,
-    "mali": 2,
+    "mali": 3,
     "tunisia": 2,
-    "libya": 3,
+    "libya": 2,
+    "sudan": 2,
+    "southsudan": 2,
     "vaticancity": 0,
     "sanmarino": 2,
     "luxembourg": 2,
@@ -175,23 +177,43 @@ def _descendants_at_level(root: AdminArea, target_level: int) -> list[AdminArea]
     if root.level == target_level:
         return [root]
 
-    current_level = root.level
-    current = [root]
+    result: list[AdminArea] = []
+    seen: set[str] = set()
+    frontier = [root]
 
-    while current_level < target_level and current:
-        ids = [a.id for a in current]
-        current = list(AdminArea.objects.filter(parent_id__in=ids))
-        current_level += 1
+    while frontier:
+        ids = [a.id for a in frontier]
+        children = list(AdminArea.objects.filter(parent_id__in=ids))
+        frontier = []
 
-    if not current and root.level == 0:
-        current = list(
+        for child in children:
+            if child.level == target_level:
+                if child.id not in seen:
+                    result.append(child)
+                    seen.add(child.id)
+            elif child.level is not None and child.level < target_level:
+                frontier.append(child)
+
+    if not result and root.level == 0:
+        result = list(
             AdminArea.objects.filter(
                 country_code=root.country_code,
                 level=target_level,
             )
         )
+        seen = {a.id for a in result}
 
-    return current
+    if not result and root.code and str(root.code).isdigit():
+        for child in AdminArea.objects.filter(
+            country_code=root.country_code,
+            level=target_level,
+            code__startswith=str(root.code),
+        ):
+            if child.id not in seen:
+                result.append(child)
+                seen.add(child.id)
+
+    return result
 
 
 def _to_atomic_ids(items: Iterable[AdminArea], atomic_level: int) -> set[str]:
@@ -225,6 +247,45 @@ def _expand_to_municipal(items: Iterable[AdminArea], country_code: str) -> set[s
     return _to_atomic_ids(items, atomic_level)
 
 
+def _area_inside_sources(
+    candidate: AdminArea,
+    macro_ids: set[str],
+    municipal_ids: set[str],
+    macro_areas: Iterable[AdminArea],
+) -> bool:
+    if candidate.id in macro_ids or candidate.id in municipal_ids:
+        return True
+
+    parent_id = candidate.parent_id
+    seen: set[str] = set()
+    while parent_id and parent_id not in seen:
+        if parent_id in macro_ids:
+            return True
+        seen.add(parent_id)
+        parent_id = (
+            AdminArea.objects
+            .filter(id=parent_id)
+            .values_list("parent_id", flat=True)
+            .first()
+        )
+
+    candidate_code = str(candidate.code or "")
+    if not candidate_code:
+        return False
+
+    for macro in macro_areas:
+        macro_code = str(macro.code or "")
+        if (
+            macro.country_code == candidate.country_code
+            and macro_code
+            and macro_code.isdigit()
+            and candidate_code.startswith(macro_code)
+        ):
+            return True
+
+    return False
+
+
 def _round_area(value: Decimal | None) -> Decimal | None:
     """
     Redondea el área a 2 decimales (km²) con ROUND_HALF_UP.
@@ -235,6 +296,58 @@ def _round_area(value: Decimal | None) -> Decimal | None:
     if not isinstance(value, Decimal):
         value = Decimal(str(value))
     return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _top_populated(candidates: Iterable[AdminArea]) -> AdminArea | None:
+    top = None
+    for candidate in candidates:
+        if candidate.pop_latest is None:
+            continue
+        if top is None or candidate.pop_latest > top.pop_latest:
+            top = candidate
+    return top
+
+
+@transaction.atomic
+def refresh_nuevo_admin_most_populated(country_id: str) -> int:
+    """
+    Recalcula la ciudad mas poblada de NuevoAdminArea de abajo arriba.
+
+    Las hojas toman el mayor municipio original. Los contenedores toman el mayor
+    candidato entre sus propios municipios originales y los resultados ya
+    calculados de sus hijos.
+    """
+    areas = list(
+        NuevoAdminArea.objects
+        .filter(country_code=country_id)
+        .prefetch_related("municipios_originales")
+        .order_by("-level")
+    )
+    children_by_parent: dict[str | None, list[NuevoAdminArea]] = {}
+    for area in areas:
+        children_by_parent.setdefault(area.parent_id, []).append(area)
+
+    top_by_area_id: dict[str, AdminArea] = {}
+    updated = 0
+
+    for area in areas:
+        candidates = list(area.municipios_originales.all())
+        for child in children_by_parent.get(area.id, []):
+            child_top = top_by_area_id.get(child.id)
+            if child_top is not None:
+                candidates.append(child_top)
+
+        top = _top_populated(candidates)
+        if top is not None:
+            top_by_area_id[area.id] = top
+
+        top_id = top.id if top else None
+        if area.most_populate_city_id != top_id:
+            area.most_populate_city = top
+            area.save(update_fields=["most_populate_city"])
+            updated += 1
+
+    return updated
 
 
 # ---------------------------------------------------------------------------
@@ -359,6 +472,7 @@ def create_nuevo_area_from_spec(
     # Agregados de área / población
     # ---------------------------------------------------------
     macro_qs = AdminArea.objects.filter(id__in=macro_ids)
+    macro_areas = list(macro_qs.only("id", "country_code", "code", "parent_id"))
     agg_macro = macro_qs.aggregate(
         total_area=Sum("area_km2"),
         total_pop=Sum("pop_latest"),
@@ -439,7 +553,8 @@ def create_nuevo_area_from_spec(
         raise AttributeError(f"El campo M2M '{m2m_field}' no existe en NuevoAdminArea.")
 
     atomic_qs = AdminArea.objects.filter(id__in=mun_final_ids) if mun_final_ids else AdminArea.objects.none()
-    m2m.set(atomic_qs)
+    source_units_qs = atomic_qs if atomic_qs.exists() else macro_qs
+    m2m.set(source_units_qs)
 
     # ---------------------------------------------------------
     # Capitales y ciudad más poblada
@@ -486,6 +601,20 @@ def create_nuevo_area_from_spec(
                 chosen = _resolve_adminarea_in_qs(atomic_qs, label)
             if not chosen:
                 chosen = _resolve_adminarea_in_qs(macro_qs, label)
+            if not chosen:
+                territory_country_codes = set(
+                    AdminArea.objects
+                    .filter(id__in=macro_ids | mun_final_ids)
+                    .values_list("country_code", flat=True)
+                )
+                for cc in territory_country_codes:
+                    candidate = _resolve_adminarea_in_qs(
+                        AdminArea.objects.filter(country_code=cc).order_by("-level"),
+                        label,
+                    )
+                    if candidate and _area_inside_sources(candidate, macro_ids, mun_final_ids, macro_areas):
+                        chosen = candidate
+                        break
 
             if not chosen:
                 raise ValueError(
@@ -497,8 +626,7 @@ def create_nuevo_area_from_spec(
         obj.capitals.set(capital_objs)
 
     if auto_set_most_populated:
-        base_qs = atomic_qs if atomic_qs.exists() else macro_qs
-        top = base_qs.exclude(pop_latest__isnull=True).order_by("-pop_latest").first()
+        top = source_units_qs.exclude(pop_latest__isnull=True).order_by("-pop_latest").first()
         obj.most_populate_city = top
         obj.save(update_fields=["most_populate_city"])
 

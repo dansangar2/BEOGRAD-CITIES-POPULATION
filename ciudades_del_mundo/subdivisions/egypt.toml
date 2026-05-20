@@ -1,0 +1,17 @@
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "infosection"
+path = ["cities"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[entity_merges]]
+entity_types = ["Kism (fully urban)"]
+type = "City"
+strip_numeric_suffix = true
+keep_sources = false

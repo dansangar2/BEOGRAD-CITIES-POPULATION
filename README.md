@@ -101,6 +101,7 @@ communes = []
 - `source` selecciona el scraper.
 - `area_km2` permite indicar un tamano personalizado para la entidad raiz scrapeada en esa pagina.
 - `area_overrides` permite indicar tamanos personalizados por `id`, `code` o `name` de entidad scrapeada.
+- En `[[cities]]`, `keep_communes = false` agrega las comunas o distritos usados para calcular la ciudad pero no los conserva como filas hijas.
 - `LEGAL_SUBDIVISION` es el unico nombre aceptado para el nivel legal.
 - `admin` e `infosection` son tipos de scraper, no atajos especiales de ruta.
 

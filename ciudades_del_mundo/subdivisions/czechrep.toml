@@ -1,0 +1,29 @@
+[[pages]]
+source = "infosection"
+path = ["cities"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "table"
+path = [
+  "jihoceskykraj",
+  "jihomoravskykraj",
+  "karlovarskykraj",
+  "kralovehradeckykraj",
+  "libereckykraj",
+  "moravskoslezskykraj",
+  "olomouckykraj",
+  "pardubickykraj",
+  "plzenskykraj",
+  "praha",
+  "stredoceskykraj",
+  "usteckykraj",
+  "vysocina",
+  "zlinskykraj",
+]
+lowest_level = 1

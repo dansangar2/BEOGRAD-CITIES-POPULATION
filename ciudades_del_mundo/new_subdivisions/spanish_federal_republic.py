@@ -170,7 +170,7 @@ DIVISIONS = [
         "name": "Castilla la Nueva",
         "code": "CLN",
         "entity_type": "Estado",
-        "capitals": ["Madrid"],
+        "capitals": ["Toledo"],
         "childs": [
             {
                 "name": "Ciudad Real",

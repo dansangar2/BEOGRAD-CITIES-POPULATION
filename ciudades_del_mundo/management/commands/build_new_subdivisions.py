@@ -10,7 +10,11 @@ from ciudades_del_mundo.models import NuevoAdminArea, AdminArea
 import importlib
 import pkgutil
 from ciudades_del_mundo.infrastructure.scraping.python_config_repository import PythonScrapingConfigRepository
-from ciudades_del_mundo.services.nuevo_admin_builder import create_nuevo_area_from_spec, _round_area
+from ciudades_del_mundo.services.nuevo_admin_builder import (
+    create_nuevo_area_from_spec,
+    refresh_nuevo_admin_most_populated,
+    _round_area,
+)
 from ciudades_del_mundo.services.nuevo_admin_representatives import (
     assign_nuevo_admin_representatives,
     representation_config_from_mapping,
@@ -20,6 +24,7 @@ import ciudades_del_mundo.new_subdivisions as new_subdivisions_pkg
 
 
 CONFIGS: dict[str, list[dict]] = {}
+CONFIG_LOAD_ERRORS: dict[str, Exception] = {}
 REPRESENTATIONS: dict[str, object] = {}
 MUNICIPAL_LEVEL: dict[str, int] = {}
 SOURCE_COUNTRIES: dict[str, str] = {}
@@ -34,7 +39,8 @@ def _load_config_package(package):
         full_name = f"{package.__name__}.{module_info.name}"
         try:
             mod = importlib.import_module(full_name)
-        except Exception:
+        except Exception as exc:
+            CONFIG_LOAD_ERRORS[mod_name] = exc
             continue
 
         divs = getattr(mod, "DIVISIONS", None)
@@ -125,6 +131,11 @@ def _iter_spec_countries(spec):
 
 
 def _iter_recipe_source_countries(recipe, source_country: str):
+    if isinstance(recipe, list):
+        for child in recipe:
+            yield from _iter_recipe_source_countries(child, source_country)
+        return
+
     yield from _iter_dat_countries(recipe.get("dat"), source_country)
     yield from _iter_spec_countries(recipe.get("spec"))
     for child in recipe.get("childs") or []:
@@ -232,6 +243,12 @@ class Command(BaseCommand):
 
         recipes = CONFIGS.get(country_id)
         if not recipes:
+            if country_id in CONFIG_LOAD_ERRORS:
+                exc = CONFIG_LOAD_ERRORS[country_id]
+                raise CommandError(
+                    f"No se pudo cargar la configuración para el país '{country_id}': "
+                    f"{type(exc).__name__}: {exc}"
+                ) from exc
             raise CommandError(f"No hay configuraciones para el país '{country_id}' en CONFIGS.")
 
         # ---------------------------------------------------------
@@ -250,6 +267,10 @@ class Command(BaseCommand):
                 nodes = [nodes]
 
             for r in nodes:
+                if isinstance(r, list):
+                    yield from _iter_full_codes(r, parent_full_code, prefix_path)
+                    continue
+
                 if not isinstance(r, dict):
                     raise CommandError(
                         f"Entrada inválida en DIVISIONS: esperaba dict, recibí {type(r).__name__}: {r!r}"
@@ -337,8 +358,12 @@ class Command(BaseCommand):
         )
 
         self._assign_escanhos(country_id)
+        most_populated_updated = refresh_nuevo_admin_most_populated(root.country_code)
 
         self.stdout.write(self.style.SUCCESS(f"Creado(s): {len(created)} subdivisión(es)."))
+        self.stdout.write(self.style.SUCCESS(
+            f"Ciudad mas poblada actualizada en {most_populated_updated} area(s)."
+        ))
         for o in created:
             self.stdout.write(
                 f"- {o.id} :: {o.name} :: code={o.code} :: level={o.level} "
@@ -357,6 +382,18 @@ class Command(BaseCommand):
         created,
     ):
         for idx, r in enumerate(recipes, start=1):
+            if isinstance(r, list):
+                self._build_tree(
+                    recipes=r,
+                    parent_id=parent_id,
+                    country_id=country_id,
+                    source_country=source_country,
+                    m2m_field=m2m_field,
+                    code_prefix=code_prefix,
+                    created=created,
+                )
+                continue
+
             if not isinstance(r, dict):
                 raise CommandError(
                     f"En CONFIGS['{country_id}'] bajo parent '{parent_id}', "
