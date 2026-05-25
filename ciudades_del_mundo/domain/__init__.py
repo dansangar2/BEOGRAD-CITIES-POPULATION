@@ -1,4 +1,4 @@
-from .admin_area import ScrapedAdminArea
+from .admin_area import CITY_MERGE_NONE, CITY_MERGE_SOURCE, CITY_MERGE_UNIFIED, ScrapedAdminArea
 from .hierarchy import assign_parent_codes_by_level
 from .most_populated import AdminAreaSummary, MostPopulatedAssignment, calculate_most_populated_assignments
 from .nuevo_admin_export import (
@@ -6,6 +6,7 @@ from .nuevo_admin_export import (
     NuevoAdminCitySummary,
     NuevoAdminExportData,
     Sheet,
+    Table,
     Workbook,
 )
 from .scraping_config import (
@@ -24,6 +25,9 @@ from .scraping_config import (
 
 __all__ = [
     "AdminAreaSummary",
+    "CITY_MERGE_NONE",
+    "CITY_MERGE_SOURCE",
+    "CITY_MERGE_UNIFIED",
     "CityConfig",
     "DivisionSourceType",
     "EntityMergeConfig",
@@ -38,6 +42,7 @@ __all__ = [
     "ScrapingPageConfig",
     "ScrapingPlanPage",
     "Sheet",
+    "Table",
     "assign_parent_codes_by_level",
     "calculate_most_populated_assignments",
     "parse_cities",

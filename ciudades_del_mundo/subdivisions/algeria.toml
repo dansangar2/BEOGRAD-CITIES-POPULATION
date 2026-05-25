@@ -58,27 +58,7 @@ path = [
   "mila",
   "aindefla",
   "naama",
-  "aintemouchent",  "Bologhine",
-  "Bab El Oued",
-  "Casbah",
-  "Oued Koriche",
-  "El Djazair",
-  "El Biar",
-  "Sidi M'Hamed",
-  "El Mouradia",
-  "Hydra",
-  "Mohamed Belouizdad (Hamma Annassers)",
-  "El Madania",
-  "Bir Mourad Rais",
-  "Kouba",
-  "Hussein Dey",
-  "El Magharia",
-  "Bachdjerrah",
-  "Mohammadia",
-  "Bab Ezzouar",
-  "Bordj El Kiffan",
-  "Bordj El Bahri",
-  "El Marsa",
+  "aintemouchent",
   "ghardaia",
   "relizane",
 ]
@@ -87,10 +67,30 @@ lowest_level = 2
 [[cities]]
 city = "El Djazair"
 id = "algr2005"
-district_types = []
+district_types = ["Commune"]
 level = 2
 type = "Province Capital"
 from = { 1 = ["El Djazair"] }
 communes = [
-
+  "El Djazair",
+  "Sidi M'Hamed",
+  "El Madania",
+  "Mohamed Belouizdad (Hamma Annassers)",
+  "Bab El Oued",
+  "Bologhine",
+  "Casbah",
+  "Oued Koriche",
+  "Bir Mourad Rais",
+  "El Biar",
+  "El Mouradia",
+  "Hydra",
+  "Hussein Dey",
+  "Kouba",
+  "Bachdjerrah",
+  "Mohammadia",
+  "Bab Ezzouar",
+  "Bordj El Kiffan",
+  "El Magharia",
+  "Bordj El Bahri",
+  "El Marsa",
 ]

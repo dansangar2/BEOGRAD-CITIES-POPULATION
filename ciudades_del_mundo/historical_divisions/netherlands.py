@@ -28,8 +28,8 @@ UTRETCH_A_GUELDRES = ["Veenendaal"]
 UTRETCH_A_HOLANDA = ["Vijfheerenlanden", "Lopik", "Oudewater"]
 HOLANDA_A_UTRETCH = ["Wijdemeren"]
 
-TOURNAI_MOUSCRON_A_FLANDES = ["Comines-Warneto", "Mouscron", "Estaimpuis", "Tournai", "Rumes",
-                              "Brunehaut", "Antoing", "Pecq"]
+#TOURNAI_MOUSCRON_A_FLANDES = ["Comines-Warneto", "Mouscron", "Estaimpuis", "Tournai", "Rumes",
+#                              "Brunehaut", "Antoing", "Pecq"]
 
 ARTOIS = {
     "name": SPEC_ARTOIS["name"],
@@ -46,7 +46,11 @@ FLANDES = {
     "capitals": ["Lille"],
     "spec": {
         1: {"belgium": ["Oost-Vlaanderen", "West-Vlaanderen"]},
-        3: {"belgium": TOURNAI_MOUSCRON_A_FLANDES, "netherlands" : ZELANDA_A_FLANDES, "france": FLANDES_FRANCES },
+        2: {
+            "netherlands" : ZELANDA_A_FLANDES,
+            #"belgium": TOURNAI_MOUSCRON_A_FLANDES,
+        },
+        3: {"france": FLANDES_FRANCES },
         4: {"france": FLANDES_FRANCES_MUN + HENAO_A_FLANDES_PB},
         "restar": {4: {"france": FLANDES_FRANCES_MUN_RES}},
     }
@@ -58,9 +62,9 @@ UTRIQUE = {
     "entity_type": "Señorío",
     "capitals": ["Utrecht"],
     "spec": {
-        2: {"netherlands" : "Utrecht"},
-        3: {"netherlands" : UTRETCH_A_HOLANDA + UTRETCH_A_GUELDRES },
-        "restar": {3: {"netherlands" : HOLANDA_A_UTRETCH },}
+        1: {"netherlands" : "Utrecht"},
+        2: {"netherlands" : UTRETCH_A_HOLANDA + UTRETCH_A_GUELDRES },
+        "restar": {2: {"netherlands" : HOLANDA_A_UTRETCH },}
     }
 }
 
@@ -73,7 +77,7 @@ HENAO = {
         3: {"france": HENAO_FRANCES},
         4: {"france": HENAO_FRANCES_MUN + HENAO_A_HENAO_PB},
         "restar": {
-            3: {"belgium": TOURNAI_MOUSCRON_A_FLANDES},
+            #2: {"belgium": TOURNAI_MOUSCRON_A_FLANDES},
             4: {"france": HENAO_FRANCES_MUN_RES}
         },
     }
@@ -92,7 +96,7 @@ DRENTE = {
     "code": "DRE",
     "entity_type": "Condado",
     "capitals": ["Assen"],
-    "spec": {2: {"netherlands" : "Drenthe"}}
+    "spec": {1: {"netherlands" : "Drenthe"}}
 }
 
 GRONINGA = {
@@ -100,7 +104,7 @@ GRONINGA = {
     "code": "GRO",
     "entity_type": "Señorío",
     "capitals": ["Groningen"],
-    "spec": {2: {"netherlands" : "Groningen"}}
+    "spec": {1: {"netherlands" : "Groningen"}}
 }
 
 FRISIA = {
@@ -109,8 +113,8 @@ FRISIA = {
     "entity_type": "Señorío",
     "capitals": ["Leeuwarden"],
     "spec": {
-        2: {"netherlands" : "Friesland"},
-        "restar": {3: {"netherlands" : FRISIA_A_HOLANDA}}
+        1: {"netherlands" : "Friesland"},
+        "restar": {2: {"netherlands" : FRISIA_A_HOLANDA}}
     }
 }
  
@@ -120,9 +124,9 @@ HOLANDA = {
     "entity_type": "Condado",
     "capitals": ["'s-Gravenhage"],
     "spec": {
-        2: {"netherlands" : ["Noord-Holland", "Zuid-Holland"]},
-        3: {"netherlands" : UTRETCH_A_HOLANDA + FRISIA_A_HOLANDA + ["Urk"]},
-        "restar": {3: {"netherlands" : HOLANDA_A_UTRETCH + HOLANDA_NO + HOLANDA_SUR_A_ZELANDA}},
+        1: {"netherlands" : ["Noord-Holland", "Zuid-Holland"]},
+        2: {"netherlands" : UTRETCH_A_HOLANDA + FRISIA_A_HOLANDA + ["Urk"]},
+        "restar": {2: {"netherlands" : HOLANDA_A_UTRETCH + HOLANDA_NO + HOLANDA_SUR_A_ZELANDA}},
     }
 }
 
@@ -132,9 +136,9 @@ ZELANDA = {
     "entity_type": "Condado",
     "capitals": ["Middelburg"],
     "spec": {
-        2: {"netherlands" : ["Zeeland"]},
-        3: {"netherlands" : HOLANDA_SUR_A_ZELANDA},
-        "restar": {3: {"netherlands" : ZELANDA_A_FLANDES}},
+        1: {"netherlands" : ["Zeeland"]},
+        2: {"netherlands" : HOLANDA_SUR_A_ZELANDA},
+        "restar": {2: {"netherlands" : ZELANDA_A_FLANDES}},
     }
 }
 LUXEMBURGO = {

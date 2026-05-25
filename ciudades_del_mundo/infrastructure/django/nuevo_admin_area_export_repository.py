@@ -16,7 +16,7 @@ class DjangoNuevoAdminAreaExportRepository:
     ) -> NuevoAdminExportData:
         root = (
             NuevoAdminArea.objects
-            .select_related("parent", "most_populate_city")
+            .select_related("parent", "most_populate_city", "depends_on")
             .prefetch_related("capitals")
             .get(id=country_id)
         )
@@ -26,7 +26,7 @@ class DjangoNuevoAdminAreaExportRepository:
             NuevoAdminArea.objects
             .filter(country_code=root.country_code, level__gt=root_level)
             .exclude(id=root.id)
-            .select_related("parent", "most_populate_city")
+            .select_related("parent", "most_populate_city", "depends_on")
             .prefetch_related("capitals", "municipios_originales")
             .order_by("level", "code")
         )
@@ -50,11 +50,15 @@ def _to_summary(area: NuevoAdminArea) -> NuevoAdminAreaSummary:
         parent_id=area.parent_id,
         area_km2=area.area_km2,
         pop_latest=area.pop_latest,
+        population_index=area.population_index,
+        province_status=area.province_status,
+        depends_on_id=area.depends_on_id,
+        depends_on_name=area.depends_on.name if area.depends_on else None,
         representatives=area.representatives,
         capitals=tuple(
             NuevoAdminCitySummary(
                 id=capital.id,
-                name=capital.name,
+                name=_capital_display_name(area, capital, "es"),
                 pop_latest=capital.pop_latest,
             )
             for capital in area.capitals.all()
@@ -70,3 +74,9 @@ def _to_summary(area: NuevoAdminArea) -> NuevoAdminAreaSummary:
         ),
         source_units_count=area.municipios_originales.count(),
     )
+
+
+def _capital_display_name(area: NuevoAdminArea, capital, language: str) -> str:
+    names_by_language = area.capital_names_by_language or {}
+    language_names = names_by_language.get(language) or {}
+    return language_names.get(capital.id) or capital.name

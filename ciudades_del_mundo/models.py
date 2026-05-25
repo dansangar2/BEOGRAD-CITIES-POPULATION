@@ -14,11 +14,21 @@ class AdminArea(models.Model):
         ADMIN4  = 4, "Admin4"
         ADMIN5  = 5, "Admin5"
 
+    class CityMergeStatus(models.IntegerChoices):
+        NONE = 0, "No unificada"
+        SOURCE = 1, "Fuente de ciudad unificada"
+        UNIFIED = 2, "Ciudad unificada"
+
     id               = models.CharField(max_length=128, primary_key=True)
     country_code     = models.CharField(max_length=64, db_index=True)
     code             = models.CharField(max_length=64)  # código de subdivisión (scrapeado)
     name             = models.CharField(max_length=255)
     level            = models.IntegerField(choices=Level.choices)
+    city_merge_status = models.IntegerField(
+        choices=CityMergeStatus.choices,
+        default=CityMergeStatus.NONE,
+        db_index=True,
+    )
 
     # NUEVO
     entity_type      = models.CharField(max_length=80, null=True, blank=True)
@@ -72,11 +82,31 @@ class AdminArea(models.Model):
             models.Index(fields=["level"]),
             models.Index(fields=["parent"]),
             models.Index(fields=["name"]),
+            models.Index(fields=["parent", "city_merge_status"], name="adminarea_parent_merge_idx"),
             models.Index(fields=["entity_type"]),  # útil para filtrar por tipo
         ]
 
     def __str__(self):
         return f"{self.id} — {self.name} (L{self.level}, {self.entity_type or '-'})"
+
+    def get_children(self):
+        return self.children.all()
+
+    def get_children_with_merge_sources(self):
+        return self.children.filter(
+            city_merge_status__in=[
+                self.CityMergeStatus.NONE,
+                self.CityMergeStatus.SOURCE,
+            ]
+        )
+
+    def get_children_with_unified_cities(self):
+        return self.children.filter(
+            city_merge_status__in=[
+                self.CityMergeStatus.NONE,
+                self.CityMergeStatus.UNIFIED,
+            ]
+        )
 
     # 🔹 Número de escaños asociado a este AdminArea (si existe)
     @property
@@ -98,6 +128,11 @@ class NuevoAdminArea(models.Model):
         ADMIN4  = 4, "Admin4"
         ADMIN5  = 5, "Admin5"
 
+    class ProvinceStatus(models.TextChoices):
+        NORMAL = "normal", "Normal"
+        DEPENDENCY = "dependency", "Dependencia"
+        TERRITORY = "territory", "Territorio"
+
     id               = models.CharField(max_length=128, primary_key=True)
     country_code     = models.CharField(max_length=64, db_index=True)
     code             = models.CharField(max_length=64)
@@ -117,6 +152,29 @@ class NuevoAdminArea(models.Model):
     area_km2         = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     density          = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
     pop_latest       = models.BigIntegerField(null=True, blank=True)
+    population_index = models.DecimalField(
+        max_digits=10,
+        decimal_places=4,
+        default=1,
+        help_text=(
+            "Multiplicador de poblacion aplicado a esta subdivision y a sus descendientes "
+            "para el computo de representacion."
+        ),
+    )
+    province_status  = models.CharField(
+        max_length=20,
+        choices=ProvinceStatus.choices,
+        default=ProvinceStatus.NORMAL,
+    )
+    depends_on       = models.ForeignKey(
+        "self",
+        to_field="id",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="dependent_areas",
+        help_text="Provincia con la que comparte representacion si el estado es dependencia.",
+    )
     representatives  = models.PositiveIntegerField(null=True, blank=True)
     # ELIMINADOS:
     # pop_latest_date  = models.DateField(null=True, blank=True)
@@ -129,6 +187,7 @@ class NuevoAdminArea(models.Model):
         related_name="capital_of_new",
         blank=True,
     )
+    capital_names_by_language = models.JSONField(default=dict, blank=True)
 
     most_populate_city = models.ForeignKey(
         AdminArea,
@@ -165,6 +224,10 @@ class NuevoAdminArea(models.Model):
                 ),
                 name="nuevo_area_municipal_level_valid",
             ),
+            models.CheckConstraint(
+                check=Q(population_index__gte=0),
+                name="nuevo_area_population_index_nonnegative",
+            ),
         ]
         indexes = [
             models.Index(fields=["country_code", "level"]),
@@ -172,6 +235,7 @@ class NuevoAdminArea(models.Model):
             models.Index(fields=["parent"]),
             models.Index(fields=["name"]),
             models.Index(fields=["entity_type"]),
+            models.Index(fields=["province_status"]),
         ]
 
     def __str__(self):

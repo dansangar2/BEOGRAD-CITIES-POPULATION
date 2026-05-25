@@ -27,7 +27,7 @@
 <div class="table-wrap">
   <table>
     <thead>
-      <tr><th>ID</th><th>Nombre</th><th>Pais</th><th>Nivel</th><th>Tipo</th><th>Padre</th><th>Poblacion</th></tr>
+      <tr><th>ID</th><th>Nombre</th><th>Pais</th><th>Nivel</th><th>Fusion</th><th>Tipo</th><th>Padre</th><th>Poblacion</th></tr>
     </thead>
     <tbody>
       {% for area in page_obj %}
@@ -36,12 +36,13 @@
         <td>{{ area.name }}</td>
         <td>{{ area.country_code }}</td>
         <td>L{{ area.level }}</td>
+        <td>{{ area.get_city_merge_status_display }}</td>
         <td>{{ area.entity_type|default:"-" }}</td>
         <td>{{ area.parent.name|default:"-" }}</td>
         <td>{{ area.pop_latest|default:"-" }}</td>
       </tr>
       {% empty %}
-      <tr><td colspan="7">No hay areas para estos filtros.</td></tr>
+      <tr><td colspan="8">No hay areas para estos filtros.</td></tr>
       {% endfor %}
     </tbody>
   </table>

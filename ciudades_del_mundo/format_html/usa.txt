@@ -1,0 +1,1026 @@
+<body onload="start('en','USA')">
+
+<script>writeMenu('en')</script><section class="menu"><a href="/" target="_top" title="City Population Homepage"><figure id="logo"></figure></a>
+<nav id="menu"><ul><li class="topmenuitem" onclick=""><span class="topmenucontent"><img src="/images/icons/menu.svg" class="menu">MENU</span>
+<ul class="mainmenu">
+<li><a href="/en/mapindex/" title="Index" target="_top"><img id="mapindeximg" src="/images/icons/mapindex.svg" alt="Index">INDEX</a><script>const mapindexImage = document.getElementById("mapindeximg"); mapindexImage.onload = (e) => { callGetInfo() }</script><ul class="submenu"><li><a href="/en/africa/" target="_top"><img src="/images/icons/list.svg" alt="Index">AFRICA</a></li>
+<li><a href="/en/america/" target="_top"><img src="/images/icons/list.svg" alt="Index">AMERICA</a></li>
+<li><a href="/en/asia/" target="_top"><img src="/images/icons/list.svg" alt="Index">ASIA</a></li>
+<li><a href="/en/europe/" target="_top"><img src="/images/icons/list.svg" alt="Index">EUROPE</a></li>
+<li><a href="/en/oceania/" target="_top"><img src="/images/icons/list.svg" alt="Index">OCEANIA</a></li>
+</ul>
+</li>
+<li><a href="/en/search/" title="Site Search" target="_top"><img src="/images/icons/sitesearch.svg" alt="Search">SEARCH</a></li>
+<li><a href="/en/help/new/" title="New and Updated" target="_top"><img src="/images/icons/new.svg" alt="New">NEW</a></li>
+<li><a href="/en/help/" title="Help" target="_top"><img src="/images/icons/help.svg" alt="Help">HELP</a>
+<ul class="submenu"><li class="small"><a href="/en/help/abbreviations/" title="Abbreviations" target="_top"><img src="/images/icons/abbr.svg" alt="Abbreviations">ABBREVIATIONS</a></li>
+<li><a href="/en/help/references/" title="References and Links" target="_top"><img src="/images/icons/references.svg" alt="References">REFERENCES</a></li>
+<li><a href="/en/help/glossary/" title="Glossary" target="_top"><img src="/images/icons/glossary.svg" alt="Glossary">GLOSSARY</a></li>
+<li><a href="/en/help/faq/" title="Frequently Asked Questions" target="_top"><img src="/images/icons/faq.svg" alt="FAQ">FAQ</a></li>
+</ul>
+</li></ul>
+</li></ul></nav></section>
+
+
+<div class="mobiadv">
+	<script>show_mobiadv(false)</script>
+</div>
+<div id="headline">
+	<div id="orient"><a href="/">Home</a> → <a href="/en/america/">America</a></div>
+<div id="social"><div class="socbutton"><a href="javascript:cp.social.share('twitter')"><img src="https://www.citypopulation.de/images/icons/tweet.svg" class="socimg" alt="Tweet" title="Tweet"></a></div><div class="socbutton"><a href="javascript:cp.social.share('facebook')"><img src="https://www.citypopulation.de/images/icons/facebook_share.svg" class="socimg" alt="Facebook" title="Share on Facebook"></a></div><div class="changelang"><a href="javascript:cp.changeLangPage()"><img src="https://www.citypopulation.de/images/icons/de.svg" title="Deutsch" alt=""></a></div></div></div>
+
+<div class="cindex">
+
+<header>
+	<h1>USA</h1>
+	<p>United States of America</p>
+</header>
+
+<h2>Federation</h2>
+
+<div class="mcolboxes">
+<ul>
+<li id="news" class="large">
+	<a href="javascript:changeNews()">
+	<figure><img class="padd" src="/images/flags/usa.svg" alt="Flag"></figure>
+	<h3 style="margin-top: 9px;">News&nbsp; <span class="currnews">●○○○○○○○</span><img src="/images/icons/news_c.svg" class="small" alt="news"></h3>
+	<section><p>According to the results of the <strong>2020 census</strong>, <strong>50.9%</strong> of the U.S. population is <strong>female</strong>, <strong>16.8%</strong> is <strong>younger than 18</strong>, <strong>22.1%</strong> is <strong>65 or older</strong>, and <strong>80%</strong> lives in <strong>urban </strong>areas.</p><p class="small">2023-05-27</p></section>
+	<section><p>In <strong>Connecticut</strong>, nine <strong>planning regions replace</strong> the eight legacy <strong>counties </strong>for statistical purposes.</p><p class="small">2023-03-31</p></section>
+	<section><p><strong>Phoenix, AZ</strong> (1,608,139 pop. in 2020; +11.2%), <strong>Fort Worth, TX</strong> (918,915; +23.4%), <strong>Irvine, CA</strong> (307,670, +45%), <strong>Frisco, TX </strong>(200,509, +71.1%), <strong>Horizon West, FL</strong> (58,101, +315%) and <strong>Nocatee, FL</strong> (22,503, +397%)<strong> </strong>had the <strong>highest percental population growth</strong> between 2010 and 2020 <strong>in their population class</strong>. <strong>New York City</strong> showed the <strong>highest absolute gain</strong> (8,804,190; +629,260) and <strong>Detroit, MI </strong>the <strong>highest lost </strong>(639,111, -35,069).</p><p class="small">2021-08-14</p></section>
+	<section><p>According to the results of the <strong>2020 census, </strong>the USA have a <strong>resident population</strong> of <strong>331,449,281</strong>. That means an <strong>increase by 22.7 million</strong> compared to 2010. <strong>California is </strong>the <strong>most populous</strong> state with <strong>39,538,233 inhabitants</strong>. The <strong>largest growth</strong> in the last decade (<strong>18.37%</strong>) was noticed in <strong>Utah</strong>.</p><p class="small">2021-04-26</p></section>
+	<section><p><strong>Bridgewater Town</strong> and <strong>Randolph Town</strong> in Massachusetts became <strong>cities</strong>. Furthermore, a <strong>new type of incorporated place</strong> has been introduced: Former Utah CDPs <strong>Copperton</strong>, <strong>Emigration Canyon</strong>, <strong>Kearns</strong>, <strong>Magna </strong>and <strong>White City</strong> are classified as »<strong>metro township</strong>«. </p><p class="small">2020-05-21</p></section>
+	<section><p>According to the revised delineations for metropolitan statistical areas, <strong>Bluffton (Indiana)</strong> is a <strong>new micropolitan statistical area</strong>. It is <strong>part of Fort Wayne-Huntington-Auburn CSA</strong>.</p><p class="small">2020-04-03</p></section>
+	<section><p><strong>South Fulton</strong> city (Georgia) with <font color="black">97,277 inhabitants and</font> <strong>Framingham </strong>city (Massachusetts) with <font color="black">73,123 inhabitants</font> <font color="black">are </font>now listed as incorporated places.</p><p class="small">2019-05-26</p></section>
+	<section><p>A new definition (OMB Bulletin No. 18-04) of <strong>metropolitan areas</strong> was published. There are several changes compared to the last definition of April 2018.</p><p class="small">2018-10-09</p></section>
+	</a>
+</li>
+<li class="large">
+	<a href="cities/" target="_top">
+	<figure><img class="right" src="/images/cmaps/usa-cities.png" alt="USA Cities"></figure>
+	<h3 data-date="2025-05-18">States and Major Cities</h3>
+	<p>The U.S. states and all cities having more than 100,000 inhabitants.</p>
+	<p class="small">1990, 2000, 2010, 2020 census, 2024 estimate</p>
+	<p class="small">2020/2024 boundaries</p>
+</a>
+</li>
+<li class="large">
+	<a href="states/admin/" target="_top">
+	<figure><img class="right" src="/images/cmaps/usa-states.png" alt="USA States"></figure>
+	<h3 data-date="2026-03-27" class="updateditem">States</h3>
+	<p>The population of the U.S. states.</p>
+	<p class="small">1960, 1970, 1980, 1990, 2000, 2010, 2020 census, 2025&nbsp;estimate</p>
+	</a>
+</li>
+<li class="large">
+	<a href="admin/" target="_top">
+	<figure><img class="right" src="/images/cmaps/usa-admin.png" alt="USA Administrative Division"></figure>
+	<h3 data-date="2026-03-27" class="updateditem">Administrative Division</h3>
+	<p>The population of the U.S. states and counties.</p>
+	<p class="small">1990, 2000, 2010, 2020 census, 2025&nbsp;estimate</p>
+	</a>
+</li>
+<li class="large">
+	<a href="metro/" target="_top">
+	<figure><img class="right" src="/images/cmaps/usa-metro.png" alt="USA Metropolitan and Micropolitan Statistical Areas"></figure>
+	<h3 data-date="2026-03-27" class="updateditem">Metropolitan and Micropolitan Statistical Areas</h3>
+	<p>The population of all metropolitan and micropolitan statistical areas</p>
+	<p class="small">Definition: July 2023</p>
+	<p class="small">1990, 2000, 2010, 2020 census, 2025&nbsp;estimate</p>
+	</a>
+</li>
+<li class="large">
+	<a href="combmetro/" target="_top">
+	<figure><img class="right" src="/images/cmaps/usa-combmetro.png" alt="USA Combined and Isolated Metropolitan Areas"></figure>
+	<h3 data-date="2026-03-27" class="updateditem">Combined Metropolitan Areas</h3>
+	<p>The population of all combined statistical areas as well as of all isolated metropolitan and micropolitan statistical areas.</p>
+	<p class="small">Definition: July 2023</p>
+	<p class="small">1990, 2000, 2010, 2020 census, 2025&nbsp;estimate</p>
+	</a>
+</li>
+<li class="large">
+	<a href="ua/" target="_top">
+	<figure><img class="right" src="/images/cmaps/usa-ua.png" alt="USA Urban Areas"></figure>
+	<h3 data-date="2023-05-26 det">All Urban Areas</h3>
+	<p>The population of all urban areas in the United States.</p>
+	<p class="small">2000, 2010, 2020 census</p>
+	</a>
+</li>
+<li class="large">
+	<a href="aia/admin/" target="_top">
+	<figure><img src="/images/cmaps/usa-aia.png" alt="USA Native American Tribal Areas"></figure>
+	<h3 data-date="2023-05-26 det">Native American Tribal Areas</h3>
+	<p>The population of areas (reservations, trust lands, tribal statistical areas, tribal subdivisions) for Native Americans.</p>
+	<p class="small">2000, 2010, 2020 census</p>
+	</a>
+</li>
+
+<li class="large">
+	<a href="http://www.top10cities.net/usa/" target="_top">
+	<figure><img src="/images/cmaps/usa-top10.png" alt="Top 10 Cities in USA and U.S. states"></figure>
+	<h3 data-date="2026-05-20" class="updateditem">Top 10 Cities</h3>
+	<p>The top 10 cities of the United States and of the U.S. states.</p>
+	<p class="small">2025 estimate</p>
+	</a>
+</li>
+<li class="large">
+	<div>
+	<figure><img src="/images/icons/search4button.svg" alt="Search" title="Search"></figure>
+	<form action="javascript:search2('us','USA')" method="get" id="searchforms1">
+	<input id="places1" type="text" value="" maxlength="80" placeholder="Enter place name" autocomplete="off" class="ui-autocomplete-input">
+	</form>
+	</div>
+</li>
+<li></li>
+<li></li>
+<li></li>
+<li></li>
+<li></li>
+<li></li>
+<li></li>
+<li></li>
+</ul>
+</div>
+
+<div class="adv" id="places">
+	<script>show_adv("index_h")</script><ins class="adsbygoogle" data-ad-client="ca-pub-7251478393613561" data-ad-slot="3560889756" style="display:inline-block;width:728px;height:90px"></ins>
+
+</div>
+<div class="mobiadv hlarge">
+	<script>show_mobiadv(true)</script>
+</div>
+
+<h2>U.S. States</h2>
+<ul>
+<li data-date="2025-05-18"><strong>Major and Midsize Places</strong>: state as well as major and midsize incorporated places and CDPs. <span class="small">1980, 1990, 2000, 2010, 2020 census, 2024 estimate – 2020/2024 boundaries</span></li>
+<li data-date="2026-05-20" class="updateditem"><strong>Counties and Incorporated Places</strong>: counties and all incorporated places. <span class="small">1990, 2000, 2010, 2020 census, 2025 estimate – 2025 boundaries</span></li>
+<li data-date="2023-05-26 det"><strong>Counties and Census Places</strong>: counties, all incorporated places and CDPs. <span class="small">1990, 2000, 2010, 2020 census – 2020/2024 boundaries</span></li>
+<li data-date="2023-05-26 det"><strong>Urban Areas</strong>: all urban areas. <span class="small">2000, 2010, 2020 census – 2020 boundaries</span></li>
+<li data-date="2026-03-27" class="updateditem"><strong>Counties</strong>: all counties. <span class="small">1990, 2000, 2010, 2020 census, 2025 estimate</span></li>
+<li data-date="2025-05-19"><strong>Minor Civil Divisions</strong>: townships &amp; New England towns. <span class="small">1990, 2000, 2010, 2020 census, 2024 estimate – 2024 boundaries</span></li>
+</ul>
+
+<div class="mcolboxes">
+<ul>
+
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-alabama.svg" alt="Alabama"></figure>
+	<h3>Alabama</h3>
+	<ul>
+		<li><a href="cities/alabama/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="alabama/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/alabama/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/AL__alabama/">Urban Areas</a></li>
+		<li><a href="admin/AL__alabama/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-alaska.svg" alt="Alaska"></figure>
+	<h3>Alaska</h3>
+	<ul>
+		<li><a href="cities/alaska/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="alaska/" target="_top">Census Areas and Incorporated Places</a></li>
+		<li><a href="places/alaska/" target="_top">Census Areas and Census Places</a></li>
+		<li><a href="ua/AK__alaska/">Urban Areas</a></li>
+		<li><a href="admin/AK__alaska/">Census Areas and Boroughs</a></li>
+		<li data-date="2022-07-01 new"><a href="aia/alaska/admin/">Native Village Statistical Areas</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-arizona.svg" alt="Arizona"></figure>
+	<h3>Arizona</h3>
+	<ul>
+		<li><a href="cities/arizona/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="arizona/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/arizona/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/AZ__arizona/">Urban Areas</a></li>
+		<li><a href="admin/AZ__arizona/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-arkansas.svg" alt="Arkansas"></figure>
+	<h3>Arkansas</h3>
+	<ul>
+		<li><a href="cities/arkansas/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="arkansas/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/arkansas/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/AR__arkansas/">Urban Areas</a></li>
+		<li><a href="admin/AR__arkansas/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-california.png" alt="California"></figure>
+	<h3>California</h3>
+	<ul>
+		<li><a href="cities/california/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="california/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/california/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/CA__california/">Urban Areas</a></li>
+		<li><a href="admin/CA__california/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-colorado.svg" alt="Colorado"></figure>
+	<h3>Colorado</h3>
+	<ul>
+		<li><a href="cities/colorado/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="colorado/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/colorado/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/CO__colorado/">Urban Areas</a></li>
+		<li><a href="admin/CO__colorado/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-connecticut.png" alt="Connecticut"></figure>
+	<h3>Connecticut</h3>
+	<ul>
+		<li><a href="cities/connecticut/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="connecticut/" target="_top">Planning Regions and Incorporated Places</a></li>
+		<li><a href="places/connecticut/" target="_top">Planning Regions and Census Places</a></li>
+		<li><a href="ua/CT__connecticut/">Urban Areas</a></li>
+		<li><a href="admin/CT__connecticut/">Planning Regions</a></li>
+		<li><a href="connecticut/admin/" target="_top">Minor Civil Divisions</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-delaware.png" alt="Delaware"></figure>
+	<h3>Delaware</h3>
+	<ul>
+		<li><a href="cities/delaware/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="delaware/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/delaware/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/DE__delaware/">Urban Areas</a></li>
+		<li><a href="admin/DE__delaware/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-districtofcolumbia.svg" alt="District of Columbia"></figure>
+	<h3>District of Columbia</h3>
+	<ul>
+		<li><a href="cities/districtofcolumbia/" target="_top">Federal District and Capital</a></li>
+		<li><a href="districtofcolumbia/district_of_columbia/1150000__washington/" target="_top">Washington D.C.</a></li>
+		<li><a href="ua/district_of_columbia_vi/ua92242__washington_arlington/">Washington–Arlington Urban Area</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-florida.png" alt="Florida"></figure>
+	<h3>Florida</h3>
+	<ul>
+		<li><a href="cities/florida/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="florida/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/florida/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/FL__florida/">Urban Areas</a></li>
+		<li><a href="admin/FL__florida/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-georgia.svg" alt="Georgia"></figure>
+	<h3>Georgia</h3>
+	<ul>
+		<li><a href="cities/georgia/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="georgia/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/georgia/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/GA__georgia/">Urban Areas</a></li>
+		<li><a href="admin/GA__georgia/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-hawaii.svg" alt="Hawaii"></figure>
+	<h3>Hawaii</h3>
+	<ul>
+		<li><a href="cities/hawaii/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="hawaii/" target="_top">Counties and Urban Honolulu</a></li>
+		<li><a href="places/hawaii/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/HI__hawaii/">Urban Areas</a></li>
+		<li><a href="admin/HI__hawaii/">Counties</a></li>
+		<li data-date="2022-07-01 new"><a href="aia/hawaii/admin/">Hawaiian Home Lands</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-idaho.png" alt="Idaho"></figure>
+	<h3>Idaho</h3>
+	<ul>
+		<li><a href="cities/idaho/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="idaho/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/idaho/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/ID__idaho/">Urban Areas</a></li>
+		<li><a href="admin/ID__idaho/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-illinois.png" alt="Illinois"></figure>
+	<h3>Illinois</h3>
+	<ul>
+		<li><a href="cities/illinois/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="illinois/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/illinois/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/IL__illinois/">Urban Areas</a></li>
+		<li><a href="admin/IL__illinois/">Counties</a></li>
+		<li><a href="illinois/admin/" target="_top">Minor Civil Divisions</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-indiana.svg" alt="Indiana"></figure>
+	<h3>Indiana</h3>
+	<ul>
+		<li><a href="cities/indiana/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="indiana/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/indiana/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/IN__indiana/">Urban Areas</a></li>
+		<li><a href="admin/IN__indiana/">Counties</a></li>
+		<li><a href="indiana/admin/" target="_top">Minor Civil Divisions</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-iowa.png" alt="Iowa"></figure>
+	<h3>Iowa</h3>
+	<ul>
+		<li><a href="cities/iowa/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="iowa/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/iowa/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/IA__iowa/">Urban Areas</a></li>
+		<li><a href="admin/IA__iowa/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-kansas.png" alt="Kansas"></figure>
+	<h3>Kansas</h3>
+	<ul>
+		<li><a href="cities/kansas/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="kansas/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/kansas/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/KS__kansas/">Urban Areas</a></li>
+		<li><a href="admin/KS__kansas/">Counties</a></li>
+		<li><a href="kansas/admin/" target="_top">Minor Civil Divisions</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-kentucky.png" alt="Kentucky"></figure>
+	<h3>Kentucky</h3>
+	<ul>
+		<li><a href="cities/kentucky/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="kentucky/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/kentucky/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/KY__kentucky/">Urban Areas</a></li>
+		<li><a href="admin/KY__kentucky/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-louisiana.png" alt="Louisiana"></figure>
+	<h3>Louisiana</h3>
+	<ul>
+		<li><a href="cities/louisiana/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="louisiana/" target="_top">Parishes and Incorporated Places</a></li>
+		<li><a href="places/louisiana/" target="_top">Parishes and Census Places</a></li>
+		<li><a href="ua/LA__louisiana/">Urban Areas</a></li>
+		<li><a href="admin/LA__louisiana/">Parishes</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-maine.png" alt="Maine"></figure>
+	<h3>Maine</h3>
+	<ul>
+		<li><a href="cities/maine/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="maine/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/maine/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/ME__maine/">Urban Areas</a></li>
+		<li><a href="admin/ME__maine/">Counties</a></li>
+		<li><a href="maine/admin/" target="_top">Minor Civil Divisions</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-maryland.svg" alt="Maryland"></figure>
+	<h3>Maryland</h3>
+	<ul>
+		<li><a href="cities/maryland/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="maryland/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/maryland/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/MD__maryland/">Urban Areas</a></li>
+		<li><a href="admin/MD__maryland/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-massachusetts.png" alt="Massachusetts"></figure>
+	<h3>Massachusetts</h3>
+	<ul>
+		<li><a href="cities/massachusetts/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="massachusetts/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/massachusetts/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/MA__massachusetts/">Urban Areas</a></li>
+		<li><a href="admin/MA__massachusetts/">Counties</a></li>
+		<li><a href="massachusetts/admin/" target="_top">Minor Civil Divisions</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-michigan.png" alt="Michigan"></figure>
+	<h3>Michigan</h3>
+	<ul>
+		<li><a href="cities/michigan/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="michigan/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/michigan/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/MI__michigan/">Urban Areas</a></li>
+		<li><a href="admin/MI__michigan/">Counties</a></li>
+		<li><a href="michigan/admin/" target="_top">Minor Civil Divisions</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-minnesota.png" alt="Minnesota"></figure>
+	<h3>Minnesota</h3>
+	<ul>
+		<li><a href="cities/minnesota/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="minnesota/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/minnesota/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/MN__minnesota/">Urban Areas</a></li>
+		<li><a href="admin/MN__minnesota/">Counties</a></li>
+		<li><a href="minnesota/admin/" target="_top">Minor Civil Divisions</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-mississippi.svg" alt="Mississippi"></figure>
+	<h3>Mississippi</h3>
+	<ul>
+		<li><a href="cities/mississippi/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="mississippi/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/mississippi/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/MS__mississippi/">Urban Areas</a></li>
+		<li><a href="admin/MS__mississippi/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-missouri.png" alt="Missouri"></figure>
+	<h3>Missouri</h3>
+	<ul>
+		<li><a href="cities/missouri/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="missouri/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/missouri/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/MO__missouri/">Urban Areas</a></li>
+		<li><a href="admin/MO__missouri/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-montana.png" alt="Montana"></figure>
+	<h3>Montana</h3>
+	<ul>
+		<li><a href="cities/montana/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="montana/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/montana/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/MT__montana/">Urban Areas</a></li>
+		<li><a href="admin/MT__montana/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-nebraska.png" alt="Nebraska"></figure>
+	<h3>Nebraska</h3>
+	<ul>
+		<li><a href="cities/nebraska/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="nebraska/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/nebraska/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/NE__nebraska/">Urban Areas</a></li>
+		<li><a href="admin/NE__nebraska/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-nevada.png" alt="Nevada"></figure>
+	<h3>Nevada</h3>
+	<ul>
+		<li><a href="cities/nevada/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="nevada/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/nevada/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/NV__nevada/">Urban Areas</a></li>
+		<li><a href="admin/NV__nevada/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-newhampshire.png" alt="New Hampshire"></figure>
+	<h3>New Hampshire</h3>
+	<ul>
+		<li><a href="cities/newhampshire/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="newhampshire/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/newhampshire/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/NH__new_hampshire/">Urban Areas</a></li>
+		<li><a href="admin/NH__new_hampshire/">Counties</a></li>
+		<li><a href="newhampshire/admin/" target="_top">Minor Civil Divisions</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-newjersey.png" alt="New Jersey"></figure>
+	<h3>New Jersey</h3>
+	<ul>
+		<li><a href="cities/newjersey/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="newjersey/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/newjersey/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/NJ__new_jersey/">Urban Areas</a></li>
+		<li><a href="admin/NJ__new_jersey/">Counties</a></li>
+		<li><a href="newjersey/admin/" target="_top">Minor Civil Divisions</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-newmexico.svg" alt="New Mexico"></figure>
+	<h3>New Mexico</h3>
+	<ul>
+		<li><a href="cities/newmexico/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="newmexico/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/newmexico/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/NM__new_mexico/">Urban Areas</a></li>
+		<li><a href="admin/NM__new_mexico/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-newyork.png" alt="New York"></figure>
+	<h3>New York</h3>
+	<ul>
+		<li><a href="cities/newyork/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="newyork/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/newyork/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/NY__new_york/">Urban Areas</a></li>
+		<li><a href="admin/NY__new_york/">Counties</a></li>
+		<li><a href="newyork/admin/" target="_top">Minor Civil Divisions</a></li>
+		<li data-date="2025-03-22"><a href="newyorkcity/" target="_top">New York City Boroughs</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-northcarolina.svg" alt="North Carolina"></figure>
+	<h3>North Carolina</h3>
+	<ul>
+		<li><a href="cities/northcarolina/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="northcarolina/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/northcarolina/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/NC__north_carolina/">Urban Areas</a></li>
+		<li><a href="admin/NC__north_carolina/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-northdakota.png" alt="North Dakota"></figure>
+	<h3>North Dakota</h3>
+	<ul>
+		<li><a href="cities/northdakota/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="northdakota/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/northdakota/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/ND__north_dakota/">Urban Areas</a></li>
+		<li><a href="admin/ND__north_dakota/">Counties</a></li>
+		<li><a href="northdakota/admin/" target="_top">Minor Civil Divisions</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-ohio.svg" alt="Ohio"></figure>
+	<h3>Ohio</h3>
+	<ul>
+		<li><a href="cities/ohio/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="ohio/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/ohio/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/OH__ohio/">Urban Areas</a></li>
+		<li><a href="admin/OH__ohio/">Counties</a></li>
+		<li><a href="ohio/admin/" target="_top">Minor Civil Divisions</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-oklahoma.png" alt="Oklahoma"></figure>
+	<h3>Oklahoma</h3>
+	<ul>
+		<li><a href="cities/oklahoma/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="oklahoma/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/oklahoma/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/OK__oklahoma/">Urban Areas</a></li>
+		<li><a href="admin/OK__oklahoma/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-oregon.png" alt="Oregon"></figure>
+	<h3>Oregon</h3>
+	<ul>
+		<li><a href="cities/oregon/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="oregon/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/oregon/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/OR__oregon/">Urban Areas</a></li>
+		<li><a href="admin/OR__oregon/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-pennsylvania.png" alt="Pennsylvania"></figure>
+	<h3>Pennsylvania</h3>
+	<ul>
+		<li><a href="cities/pennsylvania/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="pennsylvania/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/pennsylvania/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/PA__pennsylvania/">Urban Areas</a></li>
+		<li><a href="admin/PA__pennsylvania/">Counties</a></li>
+		<li><a href="pennsylvania/admin/" target="_top">Minor Civil Divisions</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-rhodeisland.svg" alt="Rhode Island"></figure>
+	<h3>Rhode Island</h3>
+	<ul>
+		<li><a href="cities/rhodeisland/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="rhodeisland/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/rhodeisland/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/RI__rhode_island/">Urban Areas</a></li>
+		<li><a href="admin/RI__rhode_island/">Counties</a></li>
+		<li><a href="rhodeisland/admin/" target="_top">Minor Civil Divisions</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-southcarolina.svg" alt="outh Carolina"></figure>
+	<h3>South Carolina</h3>
+	<ul>
+		<li><a href="cities/southcarolina/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="southcarolina/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/southcarolina/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/SC__south_carolina/">Urban Areas</a></li>
+		<li><a href="admin/SC__south_carolina/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-southdakota.png" alt="South Dakota"></figure>
+	<h3>South Dakota</h3>
+	<ul>
+		<li><a href="cities/southdakota/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="southdakota/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/southdakota/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/SD__south_dakota/">Urban Areas</a></li>
+		<li><a href="admin/SD__south_dakota/">Counties</a></li>
+		<li><a href="southdakota/admin/" target="_top">Minor Civil Divisions</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-tennessee.svg" alt="Tennessee"></figure>
+	<h3>Tennessee</h3>
+	<ul>
+		<li><a href="cities/tennessee/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="tennessee/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/tennessee/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/TN__tennessee/">Urban Areas</a></li>
+		<li><a href="admin/TN__tennessee/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-texas.svg" alt="Texas"></figure>
+	<h3>Texas</h3>
+	<ul>
+		<li><a href="cities/texas/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="texas/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/texas/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/TX__texas/">Urban Areas</a></li>
+		<li><a href="admin/TX__texas/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-utah.png" alt="Utah"></figure>
+	<h3>Utah</h3>
+	<ul>
+		<li><a href="cities/utah/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="utah/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/utah/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/UT__utah/">Urban Areas</a></li>
+		<li><a href="admin/UT__utah/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-vermont.png" alt="Vermont"></figure>
+	<h3>Vermont</h3>
+	<ul>
+		<li><a href="cities/vermont/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="vermont/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/vermont/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/VT__vermont/">Urban Areas</a></li>
+		<li><a href="admin/VT__vermont/">Counties</a></li>
+		<li><a href="vermont/admin/" target="_top">Minor Civil Divisions</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-virginia.png" alt="Virginia"></figure>
+	<h3>Virginia</h3>
+	<ul>
+		<li><a href="cities/virginia/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="virginia/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/virginia/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/VA__virginia/">Urban Areas</a></li>
+		<li><a href="admin/VA__virginia/">Counties and Independent Cities</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-washington.png" alt="Washington"></figure>
+	<h3>Washington</h3>
+	<ul>
+		<li><a href="cities/washington/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="washington/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/washington/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/WA__washington/">Urban Areas</a></li>
+		<li><a href="admin/WA__washington/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-westvirginia.png" alt="West Virginia"></figure>
+	<h3>West Virginia</h3>
+	<ul>
+		<li><a href="cities/westvirginia/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="westvirginia/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/westvirginia/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/WV__west_virginia/">Urban Areas</a></li>
+		<li><a href="admin/WV__west_virginia/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-wisconsin.png" alt="Wisconsin"></figure>
+	<h3>Wisconsin</h3>
+	<ul>
+		<li><a href="cities/wisconsin/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="wisconsin/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/wisconsin/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/WI__wisconsin/">Urban Areas</a></li>
+		<li><a href="admin/WI__wisconsin/">Counties</a></li>
+		<li><a href="wisconsin/admin/" target="_top">Minor Civil Divisions</a></li>
+	</ul>
+</div>
+</li>
+<li class="middle">
+<div>
+	<figure><img class="padd" src="/images/cmaps/usa-wyoming.png" alt="Wyoming"></figure>
+	<h3>Wyoming</h3>
+	<ul>
+		<li><a href="cities/wyoming/" target="_top">Major and Midsize Places</a></li>
+		<li><a href="wyoming/" target="_top">Counties and Incorporated Places</a></li>
+		<li><a href="places/wyoming/" target="_top">Counties and Census Places</a></li>
+		<li><a href="ua/WY__wyoming/">Urban Areas</a></li>
+		<li><a href="admin/WY__wyoming/">Counties</a></li>
+	</ul>
+</div>
+</li>
+<li></li>
+<li></li>
+<li></li>
+<li></li>
+<li></li>
+</ul>
+</div>
+
+<div class="adv" id="places">
+	<script>show_adv("index_h")</script><ins class="adsbygoogle" data-ad-client="ca-pub-7251478393613561" data-ad-slot="3560889756" style="display:inline-block;width:728px;height:90px"></ins>
+
+</div>
+<div class="mobiadv hlarge">
+	<script>show_mobiadv(true)</script>
+</div>
+
+<h2 data-date="2023-05-26 det">Metropolitan Areas: <span class="smalltext">Census Tracts</span></h2>
+<p>The population of the census tracts of the following metropolitan statistical areas.</p>
+<p class="small">1990, 2000, 2010, 2020 census – 2020 boundaries</p>
+<div class="mcolboxes veryslimboxes">
+<ul>
+	<li id="usa-metro_a10420"><a href="metroakron/" target="_top"><h4>Akron</h4></a></li>
+	<li id="usa-metro_a10580"><a href="metroalbany/" target="_top"><h4>Albany - Schenectady - Troy</h4></a></li>
+	<li id="usa-metro_a10740"><a href="metroalbuquerque/" target="_top"><h4>Albuquerque</h4></a></li>
+	<li id="usa-metro_a10900"><a href="metroallentown/" target="_top"><h4>Allentown - Bethlehem - Easton</h4></a></li>
+	<li id="usa-metro_a12060"><a href="metroatlanta/" target="_top"><h4>Atlanta - Sandy Springs - Alpharetta</h4></a></li>
+	<li id="usa-metro_a12260"><a href="metroaugusta/" target="_top"><h4>Augusta - Richmond County</h4></a></li>
+	<li id="usa-metro_a12420"><a href="metroaustin/" target="_top"><h4>Austin - Round Rock - Georgetown</h4></a></li>
+	<li id="usa-metro_a12540"><a href="metrobakersfield/" target="_top"><h4>Bakersfield</h4></a></li>
+	<li id="usa-metro_a12580"><a href="metrobaltimore/" target="_top"><h4>Baltimore - Columbia - Towson</h4></a></li>
+	<li id="usa-metro_a12940"><a href="metrobatonrouge/" target="_top"><h4>Baton Rouge</h4></a></li>
+	<li id="usa-metro_a13820"><a href="metrobirmingham/" target="_top"><h4>Birmingham - Hoover</h4></a></li>
+	<li id="usa-metro_a14260"><a href="metroboisecity/" target="_top"><h4>Boise City</h4></a></li>
+	<li id="usa-metro_a14460"><a href="metroboston/" target="_top"><h4>Boston - Cambridge - Newton</h4></a></li>
+	<li id="usa-metro_a14860"><a href="metrobridgeport/" target="_top"><h4>Bridgeport - Stamford - Norwalk</h4></a></li>
+	<li id="usa-metro_a15380"><a href="metrobuffalo/" target="_top"><h4>Buffalo - Cheektowaga</h4></a></li>
+	<li id="usa-metro_a15980"><a href="metrocapecoral/" target="_top"><h4>Cape Coral - Fort Myers</h4></a></li>
+	<li id="usa-metro_a16700"><a href="metrocharleston/" target="_top"><h4>Charleston - North Charleston</h4></a></li>
+	<li id="usa-metro_a16740"><a href="metrocharlotte/" target="_top"><h4>Charlotte - Concord - Gastonia</h4></a></li>
+	<li id="usa-metro_a16860"><a href="metrochattanooga/" target="_top"><h4>Chattanooga</h4></a></li>
+	<li id="usa-metro_a16980"><a href="metrochicago/" target="_top"><h4>Chicago - Naperville - Elgin</h4></a></li>
+	<li id="usa-metro_a17140"><a href="metrocincinnati/" target="_top"><h4>Cincinnati</h4></a></li>
+	<li id="usa-metro_a17460"><a href="metrocleveland/" target="_top"><h4>Cleveland - Elyria</h4></a></li>
+	<li id="usa-metro_a17820"><a href="metrocoloradosprings/" target="_top"><h4>Colorado Springs</h4></a></li>
+	<li id="usa-metro_a17900"><a href="metrocolumbia/" target="_top"><h4>Columbia</h4></a></li>
+	<li id="usa-metro_a18140"><a href="metrocolumbus/" target="_top"><h4>Columbus</h4></a></li>
+	<li id="usa-metro_a19100"><a href="metrodallas/" target="_top"><h4>Dallas - Fort Worth - Arlington</h4></a></li>
+	<li id="usa-metro_a19430"><a href="metrodayton/" target="_top"><h4>Dayton - Kettering</h4></a></li>
+	<li id="usa-metro_a19660"><a href="metrodeltona/" target="_top"><h4>Deltona - Daytona Beach - Ormond Beach</h4></a></li>
+	<li id="usa-metro_a19740"><a href="metrodenver/" target="_top"><h4>Denver - Aurora - Lakewood</h4></a></li>
+	<li id="usa-metro_a19780"><a href="metrodesmoines/" target="_top"><h4>Des Moines - West Des Moines</h4></a></li>
+	<li id="usa-metro_a19820"><a href="metrodetroit/" target="_top"><h4>Detroit - Warren - Dearborn</h4></a></li>
+	<li id="usa-metro_a20500"><a href="metrodurham/" target="_top"><h4>Durham - Chapel Hill</h4></a></li>
+	<li id="usa-metro_a21340"><a href="metroelpaso/" target="_top"><h4>El Paso</h4></a></li>
+	<li id="usa-metro_a23420"><a href="metrofresno/" target="_top"><h4>Fresno</h4></a></li>
+	<li id="usa-metro_a24340"><a href="metrograndrapids/" target="_top"><h4>Grand Rapids - Kentwood</h4></a></li>
+	<li id="usa-metro_a24660"><a href="metrogreensboro/" target="_top"><h4>Greensboro - High Point</h4></a></li>
+	<li id="usa-metro_a24860"><a href="metrogreenville/" target="_top"><h4>Greenville - Anderson</h4></a></li>
+	<li id="usa-metro_a25420"><a href="metroharrisburg/" target="_top"><h4>Harrisburg - Carlisle</h4></a></li>
+	<li id="usa-metro_a25540"><a href="metrohartford/" target="_top"><h4>Hartford - East Hartford - Middletown</h4></a></li>
+	<li id="usa-metro_a46520"><a href="metrohonolulu/" target="_top"><h4>Honolulu</h4></a></li>
+	<li id="usa-metro_a26420"><a href="metrohouston/" target="_top"><h4>Houston - The Woodlands - Sugar Land</h4></a></li>
+	<li id="usa-metro_a26900"><a href="metroindianapolis/" target="_top"><h4>Indianapolis - Carmel - Anderson</h4></a></li>
+	<li id="usa-metro_a27140"><a href="metrojackson/" target="_top"><h4>Jackson</h4></a></li>
+	<li id="usa-metro_a27260"><a href="metrojacksonville/" target="_top"><h4>Jacksonville</h4></a></li>
+	<li id="usa-metro_a28140"><a href="metrokansascity/" target="_top"><h4>Kansas City</h4></a></li>
+	<li id="usa-metro_a28940"><a href="metroknoxville/" target="_top"><h4>Knoxville</h4></a></li>
+	<li id="usa-metro_a29460"><a href="metrolakeland/" target="_top"><h4>Lakeland - Winter Haven</h4></a></li>
+	<li id="usa-metro_a29540"><a href="metrolancaster/" target="_top"><h4>Lancaster</h4></a></li>
+	<li><a href="metrolansing/" target="_top"><h4>Lansing - East Lansing</h4></a></li>
+	<li id="usa-metro_a29820"><a href="metrolasvegas/" target="_top"><h4>Las Vegas - Henderson - Paradise</h4></a></li>
+	<li><a href="metrolexingtonfayette/" target="_top"><h4>Lexington - Fayette</h4></a></li>
+	<li id="usa-metro_a30780"><a href="metrolittlerock/" target="_top"><h4>Little Rock - North Little Rock - Conway</h4></a></li>
+	<li id="usa-metro_a31080"><a href="metrolosangeles/" target="_top"><h4>Los Angeles - Long Beach - Anaheim</h4></a></li>
+	<li id="usa-metro_a31140"><a href="metrolouisville/" target="_top"><h4>Louisville/Jefferson County</h4></a></li>
+	<li id="usa-metro_a31540"><a href="metromadison/" target="_top"><h4>Madison</h4></a></li>
+	<li id="usa-metro_a32580"><a href="metromcallen/" target="_top"><h4>McAllen - Edinburg - Mission</h4></a></li>
+	<li id="usa-metro_a32820"><a href="metromemphis/" target="_top"><h4>Memphis</h4></a></li>
+	<li id="usa-metro_a33100"><a href="metromiami/" target="_top"><h4>Miami - Fort Lauderdale - Pompano Beach</h4></a></li>
+	<li id="usa-metro_a33340"><a href="metromilwaukee/" target="_top"><h4>Milwaukee - Waukesha</h4></a></li>
+	<li id="usa-metro_a33460"><a href="metrominneapolis/" target="_top"><h4>Minneapolis - St. Paul - Bloomington</h4></a></li>
+	<li id="usa-metro_a33700"><a href="metromodesto/" target="_top"><h4>Modesto</h4></a></li>
+	<li><a href="metromyrtlebeach/" target="_top"><h4>Myrtle Beach - Conway - North Myrtle Beach</h4></a></li>
+	<li id="usa-metro_a34980"><a href="metronashville/" target="_top"><h4>Nashville-Davidson - Murfreesboro - Franklin</h4></a></li>
+	<li id="usa-metro_a35300"><a href="metronewhaven/" target="_top"><h4>New Haven - Milford</h4></a></li>
+	<li id="usa-metro_a35380"><a href="metroneworleans/" target="_top"><h4>New Orleans - Metairie</h4></a></li>
+	<li id="usa-metro_a35620"><a href="metronewyork/" target="_top"><h4>New York - Newark - Jersey City</h4></a></li>
+	<li id="usa-metro_a35840"><a href="metronorthport/" target="_top"><h4>North Port - Sarasota - Bradenton</h4></a></li>
+	<li id="usa-metro_a36260"><a href="metroogden/" target="_top"><h4>Ogden - Clearfield</h4></a></li>
+	<li id="usa-metro_a36420"><a href="metrooklahomacity/" target="_top"><h4>Oklahoma City</h4></a></li>
+	<li id="usa-metro_a36540"><a href="metroomaha/" target="_top"><h4>Omaha - Council Bluffs</h4></a></li>
+	<li id="usa-metro_a36740"><a href="metroorlando/" target="_top"><h4>Orlando - Kissimmee - Sanford</h4></a></li>
+	<li id="usa-metro_a37100"><a href="metrooxnard/" target="_top"><h4>Oxnard - Thousand Oaks - Ventura</h4></a></li>
+	<li id="usa-metro_a37340"><a href="metropalmbay/" target="_top"><h4>Palm Bay - Melbourne - Titusville</h4></a></li>
+	<li><a href="metropensacola/" target="_top"><h4>Pensacola - Ferry Pass - Brent</h4></a></li>
+	<li id="usa-metro_a37980"><a href="metrophiladelphia/" target="_top"><h4>Philadelphia - Camden - Wilmington</h4></a></li>
+	<li id="usa-metro_a38060"><a href="metrophoenix/" target="_top"><h4>Phoenix - Mesa - Chandler</h4></a></li>
+	<li id="usa-metro_a38300"><a href="metropittsburgh/" target="_top"><h4>Pittsburgh</h4></a></li>
+	<li id="usa-metro_a38860"><a href="metroportlandmaine/" target="_top"><h4>Portland - South Portland</h4></a></li>
+	<li id="usa-metro_a38900"><a href="metroportlandoregon/" target="_top"><h4>Portland - Vancouver - Hillsboro</h4></a></li>
+	<li><a href="metroportstlucie/" target="_top"><h4>Port St. Lucie</h4></a></li>
+	<li id="usa-metro_a39300"><a href="metroprovidence/" target="_top"><h4>Providence - Warwick</h4></a></li>
+	<li id="usa-metro_a39340"><a href="metroprovo/" target="_top"><h4>Provo - Orem</h4></a></li>
+	<li id="usa-metro_a39580"><a href="metroraleigh/" target="_top"><h4>Raleigh - Cary</h4></a></li>
+	<li><a href="metroreno/" target="_top"><h4>Reno</h4></a></li>
+	<li id="usa-metro_a40060"><a href="metrorichmond/" target="_top"><h4>Richmond</h4></a></li>
+	<li id="usa-metro_a40140"><a href="metroriverside/" target="_top"><h4>Riverside - San Bernardino - Ontario</h4></a></li>
+	<li id="usa-metro_a40380"><a href="metrorochester/" target="_top"><h4>Rochester</h4></a></li>
+	<li id="usa-metro_a40900"><a href="metrosacramento/" target="_top"><h4>Sacramento - Roseville - Folsom</h4></a></li>
+	<li id="usa-metro_a41620"><a href="metrosaltlakecity/" target="_top"><h4>Salt Lake City</h4></a></li>
+	<li id="usa-metro_a41700"><a href="metrosanantonio/" target="_top"><h4>San Antonio - New Braunfels</h4></a></li>
+	<li id="usa-metro_a41740"><a href="metrosandiego/" target="_top"><h4>San Diego - Chula Vista - Carlsbad</h4></a></li>
+	<li id="usa-metro_a41860"><a href="metrosanfrancisco/" target="_top"><h4>San Francisco - Oakland - Berkeley</h4></a></li>
+	<li id="usa-metro_a41940"><a href="metrosanjose/" target="_top"><h4>San Jose - Sunnyvale - Santa Clara</h4></a></li>
+	<li><a href="metrosantarosa/" target="_top"><h4>Santa Rosa - Petaluma</h4></a></li>
+	<li id="usa-metro_a42540"><a href="metroscranton/" target="_top"><h4>Scranton - Wilkes-Barre</h4></a></li>
+	<li id="usa-metro_a42660"><a href="metroseattle/" target="_top"><h4>Seattle - Tacoma - Bellevue</h4></a></li>
+	<li id="usa-metro_a44060"><a href="metrospokane/" target="_top"><h4>Spokane - Spokane Valley</h4></a></li>
+	<li id="usa-metro_a44140"><a href="metrospringfield/" target="_top"><h4>Springfield</h4></a></li>
+	<li id="usa-metro_a41180"><a href="metrostlouis/" target="_top"><h4>St. Louis</h4></a></li>
+	<li id="usa-metro_a44700"><a href="metrostockton/" target="_top"><h4>Stockton</h4></a></li>
+	<li id="usa-metro_a45060"><a href="metrosyracuse/" target="_top"><h4>Syracuse</h4></a></li>
+	<li id="usa-metro_a45300"><a href="metrotampa/" target="_top"><h4>Tampa - St. Petersburg - Clearwater</h4></a></li>
+	<li id="usa-metro_a45780"><a href="metrotoledo/" target="_top"><h4>Toledo</h4></a></li>
+	<li id="usa-metro_a46060"><a href="metrotucson/" target="_top"><h4>Tucson</h4></a></li>
+	<li id="usa-metro_a46140"><a href="metrotulsa/" target="_top"><h4>Tulsa</h4></a></li>
+	<li id="usa-metro_a47260"><a href="metrovirginiabeach/" target="_top"><h4>Virginia Beach - Norfolk - Newport News</h4></a></li>
+	<li id="usa-metro_a47900"><a href="metrowashington/" target="_top"><h4>Washington - Arlington - Alexandria</h4></a></li>
+	<li id="usa-metro_a48620"><a href="metrowichita/" target="_top"><h4>Wichita</h4></a></li>
+	<li id="usa-metro_a49180"><a href="metrowinstonsalem/" target="_top"><h4>Winston-Salem</h4></a></li>
+	<li id="usa-metro_a49340"><a href="metroworcester/" target="_top"><h4>Worcester</h4></a></li>
+	<li id="usa-metro_a49660"><a href="metroyoungstown/" target="_top"><h4>Youngstown - Warren - Boardman</h4></a></li>
+	<li></li>
+	<li></li>
+	<li></li>
+	<li></li>
+	<li></li>
+	<li></li>
+	<li></li>
+	<li></li>
+	<li></li>
+	<li></li>
+	<li></li>
+	<li></li>
+	<li></li>
+	<li></li>
+	<li></li>
+	<li></li>
+</ul>
+</div>
+
+<div class="copy">
+	<script>writeFooter()</script><footer>
+<nav id="copy"><ul><li id="footerDate" class="date" title="last change">2026-05-20</li>
+<li class="addr"><a href="/" target="_top">WWW.CITYPOPULATION.DE</a></li></ul></nav>
+<div id="communication">
+<figure class="smallicon"><a href="/en/help/contact/" target="_top"><img src="/images/icons/mail_c.svg" alt="Mail" title="Contact"></a><figcaption>Contact</figcaption></figure>
+<figure class="smallicon"><a href="/en/help/termsofuse/" target="_top"><img src="/images/icons/termsofuse_c.svg" alt="Terms of use" title="Terms of Use / Privacy Policy"></a><figcaption>Terms &amp; Privacy</figcaption></figure>
+<figure class="smallicon"><a href="/en/search/" target="_top"><img src="/images/icons/sitesearch_c.svg" alt="Search" title="Site Search"></a><figcaption>Site Search</figcaption></figure>
+<figure class="smallicon"><a href="/en/help/settings/" target="_top"><img src="/images/icons/settings_c.svg" alt="Settings" title="Settings"></a><figcaption>Settings</figcaption></figure>
+<figure class="smallicon"><a href="javascript:googlefc.callbackQueue.push(googlefc.showRevocationMessage)" target="_top"><img src="/images/icons/security.svg" alt="Settings" title="Enable/disable display of privacy and legal settings"></a><figcaption>Adsense</figcaption></figure>
+<figure class="smallicon si_facebook"><a href="https://www.facebook.com/citypopulation/" target="_top"><img src="/images/icons/facebook.svg" alt="Facebook" title="Facebook"></a><figcaption>Facebook</figcaption></figure>
+<figure class="smallicon si_youtube"><a href="https://www.instagram.com/citypopulation" target="_top"><img src="/images/icons/instagram.svg" alt="Instagram" title="Instagram"></a><figcaption>Instagram</figcaption></figure>
+<figure class="smallicon si_twitter"><a href="https://twitter.com/citypopulation" target="_top"><img src="/images/icons/twitter.svg" alt="Twitter" title="Twitter"></a><figcaption>Twitter</figcaption></figure>
+<figure class="smallicon si_youtube"><a href="https://www.youtube.com/channel/UCmlQs2zl41EvW7j5_FvJwhA" target="_top"><img src="/images/icons/youtube.svg" alt="YouTube" title="YouTube"></a><figcaption>YouTube</figcaption></figure>
+</div><div id="copyright">© Thomas Brinkhoff</div></footer>
+
+</div>
+
+</div>
+
+<div id="advindex">
+	<script>show_adv('index_l')</script><ins class="adsbygoogle" data-ad-client="ca-pub-7251478393613561" data-ad-slot="1623127437" style="display:inline-block;width:160px;height:600px"></ins>
+
+</div>
+
+
+
+
+<ul id="ui-id-1" tabindex="0" class="ui-menu ui-widget ui-widget-content ui-autocomplete ui-front" style="display: none;"></ul><div role="status" aria-live="assertive" aria-relevant="additions" class="ui-helper-hidden-accessible"></div></body>

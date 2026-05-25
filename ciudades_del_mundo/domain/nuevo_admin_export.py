@@ -28,6 +28,10 @@ class NuevoAdminAreaSummary:
     parent_id: str | None = None
     area_km2: Decimal | None = None
     pop_latest: int | None = None
+    population_index: Decimal = Decimal("1")
+    province_status: str = "normal"
+    depends_on_id: str | None = None
+    depends_on_name: str | None = None
     representatives: int | None = None
     capitals: tuple[NuevoAdminCitySummary, ...] = ()
     most_populated_city: NuevoAdminCitySummary | None = None
@@ -41,11 +45,20 @@ class NuevoAdminExportData:
 
 
 @dataclass(frozen=True)
+class Table:
+    name: str
+    ref: str
+    columns: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class Sheet:
     name: str
     rows: tuple[tuple[CellValue, ...], ...]
     freeze_panes: str | None = None
     auto_filter: bool = True
+    auto_filter_ref: str | None = None
+    tables: tuple[Table, ...] = ()
 
 
 @dataclass(frozen=True)

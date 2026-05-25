@@ -8,7 +8,15 @@ from collections import defaultdict
 from dataclasses import replace
 from decimal import Decimal, InvalidOperation
 
-from ciudades_del_mundo.domain import EntityMergeConfig, ScrapedAdminArea
+from ciudades_del_mundo.domain import (
+    CITY_MERGE_SOURCE,
+    CITY_MERGE_UNIFIED,
+    EntityMergeConfig,
+    ScrapedAdminArea,
+)
+
+
+MAX_CODE_LENGTH = 64
 
 
 def apply_entity_merges(
@@ -37,14 +45,18 @@ def _apply_entity_merge(
         groups[(entity.parent_code, entity.level, _norm(name))].append(entity)
 
     source_codes = {entity.code for group in groups.values() for entity in group}
-    transformed = []
-    if config.keep_sources:
-        transformed.extend(entities)
-    else:
-        transformed.extend(entity for entity in entities if entity.code not in source_codes)
+    transformed = [
+        replace(entity, city_merge_status=CITY_MERGE_SOURCE)
+        if entity.code in source_codes
+        else entity
+        for entity in entities
+    ]
 
+    used_codes = {entity.code for entity in entities}
     for group in groups.values():
-        transformed.append(_merged_entity(group, config))
+        code = _merged_code(group, used_codes)
+        used_codes.add(code)
+        transformed.append(_merged_entity(group, config, code))
 
     return transformed
 
@@ -52,6 +64,7 @@ def _apply_entity_merge(
 def _merged_entity(
     group: list[ScrapedAdminArea],
     config: EntityMergeConfig,
+    code: str,
 ) -> ScrapedAdminArea:
     ordered = sorted(group, key=lambda entity: str(entity.code))
     first = ordered[0]
@@ -61,8 +74,10 @@ def _merged_entity(
     density = _density(total_pop, total_area)
     return replace(
         first,
+        code=code,
         name=name,
         entity_type=config.entity_type,
+        city_merge_status=CITY_MERGE_UNIFIED,
         area_km2=total_area,
         density=density,
         pop_latest=total_pop,
@@ -72,6 +87,23 @@ def _merged_entity(
             default=None,
         ),
     )
+
+
+def _merged_code(group: list[ScrapedAdminArea], used_codes: set[str]) -> str:
+    first = sorted(group, key=lambda entity: str(entity.code))[0]
+    base = str(first.code or "merged")
+    suffix = "-merged"
+    candidate = f"{base[:MAX_CODE_LENGTH - len(suffix)]}{suffix}"
+    if candidate not in used_codes:
+        return candidate
+
+    index = 2
+    while True:
+        suffix = f"-merged-{index}"
+        candidate = f"{base[:MAX_CODE_LENGTH - len(suffix)]}{suffix}"
+        if candidate not in used_codes:
+            return candidate
+        index += 1
 
 
 def _base_name(value: str, *, strip_numeric_suffix: bool) -> str:

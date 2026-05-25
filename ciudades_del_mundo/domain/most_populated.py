@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .admin_area import CITY_MERGE_NONE, CITY_MERGE_UNIFIED
+
 
 @dataclass(frozen=True)
 class AdminAreaSummary:
@@ -11,6 +13,7 @@ class AdminAreaSummary:
     level: int
     parent_id: str | None
     pop_latest: int | None
+    city_merge_status: int = CITY_MERGE_NONE
     most_populate_city_id: str | None = None
 
 
@@ -51,13 +54,13 @@ def _most_populated_descendant(
     target_level: int,
     by_parent: dict[str | None, list[AdminAreaSummary]],
 ) -> AdminAreaSummary | None:
-    stack = list(by_parent.get(area.id, []))
+    stack = _preferred_children(by_parent.get(area.id, []))
     candidates_by_level: dict[int, list[AdminAreaSummary]] = {}
     while stack:
         node = stack.pop()
         if node.level > area.level:
             candidates_by_level.setdefault(node.level, []).append(node)
-        stack.extend(by_parent.get(node.id, []))
+        stack.extend(_preferred_children(by_parent.get(node.id, [])))
 
     if not candidates_by_level:
         return None
@@ -68,6 +71,14 @@ def _most_populated_descendant(
 
 def _closest_available_level(levels, target_level: int) -> int:
     return min(levels, key=lambda level: (abs(level - target_level), level > target_level, level))
+
+
+def _preferred_children(children: list[AdminAreaSummary] | None) -> list[AdminAreaSummary]:
+    return [
+        child
+        for child in (children or [])
+        if child.city_merge_status in {CITY_MERGE_NONE, CITY_MERGE_UNIFIED}
+    ]
 
 
 def _most_populated(candidates: list[AdminAreaSummary]) -> AdminAreaSummary | None:

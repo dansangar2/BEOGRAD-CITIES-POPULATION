@@ -1,0 +1,22 @@
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "table"
+path = [
+  "capellen",
+  "clervaux",
+  "diekirch",
+  "echternach",
+  "eschsuralzette",
+  "grevenmacher",
+  "luxembourg/luxembourg",
+  "mersch",
+  "redange",
+  "remich",
+  "vianden",
+  "wiltz",
+]
+lowest_level = 1

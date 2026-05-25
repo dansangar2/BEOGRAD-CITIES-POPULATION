@@ -139,6 +139,25 @@ py manage.py assign_admin_capitals
 py manage.py build_new_subdivisions --country-id spanish_federal_republic
 ```
 
+Las recetas de `new_subdivisions/*.py` pueden ajustar la poblacion usada para
+representacion y marcar provincias especiales:
+
+```python
+POPULATION_INDEXES = {
+    2: {"Madrid": 0.5},  # Madrid L2 y descendientes computan al 50%
+}
+
+PROVINCE_STATUSES = {
+    2: {
+        "Costa Rica": {"status": "dependencia", "depends_on": "Nicaragua"},
+        "Fernando Poo": "territorio",
+    }
+}
+```
+
+Tambien se puede declarar en una entrada concreta con `population_index`,
+`province_status` y `depends_on`.
+
 ### Exportar
 
 ```powershell

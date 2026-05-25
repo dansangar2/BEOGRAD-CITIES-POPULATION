@@ -605,7 +605,7 @@ HENAO_A_FLANDES = ["Bruille-Saint-Amand", "Saint-Amand-les-Eaux", "Nivelle", "Le
                    "Brillon", "Sars-et-Rosières", "Landas", "Nomain", "Tilloy-lez-Marchiennes",
                    "Warlaing", "Marchiennes", "Auchy-lez-Orchies", "Orchies", "Beuvry-la-Forêt",
                    "Bouvignies", "Coutiches", "Flines-lez-Raches", "Anhiers", "Râches", "Faumont", "Raimbeaucourt",
-                   "Roost-Warendin", "Râches", "Douai", "Waziers", "Sin-le-Noble", "Warlaing"]
+                   "Roost-Warendin", "Douai", "Waziers", "Sin-le-Noble"]
 HENAO_A_CAMBRAI = ["Wasnes-au-Bac", "Wavrechain-sous-Faulx", "Hordain", "Avesnes-le-Sec", 
                    "Forest-en-Cambrésis", "Croix-Caluyau", "Bousies"]
 HENAO_A_PICARDIA = []
@@ -1156,12 +1156,12 @@ LUXEMBURGO_FRANCES_MEURTHE_ET_MOSELLE = ["Pierrepont", "Boismont", "Han-devant-P
                                          "Moineville", "Auboué", "Valleroy", "Moutiers", "Homécourt", "Jœuf",
                                          "Longuyon", "Allondrelle-la-Malmaison", "Épiez-sur-Chiers", "Charency-Vezin", "Villette", "Colmey", "Grand-Failly", "Petit-Failly", "Saint-Jean-lès-Longuyon", "Villers-le-Rond", "Othe"]
 LUXEMBURGO_FRANCES_MOSELLE = ["Ottange", "Volmerange-les-Mines", "Zoufftgen", "Hagen", "Évrange", "Basse-Rentgen", "Mondorff", "Puttelange-lès-Thionville",
-                              "Beyren-lès-Sierck", "Puttelange-lès-Thionville", "Rodemack", "Breistroff-la-Grande", "Roussy-le-Village", "Cattenom", "Boust",
+                              "Beyren-lès-Sierck", "Rodemack", "Breistroff-la-Grande", "Roussy-le-Village", "Cattenom", "Boust",
                               "Hettange-Grande", "Thionville", "Entrange", "Escherange", "Rochonvillers", "Tressange", "Havange", "Angevillers", "Algrange",
                               "Fontoy", "Manom", "Basse-Ham", "Kœnigsmacker", "Fixem", "Oudrenne", "Elzange", "Valmestroff", "Kuntzig", "Yutz", "Terville", "Florange",
-                              "Hayange", "Nilvange", "Knutange", "Neufchef", "Ranguevaux", "Fameck", "Uckange", "Illange", "Distroff", "Stuckange", "Inglange", "Budling",
-                              "Veckring", "Buding", "Metzervisse", "Volstroff", "Bertrange", "Guénange", "Uckange", "Richemont", "Fameck", "Gandrange", "Vitry-sur-Orne",
-                              "Clouange", "Rosselange", "Ranguevaux", "Kemplich", "Klang", "Kédange-sur-Canner","Buding", "Metzeresche", "Dalstein", "Chémery-les-Deux", "Anzeling",
+                              "Hayange", "Nilvange", "Knutange", "Neufchef", "Fameck", "Uckange", "Illange", "Distroff", "Stuckange", "Inglange", "Budling",
+                              "Veckring", "Buding", "Metzervisse", "Volstroff", "Bertrange", "Guénange", "Richemont", "Gandrange", "Vitry-sur-Orne",
+                              "Clouange", "Rosselange", "Ranguevaux", "Kemplich", "Klang", "Kédange-sur-Canner", "Metzeresche", "Dalstein", "Chémery-les-Deux", "Anzeling",
                               "Holling", "Valmunster", "Bettange", "Gomelange", "Hestroff", "Ébersviller", "Saint-Hubert", "Aboncourt", "Hombourg-Budange", "Vigy", "Bettelainville",
                               "Luttange", "Antilly", "Chailly-lès-Ennery", "Flévy", "Trémery", "Rurange-lès-Thionville", "Bousse", "Ay-sur-Moselle", "Ennery", "Argancy",
                               "Hauconcourt", "Talange", "Hagondange", "Mondelange", "Amnéville", "Marange-Silvange", "Maizières-lès-Metz", "Norroy-le-Veneur", "Plesnois", "Saulny",

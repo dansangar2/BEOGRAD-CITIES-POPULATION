@@ -7,7 +7,12 @@ import unicodedata
 from dataclasses import replace
 from decimal import Decimal, InvalidOperation
 
-from ciudades_del_mundo.domain import CityConfig, ScrapedAdminArea
+from ciudades_del_mundo.domain import (
+    CITY_MERGE_SOURCE,
+    CITY_MERGE_UNIFIED,
+    CityConfig,
+    ScrapedAdminArea,
+)
 
 
 def apply_configured_cities(
@@ -52,6 +57,7 @@ def _apply_configured_city(
             (entity.last_census_year for entity in resolved_communes if entity.last_census_year is not None),
             default=None,
         ),
+        city_merge_status=CITY_MERGE_UNIFIED,
     )
     child_city = _configured_city_child(config, city)
 
@@ -75,9 +81,10 @@ def _apply_configured_city(
         configured_codes.add(config.child_code)
     transformed = []
     for entity in entities:
-        if not config.keep_communes and _belongs_to_source_unit(entity, source_unit_codes, by_code):
-            continue
         if entity.code in configured_codes:
+            continue
+        if not config.keep_communes and _belongs_to_source_unit(entity, source_unit_codes, by_code):
+            transformed.append(replace(entity, city_merge_status=CITY_MERGE_SOURCE))
             continue
 
         stale_shift = _shift_for_entity(entity, stale_configured_children_by_code, by_code)
@@ -104,6 +111,7 @@ def _apply_configured_city(
             replace(
                 entity,
                 level=entity.level + shift,
+                city_merge_status=CITY_MERGE_SOURCE,
                 parent_code=(
                     config.code
                     if entity.code in shifts_by_code
@@ -267,7 +275,7 @@ def _resolve_city_communes(
         entity
         for entity in entities
         if _is_real_city_input(entity, config) and _matches_district_type(entity, config) and (
-            any(entity.parent_code == parent.code and entity.level == parent.level + 1 for parent in from_entities)
+            any(entity.parent_code == parent.code and entity.level > parent.level for parent in from_entities)
             or (entity.parent_code == config.code and entity.level == config.level + 1)
         )
     ]
@@ -333,7 +341,9 @@ def _closest_descendants_below_parents(
 
 
 def _is_real_city_input(entity: ScrapedAdminArea, config: CityConfig) -> bool:
-    return entity.code != config.code and entity.id != f"{entity.country_code}_{config.code}"
+    if entity.city_merge_status == CITY_MERGE_UNIFIED:
+        return entity.code != config.code and entity.id != f"{entity.country_code}_{config.code}"
+    return True
 
 
 def _matches_district_type(entity: ScrapedAdminArea, config: CityConfig) -> bool:

@@ -13,7 +13,11 @@ from ciudades_del_mundo.infrastructure.scraping.python_config_repository import 
 from ciudades_del_mundo.services.nuevo_admin_builder import (
     create_nuevo_area_from_spec,
     refresh_nuevo_admin_most_populated,
+    _add_capital_name_overrides,
+    _label_city_preference_and_names,
+    _resolve_adminarea_in_qs,
     _round_area,
+    _norm,
 )
 from ciudades_del_mundo.services.nuevo_admin_representatives import (
     assign_nuevo_admin_representatives,
@@ -28,6 +32,8 @@ CONFIG_LOAD_ERRORS: dict[str, Exception] = {}
 REPRESENTATIONS: dict[str, object] = {}
 MUNICIPAL_LEVEL: dict[str, int] = {}
 SOURCE_COUNTRIES: dict[str, str] = {}
+POPULATION_INDEXES: dict[str, object] = {}
+PROVINCE_STATUSES: dict[str, object] = {}
 LEGAL_SUBDIVISION_LEVELS: dict[str, int | None] = {}
 SCRAPING_CONFIG_REPOSITORY = PythonScrapingConfigRepository()
 
@@ -61,6 +67,18 @@ def _load_config_package(package):
         source_country = getattr(mod, "SOURCE_COUNTRY", None)
         if source_country:
             SOURCE_COUNTRIES[mod_name] = source_country
+
+        for attr in ("POPULATION_INDEXES", "POPULATION_INDEX", "POPULATION_MULTIPLIERS", "INDICES_POBLACION"):
+            population_indexes = getattr(mod, attr, None)
+            if population_indexes is not None:
+                POPULATION_INDEXES[mod_name] = population_indexes
+                break
+
+        for attr in ("PROVINCE_STATUSES", "PROVINCE_STATUS", "ESTADOS_PROVINCIA"):
+            province_statuses = getattr(mod, attr, None)
+            if province_statuses is not None:
+                PROVINCE_STATUSES[mod_name] = province_statuses
+                break
 
 
 def _source_country_for(country_id: str) -> str:
@@ -142,6 +160,85 @@ def _iter_recipe_source_countries(recipe, source_country: str):
         yield from _iter_recipe_source_countries(child, source_country)
 
 
+def _parse_population_index(value, *, label: str) -> Decimal:
+    try:
+        parsed = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise CommandError(f"El indice de poblacion para '{label}' debe ser numerico.") from exc
+    if parsed < 0:
+        raise CommandError(f"El indice de poblacion para '{label}' no puede ser negativo.")
+    return parsed
+
+
+def _normalize_province_status(value) -> str:
+    normalized = _norm(str(value or "normal"))
+    aliases = {
+        "normal": NuevoAdminArea.ProvinceStatus.NORMAL,
+        "provincia": NuevoAdminArea.ProvinceStatus.NORMAL,
+        "dependency": NuevoAdminArea.ProvinceStatus.DEPENDENCY,
+        "dependencia": NuevoAdminArea.ProvinceStatus.DEPENDENCY,
+        "dependent": NuevoAdminArea.ProvinceStatus.DEPENDENCY,
+        "territory": NuevoAdminArea.ProvinceStatus.TERRITORY,
+        "territorio": NuevoAdminArea.ProvinceStatus.TERRITORY,
+    }
+    if normalized not in aliases:
+        raise CommandError(
+            f"Estado de provincia no soportado: {value!r}. "
+            "Usa normal, dependencia o territorio."
+        )
+    return aliases[normalized]
+
+
+def _recipe_population_index(recipe: dict) -> Decimal | None:
+    for key in ("population_index", "population_multiplier", "indice_poblacion"):
+        if key in recipe:
+            return _parse_population_index(recipe[key], label=recipe.get("name", "?"))
+    return None
+
+
+def _recipe_province_status(recipe: dict) -> str | None:
+    for key in ("province_status", "estado_provincia", "status"):
+        if key in recipe:
+            return _normalize_province_status(recipe[key])
+    return None
+
+
+def _recipe_depends_on(recipe: dict) -> str | None:
+    for key in ("depends_on", "depende_de", "dependency_of"):
+        value = recipe.get(key)
+        if value:
+            return str(value)
+    return None
+
+
+def _recipe_city_merge_status_preference(recipe: dict):
+    for key in ("prefer_city_merge_status", "city_merge_status", "merge_status"):
+        if key in recipe:
+            return recipe[key]
+    return None
+
+
+def _iter_level_mapping(raw_config, *, config_name: str):
+    if not raw_config:
+        return
+    if not isinstance(raw_config, dict):
+        raise CommandError(f"{config_name} debe ser un dict {{nivel: {{nombre: valor}}}}.")
+
+    for raw_level, entries in raw_config.items():
+        try:
+            level = int(raw_level)
+        except (TypeError, ValueError) as exc:
+            raise CommandError(f"{config_name} tiene un nivel invalido: {raw_level!r}.") from exc
+
+        if not isinstance(entries, dict):
+            raise CommandError(
+                f"{config_name}[{raw_level!r}] debe ser un dict {{nombre: valor}}."
+            )
+
+        for label, value in entries.items():
+            yield level, str(label), value
+
+
 _load_config_package(subdivisions_pkg)
 _load_config_package(new_subdivisions_pkg)
 
@@ -180,8 +277,13 @@ class Command(BaseCommand):
             return
 
         cap_objs = []
+        capital_name_overrides: dict[str, dict[str, str]] = {}
         countries = list(dict.fromkeys(source_countries or []))
-        for label in capitals:
+        for raw_capital in capitals:
+            if not raw_capital:
+                continue
+            label, capital_preference, names_by_language = _label_city_preference_and_names(raw_capital)
+            label = label.strip()
             if not label:
                 continue
 
@@ -191,15 +293,23 @@ class Command(BaseCommand):
                 if legal_level is not None:
                     candidate_q = candidate_q.filter(level=legal_level)
 
-                candidate = candidate_q.filter(name__iexact=label).first()
-                if not candidate:
-                    candidate = candidate_q.filter(code__iexact=label).first()
+                candidate = _resolve_adminarea_in_qs(
+                    candidate_q,
+                    label,
+                    city_merge_status_preference=capital_preference,
+                )
                 if candidate:
                     cap_objs.append(candidate)
+                    _add_capital_name_overrides(
+                        capital_name_overrides,
+                        candidate,
+                        names_by_language,
+                    )
                     break
 
         if cap_objs:
             obj.capitals.set(cap_objs)
+            obj.capital_names_by_language = capital_name_overrides
 
             top_cap = None
             for c in cap_objs:
@@ -210,9 +320,13 @@ class Command(BaseCommand):
 
             if top_cap is not None:
                 obj.most_populate_city = top_cap
-                obj.save(update_fields=["most_populate_city"])
+                obj.save(update_fields=["most_populate_city", "capital_names_by_language"])
+            else:
+                obj.save(update_fields=["capital_names_by_language"])
         else:
             obj.capitals.clear()
+            obj.capital_names_by_language = {}
+            obj.save(update_fields=["capital_names_by_language"])
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -317,6 +431,9 @@ class Command(BaseCommand):
             "entity_type": "Country",
             "parent": None,
             "municipal_level": municipal_level,
+            "population_index": Decimal("1"),
+            "province_status": NuevoAdminArea.ProvinceStatus.NORMAL,
+            "depends_on": None,
         }
 
         root, created_root = NuevoAdminArea.objects.update_or_create(
@@ -347,6 +464,7 @@ class Command(BaseCommand):
         ))
 
         created: list[NuevoAdminArea] = []
+        pending_dependencies: list[tuple[str, str]] = []
         self._build_tree(
             recipes=recipes,
             parent_id=root.id,
@@ -355,8 +473,14 @@ class Command(BaseCommand):
             m2m_field=m2m_field,
             code_prefix=code_prefix,
             created=created,
+            pending_dependencies=pending_dependencies,
+            inherited_province_status=None,
         )
 
+        self._resolve_pending_dependencies(country_id, pending_dependencies)
+        self._apply_population_index_config(country_id, POPULATION_INDEXES.get(country_id))
+        self._apply_province_status_config(country_id, PROVINCE_STATUSES.get(country_id))
+        self._validate_province_dependencies(country_id)
         self._assign_escanhos(country_id)
         most_populated_updated = refresh_nuevo_admin_most_populated(root.country_code)
 
@@ -380,6 +504,8 @@ class Command(BaseCommand):
         m2m_field,
         code_prefix,
         created,
+        pending_dependencies,
+        inherited_province_status,
     ):
         for idx, r in enumerate(recipes, start=1):
             if isinstance(r, list):
@@ -391,6 +517,8 @@ class Command(BaseCommand):
                     m2m_field=m2m_field,
                     code_prefix=code_prefix,
                     created=created,
+                    pending_dependencies=pending_dependencies,
+                    inherited_province_status=inherited_province_status,
                 )
                 continue
 
@@ -434,18 +562,22 @@ class Command(BaseCommand):
                     if legal_level is not None:
                         capital_levels[cc] = legal_level
 
-                obj = create_nuevo_area_from_spec(
-                    parent_country_id=parent_id,
-                    new_name=name,
-                    include_spec=spec,
-                    entity_type=r.get("entity_type"),
-                    forced_area_km2=r.get("forced_area_km2"),
-                    m2m_field=m2m_field,
-                    new_code=full_code,  # <- guardamos code jerárquico
-                    capitals=capitals,
-                    capital_level_by_country=capital_levels,
-                    auto_set_most_populated=r.get("auto_set_most_populated", True),
-                )
+                try:
+                    obj = create_nuevo_area_from_spec(
+                        parent_country_id=parent_id,
+                        new_name=name,
+                        include_spec=spec,
+                        entity_type=r.get("entity_type"),
+                        forced_area_km2=r.get("forced_area_km2"),
+                        m2m_field=m2m_field,
+                        new_code=full_code,  # <- guardamos code jerárquico
+                        capitals=capitals,
+                        capital_level_by_country=capital_levels,
+                        auto_set_most_populated=r.get("auto_set_most_populated", True),
+                        city_merge_status_preference=_recipe_city_merge_status_preference(r),
+                    )
+                except ValueError as exc:
+                    raise CommandError(str(exc)) from exc
             else:
                 level = r.get("level")
                 if level is None:
@@ -470,13 +602,26 @@ class Command(BaseCommand):
                         "level": level,
                         "entity_type": r.get("entity_type"),
                         "parent": parent,
+                        "population_index": Decimal("1"),
+                        "province_status": NuevoAdminArea.ProvinceStatus.NORMAL,
+                        "depends_on": None,
                     },
                 )
 
+            province_status = self._apply_recipe_metadata(
+                obj,
+                r,
+                pending_dependencies,
+                inherited_province_status=inherited_province_status,
+            )
             created.append(obj)
 
             childs = r.get("childs") or []
             if childs:
+                child_inherited_province_status = self._province_status_for_childs(
+                    province_status,
+                    inherited_province_status,
+                )
                 self._build_tree(
                     recipes=childs,
                     parent_id=obj.id,
@@ -485,6 +630,8 @@ class Command(BaseCommand):
                     m2m_field=m2m_field,
                     code_prefix=code_prefix,
                     created=created,
+                    pending_dependencies=pending_dependencies,
+                    inherited_province_status=child_inherited_province_status,
                 )
 
             # contenedores: agregados desde hijos
@@ -513,6 +660,204 @@ class Command(BaseCommand):
                 if not source_countries:
                     source_countries = [source_country]
                 self._assign_container_capitals(obj, capitals, source_countries)
+
+    def _apply_recipe_metadata(
+        self,
+        obj: NuevoAdminArea,
+        recipe: dict,
+        pending_dependencies: list[tuple[str, str]],
+        *,
+        inherited_province_status: str | None = None,
+    ) -> str | None:
+        update_fields: list[str] = []
+
+        population_index = _recipe_population_index(recipe)
+        if population_index is not None:
+            obj.population_index = population_index
+            update_fields.append("population_index")
+
+        depends_on_label = _recipe_depends_on(recipe)
+        province_status = _recipe_province_status(recipe)
+        if depends_on_label and province_status is None:
+            province_status = NuevoAdminArea.ProvinceStatus.DEPENDENCY
+        elif province_status is None:
+            province_status = inherited_province_status
+
+        if province_status is not None:
+            obj.province_status = province_status
+            update_fields.append("province_status")
+            if province_status != NuevoAdminArea.ProvinceStatus.DEPENDENCY:
+                obj.depends_on = None
+                update_fields.append("depends_on")
+
+        if update_fields:
+            obj.save(update_fields=list(dict.fromkeys(update_fields)))
+
+        if depends_on_label:
+            pending_dependencies.append((obj.id, depends_on_label))
+
+        return province_status
+
+    def _province_status_for_childs(
+        self,
+        province_status: str | None,
+        inherited_province_status: str | None,
+    ) -> str | None:
+        if province_status == NuevoAdminArea.ProvinceStatus.DEPENDENCY:
+            return inherited_province_status
+        return province_status
+
+    def _resolve_nuevo_area(self, country_id: str, level: int, label: str) -> NuevoAdminArea:
+        qs = NuevoAdminArea.objects.filter(country_code=country_id, level=level).order_by("code")
+
+        obj = qs.filter(id=label).first()
+        if obj:
+            return obj
+
+        obj = qs.filter(code__iexact=label).first()
+        if obj:
+            return obj
+
+        obj = qs.filter(name__iexact=label).first()
+        if obj:
+            return obj
+
+        normalized_label = _norm(label)
+        for candidate in qs.only("id", "code", "name", "level", "country_code"):
+            if normalized_label in {_norm(candidate.id), _norm(candidate.code), _norm(candidate.name)}:
+                return candidate
+
+        raise CommandError(
+            f"No se encontro NuevoAdminArea nivel {level} con id, codigo o nombre '{label}' "
+            f"en '{country_id}'."
+        )
+
+    def _set_area_status(
+        self,
+        *,
+        country_id: str,
+        area: NuevoAdminArea,
+        province_status: str,
+        depends_on_label: str | None = None,
+    ):
+        area.province_status = province_status
+        update_fields = ["province_status"]
+
+        if province_status != NuevoAdminArea.ProvinceStatus.DEPENDENCY:
+            area.depends_on = None
+            update_fields.append("depends_on")
+
+        area.save(update_fields=update_fields)
+
+        if province_status == NuevoAdminArea.ProvinceStatus.DEPENDENCY and depends_on_label:
+            target = self._resolve_nuevo_area(country_id, area.level, depends_on_label)
+            if target.id == area.id:
+                raise CommandError(f"La dependencia '{area.name}' no puede depender de si misma.")
+            area.depends_on = target
+            area.save(update_fields=["depends_on"])
+
+    def _resolve_pending_dependencies(
+        self,
+        country_id: str,
+        pending_dependencies: list[tuple[str, str]],
+    ):
+        for area_id, depends_on_label in pending_dependencies:
+            area = NuevoAdminArea.objects.get(id=area_id)
+            self._set_area_status(
+                country_id=country_id,
+                area=area,
+                province_status=NuevoAdminArea.ProvinceStatus.DEPENDENCY,
+                depends_on_label=depends_on_label,
+            )
+
+    def _apply_population_index_config(self, country_id: str, raw_config):
+        for level, label, raw_value in _iter_level_mapping(
+            raw_config,
+            config_name="POPULATION_INDEXES",
+        ):
+            area = self._resolve_nuevo_area(country_id, level, label)
+            area.population_index = _parse_population_index(raw_value, label=label)
+            area.save(update_fields=["population_index"])
+
+    def _status_config_value(self, value) -> tuple[str, str | None]:
+        if isinstance(value, dict):
+            depends_on_label = (
+                value.get("depends_on")
+                or value.get("depende_de")
+                or value.get("dependency_of")
+            )
+            raw_status = (
+                value.get("status")
+                or value.get("province_status")
+                or value.get("estado_provincia")
+                or (NuevoAdminArea.ProvinceStatus.DEPENDENCY if depends_on_label else None)
+            )
+            return _normalize_province_status(raw_status), (
+                str(depends_on_label) if depends_on_label else None
+            )
+
+        if isinstance(value, (list, tuple)):
+            if not value:
+                raise CommandError("El estado de provincia no puede ser una lista vacia.")
+            raw_status = value[0]
+            depends_on_label = str(value[1]) if len(value) > 1 and value[1] else None
+            return _normalize_province_status(raw_status), depends_on_label
+
+        return _normalize_province_status(value), None
+
+    def _apply_province_status_config(self, country_id: str, raw_config):
+        for level, label, raw_value in _iter_level_mapping(
+            raw_config,
+            config_name="PROVINCE_STATUSES",
+        ):
+            area = self._resolve_nuevo_area(country_id, level, label)
+            province_status, depends_on_label = self._status_config_value(raw_value)
+            self._set_area_status(
+                country_id=country_id,
+                area=area,
+                province_status=province_status,
+                depends_on_label=depends_on_label,
+            )
+
+    def _validate_province_dependencies(self, country_id: str):
+        areas = list(NuevoAdminArea.objects.filter(country_code=country_id))
+        areas_by_id = {area.id: area for area in areas}
+
+        for area in areas:
+            if area.province_status != NuevoAdminArea.ProvinceStatus.DEPENDENCY:
+                continue
+
+            if not area.depends_on_id:
+                raise CommandError(
+                    f"La dependencia '{area.name}' debe indicar de que provincia depende."
+                )
+            if area.depends_on_id == area.id:
+                raise CommandError(f"La dependencia '{area.name}' no puede depender de si misma.")
+
+            target = areas_by_id.get(area.depends_on_id)
+            if target is None:
+                raise CommandError(
+                    f"La dependencia '{area.name}' apunta a '{area.depends_on_id}', "
+                    "pero esa provincia no existe en el mismo pais."
+                )
+            if target.level != area.level:
+                raise CommandError(
+                    f"La dependencia '{area.name}' debe depender de otra provincia del mismo nivel."
+                )
+            if target.province_status == NuevoAdminArea.ProvinceStatus.TERRITORY:
+                raise CommandError(
+                    f"La dependencia '{area.name}' no puede depender del territorio '{target.name}'."
+                )
+
+            seen: set[str] = set()
+            current = area
+            while current.province_status == NuevoAdminArea.ProvinceStatus.DEPENDENCY:
+                if current.id in seen:
+                    raise CommandError(f"Dependencia circular detectada en '{area.name}'.")
+                seen.add(current.id)
+                current = areas_by_id.get(current.depends_on_id)
+                if current is None:
+                    break
 
     def _assign_escanhos(self, country_id: str):
         cfg = REPRESENTATIONS.get(country_id)

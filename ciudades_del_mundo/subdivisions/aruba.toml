@@ -1,17 +1,29 @@
 [[pages]]
-source = "cities"
+source = "table"
 path = ["cities"]
 lowest_level = 0
 
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 1
+lowest_level = 0
 
 [[cities]]
 city = "Oranjestad"
-id = "3C"
-district_types = ["Zone"]
+id = "19610"
+district_types = ["Urban Area"]
 level = 2
-type = "Zone"
-from = { 1 = ["Oranjestad West", "Oranjestad Oost"] }
+type = "City"
+from = { 0 = ["244"] }
+communes = ["19610"]
+keep_communes = false
+
+[[cities]]
+city = "Sint Nicolaas"
+id = "19611"
+district_types = ["Urban Area"]
+level = 2
+type = "City"
+from = { 0 = ["244"] }
+communes = ["19611"]
+keep_communes = false

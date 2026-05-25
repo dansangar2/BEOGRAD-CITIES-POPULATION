@@ -36,6 +36,10 @@ def _descendants_at_level(seed: AdminArea, target_level: int) -> Iterable[str]:
     if seed.level == target_level:
         return [seed.id]
 
+    preferred_statuses = [
+        AdminArea.CityMergeStatus.NONE,
+        AdminArea.CityMergeStatus.UNIFIED,
+    ]
     frontier = [seed]
     result: set[str] = set()
     while frontier:
@@ -43,7 +47,12 @@ def _descendants_at_level(seed: AdminArea, target_level: int) -> Iterable[str]:
         if cur.level == target_level:
             result.add(cur.id)
         elif cur.level < target_level:
-            frontier.extend(AdminArea.objects.filter(parent=cur))
+            frontier.extend(
+                AdminArea.objects.filter(
+                    parent=cur,
+                    city_merge_status__in=preferred_statuses,
+                )
+            )
     return result
 
 @transaction.atomic

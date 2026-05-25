@@ -54,10 +54,12 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
                 elif entity.parent_code is None and entity.level > 0 and entity.code != country_code:
                     entity = replace(entity, parent_code=country_code)
                 entities.append(entity)
-                parents_by_name[self._normalize_name(entity.name)] = entity
+                for key in self._parent_lookup_keys(entity.name):
+                    parents_by_name.setdefault(key, entity)
 
         ts = soup.find("table", id="ts")
         if ts:
+            ts_has_radm = bool(ts.find("th", class_=lambda value: value and "radm" in value.split()))
             for entity in self._parse_table(
                 table=ts,
                 country_code=country_code,
@@ -66,6 +68,8 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
                 parser="ts",
                 parents_by_name=parents_by_name,
             ):
+                if root and not ts_has_radm and entity.parent_code is None:
+                    entity = replace(entity, parent_code=root.code)
                 entities.append(entity)
 
         return entities
@@ -184,9 +188,16 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
         parent_id = parent_cell.get("data-admid")
         if parent_id:
             return parent_id
-        parent_name = self._normalize_name(parent_cell.get_text(" ", strip=True))
-        parent = parents_by_name.get(parent_name)
-        return parent.code if parent else None
+        for parent_name in self._parent_lookup_keys(parent_cell.get_text(" ", strip=True)):
+            parent = parents_by_name.get(parent_name)
+            if parent:
+                return parent.code
+        return None
 
     def _normalize_name(self, value: str) -> str:
         return re.sub(r"\s+", " ", value).strip().casefold()
+
+    def _parent_lookup_keys(self, value: str) -> tuple[str, ...]:
+        normalized = self._normalize_name(value)
+        compact = re.sub(r"[\W_]+", "", normalized)
+        return (normalized, compact) if compact and compact != normalized else (normalized,)

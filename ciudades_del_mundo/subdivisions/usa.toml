@@ -1,0 +1,86 @@
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "table"
+path = [
+  "alabama",
+  "alaska",
+  "arizona",
+  "arkansas",
+  "california",
+  "colorado",
+  "connecticut",
+  "delaware",
+  "florida",
+  "georgia",
+  "hawaii",
+  "idaho",
+  "illinois",
+  "indiana",
+  "iowa",
+  "kansas",
+  "kentucky",
+  "louisiana",
+  "maine",
+  "maryland",
+  "massachusetts",
+  "michigan",
+  "minnesota",
+  "mississippi",
+  "missouri",
+  "montana",
+  "nebraska",
+  "nevada",
+  "newhampshire",
+  "newjersey",
+  "newmexico",
+  "newyork",
+  "northcarolina",
+  "northdakota",
+  "ohio",
+  "oklahoma",
+  "oregon",
+  "pennsylvania",
+  "rhodeisland",
+  "southcarolina",
+  "southdakota",
+  "tennessee",
+  "texas",
+  "utah",
+  "vermont",
+  "virginia",
+  "washington",
+  "westvirginia",
+  "wisconsin",
+  "wyoming",
+]
+lowest_level = 1
+
+[[pages]]
+source = "admin"
+path = [
+  "connecticut/admin",
+  "illinois/admin",
+  "indiana/admin",
+  "kansas/admin",
+  "maine/admin",
+  "massachusetts/admin",
+  "michigan/admin",
+  "minnesota/admin",
+  "newhampshire/admin",
+  "newjersey/admin",
+  "newyork/admin",
+  "northdakota/admin",
+  "ohio/admin",
+  "pennsylvania/admin",
+  "rhodeisland/admin",
+  "southdakota/admin",
+  "vermont/admin",
+  "wisconsin/admin",
+]
+lowest_level = 1

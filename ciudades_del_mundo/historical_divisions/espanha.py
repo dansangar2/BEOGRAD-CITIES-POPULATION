@@ -35,7 +35,7 @@ LEON_A_VALLADOLID = ["San Esteban de Nogales", "Pozuelo del Páramo",
                      "Bercianos del Real Camino", "Escobar de Campos", "El Burgo Ranero",
                      "Santas Martas", "Mansilla de las Mulas", "Mansilla Mayor", "Villasabariego",
                      "Valdepolo", "Gradefes", "Cubillas de Rueda", "Cebanico", "Almanza"]
-CANTABRIA_A_TORO = ["Valderredible", "Las Rozas de Valdearroyo", "Valdeolea", "Campoo de Enmedio",
+CANTABRIA_A_TORO = ["Valderredible", "Valdeolea", "Campoo de Enmedio",
                     "Reinosa", "Las Rozas de Valdearroyo", "Campoo de Yuso",
                     "Hermandad de Campoo de Suso", "Santiurde de Reinosa", "San Miguel de Aguayo",
                     "Pesquera"]
@@ -191,7 +191,7 @@ LA_RIOJA_A_SORIA_A = ["Alfaro", "Rincón de Soto", "Aldeanueva de Ebro", "Autol"
                     "Santa Eulalia Bajera", "Bergasillas Bajera", "Enciso", "Munilla", "Zarzosa",
                     "Ajamil de Cameros", "San Román de Cameros", "Hornillos de Cameros", "Rabanera",
                     "Soto en Cameros", "Leza de Río Leza", "Clavijo", "Albelda de Iregua", "Entrena",
-                    "Nalda", "Sorzano", "Viguera", "Cabezón de Cameros", "Rabanera", "Jalón de Cameros",
+                    "Nalda", "Sorzano", "Viguera", "Cabezón de Cameros", "Jalón de Cameros",
                     "Muro en Cameros", "Pinillos", "Gallinero de Cameros", "Villanueva de Cameros", "Brieva de Cameros",
                     "Ventrosa", "Viniegra de Arriba", "Viniegra de Abajo", "Mansilla de la Sierra", "Villavelayo", "Canales de la Sierra", "Monasterio", "Arbancón"]
 
@@ -202,7 +202,7 @@ LA_RIOJA_A_SORIA_B = ["Alfaro", "Rincón de Soto", "Aldeanueva de Ebro", "Autol"
                     "Santa Eulalia Bajera", "Bergasillas Bajera", "Enciso", "Munilla", "Zarzosa",
                     "Ajamil de Cameros", "San Román de Cameros", "Hornillos de Cameros", "Rabanera",
                     "Soto en Cameros", "Leza de Río Leza", "Clavijo", "Albelda de Iregua", "Entrena",
-                    "Nalda", "Sorzano", "Viguera", "Cabezón de Cameros", "Rabanera", "Jalón de Cameros",
+                    "Nalda", "Sorzano", "Viguera", "Cabezón de Cameros", "Jalón de Cameros",
                     "Muro en Cameros", "Pinillos", "Gallinero de Cameros", "Villanueva de Cameros", "Brieva de Cameros",
                     "Ventrosa", "Viniegra de Arriba", "Viniegra de Abajo", "Mansilla de la Sierra", "Villavelayo", "Canales de la Sierra"]
 
@@ -246,13 +246,13 @@ AVILA_A_TOLEDO_A = ["Santa María del Tiétar", "Navahondilla"]
 AVILA_A_TOLEDO_B = ["Arenas de San Pedro", "Poyales del Hoyo", "Guisando", "El Hornillo", "El Arenal", "Higuera de las Dueñas", "Santa María del Tiétar", "Navahondilla"]
 TOLEDO_A_MADRID = ["Borox", "Casarrubios del Monte", "Valmojado", "Las Ventas de Retamosa", "Santa Cruz del Retamar", "Quismondo", "Maqueda", "Santo Domingo-Caudilla", "Carmena"]
 CUENCA_A_MADRID = ["Buendía"]
-GUADALAJARA_A_MADRID = ["Illana", "Almonacid de Zorita", "Driebes", "Almoguera", "Illana", "Albalate de Zorita", "Mazuecos", "Albares", "Pozo de Almoguera", "Fuentenovilla", "Yebra", "Zorita de los Canes",
-                        "Almonacid de Zorita", "Sayatón", "Pastrana", "Escopete", "Escariche", "Hontoba",
+GUADALAJARA_A_MADRID = ["Illana", "Almonacid de Zorita", "Driebes", "Almoguera", "Albalate de Zorita", "Mazuecos", "Albares", "Pozo de Almoguera", "Fuentenovilla", "Yebra", "Zorita de los Canes",
+                        "Sayatón", "Pastrana", "Escopete", "Escariche", "Hontoba",
                         "Hueva", "Valdeconcha", "Auñón", "Alhóndiga", "Fuentelencina", "Moratilla de los Meleros",
                         "Peñalver", "Berninches", "Alocén"]
 MADRID_A_GUADALAJARA_A = ["Villa del Prado", "Fresno de Torote", "San Martín de Valdeiglesias", "Pelayos de la Presa", "Navas del Rey", "Villanueva del Pardillo",
                         "Galapagar", "Colmenarejo", "Torrelodones", "Hoyo de Manzanares", "Moralzarzal", "Collado Villalba", "Alpedrete", "Collado Mediano",
-                        "Guadarrama", "Los Molinos", "Cercedilla", "Navacerrada", "Becerril de la Sierra", "El Boalo", "Moralzarzal", "Hoyo de Manzanares",
+                        "Guadarrama", "Los Molinos", "Cercedilla", "Navacerrada", "Becerril de la Sierra", "El Boalo",
                         "Colmenar Viejo", "Tres Cantos", "Manzanares el Real", "Soto del Real", "Miraflores de la Sierra", "Guadalix de la Sierra",
                         "Meco", "La Cabrera", "Valdemanco", "Garganta de los Montes",
                         "Lozoyuela-Navas-Sieteiglesias", "Puentes Viejas","Cervera de Buitrago", "Robledillo de la Jara", "Berzosa del Lozoya", "El Atazar",
@@ -261,7 +261,7 @@ MADRID_A_GUADALAJARA_A = ["Villa del Prado", "Fresno de Torote", "San Martín de
                         "Montejo de la Sierra", "Robregordo", "Somosierra"]
 MADRID_A_GUADALAJARA_B = ["Villa del Prado", "San Martín de Valdeiglesias", "Pelayos de la Presa", "Navas del Rey", "Villanueva del Pardillo",
                         "Galapagar", "Colmenarejo", "Torrelodones", "Hoyo de Manzanares", "Moralzarzal", "Collado Villalba", "Alpedrete", "Collado Mediano",
-                        "Guadarrama", "Los Molinos", "Cercedilla", "Navacerrada", "Becerril de la Sierra", "El Boalo", "Moralzarzal", "Hoyo de Manzanares",
+                        "Guadarrama", "Los Molinos", "Cercedilla", "Navacerrada", "Becerril de la Sierra", "El Boalo",
                         "Colmenar Viejo", "Tres Cantos", "Manzanares el Real", "Soto del Real", "Miraflores de la Sierra", "Guadalix de la Sierra", "Fuente el Saz de Jarama",
                         "Ribatejada", "Valdeavero", "Meco", "Valdepiélagos", "Valdetorres de Jarama", "El Vellón", "La Cabrera", "Valdemanco", "Garganta de los Montes",
                         "Lozoyuela-Navas-Sieteiglesias", "Puentes Viejas","Cervera de Buitrago", "Robledillo de la Jara", "Berzosa del Lozoya", "El Atazar",
@@ -306,7 +306,7 @@ GUADALAJARA_A_TOLEDO_A = ["Brihuega", "Humanes", "Robledillo de Mohernando",
 GUADALAJARA_A_TOLEDO_B = ["Brihuega", "Humanes", "Robledillo de Mohernando",
                         "Mohernando", "Fuentelahiguera de Albatages", "Valdenuño Fernández", "Uceda",
                         "El Cubillo de Uceda", "Viñuelas", "Villaseca de Uceda", "Casa de Uceda",
-                        "Matarrubia", "Valdepeñas de la Sierra", "Puebla de Valles", "Tortuero", "Valdesotos"]
+                        "Matarrubia", "Valdepeñas de la Sierra", "Puebla de Valles", "Valdesotos"]
 GUADALAJARA_MOLINA_A = ["Checa", "Orea", "Alustante", "Tordesilos", "Adobes", "Piqueras", "Alcoroches", "Chequilla", "Megina", "Pinilla de Molina", "Traíd", "Setiles", "Tordellego", "Anquela del Pedregal",
           "Torrecuadrada de Molina", "Terzaga","Taravilla", "Baños de Tajo", "Tierzo", "Torremochuela", "Fuembellida", "Valhermoso", "Prados Redondos", "Morenilla", "Hombrados",
           "Castellar de la Muela", "Campillo de Dueñas", "Molina de Aragón", "Corduente", "Rillo de Gallo", "Herrería", "Rueda de la Sierra", "Tortuera", "Torrubia", "Pardos", "Fuentelsaz", "Tartanedo", "Establés",
@@ -323,7 +323,7 @@ CUENCA_A_TOLEDO_B = ["Huélamo", "Mota del Cuervo", "Pozorrubio de Santiago", "U
 
 SORIA_A_TOLEDO_A = ["Almaluez"]
 
-CIUDAD_REAL_A_TOLEDO_B = ["Ruidera", "Argamasilla de Alba", "Alcázar de San Juan", "Herencia", "Villarta de San Juan", "Puerto Lápice", "Las Labores",
+CIUDAD_REAL_A_TOLEDO_B = ["Ruidera", "Argamasilla de Alba", "Alcázar de San Juan", "Villarta de San Juan", "Puerto Lápice", "Las Labores",
                       "Arenas de San Juan", "Herencia", "Pedro Muñoz", "Arroba de los Montes", "Fontanarejo", "Navalpino", "Horcajo de los Montes",
                       "Alcoba", "Navas de Estena", "Retuerta del Bullaque", "Anchuras"]
 TOLEDO_A_LA_MANCHA_B = ["El Toboso","Miguel Esteban", "Quintanar de la Orden", "Villanueva de Alcardete", "Cabezamesada"]

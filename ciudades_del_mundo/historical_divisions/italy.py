@@ -171,8 +171,8 @@ TIERRA_DE_TRABAJO = {
             ],
             "spec": {
                 2: {"italy": ["Caserta", "Napoli", "Frosinone"]},
-                3: {"italy": PONTECORVO + LATINA_A_TIERRA_DE_TRABAJO + AGUILA_A_TIERRA_DE_TRABAJO + ISERNIA_A_TIERRA_DE_TRABAJO + BENEVENTO_A_TIERRA_DE_TRABAJO + AVELLINO_A_TIERRA_DE_TRABAJO},
-                "restar": {3: {"italy": FROSIONE_A_ESTADOS_PONTIFICIOS + NAPOLES_A_PRINCIPADO_CITRA }},
+                3: {"italy": LATINA_A_TIERRA_DE_TRABAJO + AGUILA_A_TIERRA_DE_TRABAJO + ISERNIA_A_TIERRA_DE_TRABAJO + BENEVENTO_A_TIERRA_DE_TRABAJO + AVELLINO_A_TIERRA_DE_TRABAJO},
+                "restar": {3: {"italy": PONTECORVO + FROSIONE_A_ESTADOS_PONTIFICIOS + NAPOLES_A_PRINCIPADO_CITRA }},
             }
 }
 
@@ -214,9 +214,61 @@ ABRUZOS_ULTRA = {
             ],
             "spec": {
                 2: {"italy": ["Pescara", "Teramo", "L'Aquila"]},
-                3: {"italy":  PESCARA_A_ABRUZOS_CITRA + PESCARA_A_ABRUZOS_ULTRA_II},
-                "restar": {3: {"italy": AGUILA_A_ABRUZOS_CITRA + AGUILA_A_TIERRA_DE_TRABAJO }},
+                3: {"italy":  PESCARA_A_ABRUZOS_ULTRA_II},
+                "restar": {3: {"italy": PESCARA_A_ABRUZOS_CITRA + AGUILA_A_ABRUZOS_CITRA + AGUILA_A_TIERRA_DE_TRABAJO }},
             }
+}
+
+GROSSETO_A_PRESIDIOS_DE_TOSCANA = ["Orbetello", "Monte Argentario"]
+LIVORNO_A_PIOMBINO = ["Marciana Marina", "Marciana", "Campo nell'Elba", "Rio",
+                                  "Piombino", "Suvereto", "Follonica", "Scarlino"]
+LIVORNO_A_PRESIDIOS_DE_TOSCANA = ["Capoliveri", "Porto Azzurro"]
+
+PRESIDIOS_DE_TOSCANA = {
+            "name": "Presidios de Toscana",
+            "code": "TOS",
+            "entity_type": "Presidio",
+            "capitals": ["Orbetello"],
+            "spec": {
+                3: {"italy":  LIVORNO_A_PRESIDIOS_DE_TOSCANA + GROSSETO_A_PRESIDIOS_DE_TOSCANA},
+            }
+}
+
+PIOMBINO = {
+            "name": "Piombino",
+            "code": "PIO",
+            "entity_type": "Principado",
+            "capitals": ["Piombino"],
+            "spec": {
+                3: {"italy":  LIVORNO_A_PIOMBINO },
+            }
+}
+
+REINO_NAPOLES = {
+            "name": "Nápoles",
+            "code": "NAP",
+            "entity_type": "Reino",
+            "capitals": ["Napoli"],
+            "spec": {
+                1:{"italy": ["Basilicata", "Calabria", "Puglia", "Campania", "Molise", "Abruzzo"]},
+                2: {"italy": ["Frosinone"]},
+                3: {"italy":  LATINA_A_TIERRA_DE_TRABAJO + RIETI_A_ABRUZOS_ULTRA_II },
+                "restar": {3: {"italy": PONTECORVO + BENEVENTO + FROSIONE_A_ESTADOS_PONTIFICIOS }},
+            }
+}
+
+MILAN = {
+            "name": "Milán",
+            "code": "MIL",
+            "entity_type": "Ducado",
+            #"capitals": ["Milano"],
+            #"childs": [],
+            #"spec": {
+                #1:{"italy": ["Basilicata", "Calabria", "Puglia", "Campania", "Molise", "Abruzzo"]},
+                #2: {"italy": ["Frosinone"]},
+                #3: {"italy":  LATINA_A_TIERRA_DE_TRABAJO + RIETI_A_ABRUZOS_ULTRA_II },
+                #"restar": {3: {"italy": PONTECORVO + BENEVENTO + FROSIONE_A_ESTADOS_PONTIFICIOS }},
+            #}
 }
 
 CERDENHA = {

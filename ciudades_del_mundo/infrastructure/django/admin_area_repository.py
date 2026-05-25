@@ -62,6 +62,7 @@ class DjangoAdminAreaRepository:
             "code",
             "name",
             "level",
+            "city_merge_status",
             "entity_type",
             "parent",
             "area_km2",
@@ -112,6 +113,7 @@ class DjangoAdminAreaRepository:
                 level=area.level,
                 parent_id=area.parent_id,
                 pop_latest=area.pop_latest,
+                city_merge_status=area.city_merge_status,
                 most_populate_city_id=area.most_populate_city_id,
             )
             for area in AdminArea.objects.filter(country_code=country_code).only(
@@ -119,6 +121,7 @@ class DjangoAdminAreaRepository:
                 "level",
                 "parent_id",
                 "pop_latest",
+                "city_merge_status",
                 "most_populate_city_id",
             )
         ]
@@ -248,6 +251,7 @@ def _admin_area_from_entity(
         code=entity.code,
         name=entity.name,
         level=entity.level,
+        city_merge_status=entity.city_merge_status,
         entity_type=entity.entity_type,
         parent_id=parent_id,
         area_km2=_to_decimal(entity.area_km2),

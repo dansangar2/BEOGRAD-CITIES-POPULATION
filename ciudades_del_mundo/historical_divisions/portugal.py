@@ -98,6 +98,17 @@ PORTO_SANTO = [
 
 ### FULL =========================================
 
+PORTUGAL_CONTINENTAL = {
+    "name": "Portugal",
+    "code": "POR",
+    "entity_type": "Reino",
+    "capitals": ["Lisboa"],
+    "spec": {
+        0: {"portugal": ["Portugal"]},
+        "restar": {1: {"portugal": ["Madeira", "Açores"]}},
+    }
+}
+
 PORTUGAL = {
     "name": "Portugal",
     "code": "POR",

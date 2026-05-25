@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
+from dataclasses import dataclass
+from decimal import Decimal, ROUND_HALF_UP
 import re
 import unicodedata
 
@@ -9,6 +12,14 @@ from django.db import transaction
 
 from ciudades_del_mundo.domain import RepresentationConfig, RepresentationSystem
 from ciudades_del_mundo.models import NuevoAdminArea
+
+
+@dataclass(frozen=True)
+class RepresentationArea:
+    id: str
+    code: str
+    name: str
+    pop_latest: int
 
 
 def representation_config_from_mapping(data: dict | None) -> RepresentationConfig | None:
@@ -36,7 +47,16 @@ def assign_nuevo_admin_representatives(country_id: str, config: RepresentationCo
     root = NuevoAdminArea.objects.get(id=country_id)
     areas = list(
         NuevoAdminArea.objects.filter(country_code=root.country_code, level=config.level)
-        .only("id", "code", "name", "pop_latest", "representatives")
+        .only(
+            "id",
+            "code",
+            "name",
+            "pop_latest",
+            "representatives",
+            "population_index",
+            "province_status",
+            "depends_on_id",
+        )
         .order_by("code")
     )
     if not areas:
@@ -45,15 +65,69 @@ def assign_nuevo_admin_representatives(country_id: str, config: RepresentationCo
     if config.system != RepresentationSystem.DHONDT:
         raise ValueError(f"Sistema de representacion no soportado: {config.system}.")
 
-    seats_by_id = allocate_dhondt_representatives(areas, config)
+    seats_by_id = allocate_dhondt_representatives_for_nuevo_admin(
+        root.country_code,
+        areas,
+        config,
+    )
     updated = 0
     for area in areas:
-        seats = seats_by_id[area.id]
+        seats = seats_by_id.get(area.id, 0)
         if area.representatives != seats:
             area.representatives = seats
             area.save(update_fields=["representatives", "updated_at"])
             updated += 1
     return updated
+
+
+def allocate_dhondt_representatives_for_nuevo_admin(
+    country_code: str,
+    areas: list[NuevoAdminArea],
+    config: RepresentationConfig,
+) -> dict[str, int]:
+    """Allocate seats with NuevoAdminArea population indexes and province status."""
+    all_areas = list(
+        NuevoAdminArea.objects
+        .filter(country_code=country_code)
+        .only("id", "parent_id", "population_index", "province_status")
+    )
+    effective_indexes = _effective_population_indexes(all_areas)
+    territory_flags = _territory_flags(all_areas)
+
+    areas_by_id = {area.id: area for area in areas}
+    owner_by_area_id: dict[str, str | None] = {}
+    population_by_owner_id: dict[str, int] = defaultdict(int)
+
+    for area in areas:
+        if territory_flags.get(area.id, False):
+            owner_by_area_id[area.id] = None
+            continue
+
+        owner = _representation_owner(area, areas_by_id, territory_flags)
+        owner_by_area_id[area.id] = owner.id
+        population_by_owner_id[owner.id] += _scaled_population(
+            area.pop_latest,
+            effective_indexes.get(area.id, Decimal("1")),
+        )
+
+    representation_units = [
+        RepresentationArea(
+            id=area.id,
+            code=area.code,
+            name=area.name,
+            pop_latest=population_by_owner_id.get(area.id, 0),
+        )
+        for area in areas
+        if owner_by_area_id.get(area.id) == area.id
+    ]
+
+    seats_by_owner_id = allocate_dhondt_representatives(representation_units, config)
+    return {
+        area.id: seats_by_owner_id.get(area.id, 0)
+        if owner_by_area_id.get(area.id) == area.id
+        else 0
+        for area in areas
+    }
 
 
 def allocate_dhondt_representatives(areas, config: RepresentationConfig) -> dict[str, int]:
@@ -122,3 +196,89 @@ def _next_dhondt_candidate(areas, seats: dict[str, int], maximums: dict[str, int
             best_area = area
 
     return best_area
+
+
+def _effective_population_indexes(areas: list[NuevoAdminArea]) -> dict[str, Decimal]:
+    areas_by_id = {area.id: area for area in areas}
+    cache: dict[str, Decimal] = {}
+
+    def resolve(area: NuevoAdminArea) -> Decimal:
+        if area.id in cache:
+            return cache[area.id]
+
+        parent_factor = Decimal("1")
+        if area.parent_id:
+            parent = areas_by_id.get(area.parent_id)
+            if parent is not None:
+                parent_factor = resolve(parent)
+
+        own_factor = area.population_index if area.population_index is not None else Decimal("1")
+        cache[area.id] = parent_factor * Decimal(own_factor)
+        return cache[area.id]
+
+    for area in areas:
+        resolve(area)
+
+    return cache
+
+
+def _territory_flags(areas: list[NuevoAdminArea]) -> dict[str, bool]:
+    areas_by_id = {area.id: area for area in areas}
+    cache: dict[str, bool] = {}
+
+    def resolve(area: NuevoAdminArea) -> bool:
+        if area.id in cache:
+            return cache[area.id]
+
+        is_territory = area.province_status == NuevoAdminArea.ProvinceStatus.TERRITORY
+        if not is_territory and area.parent_id:
+            parent = areas_by_id.get(area.parent_id)
+            if parent is not None:
+                is_territory = resolve(parent)
+
+        cache[area.id] = is_territory
+        return is_territory
+
+    for area in areas:
+        resolve(area)
+
+    return cache
+
+
+def _representation_owner(
+    area: NuevoAdminArea,
+    areas_by_id: dict[str, NuevoAdminArea],
+    territory_flags: dict[str, bool],
+) -> NuevoAdminArea:
+    current = area
+    seen: set[str] = set()
+
+    while current.province_status == NuevoAdminArea.ProvinceStatus.DEPENDENCY:
+        if not current.depends_on_id:
+            raise ValueError(
+                f"La dependencia '{current.name}' debe indicar de que provincia depende."
+            )
+        if current.id in seen:
+            raise ValueError(f"Dependencia circular detectada en '{area.name}'.")
+        seen.add(current.id)
+
+        owner = areas_by_id.get(current.depends_on_id)
+        if owner is None:
+            raise ValueError(
+                f"La dependencia '{current.name}' apunta a '{current.depends_on_id}', "
+                f"que no existe en el nivel de representacion."
+            )
+        if territory_flags.get(owner.id, False):
+            raise ValueError(
+                f"La dependencia '{current.name}' no puede depender del territorio '{owner.name}'."
+            )
+        current = owner
+
+    return current
+
+
+def _scaled_population(population: int | None, population_index: Decimal) -> int:
+    if population is None:
+        return 0
+    value = Decimal(max(population, 0)) * population_index
+    return int(value.quantize(Decimal("1"), rounding=ROUND_HALF_UP))

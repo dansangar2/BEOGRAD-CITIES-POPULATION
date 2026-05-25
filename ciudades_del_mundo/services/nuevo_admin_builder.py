@@ -5,6 +5,7 @@ from __future__ import annotations
 import unicodedata
 import re
 from typing import Optional, Iterable
+from urllib.parse import unquote, urlparse
 
 from django.db import transaction
 from django.db.models import Sum
@@ -45,11 +46,14 @@ ORIGINAL_MUNICIPAL_LEVEL: dict[str, int] = {
     "libya": 2,
     "sudan": 2,
     "southsudan": 2,
+    "mexico": 2,
+    "usa": 2,
     "vaticancity": 0,
     "sanmarino": 2,
     "luxembourg": 2,
     "netherlands": 3,
     "belgium": 4,
+    "canada": 3,
 }
 
 MAKE_CITIES = {
@@ -61,6 +65,30 @@ MAKE_CITIES = {
             "from": ["Tanger - Assilah"],
         },
     ],
+}
+
+DEFAULT_CITY_MERGE_STATUS_PREFERENCE = (
+    AdminArea.CityMergeStatus.UNIFIED,
+    AdminArea.CityMergeStatus.NONE,
+    AdminArea.CityMergeStatus.SOURCE,
+)
+
+MOST_POPULATED_CITY_MERGE_STATUSES = (
+    int(AdminArea.CityMergeStatus.NONE),
+    int(AdminArea.CityMergeStatus.UNIFIED),
+)
+
+_CITY_MERGE_STATUS_ALIASES = {
+    "0": AdminArea.CityMergeStatus.NONE,
+    "none": AdminArea.CityMergeStatus.NONE,
+    "normal": AdminArea.CityMergeStatus.NONE,
+    "no unificada": AdminArea.CityMergeStatus.NONE,
+    "1": AdminArea.CityMergeStatus.SOURCE,
+    "source": AdminArea.CityMergeStatus.SOURCE,
+    "fuente": AdminArea.CityMergeStatus.SOURCE,
+    "2": AdminArea.CityMergeStatus.UNIFIED,
+    "unified": AdminArea.CityMergeStatus.UNIFIED,
+    "unificada": AdminArea.CityMergeStatus.UNIFIED,
 }
 
 
@@ -88,7 +116,266 @@ def _slugify_code(value: str | None) -> str:
     return value.strip("-")[:64]
 
 
-def _resolve_adminarea_in_qs(qs, label_or_id: str) -> Optional[AdminArea]:
+def _coerce_city_merge_status(value) -> int:
+    if isinstance(value, AdminArea.CityMergeStatus):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    normalized = _norm(str(value))
+    if normalized in _CITY_MERGE_STATUS_ALIASES:
+        return int(_CITY_MERGE_STATUS_ALIASES[normalized])
+    return int(value)
+
+
+def _city_merge_status_preference(value=None) -> tuple[int, ...]:
+    if value is None:
+        preferred = [int(status) for status in DEFAULT_CITY_MERGE_STATUS_PREFERENCE]
+    elif isinstance(value, (str, int, AdminArea.CityMergeStatus)):
+        preferred = [_coerce_city_merge_status(value)]
+    else:
+        preferred = [_coerce_city_merge_status(item) for item in value]
+
+    result: list[int] = []
+    for status in preferred + [0, 2, 1]:
+        status = int(status)
+        if status not in result:
+            result.append(status)
+    return tuple(result)
+
+
+def _preferred_adminarea(
+    candidates: Iterable[AdminArea],
+    city_merge_status_preference=None,
+) -> Optional[AdminArea]:
+    ordered = _preferred_adminareas(candidates, city_merge_status_preference)
+    return ordered[0] if ordered else None
+
+
+def _preferred_adminareas(
+    candidates: Iterable[AdminArea],
+    city_merge_status_preference=None,
+) -> list[AdminArea]:
+    unique = {candidate.id: candidate for candidate in candidates}
+    if not unique:
+        return []
+
+    status_order = {
+        status: index
+        for index, status in enumerate(_city_merge_status_preference(city_merge_status_preference))
+    }
+    fallback_order = len(status_order)
+    return sorted(
+        unique.values(),
+        key=lambda area: (
+            status_order.get(int(area.city_merge_status or 0), fallback_order),
+            -(area.level or 0),
+            area.id,
+        ),
+    )
+
+
+def _label_and_city_merge_preference(raw_label, default_preference=None) -> tuple[str, tuple[int, ...]]:
+    preference = default_preference
+    label = raw_label
+
+    if isinstance(raw_label, dict):
+        for key in ("label", "name", "id", "code"):
+            if key in raw_label and raw_label[key] not in (None, ""):
+                label = raw_label[key]
+                break
+        for key in ("city_merge_status", "prefer_city_merge_status", "merge_status"):
+            if key in raw_label and raw_label[key] not in (None, ""):
+                preference = raw_label[key]
+                break
+    else:
+        parent_label, child_label = _split_parent_label(raw_label)
+        if parent_label and child_label:
+            label = child_label
+
+    if label in (None, ""):
+        raise ValueError(f"Etiqueta AdminArea invalida: {raw_label!r}.")
+
+    return str(label), _city_merge_status_preference(preference)
+
+
+def _split_parent_label(raw_label) -> tuple[str | None, str | None]:
+    if not isinstance(raw_label, str) or "|" not in raw_label:
+        return None, None
+    parent_label, child_label = raw_label.split("|", 1)
+    parent_label = parent_label.strip()
+    child_label = child_label.strip()
+    if not parent_label or not child_label:
+        return None, None
+    return parent_label, child_label
+
+
+def _label_parent(raw_label) -> str | None:
+    if not isinstance(raw_label, dict):
+        parent_label, _child_label = _split_parent_label(raw_label)
+        return parent_label
+    for key in ("parent", "parent_label", "parent_name", "state", "admin1"):
+        value = raw_label.get(key)
+        if value not in (None, ""):
+            return str(value)
+    return None
+
+
+def _label_lookup_value(label_or_id: str) -> str:
+    value = str(label_or_id or "").strip()
+    if "|" not in value:
+        return value
+    _parent_label, raw_name = value.split("|", 1)
+    return raw_name.strip() or value
+
+
+def _language_code(value) -> str:
+    normalized = _norm(str(value))
+    aliases = {
+        "es": "es",
+        "spa": "es",
+        "spanish": "es",
+        "espanol": "es",
+        "castellano": "es",
+    }
+    return aliases.get(normalized, normalized)
+
+
+def _capital_names_by_language(raw_label) -> dict[str, str]:
+    if not isinstance(raw_label, dict):
+        return {}
+
+    names: dict[str, str] = {}
+    names_raw = None
+    for key in ("names_by_language", "names", "translations", "nombres"):
+        if key in raw_label:
+            names_raw = raw_label[key]
+            break
+
+    if names_raw is not None:
+        if not isinstance(names_raw, dict):
+            raise ValueError(
+                "Los nombres de capital por idioma deben ser un dict "
+                "{idioma: nombre}."
+            )
+        for language, name in names_raw.items():
+            if name not in (None, ""):
+                names[_language_code(language)] = str(name)
+
+    for key in ("es", "spa", "spanish", "espanol", "español", "castellano"):
+        if key in raw_label and raw_label[key] not in (None, ""):
+            names[_language_code(key)] = str(raw_label[key])
+
+    return names
+
+
+def _label_city_preference_and_names(
+    raw_label,
+    default_preference=None,
+) -> tuple[str, tuple[int, ...], dict[str, str]]:
+    label, preference = _label_and_city_merge_preference(raw_label, default_preference)
+    return label, preference, _capital_names_by_language(raw_label)
+
+
+def _add_capital_name_overrides(
+    target: dict[str, dict[str, str]],
+    capital: AdminArea,
+    names_by_language: dict[str, str],
+) -> None:
+    for language, name in names_by_language.items():
+        if name:
+            target.setdefault(language, {})[capital.id] = name
+
+
+def _remember_duplicate(
+    seen: dict[str, str],
+    duplicates: dict[str, list[str]],
+    key: str,
+    origin: str,
+) -> None:
+    if key in seen:
+        origins = duplicates.setdefault(key, [seen[key]])
+        if origin not in origins:
+            origins.append(origin)
+        return
+    seen[key] = origin
+
+
+def _duplicate_origin(ctx: str, level: int, country_code: str, area: AdminArea) -> str:
+    return f"{ctx} nivel {level}, pais '{country_code}', {area.name} ({area.id})"
+
+
+def _raise_duplicate_source_data(
+    new_name: str,
+    source_duplicates: dict[str, list[str]],
+    municipal_duplicates: dict[str, list[str]],
+) -> None:
+    if not source_duplicates and not municipal_duplicates:
+        return
+
+    lines = [f"Datos repetidos en la especificacion de '{new_name}'."]
+    _append_duplicate_lines(lines, "Entidades repetidas", source_duplicates)
+    _append_duplicate_lines(
+        lines,
+        "Municipios repetidos tras expandir entidades en el mismo nivel",
+        municipal_duplicates,
+    )
+    raise ValueError("\n".join(lines))
+
+
+def _append_duplicate_lines(
+    lines: list[str],
+    title: str,
+    duplicates: dict[str, list[str]],
+    *,
+    limit: int = 30,
+) -> None:
+    if not duplicates:
+        return
+
+    lines.append(f"{title}:")
+    items = sorted(duplicates.items())
+    for key, origins in items[:limit]:
+        lines.append(f"- {key}: " + " | ".join(origins))
+    if len(items) > limit:
+        lines.append(f"- ... y {len(items) - limit} repetido(s) mas.")
+
+
+def _labels_to_list(labels_raw):
+    if labels_raw is None:
+        return []
+    if isinstance(labels_raw, (str, int)) or _is_label_selector(labels_raw):
+        return [labels_raw]
+    try:
+        return list(labels_raw)
+    except TypeError:
+        raise ValueError(f"No se puede convertir {labels_raw!r} en lista de etiquetas.")
+
+
+def _is_label_selector(value) -> bool:
+    return isinstance(value, dict) and bool(
+        {
+            "label",
+            "name",
+            "id",
+            "code",
+            "city_merge_status",
+            "prefer_city_merge_status",
+            "merge_status",
+            "parent",
+            "parent_label",
+            "parent_name",
+            "state",
+            "admin1",
+        }
+        & set(value)
+    )
+
+
+def _resolve_adminarea_in_qs(
+    qs,
+    label_or_id: str,
+    city_merge_status_preference=None,
+) -> Optional[AdminArea]:
     """
     Busca dentro de 'qs' (queryset de AdminArea) por:
     - id exacto
@@ -97,29 +384,34 @@ def _resolve_adminarea_in_qs(qs, label_or_id: str) -> Optional[AdminArea]:
     - nombre/código normalizado (sin acentos y en minúsculas)
     - y, como último recurso, name__icontains / code__icontains
     """
-    if not label_or_id:
+    lookup_value = _label_lookup_value(label_or_id)
+    if not lookup_value:
         return None
 
     # 1) id exacto
-    obj = qs.filter(id=label_or_id).first()
+    obj = qs.filter(id=lookup_value).first()
     if obj:
         return obj
 
     # 2) code / name exactos (case-insensitive)
-    obj = qs.filter(code__iexact=label_or_id).first()
-    if obj:
-        return obj
-    obj = qs.filter(name__iexact=label_or_id).first()
-    if obj:
+    obj = _preferred_adminarea(
+        list(qs.filter(code__iexact=lookup_value)) + list(qs.filter(name__iexact=lookup_value)),
+        city_merge_status_preference,
+    )
+    if obj is not None:
         return obj
 
     # 3) búsqueda por normalización
-    n = _norm(label_or_id)
-    cache = list(qs.only("id", "code", "name"))
-    by_code = {_norm(a.code): a for a in cache if a.code}
-    by_name = {_norm(a.name): a for a in cache}
-
-    candidate = by_code.get(n) or by_name.get(n)
+    n = _norm(lookup_value)
+    cache = list(qs.only("id", "code", "name", "level", "city_merge_status"))
+    candidate = _preferred_adminarea(
+        [
+            area
+            for area in cache
+            if n in {_norm(area.id), _norm(area.code), _norm(area.name)}
+        ],
+        city_merge_status_preference,
+    )
     if candidate:
         return candidate
 
@@ -129,34 +421,79 @@ def _resolve_adminarea_in_qs(qs, label_or_id: str) -> Optional[AdminArea]:
     except Exception:
         qs_ordered = qs
 
-    candidate = qs_ordered.filter(name__icontains=label_or_id).first()
+    candidate = _preferred_adminarea(
+        qs_ordered.filter(name__icontains=lookup_value),
+        city_merge_status_preference,
+    )
     if candidate:
         return candidate
 
-    candidate = qs_ordered.filter(code__icontains=label_or_id).first()
-    return candidate
+    return _preferred_adminarea(
+        qs_ordered.filter(code__icontains=lookup_value),
+        city_merge_status_preference,
+    )
 
 
-def _lookup_many(country_code: str, level: int, labels_or_seq) -> list[AdminArea]:
+def _lookup_many(
+    country_code: str,
+    level: int,
+    labels_or_seq,
+    city_merge_status_preference=None,
+) -> list[AdminArea]:
     """
     Devuelve una lista de AdminArea para ese país y nivel,
     a partir de un string o una secuencia de strings.
     """
-    if isinstance(labels_or_seq, (str, int)):
-        labels = [labels_or_seq]
-    else:
-        labels = list(labels_or_seq)
+    return [
+        area
+        for area, _preference in _lookup_many_with_preferences(
+            country_code,
+            level,
+            labels_or_seq,
+            city_merge_status_preference,
+        )
+    ]
+
+
+def _lookup_many_with_preferences(
+    country_code: str,
+    level: int,
+    labels_or_seq,
+    city_merge_status_preference=None,
+) -> list[tuple[AdminArea, tuple[int, ...]]]:
+    labels = _labels_to_list(labels_or_seq)
 
     qs = AdminArea.objects.filter(country_code=country_code, level=level)
-    found: list[AdminArea] = []
+    found: list[tuple[AdminArea, tuple[int, ...]]] = []
     missing: list[str] = []
 
-    for label in labels:
-        obj = _resolve_adminarea_in_qs(qs, str(label))
+    for raw_label in labels:
+        label, preference = _label_and_city_merge_preference(
+            raw_label,
+            city_merge_status_preference,
+        )
+        lookup_qs = qs
+        parent_label = _label_parent(raw_label)
+        if parent_label:
+            parent = _resolve_adminarea_in_qs(
+                AdminArea.objects.filter(country_code=country_code, level__lt=level),
+                parent_label,
+                city_merge_status_preference=preference,
+            )
+            if not parent:
+                missing.append(f"{label} bajo {parent_label}")
+                continue
+            lookup_qs = lookup_qs.filter(parent_id=parent.id)
+
+        obj = _resolve_adminarea_in_qs(
+            lookup_qs,
+            label,
+            city_merge_status_preference=preference,
+        )
         if obj:
-            found.append(obj)
+            found.append((obj, preference))
         else:
-            missing.append(str(label))
+            missing.append(label)
 
     if missing:
         raise ValueError(
@@ -167,7 +504,26 @@ def _lookup_many(country_code: str, level: int, labels_or_seq) -> list[AdminArea
     return found
 
 
-def _descendants_at_level(root: AdminArea, target_level: int) -> list[AdminArea]:
+def _child_city_merge_statuses(city_merge_status_preference=None) -> tuple[int, ...]:
+    primary = _city_merge_status_preference(city_merge_status_preference)[0]
+    if primary == int(AdminArea.CityMergeStatus.SOURCE):
+        return (
+            int(AdminArea.CityMergeStatus.NONE),
+            int(AdminArea.CityMergeStatus.SOURCE),
+        )
+    if primary == int(AdminArea.CityMergeStatus.UNIFIED):
+        return (
+            int(AdminArea.CityMergeStatus.NONE),
+            int(AdminArea.CityMergeStatus.UNIFIED),
+        )
+    return (int(AdminArea.CityMergeStatus.NONE),)
+
+
+def _descendants_at_level(
+    root: AdminArea,
+    target_level: int,
+    city_merge_status_preference=None,
+) -> list[AdminArea]:
     if root.level > target_level:
         raise ValueError(
             f"El área '{root.id}' está en nivel {root.level} y no se puede "
@@ -183,7 +539,13 @@ def _descendants_at_level(root: AdminArea, target_level: int) -> list[AdminArea]
 
     while frontier:
         ids = [a.id for a in frontier]
-        children = list(AdminArea.objects.filter(parent_id__in=ids))
+        children = list(
+            AdminArea.objects
+            .filter(
+                parent_id__in=ids,
+                city_merge_status__in=_child_city_merge_statuses(city_merge_status_preference),
+            )
+        )
         frontier = []
 
         for child in children:
@@ -199,6 +561,7 @@ def _descendants_at_level(root: AdminArea, target_level: int) -> list[AdminArea]
             AdminArea.objects.filter(
                 country_code=root.country_code,
                 level=target_level,
+                city_merge_status__in=_child_city_merge_statuses(city_merge_status_preference),
             )
         )
         seen = {a.id for a in result}
@@ -208,6 +571,7 @@ def _descendants_at_level(root: AdminArea, target_level: int) -> list[AdminArea]
             country_code=root.country_code,
             level=target_level,
             code__startswith=str(root.code),
+            city_merge_status__in=_child_city_merge_statuses(city_merge_status_preference),
         ):
             if child.id not in seen:
                 result.append(child)
@@ -216,14 +580,22 @@ def _descendants_at_level(root: AdminArea, target_level: int) -> list[AdminArea]
     return result
 
 
-def _to_atomic_ids(items: Iterable[AdminArea], atomic_level: int) -> set[str]:
+def _to_atomic_ids(
+    items: Iterable[AdminArea],
+    atomic_level: int,
+    city_merge_status_preference=None,
+) -> set[str]:
     result: set[str] = set()
 
     for area in items:
         if area.level == atomic_level:
             result.add(area.id)
         elif area.level < atomic_level:
-            descendants = _descendants_at_level(area, atomic_level)
+            descendants = _descendants_at_level(
+                area,
+                atomic_level,
+                city_merge_status_preference,
+            )
             result |= {d.id for d in descendants}
         else:
             raise ValueError(
@@ -234,7 +606,11 @@ def _to_atomic_ids(items: Iterable[AdminArea], atomic_level: int) -> set[str]:
     return result
 
 
-def _expand_to_municipal(items: Iterable[AdminArea], country_code: str) -> set[str]:
+def _expand_to_municipal(
+    items: Iterable[AdminArea],
+    country_code: str,
+    city_merge_status_preference=None,
+) -> set[str]:
     """
     Convierte una colección de AdminArea (de cualquier nivel) en ids de municipios
     (nivel ORIGINAL_MUNICIPAL_LEVEL[country_code]).
@@ -244,7 +620,7 @@ def _expand_to_municipal(items: Iterable[AdminArea], country_code: str) -> set[s
         raise ValueError(
             f"No se ha definido ORIGINAL_MUNICIPAL_LEVEL para el país origen '{country_code}'."
         )
-    return _to_atomic_ids(items, atomic_level)
+    return _to_atomic_ids(items, atomic_level, city_merge_status_preference)
 
 
 def _area_inside_sources(
@@ -259,7 +635,7 @@ def _area_inside_sources(
     parent_id = candidate.parent_id
     seen: set[str] = set()
     while parent_id and parent_id not in seen:
-        if parent_id in macro_ids:
+        if parent_id in macro_ids or parent_id in municipal_ids:
             return True
         seen.add(parent_id)
         parent_id = (
@@ -283,7 +659,129 @@ def _area_inside_sources(
         ):
             return True
 
+    if _area_inside_usa_city_url(candidate, municipal_ids):
+        return True
+
     return False
+
+
+def _url_slug_norm(value: str | None) -> str:
+    value = _norm((value or "").replace("_", " ").replace("-", " "))
+    value = re.sub(r"[^a-z0-9]+", " ", value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def _url_path_segments(url: str | None) -> list[str]:
+    if not url:
+        return []
+    path = unquote(urlparse(url).path or "")
+    return [segment for segment in path.strip("/").split("/") if segment]
+
+
+def _url_leaf_name(url: str | None) -> str:
+    segments = _url_path_segments(url)
+    if not segments:
+        return ""
+    leaf = segments[-1]
+    if "__" in leaf:
+        leaf = leaf.split("__", 1)[1]
+    return _url_slug_norm(leaf)
+
+
+def _area_url_names(area: AdminArea) -> set[str]:
+    values = {_url_slug_norm(area.name), _url_leaf_name(area.url)}
+    return {value for value in values if value}
+
+
+def _contains_url_name(context: str, value: str) -> bool:
+    if not context or not value:
+        return False
+    return f" {value} " in f" {context} "
+
+
+def _area_inside_usa_city_url(candidate: AdminArea, municipal_ids: set[str]) -> bool:
+    """
+    CityPopulation leaves some multi-county US cities without parent_id.
+    Their URL still carries state and county context, e.g.
+    /usa/texas/bexar_medina/4865000__san_antonio/.
+    """
+    if candidate.country_code != "usa" or not municipal_ids:
+        return False
+
+    segments = _url_path_segments(candidate.url)
+    lowered_segments = [segment.lower() for segment in segments]
+    try:
+        usa_index = lowered_segments.index("usa")
+    except ValueError:
+        return False
+
+    if len(segments) <= usa_index + 3:
+        return False
+    if lowered_segments[usa_index + 1] == "admin":
+        return False
+
+    state_context = _url_slug_norm(segments[usa_index + 1])
+    county_context = _url_slug_norm(segments[usa_index + 2])
+    if not state_context or not county_context:
+        return False
+
+    for source in (
+        AdminArea.objects
+        .filter(id__in=municipal_ids, country_code="usa")
+        .select_related("parent")
+        .only("id", "name", "url", "parent__id", "parent__name", "parent__code", "parent__url")
+    ):
+        parent = source.parent
+        if parent is None:
+            continue
+
+        state_names = _area_url_names(parent) | {_url_slug_norm(parent.code)}
+        if state_context not in state_names:
+            continue
+
+        if any(_contains_url_name(county_context, value) for value in _area_url_names(source)):
+            return True
+
+    return False
+
+
+def _resolve_adminarea_inside_sources(
+    qs,
+    label_or_id: str,
+    macro_ids: set[str],
+    municipal_ids: set[str],
+    macro_areas: Iterable[AdminArea],
+    city_merge_status_preference=None,
+) -> Optional[AdminArea]:
+    candidate = _resolve_adminarea_in_qs(
+        qs,
+        label_or_id,
+        city_merge_status_preference=city_merge_status_preference,
+    )
+    if candidate and _area_inside_sources(candidate, macro_ids, municipal_ids, macro_areas):
+        return candidate
+
+    lookup_value = _label_lookup_value(label_or_id)
+    if not lookup_value:
+        return None
+
+    normalized = _norm(lookup_value)
+    normalized_candidates = [
+        area
+        for area in qs.only("id", "code", "name", "level", "city_merge_status", "parent_id", "country_code", "url")
+        if normalized in {_norm(area.id), _norm(area.code), _norm(area.name)}
+    ]
+    candidate_groups = [
+        normalized_candidates,
+        qs.filter(name__icontains=lookup_value),
+        qs.filter(code__icontains=lookup_value),
+    ]
+    for candidates in candidate_groups:
+        for area in _preferred_adminareas(candidates, city_merge_status_preference):
+            if _area_inside_sources(area, macro_ids, municipal_ids, macro_areas):
+                return area
+
+    return None
 
 
 def _round_area(value: Decimal | None) -> Decimal | None:
@@ -303,7 +801,15 @@ def _top_populated(candidates: Iterable[AdminArea]) -> AdminArea | None:
     for candidate in candidates:
         if candidate.pop_latest is None:
             continue
-        if top is None or candidate.pop_latest > top.pop_latest:
+        if int(candidate.city_merge_status or 0) not in MOST_POPULATED_CITY_MERGE_STATUSES:
+            continue
+        if top is None or (
+            candidate.pop_latest,
+            -_city_merge_status_preference().index(int(candidate.city_merge_status or 0)),
+        ) > (
+            top.pop_latest,
+            -_city_merge_status_preference().index(int(top.city_merge_status or 0)),
+        ):
             top = candidate
     return top
 
@@ -367,6 +873,7 @@ def create_nuevo_area_from_spec(
     capitals: list[str] | None = None,
     capital_level_by_country: dict[str, int] | None = None,
     auto_set_most_populated: bool = True,
+    city_merge_status_preference=None,
 ) -> NuevoAdminArea:
     """
     - code se guarda como "code jerárquico" (path):
@@ -393,16 +900,10 @@ def create_nuevo_area_from_spec(
     mun_from_macros: set[str] = set()
     mun_extra_incluidos: set[str] = set()
     mun_restar: set[str] = set()
-
-    def _labels_to_list(labels_raw):
-        if labels_raw is None:
-            return []
-        if isinstance(labels_raw, (str, int)):
-            return [labels_raw]
-        try:
-            return list(labels_raw)
-        except TypeError:
-            raise ValueError(f"No se puede convertir {labels_raw!r} en lista de etiquetas.")
+    source_seen: dict[str, str] = {}
+    source_duplicates: dict[str, list[str]] = {}
+    municipal_seen: dict[str, str] = {}
+    municipal_duplicates: dict[str, list[str]] = {}
 
     def _municipal_level_for(cc: str) -> int:
         lvl = ORIGINAL_MUNICIPAL_LEVEL.get(cc)
@@ -429,14 +930,52 @@ def create_nuevo_area_from_spec(
             if not labels:
                 continue
 
-            items = _lookup_many(cc, lvl, labels)
+            lookup_items = _lookup_many_with_preferences(
+                cc,
+                lvl,
+                labels,
+                city_merge_status_preference,
+            )
+            items = [area for area, _preference in lookup_items]
             atomic_level = _municipal_level_for(cc)
 
             if lvl == atomic_level:
-                mun_extra_incluidos |= _expand_to_municipal(items, cc)
+                for area, preference in lookup_items:
+                    origin = _duplicate_origin(ctx, lvl, cc, area)
+                    _remember_duplicate(
+                        source_seen,
+                        source_duplicates,
+                        f"{ctx} nivel {lvl} entidad {area.name} ({area.id})",
+                        origin,
+                    )
+                    expanded_ids = _expand_to_municipal([area], cc, preference)
+                    for municipal_id in expanded_ids:
+                        _remember_duplicate(
+                            municipal_seen,
+                            municipal_duplicates,
+                            f"{ctx} nivel {lvl} municipio {municipal_id}",
+                            origin,
+                        )
+                    mun_extra_incluidos |= expanded_ids
             else:
                 macro_ids |= {a.id for a in items}
-                mun_from_macros |= _expand_to_municipal(items, cc)
+                for area, preference in lookup_items:
+                    origin = _duplicate_origin(ctx, lvl, cc, area)
+                    _remember_duplicate(
+                        source_seen,
+                        source_duplicates,
+                        f"{ctx} nivel {lvl} entidad {area.name} ({area.id})",
+                        origin,
+                    )
+                    expanded_ids = _expand_to_municipal([area], cc, preference)
+                    for municipal_id in expanded_ids:
+                        _remember_duplicate(
+                            municipal_seen,
+                            municipal_duplicates,
+                            f"{ctx} nivel {lvl} municipio {municipal_id}",
+                            origin,
+                        )
+                    mun_from_macros |= expanded_ids
 
     def _parse_restar_group(value: dict, lvl: int, ctx: str):
         if not isinstance(value, dict):
@@ -452,8 +991,29 @@ def create_nuevo_area_from_spec(
             if not labels:
                 continue
 
-            items = _lookup_many(cc, lvl, labels)
-            mun_restar |= _expand_to_municipal(items, cc)
+            lookup_items = _lookup_many_with_preferences(
+                cc,
+                lvl,
+                labels,
+                city_merge_status_preference,
+            )
+            for area, preference in lookup_items:
+                origin = _duplicate_origin(ctx, lvl, cc, area)
+                _remember_duplicate(
+                    source_seen,
+                    source_duplicates,
+                    f"{ctx} nivel {lvl} entidad {area.name} ({area.id})",
+                    origin,
+                )
+                expanded_ids = _expand_to_municipal([area], cc, preference)
+                for municipal_id in expanded_ids:
+                    _remember_duplicate(
+                        municipal_seen,
+                        municipal_duplicates,
+                        f"{ctx} nivel {lvl} municipio {municipal_id}",
+                        origin,
+                    )
+                mun_restar |= expanded_ids
 
     for key, value in include_map.items():
         lvl = int(key)
@@ -462,6 +1022,8 @@ def create_nuevo_area_from_spec(
     for key, value in restar_raw.items():
         lvl = int(key)
         _parse_restar_group(value, lvl, "restar")
+
+    _raise_duplicate_source_data(new_name, source_duplicates, municipal_duplicates)
 
     mun_final_ids = (mun_from_macros | mun_extra_incluidos) - mun_restar
 
@@ -561,8 +1123,13 @@ def create_nuevo_area_from_spec(
     # ---------------------------------------------------------
     if capitals:
         capital_objs = []
+        capital_name_overrides: dict[str, dict[str, str]] = {}
         for raw in capitals:
-            label = str(raw).strip()
+            label, capital_preference, names_by_language = _label_city_preference_and_names(
+                raw,
+                city_merge_status_preference,
+            )
+            label = label.strip()
             if not label:
                 continue
 
@@ -576,7 +1143,11 @@ def create_nuevo_area_from_spec(
                         country_code=cc,
                         level=capital_level,
                     )
-                    candidate = _resolve_adminarea_in_qs(candidate_qs, label)
+                    candidate = _resolve_adminarea_in_qs(
+                        candidate_qs,
+                        label,
+                        city_merge_status_preference=capital_preference,
+                    )
                     if not candidate:
                         continue
 
@@ -587,7 +1158,11 @@ def create_nuevo_area_from_spec(
 
                     if candidate.level < atomic_level:
                         descendant_ids = {
-                            d.id for d in _descendants_at_level(candidate, atomic_level)
+                            d.id for d in _descendants_at_level(
+                                candidate,
+                                atomic_level,
+                                capital_preference,
+                            )
                         }
                         if descendant_ids & mun_final_ids:
                             chosen = candidate
@@ -598,9 +1173,17 @@ def create_nuevo_area_from_spec(
                         break
 
             if not chosen:
-                chosen = _resolve_adminarea_in_qs(atomic_qs, label)
+                chosen = _resolve_adminarea_in_qs(
+                    atomic_qs,
+                    label,
+                    city_merge_status_preference=capital_preference,
+                )
             if not chosen:
-                chosen = _resolve_adminarea_in_qs(macro_qs, label)
+                chosen = _resolve_adminarea_in_qs(
+                    macro_qs,
+                    label,
+                    city_merge_status_preference=capital_preference,
+                )
             if not chosen:
                 territory_country_codes = set(
                     AdminArea.objects
@@ -608,25 +1191,42 @@ def create_nuevo_area_from_spec(
                     .values_list("country_code", flat=True)
                 )
                 for cc in territory_country_codes:
-                    candidate = _resolve_adminarea_in_qs(
+                    candidate = _resolve_adminarea_inside_sources(
                         AdminArea.objects.filter(country_code=cc).order_by("-level"),
                         label,
+                        city_merge_status_preference=capital_preference,
+                        macro_ids=macro_ids,
+                        municipal_ids=mun_final_ids,
+                        macro_areas=macro_areas,
                     )
-                    if candidate and _area_inside_sources(candidate, macro_ids, mun_final_ids, macro_areas):
+                    if candidate:
                         chosen = candidate
                         break
 
             if not chosen:
                 raise ValueError(
-                    f"La capital '{raw}' no está dentro del territorio definido para '{new_name}'."
+                    f"La capital '{label}' no está dentro del territorio definido para '{new_name}'."
                 )
 
             capital_objs.append(chosen)
+            _add_capital_name_overrides(
+                capital_name_overrides,
+                chosen,
+                names_by_language,
+            )
 
         obj.capitals.set(capital_objs)
+        obj.capital_names_by_language = capital_name_overrides
+        obj.save(update_fields=["capital_names_by_language"])
 
     if auto_set_most_populated:
-        top = source_units_qs.exclude(pop_latest__isnull=True).order_by("-pop_latest").first()
+        top = (
+            source_units_qs
+            .filter(city_merge_status__in=MOST_POPULATED_CITY_MERGE_STATUSES)
+            .exclude(pop_latest__isnull=True)
+            .order_by("-pop_latest")
+            .first()
+        )
         obj.most_populate_city = top
         obj.save(update_fields=["most_populate_city"])
 

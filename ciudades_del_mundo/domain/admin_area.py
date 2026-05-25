@@ -7,6 +7,11 @@ from datetime import date
 from decimal import Decimal
 
 
+CITY_MERGE_NONE = 0
+CITY_MERGE_SOURCE = 1
+CITY_MERGE_UNIFIED = 2
+
+
 @dataclass(frozen=True)
 class ScrapedAdminArea:
     """Immutable scraped entity before being saved into Django models."""
@@ -23,6 +28,7 @@ class ScrapedAdminArea:
     pop_latest_date: date | str | None = None
     last_census_year: int | None = None
     url: str | None = None
+    city_merge_status: int = CITY_MERGE_NONE
 
     @property
     def id(self) -> str:

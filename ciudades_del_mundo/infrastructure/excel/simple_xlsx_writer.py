@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
-from ciudades_del_mundo.domain.nuevo_admin_export import CellValue, Sheet, Workbook
+from ciudades_del_mundo.domain.nuevo_admin_export import CellValue, Sheet, Table, Workbook
 
 
 class SimpleXlsxWriter:
@@ -15,8 +15,9 @@ class SimpleXlsxWriter:
 
     def write(self, workbook: Workbook, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
+        table_parts = list(_iter_table_parts(workbook))
         with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-            archive.writestr("[Content_Types].xml", _content_types(workbook))
+            archive.writestr("[Content_Types].xml", _content_types(workbook, table_parts))
             archive.writestr("_rels/.rels", _root_rels())
             archive.writestr("docProps/core.xml", _core_props(workbook))
             archive.writestr("docProps/app.xml", _app_props(workbook))
@@ -25,13 +26,41 @@ class SimpleXlsxWriter:
             archive.writestr("xl/styles.xml", _styles_xml())
             for idx, sheet in enumerate(workbook.sheets, start=1):
                 archive.writestr(f"xl/worksheets/sheet{idx}.xml", _sheet_xml(sheet))
+                sheet_table_parts = [
+                    table_part
+                    for table_part in table_parts
+                    if table_part[0] == idx
+                ]
+                if sheet_table_parts:
+                    archive.writestr(
+                        f"xl/worksheets/_rels/sheet{idx}.xml.rels",
+                        _worksheet_rels(sheet_table_parts),
+                    )
+            for _sheet_idx, _rel_id, table_part_id, table in table_parts:
+                archive.writestr(
+                    f"xl/tables/table{table_part_id}.xml",
+                    _table_xml(table, table_part_id),
+                )
 
 
-def _content_types(workbook: Workbook) -> str:
+def _iter_table_parts(workbook: Workbook):
+    table_part_id = 1
+    for sheet_idx, sheet in enumerate(workbook.sheets, start=1):
+        for rel_id, table in enumerate(sheet.tables, start=1):
+            yield sheet_idx, rel_id, table_part_id, table
+            table_part_id += 1
+
+
+def _content_types(workbook: Workbook, table_parts) -> str:
     sheet_overrides = "".join(
         f'<Override PartName="/xl/worksheets/sheet{idx}.xml" '
         'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
         for idx, _sheet in enumerate(workbook.sheets, start=1)
+    )
+    table_overrides = "".join(
+        f'<Override PartName="/xl/tables/table{table_part_id}.xml" '
+        'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml"/>'
+        for _sheet_idx, _rel_id, table_part_id, _table in table_parts
     )
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -46,7 +75,7 @@ def _content_types(workbook: Workbook) -> str:
         'ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>'
         '<Override PartName="/docProps/app.xml" '
         'ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>'
-        f"{sheet_overrides}</Types>"
+        f"{sheet_overrides}{table_overrides}</Types>"
     )
 
 
@@ -90,6 +119,21 @@ def _workbook_rels(workbook: Workbook) -> str:
     )
 
 
+def _worksheet_rels(sheet_table_parts) -> str:
+    relationships = "".join(
+        f'<Relationship Id="rId{rel_id}" '
+        'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/table" '
+        f'Target="../tables/table{table_part_id}.xml"/>'
+        for _sheet_idx, rel_id, table_part_id, _table in sheet_table_parts
+    )
+    return (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        f"{relationships}"
+        "</Relationships>"
+    )
+
+
 def _styles_xml() -> str:
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -112,16 +156,80 @@ def _sheet_xml(sheet: Sheet) -> str:
     max_col = max((len(row) for row in sheet.rows), default=1)
     dimension = f"A1:{_column_name(max_col)}{max(max_row, 1)}"
     views = _sheet_views(sheet.freeze_panes)
-    auto_filter = f'<autoFilter ref="{dimension}"/>' if sheet.auto_filter and max_row > 1 else ""
+    auto_filter_ref = sheet.auto_filter_ref or dimension
+    auto_filter = f'<autoFilter ref="{auto_filter_ref}"/>' if sheet.auto_filter and max_row > 1 else ""
+    table_parts = ""
+    if sheet.tables:
+        refs = "".join(
+            f'<tablePart r:id="rId{idx}"/>'
+            for idx, _table in enumerate(sheet.tables, start=1)
+        )
+        table_parts = f'<tableParts count="{len(sheet.tables)}">{refs}</tableParts>'
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
         f'<dimension ref="{dimension}"/>'
         f"{views}"
         f"<sheetData>{rows_xml}</sheetData>"
         f"{auto_filter}"
+        f"{table_parts}"
         "</worksheet>"
     )
+
+
+def _table_xml(table: Table, table_id: int) -> str:
+    display_name = _table_name(table.name, table_id)
+    columns = _table_columns(table)
+    columns_xml = "".join(
+        f'<tableColumn id="{idx}" name="{_xml(name)}"/>'
+        for idx, name in enumerate(columns, start=1)
+    )
+    return (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        f'<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+        f'id="{table_id}" name="{display_name}" displayName="{display_name}" '
+        f'ref="{_xml(table.ref)}" totalsRowShown="0">'
+        f'<autoFilter ref="{_xml(table.ref)}"/>'
+        f'<tableColumns count="{len(columns)}">{columns_xml}</tableColumns>'
+        '<tableStyleInfo name="TableStyleMedium2" showFirstColumn="0" '
+        'showLastColumn="0" showRowStripes="1" showColumnStripes="0"/>'
+        "</table>"
+    )
+
+
+def _table_name(name: str, table_id: int) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_]", "_", name or "")
+    cleaned = re.sub(r"_+", "_", cleaned).strip("_") or "Table"
+    if not re.match(r"[A-Za-z_]", cleaned):
+        cleaned = f"Table_{cleaned}"
+    return f"{cleaned[:240]}_{table_id}"
+
+
+def _table_columns(table: Table) -> tuple[str, ...]:
+    width = _table_ref_width(table.ref)
+    columns = list(table.columns[:width])
+    while len(columns) < width:
+        columns.append(f"Column{len(columns) + 1}")
+
+    result: list[str] = []
+    seen: dict[str, int] = {}
+    for index, value in enumerate(columns, start=1):
+        name = str(value or f"Column{index}")
+        count = seen.get(name, 0) + 1
+        seen[name] = count
+        if count > 1:
+            name = f"{name}_{count}"
+        result.append(name)
+    return tuple(result)
+
+
+def _table_ref_width(ref: str) -> int:
+    match = re.fullmatch(r"([A-Z]+)[0-9]+:([A-Z]+)[0-9]+", ref.upper())
+    if not match:
+        return 0
+    start_col, end_col = match.groups()
+    return max(_column_index(end_col) - _column_index(start_col) + 1, 0)
 
 
 def _sheet_views(freeze_panes: str | None) -> str:

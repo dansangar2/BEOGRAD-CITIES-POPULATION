@@ -14,10 +14,10 @@ class AdminAreaAdmin(admin.ModelAdmin):
     parent_pk.short_description = "Parent ID"
 
     list_display = (
-        "id", "country_code", "code", "name", "level","entity_type",
+        "id", "country_code", "code", "name", "level", "city_merge_status", "entity_type",
         "parent_pk", "pop_latest", "representatives", "pop_latest_date", "updated_at",
     )
-    list_filter  = ("country_code", "level","entity_type")
+    list_filter  = ("country_code", "level", "city_merge_status", "entity_type")
     search_fields = ("id", "code", "name")   # antes incluía 'entity_id'
     ordering = ("country_code", "level", "name")
 
@@ -30,10 +30,16 @@ class NuevoAdminAreaAdmin(admin.ModelAdmin):
         return obj.parent_id
     parent_pk.short_description = "Parent ID"
 
+    def depends_on_pk(self, obj):
+        return obj.depends_on_id
+    depends_on_pk.short_description = "Depende de"
+
     list_display = (
         "id", "country_code", "code", "name", "level", "entity_type",
-        "parent_pk", "pop_latest", "representatives", "updated_at",
+        "parent_pk", "pop_latest", "population_index", "province_status",
+        "depends_on_pk", "representatives", "updated_at",
     )
-    list_filter = ("country_code", "level", "entity_type")
+    list_filter = ("country_code", "level", "entity_type", "province_status")
     search_fields = ("id", "code", "name")
     ordering = ("country_code", "level", "name")
+    raw_id_fields = ("parent", "depends_on", "most_populate_city")

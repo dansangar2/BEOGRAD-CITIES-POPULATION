@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import nullcontext
 from dataclasses import dataclass, replace
 from typing import Callable
+from urllib.parse import unquote, urlparse
 
 from ciudades_del_mundo.application.configured_cities import apply_configured_cities
 from ciudades_del_mundo.application.entity_merges import apply_entity_merges
@@ -132,6 +133,8 @@ class ScrapeAdminAreas:
         entities: list[ScrapedAdminArea],
     ) -> list[ScrapedAdminArea]:
         entities = _keep_first_scraped_entity(entities)
+        entities = _normalize_synthetic_country_parent_codes(config.country_code, entities)
+        entities = _infer_parent_codes_from_url_path(entities)
         if config.entity_merges:
             entities = apply_entity_merges(entities, config.entity_merges)
             entities = _keep_first_scraped_entity(entities)
@@ -158,6 +161,95 @@ def _keep_first_scraped_entity(entities: list[ScrapedAdminArea]) -> list[Scraped
         seen.add(key)
         deduplicated.append(entity)
     return deduplicated
+
+
+def _normalize_synthetic_country_parent_codes(
+    country_code: str,
+    entities: list[ScrapedAdminArea],
+) -> list[ScrapedAdminArea]:
+    if any(entity.code == country_code for entity in entities):
+        return entities
+
+    roots = [entity for entity in entities if entity.level == 0]
+    if len(roots) != 1:
+        return entities
+
+    root_code = roots[0].code
+    return [
+        replace(entity, parent_code=root_code)
+        if entity.parent_code == country_code
+        else entity
+        for entity in entities
+    ]
+
+
+def _infer_parent_codes_from_url_path(entities: list[ScrapedAdminArea]) -> list[ScrapedAdminArea]:
+    """Use CityPopulation URL path slugs to fill missing parent codes when unique."""
+    slug_index: dict[tuple[str, int, str], set[str]] = {}
+    for entity in entities:
+        slug = _entity_url_slug(entity.url)
+        if not slug:
+            continue
+        key = (entity.country_code, entity.level, slug)
+        slug_index.setdefault(key, set()).add(entity.code)
+
+    unique_codes = {
+        key: next(iter(codes))
+        for key, codes in slug_index.items()
+        if len(codes) == 1
+    }
+
+    updated = []
+    for entity in entities:
+        if entity.parent_code or entity.level <= 0:
+            updated.append(entity)
+            continue
+
+        parent_slug = _url_parent_slug(entity.url)
+        if not parent_slug:
+            updated.append(entity)
+            continue
+
+        parent_code = unique_codes.get((entity.country_code, entity.level - 1, parent_slug))
+        if not parent_code or parent_code == entity.code:
+            updated.append(entity)
+            continue
+
+        updated.append(replace(entity, parent_code=parent_code))
+    return updated
+
+
+def _entity_url_slug(url: str | None) -> str | None:
+    segment = _last_url_path_segment(url)
+    if not segment or "__" not in segment:
+        return None
+    return _normalize_url_slug(segment.split("__", 1)[1])
+
+
+def _url_parent_slug(url: str | None) -> str | None:
+    if not url:
+        return None
+    path = urlparse(url).path
+    segments = [segment for segment in path.split("/") if segment]
+    if len(segments) < 2:
+        return None
+
+    parent_segment = segments[-2]
+    if "__" in parent_segment:
+        parent_segment = parent_segment.split("__", 1)[1]
+    return _normalize_url_slug(parent_segment)
+
+
+def _last_url_path_segment(url: str | None) -> str | None:
+    if not url:
+        return None
+    path = urlparse(url).path
+    segments = [segment for segment in path.split("/") if segment]
+    return segments[-1] if segments else None
+
+
+def _normalize_url_slug(value: str) -> str:
+    return unquote(value).strip().casefold()
 
 
 def _apply_page_area_overrides(
