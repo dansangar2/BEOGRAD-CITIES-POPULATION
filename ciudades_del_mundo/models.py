@@ -212,6 +212,7 @@ class NuevoAdminArea(models.Model):
     )
 
     class Meta:
+        ordering = ["country_code", "level", "name", "id"]
         constraints = [
             models.UniqueConstraint(
                 fields=["country_code", "code"],

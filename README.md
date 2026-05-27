@@ -218,6 +218,28 @@ Si no existe `requirements.txt`, instala al menos:
 pip install django requests beautifulsoup4 lxml openpyxl
 ```
 
+## Tests rapidos
+
+La suite principal es offline: no usa red, no toca `db.sqlite3` y evita crear
+base de datos de test. Sirve para validar cambios de scraping, TOML y logica de
+dominio antes de ejecutar operaciones caras.
+
+```powershell
+py manage.py test ciudades_del_mundo.tests --verbosity 2
+```
+
+Tambien puede ejecutarse con `unittest` directo:
+
+```powershell
+py -m unittest discover ciudades_del_mundo\tests -v
+```
+
+Para comprobar solo las configuraciones reales de `subdivisions/*.toml`:
+
+```powershell
+py manage.py validate_subdivision_configs
+```
+
 ## Notas operativas
 
 - Las migraciones se consideran codigo generado y no forman parte de la logica de scraping.

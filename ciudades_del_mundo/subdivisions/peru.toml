@@ -1,0 +1,42 @@
+LEGAL_SUBDIVISION = 3
+
+[[pages]]
+source = "infosection"
+path = ["cities"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = [
+  "amazonas/admin",
+  "ancash/admin",
+  "apurimac/admin",
+  "arequipa/admin",
+  "ayacucho/admin",
+  "cajamarca/admin",
+  "callao/admin",
+  "cusco/admin",
+  "huancavelica/admin",
+  "huanuco/admin",
+  "ica/admin",
+  "junin/admin",
+  "lalibertad/admin",
+  "lambayeque/admin",
+  "lima/admin",
+  "loreto/admin",
+  "madrededios/admin",
+  "moquegua/admin",
+  "pasco/admin",
+  "piura/admin",
+  "puno/admin",
+  "sanmartin/admin",
+  "tacna/admin",
+  "tumbes/admin",
+  "ucayali/admin",
+]
+lowest_level = 1

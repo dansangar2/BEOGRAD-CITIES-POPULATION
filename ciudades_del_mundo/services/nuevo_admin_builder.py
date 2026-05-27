@@ -606,6 +606,28 @@ def _to_atomic_ids(
     return result
 
 
+def _ancestor_at_level(area: AdminArea, target_level: int) -> AdminArea | None:
+    if area.level == target_level:
+        return area
+    if area.level < target_level:
+        return None
+
+    parent_id = area.parent_id
+    seen: set[str] = set()
+    while parent_id and parent_id not in seen:
+        seen.add(parent_id)
+        parent = AdminArea.objects.filter(id=parent_id).first()
+        if parent is None:
+            return None
+        if parent.level == target_level:
+            return parent
+        if parent.level is not None and parent.level < target_level:
+            return None
+        parent_id = parent.parent_id
+
+    return None
+
+
 def _expand_to_municipal(
     items: Iterable[AdminArea],
     country_code: str,
@@ -900,6 +922,9 @@ def create_nuevo_area_from_spec(
     mun_from_macros: set[str] = set()
     mun_extra_incluidos: set[str] = set()
     mun_restar: set[str] = set()
+    # Unidades por debajo del nivel municipal: sirven para excepciones parciales.
+    sub_extra_incluidos: dict[str, str | None] = {}
+    sub_restar: dict[str, str | None] = {}
     source_seen: dict[str, str] = {}
     source_duplicates: dict[str, list[str]] = {}
     municipal_seen: dict[str, str] = {}
@@ -923,7 +948,7 @@ def create_nuevo_area_from_spec(
                 f"{{country_code: [labels]}}, recibido: {type(value).__name__}."
             )
 
-        nonlocal macro_ids, mun_from_macros, mun_extra_incluidos
+        nonlocal macro_ids, mun_from_macros, mun_extra_incluidos, sub_extra_incluidos
 
         for cc, labels_raw in value.items():
             labels = _labels_to_list(labels_raw)
@@ -939,7 +964,18 @@ def create_nuevo_area_from_spec(
             items = [area for area, _preference in lookup_items]
             atomic_level = _municipal_level_for(cc)
 
-            if lvl == atomic_level:
+            if lvl > atomic_level:
+                for area, _preference in lookup_items:
+                    origin = _duplicate_origin(ctx, lvl, cc, area)
+                    _remember_duplicate(
+                        source_seen,
+                        source_duplicates,
+                        f"{ctx} nivel {lvl} entidad {area.name} ({area.id})",
+                        origin,
+                    )
+                    ancestor = _ancestor_at_level(area, atomic_level)
+                    sub_extra_incluidos[area.id] = ancestor.id if ancestor else None
+            elif lvl == atomic_level:
                 for area, preference in lookup_items:
                     origin = _duplicate_origin(ctx, lvl, cc, area)
                     _remember_duplicate(
@@ -984,7 +1020,7 @@ def create_nuevo_area_from_spec(
                 f"{{country_code: [labels]}}, recibido: {type(value).__name__}."
             )
 
-        nonlocal mun_restar
+        nonlocal mun_restar, sub_restar
 
         for cc, labels_raw in value.items():
             labels = _labels_to_list(labels_raw)
@@ -1005,6 +1041,12 @@ def create_nuevo_area_from_spec(
                     f"{ctx} nivel {lvl} entidad {area.name} ({area.id})",
                     origin,
                 )
+                atomic_level = _municipal_level_for(cc)
+                if lvl > atomic_level:
+                    ancestor = _ancestor_at_level(area, atomic_level)
+                    sub_restar[area.id] = ancestor.id if ancestor else None
+                    continue
+
                 expanded_ids = _expand_to_municipal([area], cc, preference)
                 for municipal_id in expanded_ids:
                     _remember_duplicate(
@@ -1025,9 +1067,20 @@ def create_nuevo_area_from_spec(
 
     _raise_duplicate_source_data(new_name, source_duplicates, municipal_duplicates)
 
-    mun_final_ids = (mun_from_macros | mun_extra_incluidos) - mun_restar
+    mun_incluidos = mun_from_macros | mun_extra_incluidos
+    sub_extra_final_ids = {
+        sub_id
+        for sub_id, ancestor_id in sub_extra_incluidos.items()
+        if ancestor_id is None or ancestor_id not in mun_incluidos or ancestor_id in mun_restar
+    }
+    sub_restar_final_ids = {
+        sub_id
+        for sub_id, ancestor_id in sub_restar.items()
+        if ancestor_id is None or (ancestor_id in mun_incluidos and ancestor_id not in mun_restar)
+    }
+    mun_final_ids = mun_incluidos - mun_restar
 
-    if not macro_ids and not mun_final_ids:
+    if not macro_ids and not mun_final_ids and not sub_extra_final_ids:
         raise ValueError(f"La especificación para '{new_name}' no produjo ninguna unidad.")
 
     # ---------------------------------------------------------
@@ -1042,8 +1095,11 @@ def create_nuevo_area_from_spec(
     area_macro = agg_macro["total_area"] or Decimal("0")
     pop_macro = agg_macro["total_pop"] or 0
 
-    extra_qs = AdminArea.objects.filter(id__in=mun_extra_incluidos)
-    restar_qs = AdminArea.objects.filter(id__in=mun_restar)
+    extra_ids = mun_extra_incluidos | sub_extra_final_ids
+    restar_ids = mun_restar | sub_restar_final_ids
+
+    extra_qs = AdminArea.objects.filter(id__in=extra_ids)
+    restar_qs = AdminArea.objects.filter(id__in=restar_ids)
 
     agg_extra = extra_qs.aggregate(
         total_area=Sum("area_km2"),
@@ -1114,8 +1170,13 @@ def create_nuevo_area_from_spec(
     if m2m is None:
         raise AttributeError(f"El campo M2M '{m2m_field}' no existe en NuevoAdminArea.")
 
+    source_unit_ids = mun_final_ids | sub_extra_final_ids
     atomic_qs = AdminArea.objects.filter(id__in=mun_final_ids) if mun_final_ids else AdminArea.objects.none()
-    source_units_qs = atomic_qs if atomic_qs.exists() else macro_qs
+    source_units_qs = (
+        AdminArea.objects.filter(id__in=source_unit_ids)
+        if source_unit_ids
+        else macro_qs
+    )
     m2m.set(source_units_qs)
 
     # ---------------------------------------------------------
@@ -1152,7 +1213,7 @@ def create_nuevo_area_from_spec(
                         continue
 
                     atomic_level = _municipal_level_for(cc)
-                    if candidate.level == atomic_level and candidate.id in mun_final_ids:
+                    if candidate.id in source_unit_ids:
                         chosen = candidate
                         break
 
@@ -1174,7 +1235,7 @@ def create_nuevo_area_from_spec(
 
             if not chosen:
                 chosen = _resolve_adminarea_in_qs(
-                    atomic_qs,
+                    source_units_qs,
                     label,
                     city_merge_status_preference=capital_preference,
                 )
@@ -1187,7 +1248,7 @@ def create_nuevo_area_from_spec(
             if not chosen:
                 territory_country_codes = set(
                     AdminArea.objects
-                    .filter(id__in=macro_ids | mun_final_ids)
+                    .filter(id__in=macro_ids | source_unit_ids)
                     .values_list("country_code", flat=True)
                 )
                 for cc in territory_country_codes:
@@ -1196,7 +1257,7 @@ def create_nuevo_area_from_spec(
                         label,
                         city_merge_status_preference=capital_preference,
                         macro_ids=macro_ids,
-                        municipal_ids=mun_final_ids,
+                        municipal_ids=source_unit_ids,
                         macro_areas=macro_areas,
                     )
                     if candidate:

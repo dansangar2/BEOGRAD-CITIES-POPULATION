@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP
@@ -67,7 +68,7 @@ def build_nuevo_admin_workbook(
     max_level: int | None = None,
 ) -> tuple[Workbook, int, tuple[int, ...]]:
     root = data.root
-    areas = list(data.areas)
+    areas = sorted(data.areas, key=_alphabetical_area_key)
     root_level = root.level or 0
 
     children_by_parent: dict[str | None, list[NuevoAdminAreaSummary]] = defaultdict(list)
@@ -288,14 +289,14 @@ def _build_paths(
             paths.append(new_path)
             return
 
-        for child in sorted(children, key=lambda item: (item.level or 0, item.code)):
+        for child in sorted(children, key=_alphabetical_area_key):
             dfs(child, new_path)
 
     root_children = children_by_parent.get(root.id, [])
     if max_level is not None:
         root_children = [child for child in root_children if child.level <= max_level]
 
-    for child in sorted(root_children, key=lambda item: (item.level or 0, item.code)):
+    for child in sorted(root_children, key=_alphabetical_area_key):
         dfs(child, [])
 
     return paths
@@ -308,7 +309,7 @@ def _build_secondary_tables(
     seats_total: dict[str, int],
 ) -> list[list[tuple[CellValue, ...]]]:
     tables: list[list[tuple[CellValue, ...]]] = []
-    for parent in sorted(areas, key=lambda item: (item.level or 0, item.code)):
+    for parent in sorted(areas, key=_alphabetical_area_key):
         children = children_by_parent.get(parent.id, [])
         if not children:
             continue
@@ -325,7 +326,7 @@ def _build_secondary_tables(
                 "representantes",
             ),
         ]
-        for child in sorted(children, key=lambda item: (item.level or 0, item.code)):
+        for child in sorted(children, key=_alphabetical_area_key):
             table.append(
                 (
                     child.entity_type,
@@ -340,6 +341,21 @@ def _build_secondary_tables(
         tables.append(table)
 
     return tables
+
+
+def _alphabetical_area_key(area: NuevoAdminAreaSummary) -> tuple[int, str, str, str]:
+    return (
+        area.level or 0,
+        _normalized_sort_text(area.name),
+        _normalized_sort_text(area.code),
+        area.id,
+    )
+
+
+def _normalized_sort_text(value: str | None) -> str:
+    normalized = unicodedata.normalize("NFKD", value or "")
+    normalized = "".join(char for char in normalized if not unicodedata.combining(char))
+    return " ".join(normalized.casefold().split())
 
 
 def _append_columns(

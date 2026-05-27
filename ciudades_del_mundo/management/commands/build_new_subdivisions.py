@@ -239,6 +239,25 @@ def _iter_level_mapping(raw_config, *, config_name: str):
             yield level, str(label), value
 
 
+def _recipe_sort_key(recipe) -> tuple[str, str, int]:
+    if isinstance(recipe, dict):
+        return (
+            _norm(str(recipe.get("name") or "")),
+            _norm(str(recipe.get("code") or "")),
+            0,
+        )
+    if isinstance(recipe, list):
+        child_keys = [_recipe_sort_key(child) for child in recipe]
+        return min(child_keys) if child_keys else ("", "", 1)
+    return ("", "", 2)
+
+
+def _sorted_recipes(recipes):
+    if isinstance(recipes, dict):
+        return [recipes]
+    return sorted(recipes, key=_recipe_sort_key)
+
+
 _load_config_package(subdivisions_pkg)
 _load_config_package(new_subdivisions_pkg)
 
@@ -507,7 +526,7 @@ class Command(BaseCommand):
         pending_dependencies,
         inherited_province_status,
     ):
-        for idx, r in enumerate(recipes, start=1):
+        for idx, r in enumerate(_sorted_recipes(recipes), start=1):
             if isinstance(r, list):
                 self._build_tree(
                     recipes=r,

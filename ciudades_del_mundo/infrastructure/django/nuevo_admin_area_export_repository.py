@@ -28,7 +28,7 @@ class DjangoNuevoAdminAreaExportRepository:
             .exclude(id=root.id)
             .select_related("parent", "most_populate_city", "depends_on")
             .prefetch_related("capitals", "municipios_originales")
-            .order_by("level", "code")
+            .order_by("level", "name", "code", "id")
         )
         if max_level is not None:
             qs = qs.filter(level__lte=max_level)

@@ -1,0 +1,11 @@
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "infosection"
+path = ["cities"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0

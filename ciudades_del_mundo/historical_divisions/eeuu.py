@@ -58,6 +58,14 @@ LUISIANA_A_FLORIDA_OCCIDENTAL = _in_parent("Louisiana", [
     "West Feliciana", "East Feliciana", "St. Helena", "Tangipahoa", "Washington",
     "St. Tammany", "Livingston", "East Baton Rouge",
 ])
+
+ALABAMA_A_FLORIDA_OCCIDENTAL_2 = _in_parent("Alabama", [
+    "Baldwin", "Mobile",
+])
+MISSISSIPI_A_FLORIDA_OCCIDENTAL_2 = _in_parent("Mississippi", [
+    "George", "Stone", "Pearl River", "Hancock", "Harrison", "Jackson",
+])
+
 LUISIANA_A_TEXAS = _in_parent("Louisiana", [
     "Sabine", "Vernon", "Beauregard", "Allen", "Evangeline", "Acadia",
     "Jefferson Davis", "Calcasieu", "Cameron", "Vermilion", "Lafayette",
@@ -208,7 +216,17 @@ FLORIDA_OCCIDENTAL = {
             "entity_type": "Provincia",
             "capitals": ["Pensacola"],
             "spec": {
-                2: {"usa": FLORIDA_A_FLORIDA_OCCIDENTAL + ALABAMA_A_FLORIDA_OCCIDENTAL},
+                2: {"usa": FLORIDA_A_FLORIDA_OCCIDENTAL + MISSISSIPI_A_FLORIDA_OCCIDENTAL + ALABAMA_A_FLORIDA_OCCIDENTAL + LUISIANA_A_FLORIDA_OCCIDENTAL},
+            }
+}
+
+FLORIDA_OCCIDENTAL_2 = {
+            "name": "Florida Occidental",
+            "code": "FLC",
+            "entity_type": "Provincia",
+            "capitals": ["Pensacola"],
+            "spec": {
+                2: {"usa": FLORIDA_A_FLORIDA_OCCIDENTAL + MISSISSIPI_A_FLORIDA_OCCIDENTAL_2 + ALABAMA_A_FLORIDA_OCCIDENTAL_2 + LUISIANA_A_FLORIDA_OCCIDENTAL},
             }
 }
 
@@ -225,7 +243,7 @@ LUISIANA = {
                 2: {"usa": TEXAS_A_LUISIANA},
                 "restar": {
                     2: {
-                        "usa": FLORIDA_A_FLORIDA_OCCIDENTAL + LUISIANA_A_TEXAS + COLORADO_A_CALIFORNIA +
+                        "usa": LUISIANA_A_FLORIDA_OCCIDENTAL + LUISIANA_A_TEXAS + COLORADO_A_CALIFORNIA +
                                COLORADO_A_NUEVO_MEXICO + MINNESOTA_A_CANADA + WYOMING_A_CALIFORNIA +
                                WYOMING_A_NUTKA + NUEVO_MEXICO_A_LUISIANA
                         }
