@@ -1,4 +1,9 @@
-# ciudades_del_mundo/management/commands/build_new_subdivisions.py
+"""Build derived ``NuevoAdminArea`` trees from Python recipe modules.
+
+The command is intentionally responsible for recipe interpretation: it loads
+``DIVISIONS`` modules, normalizes legacy aliases, resolves pending dependency
+labels and passes source aggregation work to ``nuevo_admin_builder``.
+"""
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -23,9 +28,17 @@ from ciudades_del_mundo.services.nuevo_admin_representatives import (
     assign_nuevo_admin_representatives,
     representation_config_from_mapping,
 )
+from ciudades_del_mundo.services.source_population_indices import (
+    SourcePopulationIndexConfigError,
+    load_source_population_index_registry,
+)
 import ciudades_del_mundo.historical_divisions as subdivisions_pkg
 import ciudades_del_mundo.new_subdivisions as new_subdivisions_pkg
 
+
+# ---------------------------------------------------------------------------
+# Recipe module caches
+# ---------------------------------------------------------------------------
 
 CONFIGS: dict[str, list[dict]] = {}
 CONFIG_LOAD_ERRORS: dict[str, Exception] = {}
@@ -38,8 +51,12 @@ LEGAL_SUBDIVISION_LEVELS: dict[str, int | None] = {}
 SCRAPING_CONFIG_REPOSITORY = PythonScrapingConfigRepository()
 
 
-# Cargar módulos de configuración
+# ---------------------------------------------------------------------------
+# Recipe loading and source-country helpers
+# ---------------------------------------------------------------------------
+
 def _load_config_package(package):
+    """Import all recipe modules in a package and cache their public config."""
     for module_info in pkgutil.iter_modules(package.__path__):
         mod_name = module_info.name
         full_name = f"{package.__name__}.{module_info.name}"
@@ -82,6 +99,7 @@ def _load_config_package(package):
 
 
 def _source_country_for(country_id: str) -> str:
+    """Return the default source country for compact ``dat`` recipes."""
     configured = SOURCE_COUNTRIES.get(country_id)
     if configured:
         return configured
@@ -93,6 +111,7 @@ def _source_country_for(country_id: str) -> str:
 
 
 def _legal_subdivision_level(country_code: str) -> int | None:
+    """Read and cache the source TOML legal subdivision level."""
     if country_code in LEGAL_SUBDIVISION_LEVELS:
         return LEGAL_SUBDIVISION_LEVELS[country_code]
 
@@ -108,6 +127,7 @@ def _legal_subdivision_level(country_code: str) -> int | None:
 
 
 def _dat_to_spec(dat, source_country: str):
+    """Expand compact ``dat`` syntax into the canonical ``spec`` shape."""
     if dat is None:
         return None
     if not isinstance(dat, dict):
@@ -126,6 +146,7 @@ def _dat_to_spec(dat, source_country: str):
 
 
 def _iter_dat_countries(dat, source_country: str):
+    """Yield source countries referenced by a compact ``dat`` mapping."""
     if not dat:
         return
     for value in dat.values():
@@ -136,6 +157,7 @@ def _iter_dat_countries(dat, source_country: str):
 
 
 def _iter_spec_countries(spec):
+    """Yield source countries referenced by a canonical ``spec`` mapping."""
     if not spec:
         return
     for level, value in spec.items():
@@ -149,6 +171,7 @@ def _iter_spec_countries(spec):
 
 
 def _iter_recipe_source_countries(recipe, source_country: str):
+    """Walk a recipe subtree and yield every source country it references."""
     if isinstance(recipe, list):
         for child in recipe:
             yield from _iter_recipe_source_countries(child, source_country)
@@ -160,7 +183,12 @@ def _iter_recipe_source_countries(recipe, source_country: str):
         yield from _iter_recipe_source_countries(child, source_country)
 
 
+# ---------------------------------------------------------------------------
+# Recipe metadata parsers
+# ---------------------------------------------------------------------------
+
 def _parse_population_index(value, *, label: str) -> Decimal:
+    """Parse a non-negative population multiplier from recipe metadata."""
     try:
         parsed = Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError) as exc:
@@ -171,6 +199,7 @@ def _parse_population_index(value, *, label: str) -> Decimal:
 
 
 def _normalize_province_status(value) -> str:
+    """Normalize recipe status aliases into ``NuevoAdminArea`` enum values."""
     normalized = _norm(str(value or "normal"))
     aliases = {
         "normal": NuevoAdminArea.ProvinceStatus.NORMAL,
@@ -218,7 +247,34 @@ def _recipe_city_merge_status_preference(recipe: dict):
     return None
 
 
+def _parse_source_population_year(value, *, label: str) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise CommandError(f"El anio de poblacion para '{label}' debe ser entero.") from exc
+
+
+def _recipe_source_population_year(recipe: dict, default_year: int | None) -> int | None:
+    """Return the source-population index year active for one recipe node.
+
+    ``year_start`` is accepted only when it is scalar because list-like ranges
+    are already used by historical recipe data for other meanings.
+    """
+    for key in ("source_population_year", "population_year", "year", "anio", "ano"):
+        if key in recipe:
+            return _parse_source_population_year(recipe[key], label=recipe.get("name", "?"))
+
+    if "year_start" not in recipe:
+        return default_year
+
+    year_start = recipe["year_start"]
+    if isinstance(year_start, (list, tuple, set)):
+        return default_year
+    return _parse_source_population_year(year_start, label=recipe.get("name", "?"))
+
+
 def _iter_level_mapping(raw_config, *, config_name: str):
+    """Yield ``(level, label, value)`` triples from module-level mappings."""
     if not raw_config:
         return
     if not isinstance(raw_config, dict):
@@ -239,7 +295,12 @@ def _iter_level_mapping(raw_config, *, config_name: str):
             yield level, str(label), value
 
 
+# ---------------------------------------------------------------------------
+# Recipe ordering
+# ---------------------------------------------------------------------------
+
 def _recipe_sort_key(recipe) -> tuple[str, str, int]:
+    """Build a stable sort key for deterministic recipe processing."""
     if isinstance(recipe, dict):
         return (
             _norm(str(recipe.get("name") or "")),
@@ -253,6 +314,7 @@ def _recipe_sort_key(recipe) -> tuple[str, str, int]:
 
 
 def _sorted_recipes(recipes):
+    """Normalize singleton/list recipe inputs and sort lists by name/code."""
     if isinstance(recipes, dict):
         return [recipes]
     return sorted(recipes, key=_recipe_sort_key)
@@ -261,6 +323,10 @@ def _sorted_recipes(recipes):
 _load_config_package(subdivisions_pkg)
 _load_config_package(new_subdivisions_pkg)
 
+
+# ---------------------------------------------------------------------------
+# Django command implementation
+# ---------------------------------------------------------------------------
 
 class Command(BaseCommand):
     help = (
@@ -276,7 +342,12 @@ class Command(BaseCommand):
         "toman la suma de sus subdivisiones inferiores."
     )
 
+    # ------------------------------------------------------------------
+    # Code and capital helpers
+    # ------------------------------------------------------------------
+
     def _join_code(self, parent: NuevoAdminArea, raw_code: str) -> str:
+        """Join child recipe codes into the persisted hierarchical code path."""
         raw_code = (raw_code or "").strip()
         if not raw_code:
             return raw_code
@@ -292,6 +363,7 @@ class Command(BaseCommand):
         return f"{parent.code}-{raw_code}" if parent.code else raw_code
 
     def _assign_container_capitals(self, obj: NuevoAdminArea, capitals, source_countries):
+        """Resolve explicit capitals for container nodes without ``spec``."""
         if not capitals:
             return
 
@@ -347,6 +419,10 @@ class Command(BaseCommand):
             obj.capital_names_by_language = {}
             obj.save(update_fields=["capital_names_by_language"])
 
+    # ------------------------------------------------------------------
+    # CLI arguments and main rebuild flow
+    # ------------------------------------------------------------------
+
     def add_arguments(self, parser):
         parser.add_argument(
             "--country-id",
@@ -366,13 +442,30 @@ class Command(BaseCommand):
             default="",
             help="Prefijo opcional para code si no se pasa 'code' en la receta.",
         )
+        parser.add_argument(
+            "--population-year",
+            type=int,
+            default=None,
+            help=(
+                "Anio base para aplicar source_population_indices.toml a las "
+                "poblaciones fuente. Las recetas pueden sobrescribirlo con "
+                "source_population_year/population_year/year/year_start."
+            ),
+        )
 
     @transaction.atomic
     def handle(self, *args, **opts):
+        """Run the destructive rebuild for one derived country tree."""
         country_id = opts["country_id"]
         m2m_field = opts["m2m_field"]
         code_prefix = opts["code_prefix"]
+        source_population_year = opts.get("population_year")
         source_country = _source_country_for(country_id)
+
+        try:
+            source_population_index_registry = load_source_population_index_registry()
+        except SourcePopulationIndexConfigError as exc:
+            raise CommandError(str(exc)) from exc
 
         recipes = CONFIGS.get(country_id)
         if not recipes:
@@ -494,6 +587,8 @@ class Command(BaseCommand):
             created=created,
             pending_dependencies=pending_dependencies,
             inherited_province_status=None,
+            source_population_year=source_population_year,
+            source_population_index_registry=source_population_index_registry,
         )
 
         self._resolve_pending_dependencies(country_id, pending_dependencies)
@@ -513,6 +608,10 @@ class Command(BaseCommand):
                 f":: area={o.area_km2} :: pop={o.pop_latest}"
             )
 
+    # ------------------------------------------------------------------
+    # Recursive recipe construction
+    # ------------------------------------------------------------------
+
     def _build_tree(
         self,
         *,
@@ -525,7 +624,10 @@ class Command(BaseCommand):
         created,
         pending_dependencies,
         inherited_province_status,
+        source_population_year,
+        source_population_index_registry,
     ):
+        """Create every recipe node below ``parent_id`` recursively."""
         for idx, r in enumerate(_sorted_recipes(recipes), start=1):
             if isinstance(r, list):
                 self._build_tree(
@@ -538,6 +640,8 @@ class Command(BaseCommand):
                     created=created,
                     pending_dependencies=pending_dependencies,
                     inherited_province_status=inherited_province_status,
+                    source_population_year=source_population_year,
+                    source_population_index_registry=source_population_index_registry,
                 )
                 continue
 
@@ -570,6 +674,7 @@ class Command(BaseCommand):
             spec = r.get("spec")
             if spec is None:
                 spec = _dat_to_spec(r.get("dat"), source_country)
+            node_population_year = _recipe_source_population_year(r, source_population_year)
 
             if spec is not None:
                 source_countries = list(dict.fromkeys(_iter_spec_countries(spec)))
@@ -594,6 +699,8 @@ class Command(BaseCommand):
                         capital_level_by_country=capital_levels,
                         auto_set_most_populated=r.get("auto_set_most_populated", True),
                         city_merge_status_preference=_recipe_city_merge_status_preference(r),
+                        source_population_year=node_population_year,
+                        source_population_index_registry=source_population_index_registry,
                     )
                 except ValueError as exc:
                     raise CommandError(str(exc)) from exc
@@ -651,6 +758,8 @@ class Command(BaseCommand):
                     created=created,
                     pending_dependencies=pending_dependencies,
                     inherited_province_status=child_inherited_province_status,
+                    source_population_year=node_population_year,
+                    source_population_index_registry=source_population_index_registry,
                 )
 
             # contenedores: agregados desde hijos
@@ -680,6 +789,10 @@ class Command(BaseCommand):
                     source_countries = [source_country]
                 self._assign_container_capitals(obj, capitals, source_countries)
 
+    # ------------------------------------------------------------------
+    # Recipe metadata and dependencies
+    # ------------------------------------------------------------------
+
     def _apply_recipe_metadata(
         self,
         obj: NuevoAdminArea,
@@ -688,6 +801,7 @@ class Command(BaseCommand):
         *,
         inherited_province_status: str | None = None,
     ) -> str | None:
+        """Persist inline recipe metadata and queue dependency resolution."""
         update_fields: list[str] = []
 
         population_index = _recipe_population_index(recipe)
@@ -722,11 +836,13 @@ class Command(BaseCommand):
         province_status: str | None,
         inherited_province_status: str | None,
     ) -> str | None:
+        """Return the status inherited by child nodes."""
         if province_status == NuevoAdminArea.ProvinceStatus.DEPENDENCY:
             return inherited_province_status
         return province_status
 
     def _resolve_nuevo_area(self, country_id: str, level: int, label: str) -> NuevoAdminArea:
+        """Resolve a derived area by id, code, name or normalized label."""
         qs = NuevoAdminArea.objects.filter(country_code=country_id, level=level).order_by("code")
 
         obj = qs.filter(id=label).first()
@@ -759,6 +875,7 @@ class Command(BaseCommand):
         province_status: str,
         depends_on_label: str | None = None,
     ):
+        """Persist province status and, when needed, resolve its owner."""
         area.province_status = province_status
         update_fields = ["province_status"]
 
@@ -780,6 +897,7 @@ class Command(BaseCommand):
         country_id: str,
         pending_dependencies: list[tuple[str, str]],
     ):
+        """Resolve dependency labels collected before all nodes existed."""
         for area_id, depends_on_label in pending_dependencies:
             area = NuevoAdminArea.objects.get(id=area_id)
             self._set_area_status(
@@ -790,6 +908,7 @@ class Command(BaseCommand):
             )
 
     def _apply_population_index_config(self, country_id: str, raw_config):
+        """Apply module-level population index overrides after tree creation."""
         for level, label, raw_value in _iter_level_mapping(
             raw_config,
             config_name="POPULATION_INDEXES",
@@ -799,6 +918,7 @@ class Command(BaseCommand):
             area.save(update_fields=["population_index"])
 
     def _status_config_value(self, value) -> tuple[str, str | None]:
+        """Parse one module-level province status config value."""
         if isinstance(value, dict):
             depends_on_label = (
                 value.get("depends_on")
@@ -825,6 +945,7 @@ class Command(BaseCommand):
         return _normalize_province_status(value), None
 
     def _apply_province_status_config(self, country_id: str, raw_config):
+        """Apply module-level province status overrides after tree creation."""
         for level, label, raw_value in _iter_level_mapping(
             raw_config,
             config_name="PROVINCE_STATUSES",
@@ -839,6 +960,7 @@ class Command(BaseCommand):
             )
 
     def _validate_province_dependencies(self, country_id: str):
+        """Reject missing, cross-level, territory and circular dependencies."""
         areas = list(NuevoAdminArea.objects.filter(country_code=country_id))
         areas_by_id = {area.id: area for area in areas}
 
@@ -878,7 +1000,12 @@ class Command(BaseCommand):
                 if current is None:
                     break
 
+    # ------------------------------------------------------------------
+    # Representation assignment
+    # ------------------------------------------------------------------
+
     def _assign_escanhos(self, country_id: str):
+        """Allocate representatives for recipes that define a seat config."""
         cfg = REPRESENTATIONS.get(country_id)
         if not cfg:
             return

@@ -225,69 +225,69 @@ LIVORNO_A_PIOMBINO = ["Marciana Marina", "Marciana", "Campo nell'Elba", "Rio",
 LIVORNO_A_PRESIDIOS_DE_TOSCANA = ["Capoliveri", "Porto Azzurro"]
 
 PRESIDIOS_DE_TOSCANA = {
-            "name": "Presidios de Toscana",
-            "code": "TOS",
-            "entity_type": "Presidio",
-            "capitals": ["Orbetello"],
-            "spec": {
-                3: {"italy":  LIVORNO_A_PRESIDIOS_DE_TOSCANA + GROSSETO_A_PRESIDIOS_DE_TOSCANA},
-            }
+    "name": "Presidios de Toscana",
+    "code": "TOS",
+    "entity_type": "Presidio",
+    "capitals": ["Orbetello"],
+    "spec": {
+        3: {"italy":  LIVORNO_A_PRESIDIOS_DE_TOSCANA + GROSSETO_A_PRESIDIOS_DE_TOSCANA},
+    }
 }
 
 PIOMBINO = {
-            "name": "Piombino",
-            "code": "PIO",
-            "entity_type": "Principado",
-            "capitals": ["Piombino"],
-            "spec": {
-                3: {"italy":  LIVORNO_A_PIOMBINO },
-            }
+    "name": "Piombino",
+    "code": "PIO",
+    "entity_type": "Principado",
+    "capitals": ["Piombino"],
+    "spec": {
+        3: {"italy":  LIVORNO_A_PIOMBINO },
+    }
 }
 
 REINO_NAPOLES = {
-            "name": "Nápoles",
-            "code": "NAP",
-            "entity_type": "Reino",
-            "capitals": ["Napoli"],
-            "spec": {
-                1:{"italy": ["Basilicata", "Calabria", "Puglia", "Campania", "Molise", "Abruzzo"]},
-                2: {"italy": ["Frosinone"]},
-                3: {"italy":  LATINA_A_TIERRA_DE_TRABAJO + RIETI_A_ABRUZOS_ULTRA_II },
-                "restar": {3: {"italy": PONTECORVO + BENEVENTO + FROSIONE_A_ESTADOS_PONTIFICIOS }},
-            }
+    "name": "Nápoles",
+    "code": "NAP",
+    "entity_type": "Reino",
+    "capitals": ["Napoli"],
+    "spec": {
+        1:{"italy": ["Basilicata", "Calabria", "Puglia", "Campania", "Molise", "Abruzzo"]},
+        2: {"italy": ["Frosinone"]},
+        3: {"italy":  LATINA_A_TIERRA_DE_TRABAJO + RIETI_A_ABRUZOS_ULTRA_II },
+        "restar": {3: {"italy": PONTECORVO + BENEVENTO + FROSIONE_A_ESTADOS_PONTIFICIOS }},
+    }
 }
 
 MILAN = {
-            "name": "Milán",
-            "code": "MIL",
-            "entity_type": "Ducado",
-            #"capitals": ["Milano"],
-            #"childs": [],
-            #"spec": {
-                #1:{"italy": ["Basilicata", "Calabria", "Puglia", "Campania", "Molise", "Abruzzo"]},
-                #2: {"italy": ["Frosinone"]},
-                #3: {"italy":  LATINA_A_TIERRA_DE_TRABAJO + RIETI_A_ABRUZOS_ULTRA_II },
-                #"restar": {3: {"italy": PONTECORVO + BENEVENTO + FROSIONE_A_ESTADOS_PONTIFICIOS }},
-            #}
+    "name": "Milán",
+    "code": "MIL",
+    "entity_type": "Ducado",
+    #"capitals": ["Milano"],
+    #"childs": [],
+    #"spec": {
+        #1:{"italy": ["Basilicata", "Calabria", "Puglia", "Campania", "Molise", "Abruzzo"]},
+        #2: {"italy": ["Frosinone"]},
+        #3: {"italy":  LATINA_A_TIERRA_DE_TRABAJO + RIETI_A_ABRUZOS_ULTRA_II },
+        #"restar": {3: {"italy": PONTECORVO + BENEVENTO + FROSIONE_A_ESTADOS_PONTIFICIOS }},
+    #}
 }
 
 CERDENHA = {
-            "name": "Cerdeña",
-            "code": "CER",
-            "entity_type": "Reino",
-            "capitals": ["Cagliari"],
-            "spec": {
-                1:{"italy": "Sardegna"},
-            }
-        }
+    "name": "Cerdeña",
+    "code": "CER",
+    "entity_type": "Reino",
+    "capitals": ["Cagliari"],
+    "spec": {
+        1:{"italy": "Sardegna"},
+    }
+}
 
 SICILIA = {
-            "name": "Sicilia",
-            "code": "SIL",
-            "entity_type": "Reino",
-            "capitals": ["Palermo"],
-            "spec": {
-                0: {"malta": "malta"},
-                1: {"italy": "Sicilia"},
-            }
-        }
+    "name": "Sicilia",
+    "code": "SIL",
+    "entity_type": "Reino",
+    "capitals": ["Palermo"],
+    "spec": {
+        0: {"malta": "malta"},
+        1: {"italy": "Sicilia"},
+    }
+}

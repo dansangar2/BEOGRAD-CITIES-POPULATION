@@ -200,135 +200,135 @@ ALASKA_A_NUTCA = _in_parent("Alaska", [
 #==================== ESTADOS ==============================
 
 FLORIDA_ORIENTAL = {
-            "name": "Florida Oriental",
-            "code": "FLR",
-            "entity_type": "Provincia",
-            "capitals": ["St. Augustine"],
-            "spec": {
-                1:{"usa": ["Florida"]},
-                "restar": {2: {"usa": FLORIDA_A_FLORIDA_OCCIDENTAL}},
-            }
+    "name": "Florida Oriental",
+    "code": "FLR",
+    "entity_type": "Provincia",
+    "capitals": ["St. Augustine"],
+    "spec": {
+        1:{"usa": ["Florida"]},
+        "restar": {2: {"usa": FLORIDA_A_FLORIDA_OCCIDENTAL}},
+    }
 }
 
 FLORIDA_OCCIDENTAL = {
-            "name": "Florida Occidental",
-            "code": "FLC",
-            "entity_type": "Provincia",
-            "capitals": ["Pensacola"],
-            "spec": {
-                2: {"usa": FLORIDA_A_FLORIDA_OCCIDENTAL + MISSISSIPI_A_FLORIDA_OCCIDENTAL + ALABAMA_A_FLORIDA_OCCIDENTAL + LUISIANA_A_FLORIDA_OCCIDENTAL},
-            }
+    "name": "Florida Occidental",
+    "code": "FLC",
+    "entity_type": "Provincia",
+    "capitals": ["Pensacola"],
+    "spec": {
+        2: {"usa": FLORIDA_A_FLORIDA_OCCIDENTAL + MISSISSIPI_A_FLORIDA_OCCIDENTAL + ALABAMA_A_FLORIDA_OCCIDENTAL + LUISIANA_A_FLORIDA_OCCIDENTAL},
+    }
 }
 
 FLORIDA_OCCIDENTAL_2 = {
-            "name": "Florida Occidental",
-            "code": "FLC",
-            "entity_type": "Provincia",
-            "capitals": ["Pensacola"],
-            "spec": {
-                2: {"usa": FLORIDA_A_FLORIDA_OCCIDENTAL + MISSISSIPI_A_FLORIDA_OCCIDENTAL_2 + ALABAMA_A_FLORIDA_OCCIDENTAL_2 + LUISIANA_A_FLORIDA_OCCIDENTAL},
-            }
+    "name": "Florida Occidental",
+    "code": "FLC",
+    "entity_type": "Provincia",
+    "capitals": ["Pensacola"],
+    "spec": {
+        2: {"usa": FLORIDA_A_FLORIDA_OCCIDENTAL + MISSISSIPI_A_FLORIDA_OCCIDENTAL_2 + ALABAMA_A_FLORIDA_OCCIDENTAL_2 + LUISIANA_A_FLORIDA_OCCIDENTAL},
+    }
 }
 
 LUISIANA = {
-            "name": "Luisiana",
-            "code": "LUI",
-            "entity_type": "Provincia",
-            "capitals": ["New Orleans"],
-            "spec": {
-                1:{"usa": [
-                    "Louisiana", "Oklahoma", "Arkansas", "Missouri", "Iowa", "Kansas", "Nebraska",
-                    "Minnesota", "South Dakota", "North Dakota", "Montana", "Wyoming", "Colorado"
-                ]},
-                2: {"usa": TEXAS_A_LUISIANA},
-                "restar": {
-                    2: {
-                        "usa": LUISIANA_A_FLORIDA_OCCIDENTAL + LUISIANA_A_TEXAS + COLORADO_A_CALIFORNIA +
-                               COLORADO_A_NUEVO_MEXICO + MINNESOTA_A_CANADA + WYOMING_A_CALIFORNIA +
-                               WYOMING_A_NUTKA + NUEVO_MEXICO_A_LUISIANA
-                        }
-                },
-            }
+    "name": "Luisiana",
+    "code": "LUI",
+    "entity_type": "Provincia",
+    "capitals": ["New Orleans"],
+    "spec": {
+        1:{"usa": [
+            "Louisiana", "Oklahoma", "Arkansas", "Missouri", "Iowa", "Kansas", "Nebraska",
+            "Minnesota", "South Dakota", "North Dakota", "Montana", "Wyoming", "Colorado"
+        ]},
+        2: {"usa": TEXAS_A_LUISIANA},
+        "restar": {
+            2: {
+                "usa": LUISIANA_A_FLORIDA_OCCIDENTAL + LUISIANA_A_TEXAS + COLORADO_A_CALIFORNIA +
+                       COLORADO_A_NUEVO_MEXICO + MINNESOTA_A_CANADA + WYOMING_A_CALIFORNIA +
+                       WYOMING_A_NUTKA + NUEVO_MEXICO_A_LUISIANA
+                }
+        },
+    }
 }
 
 TEXAS = {
-            "name": "Nueva Filipinas",
-            "code": "TEX",
-            "entity_type": "Provincia",
-            "capitals": ["San Antonio"],
-            "spec": {
-                1: {"usa": ["Texas"]},
-                2: {"usa": LUISIANA_A_TEXAS},
-                "restar": {2: {"usa": TEXAS_A_LUISIANA + TEXAS_A_NUEVO_MEXICO + TEXAS_A_NUEVO_SANTANDER + TEXAS_A_NUEVA_VIZCAYA + TEXAS_A_NUEVA_EXTREMADURA}},
-            }
+    "name": "Nueva Filipinas",
+    "code": "TEX",
+    "entity_type": "Provincia",
+    "capitals": ["San Antonio"],
+    "spec": {
+        1: {"usa": ["Texas"]},
+        2: {"usa": LUISIANA_A_TEXAS},
+        "restar": {2: {"usa": TEXAS_A_LUISIANA + TEXAS_A_NUEVO_MEXICO + TEXAS_A_NUEVO_SANTANDER + TEXAS_A_NUEVA_VIZCAYA + TEXAS_A_NUEVA_EXTREMADURA}},
+    }
 }
 
 NUEVA_CALIFORNIA = {
-            "name": "Nueva California",
-            "code": "NCA",
-            "entity_type": "Provincia",
-            "capitals": ["Monterey"],
-            "spec": {
-                1: {"usa": ["Utah", "Nevada", "California", "Arizona"]},
-                2: {"usa":
-                        OREGON_A_CALIFORNIA + IDAHO_A_CALIFORNIA +
-                        WYOMING_A_CALIFORNIA + COLORADO_A_CALIFORNIA
-                    },
-                "restar": { 2: {"usa": ARIZONA_A_NUEVA_NAVARRA + CALIFORNIA_A_NUTKA}}
-            }
+    "name": "Nueva California",
+    "code": "NCA",
+    "entity_type": "Provincia",
+    "capitals": ["Monterey"],
+    "spec": {
+        1: {"usa": ["Utah", "Nevada", "California", "Arizona"]},
+        2: {"usa":
+                OREGON_A_CALIFORNIA + IDAHO_A_CALIFORNIA +
+                WYOMING_A_CALIFORNIA + COLORADO_A_CALIFORNIA
+            },
+        "restar": { 2: {"usa": ARIZONA_A_NUEVA_NAVARRA + CALIFORNIA_A_NUTKA}}
+    }
 }
 
 NUEVA_CALIFORNIA_2 = {
-            "name": "Nueva California",
-            "code": "NCA",
-            "entity_type": "Provincia",
-            "capitals": ["Monterey"],
-            "spec": {
-                1: {"usa": ["Utah", "Nevada", "California", "Arizona"]},
-                2: {"usa":
-                        WYOMING_A_CALIFORNIA + COLORADO_A_CALIFORNIA
-                    },
-                "restar": {2: {"usa": ARIZONA_A_NUEVA_NAVARRA}}
-            }
+    "name": "Nueva California",
+    "code": "NCA",
+    "entity_type": "Provincia",
+    "capitals": ["Monterey"],
+    "spec": {
+        1: {"usa": ["Utah", "Nevada", "California", "Arizona"]},
+        2: {"usa":
+                WYOMING_A_CALIFORNIA + COLORADO_A_CALIFORNIA
+            },
+        "restar": {2: {"usa": ARIZONA_A_NUEVA_NAVARRA}}
+    }
 }
 
 NUEVO_MEXICO = {
-            "name": "Santa Fe de Nuevo México",
-            "code": "NME",
-            "entity_type": "Provincia",
-            "capitals": ["Santa Fe"],
-            "spec": {
-                1: {"usa": ["New Mexico"]},
-                2: {"usa": COLORADO_A_NUEVO_MEXICO + TEXAS_A_NUEVO_MEXICO  },
-                "restar": {2: {"usa": NUEVO_MEXICO_A_NUEVA_VIZCAYA + NUEVO_MEXICO_A_LUISIANA }},
-            }
+    "name": "Santa Fe de Nuevo México",
+    "code": "NME",
+    "entity_type": "Provincia",
+    "capitals": ["Santa Fe"],
+    "spec": {
+        1: {"usa": ["New Mexico"]},
+        2: {"usa": COLORADO_A_NUEVO_MEXICO + TEXAS_A_NUEVO_MEXICO  },
+        "restar": {2: {"usa": NUEVO_MEXICO_A_NUEVA_VIZCAYA + NUEVO_MEXICO_A_LUISIANA }},
+    }
 }
 
 NUEVO_MEXICO_2 = {
-            "name": "Santa Fe de Nuevo México",
-            "code": "NME",
-            "entity_type": "Provincia",
-            "capitals": ["Santa Fe"],
-            "spec": {
-                1: {"usa": ["New Mexico"]},
-                2: {"usa": COLORADO_A_NUEVO_MEXICO_2 + KANSAS_A_NUEVO_MEXICO + OKLAHOMA_A_NUEVO_MEXICO + TEXAS_A_NUEVO_MEXICO_2  },
-                "restar": {2: {"usa": NUEVO_MEXICO_A_NUEVA_VIZCAYA }},
-            }
+    "name": "Santa Fe de Nuevo México",
+    "code": "NME",
+    "entity_type": "Provincia",
+    "capitals": ["Santa Fe"],
+    "spec": {
+        1: {"usa": ["New Mexico"]},
+        2: {"usa": COLORADO_A_NUEVO_MEXICO_2 + KANSAS_A_NUEVO_MEXICO + OKLAHOMA_A_NUEVO_MEXICO + TEXAS_A_NUEVO_MEXICO_2  },
+        "restar": {2: {"usa": NUEVO_MEXICO_A_NUEVA_VIZCAYA }},
+    }
 }
 
 NUTKA = {
-            "name": "Nutka",
-            "code": "NUT",
-            "entity_type": "Territorio",
-            "capitals": ["Victoria"],
-            "province_status": "territorio",
-            "spec": {
-                1: {"usa": ["Washington", "Idaho", "Oregon"], "canada": ["British Columbia"]},
-                2: {"usa": MONTANA_A_NUTKA + WYOMING_A_NUTKA + CALIFORNIA_A_NUTKA + ALASKA_A_NUTCA },
-                3: {"canada": YUKON_CIUDADES_A_NUTKA },
-                "restar": {
-                    2: {"usa": OREGON_A_CALIFORNIA },
-                    3: {"canada": COLUMBIA_BRITANICA_A_TERRITORIO_DEL_NORTE}
-                },
-            }
+    "name": "Nutka",
+    "code": "NUT",
+    "entity_type": "Territorio",
+    "capitals": ["Victoria"],
+    "province_status": "territorio",
+    "spec": {
+        1: {"usa": ["Washington", "Idaho", "Oregon"], "canada": ["British Columbia"]},
+        2: {"usa": MONTANA_A_NUTKA + WYOMING_A_NUTKA + CALIFORNIA_A_NUTKA + ALASKA_A_NUTCA },
+        3: {"canada": YUKON_CIUDADES_A_NUTKA },
+        "restar": {
+            2: {"usa": OREGON_A_CALIFORNIA },
+            3: {"canada": COLUMBIA_BRITANICA_A_TERRITORIO_DEL_NORTE}
+        },
+    }
 }

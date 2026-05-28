@@ -51,9 +51,8 @@ DIVISIONS_XVII = [
         "year_end": 1773,
         "entity_type": "Provincia",
         "spec": {
-            0: {"cuba": "Cuba"},
+            1: {"cuba": A_CUBA_ORIENTAL},
             2: {"cuba": SANCTI_SPIRITUS_A_ORIENTAL},
-            "restar": {1: {"cuba": A_CUBA_OCCIDENTAL + A_CUBA_CENTRAL}}
         }
     },
 ]

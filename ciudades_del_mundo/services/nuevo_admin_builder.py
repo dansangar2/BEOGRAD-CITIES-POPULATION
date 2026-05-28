@@ -1,4 +1,9 @@
-"""Builder service that assembles `NuevoAdminArea` from inclusion specs."""
+"""Builder service that assembles ``NuevoAdminArea`` from inclusion specs.
+
+Recipe nodes describe source areas to include and optionally subtract. This
+service resolves those source selectors, expands them to each country's
+municipal level, aggregates area/population, and persists the derived node.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +18,12 @@ from django.db.models import Sum
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from ciudades_del_mundo.models import AdminArea, NuevoAdminArea
+from ciudades_del_mundo.services.source_population_indices import SourcePopulationIndexRegistry
 
+
+# ---------------------------------------------------------------------------
+# Source expansion settings
+# ---------------------------------------------------------------------------
 
 ORIGINAL_MUNICIPAL_LEVEL: dict[str, int] = {
     "spain": 3,
@@ -54,6 +64,12 @@ ORIGINAL_MUNICIPAL_LEVEL: dict[str, int] = {
     "netherlands": 3,
     "belgium": 4,
     "canada": 3,
+    "guatemala": 2,
+    "elsalvador": 3,
+    "belize": 1,
+    "honduras": 2,
+    "nicaragua": 2,
+    "costarica": 3,
 }
 
 MAKE_CITIES = {
@@ -66,6 +82,11 @@ MAKE_CITIES = {
         },
     ],
 }
+
+
+# ---------------------------------------------------------------------------
+# City merge status preferences
+# ---------------------------------------------------------------------------
 
 DEFAULT_CITY_MERGE_STATUS_PREFERENCE = (
     AdminArea.CityMergeStatus.UNIFIED,
@@ -91,6 +112,10 @@ _CITY_MERGE_STATUS_ALIASES = {
     "unificada": AdminArea.CityMergeStatus.UNIFIED,
 }
 
+
+# ---------------------------------------------------------------------------
+# Text, code and merge-status helpers
+# ---------------------------------------------------------------------------
 
 def _norm(value: str | None) -> str:
     """
@@ -142,6 +167,10 @@ def _city_merge_status_preference(value=None) -> tuple[int, ...]:
             result.append(status)
     return tuple(result)
 
+
+# ---------------------------------------------------------------------------
+# Source label preference helpers
+# ---------------------------------------------------------------------------
 
 def _preferred_adminarea(
     candidates: Iterable[AdminArea],
@@ -228,6 +257,10 @@ def _label_lookup_value(label_or_id: str) -> str:
     return raw_name.strip() or value
 
 
+# ---------------------------------------------------------------------------
+# Capital display-name helpers
+# ---------------------------------------------------------------------------
+
 def _language_code(value) -> str:
     normalized = _norm(str(value))
     aliases = {
@@ -286,6 +319,10 @@ def _add_capital_name_overrides(
             target.setdefault(language, {})[capital.id] = name
 
 
+# ---------------------------------------------------------------------------
+# Duplicate detection helpers
+# ---------------------------------------------------------------------------
+
 def _remember_duplicate(
     seen: dict[str, str],
     duplicates: dict[str, list[str]],
@@ -339,6 +376,10 @@ def _append_duplicate_lines(
     if len(items) > limit:
         lines.append(f"- ... y {len(items) - limit} repetido(s) mas.")
 
+
+# ---------------------------------------------------------------------------
+# Source area lookup helpers
+# ---------------------------------------------------------------------------
 
 def _labels_to_list(labels_raw):
     if labels_raw is None:
@@ -503,6 +544,10 @@ def _lookup_many_with_preferences(
 
     return found
 
+
+# ---------------------------------------------------------------------------
+# Source expansion helpers
+# ---------------------------------------------------------------------------
 
 def _child_city_merge_statuses(city_merge_status_preference=None) -> tuple[int, ...]:
     primary = _city_merge_status_preference(city_merge_status_preference)[0]
@@ -687,6 +732,10 @@ def _area_inside_sources(
     return False
 
 
+# ---------------------------------------------------------------------------
+# URL fallback matching
+# ---------------------------------------------------------------------------
+
 def _url_slug_norm(value: str | None) -> str:
     value = _norm((value or "").replace("_", " ").replace("-", " "))
     value = re.sub(r"[^a-z0-9]+", " ", value)
@@ -806,6 +855,10 @@ def _resolve_adminarea_inside_sources(
     return None
 
 
+# ---------------------------------------------------------------------------
+# Aggregation helpers
+# ---------------------------------------------------------------------------
+
 def _round_area(value: Decimal | None) -> Decimal | None:
     """
     Redondea el área a 2 decimales (km²) con ROUND_HALF_UP.
@@ -817,6 +870,102 @@ def _round_area(value: Decimal | None) -> Decimal | None:
         value = Decimal(str(value))
     return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
+
+def _sum_source_population(
+    qs,
+    *,
+    source_population_year: int | None,
+    source_population_index_registry: SourcePopulationIndexRegistry | None,
+    fallback_multiplier_areas: Iterable[AdminArea] = (),
+) -> int:
+    """Sum source populations, applying historical multipliers when active.
+
+    Without an active build year or registry this is a normal database sum. If
+    a registry is active, every source row is loaded so its country/id/code/name
+    can be matched against ``source_population_indices.toml``.
+    """
+    if (
+        source_population_year is None
+        or source_population_index_registry is None
+        or source_population_index_registry.is_empty
+    ):
+        return qs.aggregate(total_pop=Sum("pop_latest"))["total_pop"] or 0
+
+    fallback_by_id = {area.id: area for area in fallback_multiplier_areas}
+    total = Decimal("0")
+    for area in qs.only("id", "country_code", "code", "name", "parent_id", "pop_latest"):
+        if area.pop_latest is None:
+            continue
+        multiplier = _source_population_multiplier(
+            area,
+            source_population_year=source_population_year,
+            source_population_index_registry=source_population_index_registry,
+            fallback_by_id=fallback_by_id,
+        )
+        total += Decimal(max(area.pop_latest, 0)) * multiplier
+
+    return int(total.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def _source_population_multiplier(
+    area: AdminArea,
+    *,
+    source_population_year: int,
+    source_population_index_registry: SourcePopulationIndexRegistry,
+    fallback_by_id: dict[str, AdminArea],
+) -> Decimal:
+    """Return the multiplier for ``area``, inheriting from known ancestors.
+
+    Sub-municipal ``restar`` rows can be descendants of a macro area whose
+    multiplier was configured instead of the individual row. ``fallback_by_id``
+    carries those macro areas so subtraction uses the same historical scale as
+    the source area it is being removed from.
+    """
+    direct = source_population_index_registry.multiplier_for_area(
+        area,
+        source_population_year,
+    )
+    if direct is not None:
+        return direct
+
+    parent_id = area.parent_id
+    seen: set[str] = set()
+    while parent_id and parent_id not in seen:
+        seen.add(parent_id)
+        fallback = fallback_by_id.get(parent_id)
+        if fallback is not None:
+            inherited = source_population_index_registry.multiplier_for_area(
+                fallback,
+                source_population_year,
+            )
+            if inherited is not None:
+                return inherited
+            parent_id = fallback.parent_id
+            continue
+
+        parent = (
+            AdminArea.objects
+            .only("id", "country_code", "code", "name", "parent_id")
+            .filter(id=parent_id)
+            .first()
+        )
+        if parent is None:
+            break
+
+        inherited = source_population_index_registry.multiplier_for_area(
+            parent,
+            source_population_year,
+        )
+        if inherited is not None:
+            return inherited
+        parent_id = parent.parent_id
+
+    return Decimal("1")
+
+
+# ---------------------------------------------------------------------------
+# Most-populated refresh
+# ---------------------------------------------------------------------------
 
 def _top_populated(candidates: Iterable[AdminArea]) -> AdminArea | None:
     top = None
@@ -896,16 +1045,19 @@ def create_nuevo_area_from_spec(
     capital_level_by_country: dict[str, int] | None = None,
     auto_set_most_populated: bool = True,
     city_merge_status_preference=None,
+    source_population_year: int | None = None,
+    source_population_index_registry: SourcePopulationIndexRegistry | None = None,
 ) -> NuevoAdminArea:
-    """
-    - code se guarda como "code jerárquico" (path):
-        - si parent es COUNTRY: code = raw_code
-        - si no: code = parent.code + "-" + raw_code (sin duplicar si ya viene prefijado)
-    - id se guarda como: <country_code>-<code_jerárquico>
+    """Create or update one derived area from a canonical source ``spec``.
 
-    Ej:
-      parent (Reino): id=austria_empire-LYV, code=LYV
-      child  (Reino): id=austria_empire-LYV-LYV, code=LYV-LYV
+    ``include_spec`` is grouped by source level and country. Levels above the
+    municipal level are expanded to municipal source ids; levels below it are
+    treated as partial exceptions. ``restar`` subtracts source rows from the
+    final area/population aggregate.
+
+    Persisted ``code`` is the hierarchical path. Children below level 1 get the
+    parent code prepended unless the recipe already supplied that prefix. The
+    object id is always ``<derived_country_code>-<hierarchical_code>``.
     """
 
     parent = NuevoAdminArea.objects.select_related("parent").get(id=parent_country_id)
@@ -1087,13 +1239,18 @@ def create_nuevo_area_from_spec(
     # Agregados de área / población
     # ---------------------------------------------------------
     macro_qs = AdminArea.objects.filter(id__in=macro_ids)
-    macro_areas = list(macro_qs.only("id", "country_code", "code", "parent_id"))
+    macro_areas = list(
+        macro_qs.only("id", "country_code", "code", "name", "parent_id", "pop_latest")
+    )
     agg_macro = macro_qs.aggregate(
         total_area=Sum("area_km2"),
-        total_pop=Sum("pop_latest"),
     )
     area_macro = agg_macro["total_area"] or Decimal("0")
-    pop_macro = agg_macro["total_pop"] or 0
+    pop_macro = _sum_source_population(
+        macro_qs,
+        source_population_year=source_population_year,
+        source_population_index_registry=source_population_index_registry,
+    )
 
     extra_ids = mun_extra_incluidos | sub_extra_final_ids
     restar_ids = mun_restar | sub_restar_final_ids
@@ -1103,18 +1260,25 @@ def create_nuevo_area_from_spec(
 
     agg_extra = extra_qs.aggregate(
         total_area=Sum("area_km2"),
-        total_pop=Sum("pop_latest"),
     )
     agg_restar = restar_qs.aggregate(
         total_area=Sum("area_km2"),
-        total_pop=Sum("pop_latest"),
     )
 
     area_extra = agg_extra["total_area"] or Decimal("0")
-    pop_extra = agg_extra["total_pop"] or 0
+    pop_extra = _sum_source_population(
+        extra_qs,
+        source_population_year=source_population_year,
+        source_population_index_registry=source_population_index_registry,
+    )
 
     area_restar = agg_restar["total_area"] or Decimal("0")
-    pop_restar = agg_restar["total_pop"] or 0
+    pop_restar = _sum_source_population(
+        restar_qs,
+        source_population_year=source_population_year,
+        source_population_index_registry=source_population_index_registry,
+        fallback_multiplier_areas=macro_areas,
+    )
 
     total_area = area_macro + area_extra - area_restar
     total_pop = pop_macro + pop_extra - pop_restar

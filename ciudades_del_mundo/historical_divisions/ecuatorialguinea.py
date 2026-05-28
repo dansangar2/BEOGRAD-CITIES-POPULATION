@@ -1,0 +1,54 @@
+
+
+GUINEA = {
+    "name": "Territorios en el Golfo de Guinea",
+    "code": "GUI",
+    "entity_type": "Estado",
+    "capitals": ["Malabo"],
+    "childs": [
+        {
+            "name": "Fernando Poo",
+            "code": "FEP",
+            "entity_type": "Provincia",
+            "capitals": ["Malabo"],
+            "spec": {1: {"equatorialguinea": ["Bioko Norte", "Bioko Sur", "Annobón"]}}
+        },
+        {
+            "name": "Rio Muni",
+            "code": "RMU",
+            "entity_type": "Provincia",
+            "capitals": ["Bata"],
+            "spec": {1: {"equatorialguinea": ["Centro Sur", "Kié-Ntem", "Litoral", "Wele-Nzas"]}}
+        },
+    ],
+}
+
+FERNANDO_POO_Y_ANNOBON =  {
+    "name": "Fernando Poo y Annobón",
+    "code": "FEP",
+    "entity_type": "Provincia",
+    "capitals": ["Malabo"],
+    "spec": {
+        1: {"equatorialguinea": ["Bioko Norte", "Bioko Sur", "Annobón"]}
+    }
+}
+
+FERNANDO_POO =  {
+    "name": "Fernando Poo",
+    "code": "FEP",
+    "entity_type": "Provincia",
+    "capitals": ["Malabo"],
+    "spec": {
+        1: {"equatorialguinea": ["Bioko Norte", "Bioko Sur"]}
+    }
+}
+
+ANNOBON =  {
+    "name": "Annobón",
+    "code": "ANN",
+    "entity_type": "Provincia",
+    "capitals": ["San Antonio Palé"],
+    "spec": {
+        1: {"equatorialguinea": ["Annobón"]}
+    }
+}

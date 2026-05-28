@@ -9,6 +9,8 @@ from ciudades_del_mundo.historical_divisions.eeuu import *
 from ciudades_del_mundo.historical_divisions.mexico import *
 from ciudades_del_mundo.historical_divisions.netherlands import *
 from ciudades_del_mundo.historical_divisions.canada import *
+from ciudades_del_mundo.historical_divisions.ecuatorialguinea import *
+from ciudades_del_mundo.historical_divisions.centroamerica import *
 
 
 CAPITAL_NAMES_ES = {
@@ -180,7 +182,12 @@ DIVISIONS = _with_spanish_capitals([
             SAN_LUIS_POTOSI,
             GUANAJUATO,
             GUADALAJARA_DE_JALISCO,
-            #VERACRUZ,
+            MEXICO,
+            VERACRUZ,
+            CHIAPAS,
+            MINCHOACAN,
+            PUEBLA,
+            TAXACLA
         ],
     },
     {
@@ -232,7 +239,9 @@ DIVISIONS = _with_spanish_capitals([
         "name": "Rio de la Plata",
         "code": "RPL",
         "entity_type": "Virreinato",
-        "childs": [],
+        "childs": [
+            FERNANDO_POO_Y_ANNOBON
+        ],
     },
     {
         "name": "Chile",
@@ -250,17 +259,25 @@ DIVISIONS = _with_spanish_capitals([
         "name": "Guatemala",
         "code": "GUA",
         "entity_type": "Capitanía General",
-        "childs": [],
+        "childs": [
+            CHIAPAS,
+            GUATEMALA,
+            SAN_SALVADOR,
+            NICARAGUA,
+            COSTA_RICA,
+        ],
     },
     {
         "name": "Cuba",
         "code": "CUB",
         "entity_type": "Capitanía General",
         "capitals": ["La Habana"],
-        "childs": [DIVISIONS_XVII,
-                   FLORIDA_ORIENTAL,
-                   FLORIDA_OCCIDENTAL,
-                   LUISIANA],
+        "childs": [
+            DIVISIONS_XVII,
+            FLORIDA_ORIENTAL,
+            FLORIDA_OCCIDENTAL,
+            LUISIANA
+        ],
     },
     {
         "name": "Puerto Rico",
