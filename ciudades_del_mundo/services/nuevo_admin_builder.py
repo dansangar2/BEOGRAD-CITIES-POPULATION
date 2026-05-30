@@ -57,7 +57,7 @@ ORIGINAL_MUNICIPAL_LEVEL: dict[str, int] = {
     "sudan": 2,
     "southsudan": 2,
     "mexico": 2,
-    "usa": 2,
+    "usa": 3,
     "vaticancity": 0,
     "sanmarino": 2,
     "luxembourg": 2,
@@ -70,6 +70,7 @@ ORIGINAL_MUNICIPAL_LEVEL: dict[str, int] = {
     "honduras": 2,
     "nicaragua": 2,
     "costarica": 3,
+    "panama": 3,
 }
 
 MAKE_CITIES = {
@@ -616,6 +617,7 @@ def _descendants_at_level(
             country_code=root.country_code,
             level=target_level,
             code__startswith=str(root.code),
+            parent_id__isnull=True,
             city_merge_status__in=_child_city_merge_statuses(city_merge_status_preference),
         ):
             if child.id not in seen:
@@ -799,21 +801,122 @@ def _area_inside_usa_city_url(candidate: AdminArea, municipal_ids: set[str]) -> 
     for source in (
         AdminArea.objects
         .filter(id__in=municipal_ids, country_code="usa")
-        .select_related("parent")
-        .only("id", "name", "url", "parent__id", "parent__name", "parent__code", "parent__url")
+        .select_related("parent", "parent__parent")
+        .only(
+            "id", "name", "url", "level",
+            "parent__id", "parent__name", "parent__code", "parent__url", "parent__level",
+            "parent__parent__id", "parent__parent__name", "parent__parent__code",
+            "parent__parent__url", "parent__parent__level",
+        )
     ):
         parent = source.parent
         if parent is None:
             continue
 
-        state_names = _area_url_names(parent) | {_url_slug_norm(parent.code)}
+        if parent.level == 1:
+            state = parent
+            county = source
+        else:
+            state = parent.parent
+            county = parent
+
+        if state is None:
+            continue
+
+        state_names = _area_url_names(state) | {_url_slug_norm(state.code)}
         if state_context not in state_names:
             continue
 
-        if any(_contains_url_name(county_context, value) for value in _area_url_names(source)):
+        if any(_contains_url_name(county_context, value) for value in _area_url_names(county)):
             return True
 
     return False
+
+
+def _usa_orphan_city_ids_inside(municipal_ids: set[str]) -> set[str]:
+    """Return parentless US level-3 cities whose URL context matches sources."""
+    contexts = _usa_source_url_contexts(municipal_ids)
+    if not contexts:
+        return set()
+
+    result: set[str] = set()
+    candidates = (
+        AdminArea.objects
+        .filter(country_code="usa", level=3, parent_id__isnull=True)
+        .exclude(url__isnull=True)
+        .only("id", "url")
+    )
+    for candidate in candidates:
+        parsed = _usa_city_url_context(candidate.url)
+        if parsed is None:
+            continue
+        state_context, county_context = parsed
+        for state_names, county_names in contexts:
+            if state_context not in state_names:
+                continue
+            if any(_contains_url_name(county_context, county_name) for county_name in county_names):
+                result.add(candidate.id)
+                break
+
+    return result
+
+
+def _usa_source_url_contexts(municipal_ids: set[str]) -> list[tuple[set[str], set[str]]]:
+    if not municipal_ids:
+        return []
+
+    contexts: list[tuple[set[str], set[str]]] = []
+    for source in (
+        AdminArea.objects
+        .filter(id__in=municipal_ids, country_code="usa")
+        .select_related("parent", "parent__parent")
+        .only(
+            "id", "name", "url", "level",
+            "parent__id", "parent__name", "parent__code", "parent__url", "parent__level",
+            "parent__parent__id", "parent__parent__name", "parent__parent__code",
+            "parent__parent__url", "parent__parent__level",
+        )
+    ):
+        parent = source.parent
+        if parent is None:
+            continue
+
+        if parent.level == 1:
+            state = parent
+            county = source
+        else:
+            state = parent.parent
+            county = parent
+
+        if state is None:
+            continue
+
+        state_names = _area_url_names(state) | {_url_slug_norm(state.code)}
+        county_names = _area_url_names(county)
+        if state_names and county_names:
+            contexts.append((state_names, county_names))
+
+    return contexts
+
+
+def _usa_city_url_context(url: str | None) -> tuple[str, str] | None:
+    segments = _url_path_segments(url)
+    lowered_segments = [segment.lower() for segment in segments]
+    try:
+        usa_index = lowered_segments.index("usa")
+    except ValueError:
+        return None
+
+    if len(segments) <= usa_index + 3:
+        return None
+    if lowered_segments[usa_index + 1] == "admin":
+        return None
+
+    state_context = _url_slug_norm(segments[usa_index + 1])
+    county_context = _url_slug_norm(segments[usa_index + 2])
+    if not state_context or not county_context:
+        return None
+    return state_context, county_context
 
 
 def _resolve_adminarea_inside_sources(
@@ -1335,6 +1438,7 @@ def create_nuevo_area_from_spec(
         raise AttributeError(f"El campo M2M '{m2m_field}' no existe en NuevoAdminArea.")
 
     source_unit_ids = mun_final_ids | sub_extra_final_ids
+    source_unit_ids |= _usa_orphan_city_ids_inside(source_unit_ids)
     atomic_qs = AdminArea.objects.filter(id__in=mun_final_ids) if mun_final_ids else AdminArea.objects.none()
     source_units_qs = (
         AdminArea.objects.filter(id__in=source_unit_ids)

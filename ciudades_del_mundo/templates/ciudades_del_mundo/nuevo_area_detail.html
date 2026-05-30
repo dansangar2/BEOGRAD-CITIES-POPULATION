@@ -1,0 +1,83 @@
+{% extends "ciudades_del_mundo/base.html" %}
+
+{% block title %}{{ root.name }} - Ciudades del Mundo{% endblock %}
+
+{% block content %}
+<section class="page-head compact">
+  <div>
+    <p class="eyebrow">Comparativa NuevoAdminArea</p>
+    <h1>{{ root.name }}</h1>
+  </div>
+  <div class="actions">
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:nuevo_area_list' %}">Volver</a>
+    <form method="post" action="{% url 'ciudades_del_mundo:start_recipe_task' root.id 'export-excel' %}">
+      {% csrf_token %}
+      <button type="submit">Excel</button>
+    </form>
+  </div>
+</section>
+
+<form class="filters" method="get">
+  <input type="search" name="q" value="{{ query }}" placeholder="Buscar por nombre">
+  <select name="level">
+    <option value="">Todos los niveles</option>
+    {% for level in levels %}
+    <option value="{{ level }}" {% if level|stringformat:"s" == selected_level %}selected{% endif %}>L{{ level }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Filtrar</button>
+</form>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Nombre</th>
+        <th>Nivel</th>
+        <th>Tipo</th>
+        <th>Padre</th>
+        <th>Poblacion</th>
+        <th>% pais</th>
+        <th>% padre</th>
+        <th>Area</th>
+        <th>% area pais</th>
+        <th>Escanos</th>
+        <th>Estado</th>
+        <th>Capitales</th>
+        <th>Ciudad mayor</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.area.name }}</td>
+        <td>L{{ row.area.level }}</td>
+        <td>{{ row.area.entity_type|default:"-" }}</td>
+        <td>{{ row.area.parent.name|default:"-" }}</td>
+        <td>{{ row.area.pop_latest|default:"-" }}</td>
+        <td>{{ row.pop_country_pct|default:"-" }}</td>
+        <td>{{ row.pop_parent_pct|default:"-" }}</td>
+        <td>{{ row.area.area_km2|default:"-" }}</td>
+        <td>{{ row.area_country_pct|default:"-" }}</td>
+        <td>{{ row.area.escanhos|default:"-" }}</td>
+        <td>{{ row.area.get_province_status_display }}</td>
+        <td>{{ row.capitals|default:"-" }}</td>
+        <td>{{ row.area.most_populate_city.name|default:"-" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="13">No hay areas para estos filtros.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<nav class="pagination">
+  {% if page_obj.has_previous %}
+  <a href="?page={{ page_obj.previous_page_number }}&level={{ selected_level }}&q={{ query }}">Anterior</a>
+  {% endif %}
+  <span>Pagina {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}
+  <a href="?page={{ page_obj.next_page_number }}&level={{ selected_level }}&q={{ query }}">Siguiente</a>
+  {% endif %}
+</nav>
+{% endblock %}

@@ -8,7 +8,7 @@ from ciudades_del_mundo.historical_divisions.italy import *
 from ciudades_del_mundo.historical_divisions.eeuu import *
 from ciudades_del_mundo.historical_divisions.mexico import *
 from ciudades_del_mundo.historical_divisions.netherlands import *
-from ciudades_del_mundo.historical_divisions.canada import *
+from ciudades_del_mundo.historical_divisions.colombia import *
 from ciudades_del_mundo.historical_divisions.ecuatorialguinea import *
 from ciudades_del_mundo.historical_divisions.centroamerica import *
 
@@ -166,6 +166,7 @@ DIVISIONS = _with_spanish_capitals([
         "name": "Nueva España",
         "code": "NES",
         "entity_type": "Virreinato",
+        "capitals": ["Ciudad de México"],
         "childs": [
             NUEVO_MEXICO,
             VIEJA_CALIFORNIA,
@@ -227,7 +228,12 @@ DIVISIONS = _with_spanish_capitals([
         "name": "Nueva Granada",
         "code": "NGR",
         "entity_type": "Virreinato",
-        "childs": [],
+        "childs": [
+            PANAMA,
+            DARIEN,
+            VERAGUAS,
+            PORTOBELO
+        ],
     },
     {
         "name": "Brasil",
@@ -259,6 +265,7 @@ DIVISIONS = _with_spanish_capitals([
         "name": "Guatemala",
         "code": "GUA",
         "entity_type": "Capitanía General",
+        "capitals": ["Guatemala"],
         "childs": [
             CHIAPAS,
             GUATEMALA,

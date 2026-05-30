@@ -1,0 +1,39 @@
+{% extends "ciudades_del_mundo/base.html" %}
+
+{% block title %}Graficas - Ciudades del Mundo{% endblock %}
+
+{% block content %}
+<section class="page-head compact">
+  <div>
+    <p class="eyebrow">Estadisticas</p>
+    <h1>Graficas de datos</h1>
+  </div>
+</section>
+
+<section class="layout-2">
+  <div class="panel">
+    <h2>Paises por poblacion fuente</h2>
+    {% include "ciudades_del_mundo/partials/bar_chart.html" with rows=country_population_bars empty="Sin datos." %}
+  </div>
+  <div class="panel">
+    <h2>Paises por numero de areas</h2>
+    {% include "ciudades_del_mundo/partials/bar_chart.html" with rows=country_area_bars empty="Sin datos." %}
+  </div>
+</section>
+
+<section class="layout-2">
+  <div class="panel">
+    <h2>AdminArea por nivel</h2>
+    {% include "ciudades_del_mundo/partials/bar_chart.html" with rows=admin_level_bars empty="Sin datos." %}
+  </div>
+  <div class="panel">
+    <h2>NuevoAdminArea por nivel</h2>
+    {% include "ciudades_del_mundo/partials/bar_chart.html" with rows=nuevo_level_bars empty="Sin datos." %}
+  </div>
+</section>
+
+<section class="panel spaced">
+  <h2>Estado de fusion de ciudades</h2>
+  {% include "ciudades_del_mundo/partials/bar_chart.html" with rows=merge_status_bars empty="Sin datos." %}
+</section>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "ciudades_del_mundo/base.html" %}
+
+{% block title %}Borrar datos - Ciudades del Mundo{% endblock %}
+
+{% block content %}
+<section class="page-head compact">
+  <div>
+    <p class="eyebrow">Operacion destructiva</p>
+    <h1>Borrar datos</h1>
+  </div>
+</section>
+
+<section class="layout-2">
+  <form class="panel form-panel" method="post">
+    {% csrf_token %}
+    <input type="hidden" name="kind" value="admin-country">
+    <h2>AdminArea fuente</h2>
+    <label>
+      Pais importado
+      <select name="target">
+        <option value="">Selecciona pais</option>
+        {% for country in admin_countries %}
+        <option value="{{ country }}">{{ country }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="check-row"><input type="checkbox" name="confirm"> Confirmo el borrado</label>
+    <button type="submit" class="danger">Borrar AdminArea</button>
+  </form>
+
+  <form class="panel form-panel" method="post">
+    {% csrf_token %}
+    <input type="hidden" name="kind" value="nuevo-country">
+    <h2>NuevoAdminArea derivado</h2>
+    <label>
+      Pais derivado
+      <select name="target">
+        <option value="">Selecciona pais</option>
+        {% for country in nuevo_countries %}
+        <option value="{{ country }}">{{ country }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="check-row"><input type="checkbox" name="confirm"> Confirmo el borrado</label>
+    <button type="submit" class="danger">Borrar NuevoAdminArea</button>
+  </form>
+</section>
+{% endblock %}

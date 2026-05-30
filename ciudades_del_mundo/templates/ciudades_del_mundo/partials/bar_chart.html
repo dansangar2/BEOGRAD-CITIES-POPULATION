@@ -1,0 +1,11 @@
+<div class="bar-chart">
+  {% for row in rows %}
+  <div class="bar-row">
+    <span class="bar-label">{{ row.label }}</span>
+    <div class="bar-track"><span style="width: {{ row.width }}%"></span></div>
+    <strong>{{ row.value }}</strong>
+  </div>
+  {% empty %}
+  <p class="empty">{{ empty }}</p>
+  {% endfor %}
+</div>

@@ -125,6 +125,7 @@ def build_nuevo_admin_workbook(
         weighted_populations=weighted_populations,
         territory_flags=territory_flags,
     )
+    population_rank_by_level = _rank_by_population_by_level(areas_by_level)
 
     first_level = root_level + 1
     root_children = [area for area in areas if area.level == first_level]
@@ -179,6 +180,7 @@ def build_nuevo_admin_workbook(
                     effective_population_indexes=effective_population_indexes,
                     weighted_populations=weighted_populations,
                     representation_groups=representation_groups,
+                    population_rank_by_level=population_rank_by_level,
                 )
             )
 
@@ -186,16 +188,6 @@ def build_nuevo_admin_workbook(
 
     main_rows_count = len(rows)
     main_columns_count = len(header)
-    secondary_tables = _build_secondary_tables(
-        areas=areas,
-        children_by_parent=children_by_parent,
-        seats_total=seats_total,
-    )
-    sheet_rows, secondary_table_refs = _append_columns(
-        rows,
-        secondary_tables,
-        gap_columns=2,
-    )
     main_table_ref = f"A1:{_column_name(main_columns_count)}{main_rows_count}"
     tables = (
         Table(
@@ -203,14 +195,13 @@ def build_nuevo_admin_workbook(
             ref=main_table_ref,
             columns=tuple(header),
         ),
-        *secondary_table_refs,
     )
 
     workbook = Workbook(
         sheets=(
             Sheet(
                 name="NuevoAdminArea",
-                rows=tuple(sheet_rows),
+                rows=tuple(rows),
                 freeze_panes="A2",
                 auto_filter=False,
                 tables=tables,
@@ -249,6 +240,7 @@ def _build_header(
         columns.extend(
             [
                 f"{prefix}_poblacion",
+                f"{prefix}_ranking_poblacion_pais",
                 f"{prefix}_poblacion_ponderada",
                 f"{prefix}_pct_poblacion_pais",
             ]
@@ -427,6 +419,7 @@ def _build_level_block(
     effective_population_indexes: dict[str, Decimal],
     weighted_populations: dict[str, int | None],
     representation_groups: dict[str, dict],
+    population_rank_by_level: dict[int, dict[str, int]],
 ) -> list[CellValue]:
     area_value = area.area_km2
     pop_value = area.pop_latest
@@ -445,6 +438,7 @@ def _build_level_block(
     block.extend(
         [
             pop_value,
+            population_rank_by_level.get(area.level, {}).get(area.id),
             weighted_populations.get(area.id),
             _percentage(pop_value, total_pop_by_level.get(area.level)),
         ]
@@ -484,6 +478,24 @@ def _build_level_block(
         ]
     )
     return block
+
+
+def _rank_by_population_by_level(
+    areas_by_level: dict[int, list[NuevoAdminAreaSummary]],
+) -> dict[int, dict[str, int]]:
+    ranks_by_level: dict[int, dict[str, int]] = {}
+
+    for level, level_areas in areas_by_level.items():
+        ranked = sorted(
+            (area for area in level_areas if area.pop_latest is not None),
+            key=lambda area: (-(area.pop_latest or 0), _alphabetical_area_key(area)),
+        )
+        ranks_by_level[level] = {
+            area.id: index
+            for index, area in enumerate(ranked, start=1)
+        }
+
+    return ranks_by_level
 
 
 def _column_name(index: int) -> str:

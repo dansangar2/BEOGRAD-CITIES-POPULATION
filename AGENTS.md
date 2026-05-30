@@ -357,6 +357,9 @@ The build command imports both packages and loads modules that define
 
 Common module globals:
 
+- `ROOT_NAME` or `COUNTRY_NAME`: optional display name for the root
+  `NuevoAdminArea`; if omitted, the build command derives one from the recipe
+  slug by replacing `_`/`-` with spaces and title-casing.
 - `SOURCE_COUNTRY`: source `AdminArea.country_code`; inferred for some names if
   omitted (`spanish_*` and `spain_*` -> `spain`, `morocco_*` -> `morocco`)
 - `DIVISIONS`: recipe tree
@@ -455,9 +458,32 @@ municipal/source expansion levels per original country. If a country is missing
 there, either add it carefully or provide `MUNICIPAL_LEVEL` where appropriate.
 Central American source defaults currently include `guatemala=2`,
 `honduras=2`, `nicaragua=2`, `elsalvador=3`, `costarica=3` and `belize=1`.
+Panama uses level `3` because CityPopulation rows at that level are
+corregimientos/townships.
+USA uses level `3` for derived municipal/source expansion and
+`subdivisions/usa.toml` sets `LEGAL_SUBDIVISION = 3`; level 2 rows are counties
+and should not be treated as cities for most-populated calculations. Some major
+USA level-3 city rows are parentless in CityPopulation, so the derived builder
+also includes parentless USA cities when their URL state/county context matches
+the selected source areas.
 The Central America historical recipe uses Costa Rican level-2 cantons plus
 level-3 partial district exceptions; do not repeat districts already covered by
 selected full cantons.
+
+`subdivisions/panama.toml` defines configured city unifications for the main
+Panamanian city districts visible in local `AdminArea` data: Panamá, San
+Miguelito, Arraiján, La Chorrera, Colón, David, Santiago, Penonomé,
+Changuinola and Chitré. The source townships are selected by numeric code
+because Panama has repeated township names across provinces/districts.
+
+`new_subdivisions/nuevo_imperio_romano.py` defines the `nuevo_imperio_romano`
+derived country with `ROOT_NAME = "Nuevo Imperio Romano"`, two top-level
+prefectures (`Hispania`, `Macaronesia`) and province-level children across
+Spain, Portugal, France, Andorra and Gibraltar. Its Barcelona metropolitan
+province uses the official AMB 36-municipality list. Its Madrid metropolitan
+province uses Madrid plus the Comunidad de Madrid corona metropolitana; source
+labels intentionally use CityPopulation names such as `Las Rozas de Madrid` and
+`Paracuellos de Jarama`.
 
 ## Derived Build Pipeline
 
@@ -587,6 +613,10 @@ Excel details:
 - `SimpleXlsxWriter` is a custom no-third-party XLSX writer using `zipfile`.
 - Workbook rows are one path from root to leaf.
 - Top-level and child rows are sorted alphabetically by name, not code.
+- Each level block includes `Lx_ranking_poblacion_pais`, ranking areas by
+  population against every area in the derived country at that same level.
+- The workbook writes only the main path table; it does not append secondary
+  child-summary tables to the right of the main columns.
 - The main sheet name is `NuevoAdminArea`.
 - Main table name starts as `TablaPrincipal`.
 
@@ -623,6 +653,7 @@ Build derived hierarchy, DB-mutating:
 ```powershell
 py manage.py build_new_subdivisions --country-id spanish_federal_republic
 py manage.py build_new_subdivisions --country-id spanish_federal_republic --population-year 1999
+py manage.py build_new_subdivisions --country-id nuevo_imperio_romano
 ```
 
 Export derived hierarchy, file-generating:
@@ -655,6 +686,8 @@ Existing tests:
 - `test_configured_cities.py`: city aggregation and source row shifting.
 - `test_entity_merges.py`: same-level merge behavior.
 - `test_hierarchy_and_most_populated.py`: parent stack and most-populated rules.
+- `test_nuevo_admin_builder.py`: derived builder edge cases such as USA
+  parentless city URL matching and numeric-code fallback.
 - `test_representation.py`: D'Hondt and legacy representation config aliases.
 - `test_nuevo_admin_excel_export.py`: export row ordering.
 
@@ -718,8 +751,19 @@ If the user asks about web UI:
 
 - views: `ciudades_del_mundo/web/views.py`
 - routes: `ciudades_del_mundo/web/urls.py`
+- background task registry: `ciudades_del_mundo/web/tasks.py`
 - templates: `ciudades_del_mundo/templates/ciudades_del_mundo/`
 - CSS: `ciudades_del_mundo/static/ciudades_del_mundo/app.css`
+- main sections:
+  `/configs/` for TOML scraping config editing and scrape/validate/list-URL
+  tasks, `/recipes/` for derived recipe creation/editing/build/export tasks,
+  `/derived/` for comparative `NuevoAdminArea` browsing, `/stats/` for
+  statistical charts, `/delete/` for confirmed data deletion and `/tasks/` for
+  in-memory task output/history
+- web-launched tasks run `manage.py` subcommands in local subprocesses. A new
+  task with the same key cancels/replaces the active one. Saving a TOML config
+  or editable recipe from the UI also cancels/replaces the matching active
+  scrape/build task if there is one.
 
 ## Local Development Notes
 
@@ -742,6 +786,11 @@ If the user asks about web UI:
   rows for the requested country.
 - Generated Excel/CSV files can clutter `excels/`; avoid creating them unless
   the task requires verification.
+- Web task history is process-local and disappears when the development server
+  restarts. The task side effects in `db.sqlite3`, `subdivisions/*.toml`,
+  `new_subdivisions/*.py` or `excels/` remain.
+- The web delete page performs confirmed bulk deletes for one source
+  `AdminArea.country_code` or one derived `NuevoAdminArea.country_code`.
 - CityPopulation layouts can vary by page; prefer small parser tests with saved
   HTML snippets over broad parser rewrites.
 - `area_overrides` and configured city merges can affect downstream density,

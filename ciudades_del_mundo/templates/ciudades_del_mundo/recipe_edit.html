@@ -1,0 +1,43 @@
+{% extends "ciudades_del_mundo/base.html" %}
+
+{% block title %}Editar {{ slug }} - Ciudades del Mundo{% endblock %}
+
+{% block content %}
+<section class="page-head compact">
+  <div>
+    <p class="eyebrow">Receta Python</p>
+    <h1>{{ slug }}.py</h1>
+  </div>
+  <div class="actions">
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:recipe_list' %}">Volver</a>
+  </div>
+</section>
+
+<section class="editor-layout">
+  <form class="panel form-panel" method="post">
+    {% csrf_token %}
+    <label>
+      Python
+      <textarea name="content" spellcheck="false">{{ content }}</textarea>
+    </label>
+    <div class="actions">
+      <button type="submit">Guardar</button>
+    </div>
+  </form>
+
+  <aside class="panel help-panel">
+    <h2>Creacion</h2>
+    <p>Guarda la receta y lanza la tarea de creacion desde la lista de recetas. Si ya habia una creacion activa de esta receta, guardar cancela esa tarea y la reemplaza.</p>
+    <pre><code>DIVISIONS = [
+  {
+    "name": "Provincia",
+    "code": "PRO",
+    "dat": {2: ["Provincia fuente"]},
+  }
+]</code></pre>
+    {% if active_task and active_task.is_active %}
+    <p class="notice">Hay una construccion activa para esta receta.</p>
+    {% endif %}
+  </aside>
+</section>
+{% endblock %}

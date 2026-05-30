@@ -1,0 +1,304 @@
+from ciudades_del_mundo.historical_divisions.france import BAJA_NAVARRA, LABOURD, SOLE
+
+
+ROOT_NAME = "Nuevo Imperio Romano"
+
+
+PAIS_VASCO_FRANCES = list(dict.fromkeys(LABOURD + BAJA_NAVARRA + SOLE))
+
+
+# Fuente: AMB, "Municipios metropolitanos" (36 municipios).
+MUNICIPIOS_AMB = [
+    "Badalona",
+    "Badia del Vallès",
+    "Barberà del Vallès",
+    "Barcelona",
+    "Begues",
+    "Castellbisbal",
+    "Castelldefels",
+    "Cerdanyola del Vallès",
+    "Cervelló",
+    "Corbera de Llobregat",
+    "Cornellà de Llobregat",
+    "El Papiol",
+    "El Prat de Llobregat",
+    "Esplugues de Llobregat",
+    "Gavà",
+    "L'Hospitalet de Llobregat",
+    "La Palma de Cervelló",
+    "Molins de Rei",
+    "Montcada i Reixac",
+    "Montgat",
+    "Pallejà",
+    "Ripollet",
+    "Sant Adrià de Besòs",
+    "Sant Andreu de la Barca",
+    "Sant Boi de Llobregat",
+    "Sant Climent de Llobregat",
+    "Sant Cugat del Vallès",
+    "Sant Feliu de Llobregat",
+    "Sant Joan Despí",
+    "Sant Just Desvern",
+    "Sant Vicenç dels Horts",
+    "Santa Coloma de Cervelló",
+    "Santa Coloma de Gramenet",
+    "Tiana",
+    "Torrelles de Llobregat",
+    "Viladecans",
+]
+
+
+# Fuente: Comunidad de Madrid, corona metropolitana por zonas; se suma Madrid.
+MUNICIPIOS_MADRID_METROPOLITANA = [
+    "Madrid",
+    "Alcobendas",
+    "San Sebastián de los Reyes",
+    "Colmenar Viejo",
+    "Tres Cantos",
+    "Pozuelo de Alarcón",
+    "Majadahonda",
+    "Las Rozas de Madrid",
+    "Boadilla del Monte",
+    "Villaviciosa de Odón",
+    "Villanueva de la Cañada",
+    "Villanueva del Pardillo",
+    "Brunete",
+    "Alcorcón",
+    "Leganés",
+    "Getafe",
+    "Móstoles",
+    "Parla",
+    "Fuenlabrada",
+    "Pinto",
+    "Coslada",
+    "San Fernando de Henares",
+    "Torrejón de Ardoz",
+    "Alcalá de Henares",
+    "Paracuellos de Jarama",
+    "Mejorada del Campo",
+    "Velilla de San Antonio",
+    "Rivas-Vaciamadrid",
+]
+
+
+DIVISIONS = [
+    {
+        "name": "Hispania",
+        "code": "HSP",
+        "entity_type": "Prefectura",
+        "capitals": ["Madrid"],
+        "childs": [
+            {
+                "name": "Galicia",
+                "code": "GAL",
+                "entity_type": "Provincia",
+                "capitals": ["Santiago de Compostela"],
+                "spec": {1: {"spain": "Galicia"}},
+            },
+            {
+                "name": "Asturia y León",
+                "code": "AYL",
+                "entity_type": "Provincia",
+                "capitals": ["León", "Oviedo"],
+                "spec": {2: {"spain": ["Asturias", "León", "Zamora", "Salamanca"]}},
+            },
+            {
+                "name": "Castilla la Vieja",
+                "code": "CLV",
+                "entity_type": "Provincia",
+                "capitals": ["Burgos"],
+                "spec": {
+                    2: {
+                        "spain": [
+                            "Cantabria",
+                            "Burgos",
+                            "Palencia",
+                            "Valladolid",
+                            "Soria",
+                            "Segovia",
+                            "Ávila",
+                            "La Rioja",
+                        ],
+                    },
+                },
+            },
+            {
+                "name": "Navarra",
+                "code": "NAV",
+                "entity_type": "Provincia",
+                "capitals": ["Pamplona"],
+                "spec": {
+                    1: {"spain": ["País Vasco", "Navarra"]},
+                    4: {"france": PAIS_VASCO_FRANCES},
+                },
+            },
+            {
+                "name": "Aragón",
+                "code": "ARA",
+                "entity_type": "Provincia",
+                "capitals": ["Zaragoza"],
+                "spec": {1: {"spain": "Aragón"}},
+            },
+            {
+                "name": "Barcelona Metropolitana",
+                "code": "BCM",
+                "entity_type": "Provincia Metropolitana",
+                "capitals": ["Barcelona"],
+                "spec": {3: {"spain": MUNICIPIOS_AMB}},
+            },
+            {
+                "name": "Cataluña",
+                "code": "CAT",
+                "entity_type": "Provincia",
+                "capitals": ["Terrassa"],
+                "spec": {
+                    1: {"spain": "Cataluña"},
+                    0: {"andorra": "Andorra"},
+                    2: {"france": "Pyrénées-Orientales"},
+                    "restar": {3: {"spain": MUNICIPIOS_AMB}},
+                },
+            },
+            {
+                "name": "Madrid Metropolitana",
+                "code": "MDM",
+                "entity_type": "Provincia Metropolitana",
+                "capitals": ["Madrid"],
+                "spec": {3: {"spain": MUNICIPIOS_MADRID_METROPOLITANA}},
+            },
+            {
+                "name": "Castilla la Nueva",
+                "code": "CLN",
+                "entity_type": "Provincia",
+                "capitals": ["Toledo"],
+                "spec": {
+                    1: {"spain": "Castilla-La Mancha"},
+                    2: {"spain": "Madrid"},
+                    "restar": {
+                        2: {"spain": "Albacete"},
+                        3: {"spain": MUNICIPIOS_MADRID_METROPOLITANA},
+                    },
+                },
+            },
+            {
+                "name": "Extremadura",
+                "code": "EXT",
+                "entity_type": "Provincia",
+                "capitals": ["Mérida"],
+                "spec": {2: {"spain": ["Cáceres", "Badajoz"]}},
+            },
+            {
+                "name": "Valencia",
+                "code": "VAL",
+                "entity_type": "Provincia",
+                "capitals": ["València"],
+                "spec": {1: {"spain": "Comunitat Valenciana"}},
+            },
+            {
+                "name": "Murcia",
+                "code": "MUR",
+                "entity_type": "Provincia",
+                "capitals": ["Murcia"],
+                "spec": {
+                    1: {"spain": "Murcia"},
+                    2: {"spain": "Albacete"},
+                },
+            },
+            {
+                "name": "Andalucía Occidental",
+                "code": "AOC",
+                "entity_type": "Provincia",
+                "capitals": ["Sevilla"],
+                "spec": {
+                    2: {"spain": ["Sevilla", "Cádiz", "Huelva", "Córdoba"]},
+                    0: {"gibraltar": "gibraltar"},
+                },
+            },
+            {
+                "name": "Andalucía Oriental",
+                "code": "AOR",
+                "entity_type": "Provincia",
+                "capitals": ["Granada"],
+                "spec": {2: {"spain": ["Málaga", "Granada", "Jaén", "Almería"]}},
+            },
+            {
+                "name": "Baleares",
+                "code": "BAL",
+                "entity_type": "Provincia",
+                "capitals": ["Palma"],
+                "spec": {1: {"spain": "Illes Balears"}},
+            },
+            {
+                "name": "Portucale",
+                "code": "PTC",
+                "entity_type": "Provincia",
+                "capitals": ["Porto"],
+                "spec": {
+                    1: {
+                        "portugal": [
+                            "Viana do Castelo",
+                            "Braga",
+                            "Porto",
+                            "Aveiro",
+                            "Vila Real",
+                            "Bragança",
+                        ],
+                    },
+                },
+            },
+            {
+                "name": "Beira",
+                "code": "BEI",
+                "entity_type": "Provincia",
+                "capitals": ["Coimbra"],
+                "spec": {
+                    1: {"portugal": ["Coimbra", "Viseu", "Guarda", "Castelo Branco"]},
+                },
+            },
+            {
+                "name": "Estremadura y Ribatejo",
+                "code": "ERI",
+                "entity_type": "Provincia",
+                "capitals": ["Lisboa"],
+                "spec": {1: {"portugal": ["Lisboa", "Leiria", "Santarém"]}},
+            },
+            {
+                "name": "Alentejo y Algarve",
+                "code": "AYA",
+                "entity_type": "Provincia",
+                "capitals": ["Évora"],
+                "spec": {
+                    1: {"portugal": ["Setúbal", "Portalegre", "Évora", "Beja", "Faro"]},
+                },
+            },
+        ],
+    },
+    {
+        "name": "Macaronesia",
+        "code": "MAC",
+        "entity_type": "Prefectura",
+        "capitals": ["Santa Cruz de Tenerife", "Ponta Delgada", "Funchal"],
+        "childs": [
+            {
+                "name": "Canarias",
+                "code": "CAN",
+                "entity_type": "Provincia",
+                "capitals": ["Santa Cruz de Tenerife", "Las Palmas de Gran Canaria"],
+                "spec": {1: {"spain": "Canarias"}},
+            },
+            {
+                "name": "Azores",
+                "code": "AZO",
+                "entity_type": "Provincia",
+                "capitals": ["Ponta Delgada"],
+                "spec": {1: {"portugal": "Açores"}},
+            },
+            {
+                "name": "Madeira",
+                "code": "MAD",
+                "entity_type": "Provincia",
+                "capitals": ["Funchal"],
+                "spec": {1: {"portugal": "Madeira"}},
+            },
+        ],
+    },
+]

@@ -1,0 +1,14 @@
+{% extends "ciudades_del_mundo/base.html" %}
+
+{% block title %}Tareas - Ciudades del Mundo{% endblock %}
+
+{% block content %}
+<section class="page-head compact">
+  <div>
+    <p class="eyebrow">Procesos en segundo plano</p>
+    <h1>Tareas</h1>
+  </div>
+</section>
+
+{% include "ciudades_del_mundo/partials/task_table.html" with tasks=tasks compact=False %}
+{% endblock %}

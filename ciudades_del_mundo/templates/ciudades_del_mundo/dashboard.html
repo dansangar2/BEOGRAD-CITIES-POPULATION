@@ -3,53 +3,71 @@
 {% block title %}Panel - Ciudades del Mundo{% endblock %}
 
 {% block content %}
-<section class="hero">
+<section class="page-head compact">
   <div>
-    <p class="eyebrow">Scraping y administracion territorial</p>
-    <h1>Panel de datos</h1>
+    <p class="eyebrow">Gestion local de datos</p>
+    <h1>Panel operativo</h1>
+  </div>
+  <div class="actions">
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:config_list' %}">Popular datos</a>
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:recipe_new' %}">Nueva receta</a>
   </div>
 </section>
 
 <section class="metrics">
-  <article class="metric"><span>Admin areas</span><strong>{{ admin_area_count }}</strong></article>
-  <article class="metric"><span>Nuevas areas</span><strong>{{ nuevo_area_count }}</strong></article>
-  <article class="metric"><span>Escanos</span><strong>{{ seat_count }}</strong></article>
+  <article class="metric"><span>AdminArea fuente</span><strong>{{ admin_area_count }}</strong></article>
+  <article class="metric"><span>NuevoAdminArea</span><strong>{{ nuevo_area_count }}</strong></article>
+  <article class="metric"><span>Areas con escanos</span><strong>{{ seat_count }}</strong></article>
 </section>
 
-<section class="grid">
-  <div>
-    <h2>Paises importados</h2>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Pais</th><th>Areas</th><th>Poblacion</th></tr></thead>
-        <tbody>
-          {% for country in countries %}
-          <tr>
-            <td><a href="{% url 'ciudades_del_mundo:admin_area_list' %}?country={{ country.country_code }}">{{ country.country_code }}</a></td>
-            <td>{{ country.total }}</td>
-            <td>{{ country.population|default:"-" }}</td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="3">Sin datos importados.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
+<section class="layout-2">
+  <div class="panel">
+    <div class="section-title">
+      <h2>Poblacion importada</h2>
+      <a href="{% url 'ciudades_del_mundo:stats' %}">Ver graficas</a>
+    </div>
+    {% include "ciudades_del_mundo/partials/bar_chart.html" with rows=top_country_bars empty="Sin datos importados." %}
+  </div>
+
+  <div class="panel">
+    <div class="section-title">
+      <h2>Subdivisiones derivadas</h2>
+      <a href="{% url 'ciudades_del_mundo:nuevo_area_list' %}">Comparar</a>
+    </div>
+    {% include "ciudades_del_mundo/partials/bar_chart.html" with rows=derived_bars empty="Sin subdivisiones creadas." %}
+  </div>
+</section>
+
+<section class="layout-2">
+  <div class="panel">
+    <div class="section-title">
+      <h2>Configuraciones recientes</h2>
+      <a href="{% url 'ciudades_del_mundo:config_list' %}">Todas</a>
+    </div>
+    <div class="stack">
+      {% for config in configs %}
+      <article class="row-card">
+        <div>
+          <strong>{{ config.name|default:config.slug }}</strong>
+          <span>{{ config.country_code }} - {{ config.pages }} paginas - {{ config.cities }} ciudades unificadas</span>
+        </div>
+        <form method="post" action="{% url 'ciudades_del_mundo:start_config_task' config.slug 'scrape' %}">
+          {% csrf_token %}
+          <button type="submit">Popular</button>
+        </form>
+      </article>
+      {% empty %}
+      <p class="empty">No hay configuraciones TOML.</p>
+      {% endfor %}
     </div>
   </div>
 
-  <div>
-    <h2>Configuraciones</h2>
-    <div class="config-list">
-      {% for config in configs %}
-      <article class="config-item">
-        <strong>{{ config.name|default:config.slug }}</strong>
-        <span>{{ config.country_code }} · {{ config.pages|length }} pagina(s)</span>
-        <code>python manage.py scrape_subdivisions {{ config.slug }}</code>
-      </article>
-      {% empty %}
-      <p>No hay ficheros Python en subdivisions.</p>
-      {% endfor %}
+  <div class="panel">
+    <div class="section-title">
+      <h2>Tareas recientes</h2>
+      <a href="{% url 'ciudades_del_mundo:task_list' %}">Historial</a>
     </div>
+    {% include "ciudades_del_mundo/partials/task_table.html" with tasks=recent_tasks compact=True %}
   </div>
 </section>
 {% endblock %}

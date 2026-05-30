@@ -1,0 +1,46 @@
+{% extends "ciudades_del_mundo/base.html" %}
+
+{% block title %}Subdivisiones - Ciudades del Mundo{% endblock %}
+
+{% block content %}
+<section class="page-head compact">
+  <div>
+    <p class="eyebrow">Datos derivados</p>
+    <h1>Subdivisiones creadas</h1>
+  </div>
+  <a class="button secondary" href="{% url 'ciudades_del_mundo:recipe_list' %}">Crear o regenerar</a>
+</section>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Pais derivado</th>
+        <th>Codigo</th>
+        <th>Areas</th>
+        <th>Poblacion agregada</th>
+        <th>Area km2</th>
+        <th>Escanos</th>
+        <th>Capital</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in root_rows %}
+      <tr>
+        <td>{{ row.root.name }}</td>
+        <td><code>{{ row.root.country_code }}</code></td>
+        <td>{{ row.stats.total|default:"-" }}</td>
+        <td>{{ row.root.pop_latest|default:row.stats.population|default:"-" }}</td>
+        <td>{{ row.root.area_km2|default:"-" }}</td>
+        <td>{{ row.stats.seats|default:"-" }}</td>
+        <td>{{ row.root.most_populate_city.name|default:"-" }}</td>
+        <td><a href="{% url 'ciudades_del_mundo:nuevo_area_detail' row.root.id %}">Comparar</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8">No hay subdivisiones derivadas creadas.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

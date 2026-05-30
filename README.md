@@ -36,7 +36,8 @@ El proyecto esta organizado por capas:
 - `ciudades_del_mundo/management/commands`
   Comandos de operacion para scrapear, validar, construir subdivisiones y exportar.
 - `ciudades_del_mundo/web`
-  Dashboard y listado simple para inspeccionar el estado de la base de datos.
+  Interfaz operativa para inspeccionar datos, editar configuraciones, lanzar
+  tareas locales y borrar datos.
 
 ## Modelos principales
 
@@ -137,6 +138,7 @@ py manage.py assign_admin_capitals
 
 ```powershell
 py manage.py build_new_subdivisions --country-id spanish_federal_republic
+py manage.py build_new_subdivisions --country-id nuevo_imperio_romano
 ```
 
 Las recetas de `new_subdivisions/*.py` pueden ajustar la poblacion usada para
@@ -158,6 +160,10 @@ PROVINCE_STATUSES = {
 Tambien se puede declarar en una entrada concreta con `population_index`,
 `province_status` y `depends_on`.
 
+Las recetas pueden declarar `ROOT_NAME` o `COUNTRY_NAME` para fijar el nombre
+visible del nodo raiz. `nuevo_imperio_romano.py` usa `ROOT_NAME = "Nuevo Imperio
+Romano"` y define las prefecturas de Hispania y Macaronesia.
+
 ### Exportar
 
 ```powershell
@@ -166,6 +172,41 @@ py manage.py export_nuevoadmin_excel --country-id spanish_federal_republic
 ```
 
 Los Excel se guardan por defecto en la subcarpeta `excels/`. Puedes cambiarla con `--output-dir`.
+Cada bloque de nivel incluye `Lx_ranking_poblacion_pais`, que ordena las areas
+por poblacion dentro de todo el pais para ese mismo nivel. La hoja Excel genera
+una sola tabla principal de rutas raiz-hoja, sin tablas auxiliares a la derecha.
+
+## Interfaz web local
+
+Arranca el servidor con:
+
+```powershell
+py manage.py runserver
+```
+
+La raiz `/` abre el panel operativo. Secciones principales:
+
+- `/configs/`: lista `subdivisions/*.toml`, permite validar, listar URLs y
+  lanzar scraping. El editor guarda TOML y valida sintaxis/esquema antes de
+  escribir.
+- `/recipes/`: lista recetas de `new_subdivisions` e `historical_divisions`.
+  Permite crear recetas nuevas con un formulario JSON, editar recetas nuevas en
+  Python y lanzar `build_new_subdivisions`, CSV o Excel.
+- `/derived/`: muestra paises `NuevoAdminArea` creados y una tabla comparativa
+  por pais con porcentajes respecto al pais y al padre.
+- `/stats/`: graficas HTML/CSS de poblacion, numero de areas, niveles y estado
+  de fusion de ciudades.
+- `/delete/`: borrado confirmado de datos `AdminArea` por pais fuente o
+  `NuevoAdminArea` por pais derivado.
+- `/tasks/`: historial en memoria de tareas lanzadas desde la web.
+
+Las tareas web se gestionan en `ciudades_del_mundo/web/tasks.py`. Cada accion
+lanza un subproceso `manage.py` y guarda estado/salida en memoria del proceso
+del servidor. Si se lanza otra tarea con la misma clave operativa, o si se
+guarda una configuracion/receta mientras su tarea equivalente sigue activa, la
+tarea anterior se cancela y se reemplaza. Al reiniciar el servidor se pierde el
+historial de tareas, pero no los cambios ya persistidos en base de datos o
+ficheros.
 
 ## Estructura del repositorio
 

@@ -9,7 +9,8 @@ COSTA_RICA_DISTR_A_NICARAGUA = ["Cóbano", "Paquera", "Lepanto", "Chira", "Los C
 COSTA_RICA_A_NICARAGUA = ["Nandayure", "Hojancha", "Nicoya", "Santa Cruz", "Carrillo", "Liberia", "La Cruz", "Upala"]
 COSTA_RICA_EXCLUIR_DISTR_A_NICARAGUA = ["Bijagua de Upala"]
 
-COSTA_RICA_DISTR_A_VERAGUAS = ["Pavón", "Laurel", "La Cuesta", "Canoas"]
+COSTA_RICA_DISTR_A_VERAGUAS = ["Pavón", "Laurel", "La Cuesta", "Canoas", "Corredor", "Aguabuena",
+                               "Sabalito", "Pittier", "San Vito", "Guaycará", "Cahuita", "Sixaola", "Bratsi"]
 
 GUATEMALA = {
     "name": "Guatemala",

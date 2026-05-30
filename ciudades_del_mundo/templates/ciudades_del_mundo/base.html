@@ -12,11 +12,24 @@
     <a class="brand" href="{% url 'ciudades_del_mundo:dashboard' %}">Ciudades del Mundo</a>
     <nav class="nav">
       <a href="{% url 'ciudades_del_mundo:dashboard' %}">Panel</a>
-      <a href="{% url 'ciudades_del_mundo:admin_area_list' %}">Areas</a>
+      <a href="{% url 'ciudades_del_mundo:config_list' %}">Scraping</a>
+      <a href="{% url 'ciudades_del_mundo:recipe_list' %}">Recetas</a>
+      <a href="{% url 'ciudades_del_mundo:nuevo_area_list' %}">Subdivisiones</a>
+      <a href="{% url 'ciudades_del_mundo:admin_area_list' %}">Datos fuente</a>
+      <a href="{% url 'ciudades_del_mundo:stats' %}">Graficas</a>
+      <a href="{% url 'ciudades_del_mundo:task_list' %}">Tareas</a>
+      <a href="{% url 'ciudades_del_mundo:data_delete' %}">Borrar</a>
       <a href="{% url 'admin:index' %}">Admin</a>
     </nav>
   </header>
   <main class="shell">
+    {% if messages %}
+    <div class="messages">
+      {% for message in messages %}
+      <div class="message {{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
 </body>

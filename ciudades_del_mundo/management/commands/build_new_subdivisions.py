@@ -45,6 +45,7 @@ CONFIG_LOAD_ERRORS: dict[str, Exception] = {}
 REPRESENTATIONS: dict[str, object] = {}
 MUNICIPAL_LEVEL: dict[str, int] = {}
 SOURCE_COUNTRIES: dict[str, str] = {}
+ROOT_NAMES: dict[str, str] = {}
 POPULATION_INDEXES: dict[str, object] = {}
 PROVINCE_STATUSES: dict[str, object] = {}
 LEGAL_SUBDIVISION_LEVELS: dict[str, int | None] = {}
@@ -84,6 +85,12 @@ def _load_config_package(package):
         source_country = getattr(mod, "SOURCE_COUNTRY", None)
         if source_country:
             SOURCE_COUNTRIES[mod_name] = source_country
+
+        root_name = getattr(mod, "ROOT_NAME", None)
+        if root_name is None:
+            root_name = getattr(mod, "COUNTRY_NAME", None)
+        if root_name:
+            ROOT_NAMES[mod_name] = str(root_name)
 
         for attr in ("POPULATION_INDEXES", "POPULATION_INDEX", "POPULATION_MULTIPLIERS", "INDICES_POBLACION"):
             population_indexes = getattr(mod, attr, None)
@@ -532,7 +539,10 @@ class Command(BaseCommand):
         # ---------------------------------------------------------
         # Crear/actualizar nodo raíz
         # ---------------------------------------------------------
-        default_name = country_id.replace("-", " ").title()
+        default_name = ROOT_NAMES.get(
+            country_id,
+            country_id.replace("_", " ").replace("-", " ").title(),
+        )
         municipal_level = MUNICIPAL_LEVEL.get(country_id, 3)
 
         root_defaults = {

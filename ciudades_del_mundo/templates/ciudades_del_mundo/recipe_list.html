@@ -1,0 +1,78 @@
+{% extends "ciudades_del_mundo/base.html" %}
+
+{% block title %}Recetas - Ciudades del Mundo{% endblock %}
+
+{% block content %}
+<section class="page-head compact">
+  <div>
+    <p class="eyebrow">NuevoAdminArea</p>
+    <h1>Recetas derivadas</h1>
+  </div>
+  <a class="button secondary" href="{% url 'ciudades_del_mundo:recipe_new' %}">Nueva receta</a>
+</section>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Slug</th>
+        <th>Nombre raiz</th>
+        <th>Grupo</th>
+        <th>Filas creadas</th>
+        <th>Tarea</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for recipe in recipes %}
+      <tr>
+        <td>
+          {% if recipe.editable %}
+          <a href="{% url 'ciudades_del_mundo:recipe_edit' recipe.slug %}"><code>{{ recipe.slug }}</code></a>
+          {% else %}
+          <code>{{ recipe.slug }}</code>
+          {% endif %}
+        </td>
+        <td>{{ recipe.root_name }}</td>
+        <td>{{ recipe.group }}</td>
+        <td>{{ recipe.built_count }}</td>
+        <td>
+          {% if recipe.active_task and recipe.active_task.is_active %}
+          <a class="status running" href="{% url 'ciudades_del_mundo:task_detail' recipe.active_task.id %}">running</a>
+          {% else %}
+          <span class="muted">-</span>
+          {% endif %}
+        </td>
+        <td>
+          <form class="inline-form" method="post" action="{% url 'ciudades_del_mundo:start_recipe_task' recipe.slug 'build' %}">
+            {% csrf_token %}
+            <input class="small-input" name="population_year" placeholder="ano">
+            <button type="submit">Crear</button>
+          </form>
+          <div class="button-row">
+            <form method="post" action="{% url 'ciudades_del_mundo:start_recipe_task' recipe.slug 'export-csv' %}">
+              {% csrf_token %}
+              <button type="submit" class="quiet">CSV</button>
+            </form>
+            <form method="post" action="{% url 'ciudades_del_mundo:start_recipe_task' recipe.slug 'export-excel' %}">
+              {% csrf_token %}
+              <button type="submit" class="quiet">Excel</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6">No hay recetas disponibles.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<section class="panel spaced">
+  <div class="section-title">
+    <h2>Tareas recientes</h2>
+    <a href="{% url 'ciudades_del_mundo:task_list' %}">Ver todas</a>
+  </div>
+  {% include "ciudades_del_mundo/partials/task_table.html" with tasks=recent_tasks compact=True %}
+</section>
+{% endblock %}

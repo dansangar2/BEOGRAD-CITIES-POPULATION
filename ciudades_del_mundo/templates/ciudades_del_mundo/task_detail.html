@@ -1,0 +1,38 @@
+{% extends "ciudades_del_mundo/base.html" %}
+
+{% block title %}Tarea {{ task.id }} - Ciudades del Mundo{% endblock %}
+
+{% block content %}
+{% if task.is_active %}
+<meta http-equiv="refresh" content="4">
+{% endif %}
+
+<section class="page-head compact">
+  <div>
+    <p class="eyebrow">Tarea {{ task.id }}</p>
+    <h1>{{ task.label }}</h1>
+  </div>
+  <div class="actions">
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:task_list' %}">Historial</a>
+    {% if task.is_active %}
+    <form method="post" action="{% url 'ciudades_del_mundo:task_cancel' task.id %}">
+      {% csrf_token %}
+      <button type="submit" class="danger">Cancelar</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+
+<section class="metrics">
+  <article class="metric"><span>Estado</span><strong class="status-text">{{ task.status }}</strong></article>
+  <article class="metric"><span>Codigo salida</span><strong>{{ task.returncode|default:"-" }}</strong></article>
+  <article class="metric"><span>Inicio</span><strong class="small-strong">{{ task.started_at|default:task.created_at|date:"H:i:s" }}</strong></article>
+</section>
+
+<section class="panel">
+  <h2>Comando</h2>
+  <p><code>{{ task.command_display }}</code></p>
+  <h2>Salida</h2>
+  <pre class="console"><code>{{ task.output_text|default:"Sin salida todavia." }}</code></pre>
+</section>
+{% endblock %}
