@@ -1,0 +1,51 @@
+{% load i18n %}
+<div class="table-meta">
+  <span>{% blocktrans with count=page_obj.paginator.count %}{{ count }} areas encontradas{% endblocktrans %}</span>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>{% trans "Nombre" %}</th>
+        <th>{% trans "Pais" %}</th>
+        <th>{% trans "Nivel" %}</th>
+        <th>{% trans "Fusion" %}</th>
+        <th>{% trans "Tipo" %}</th>
+        <th>{% trans "Padre" %}</th>
+        <th>{% trans "Poblacion" %}</th>
+        <th>{% trans "Area" %}</th>
+        <th>{% trans "Mapa" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for area in page_obj %}
+      <tr>
+        <td><code>{{ area.id }}</code></td>
+        <td>{{ area.name }}</td>
+        <td>{{ area.country_code }}</td>
+        <td>L{{ area.level }}</td>
+        <td>{% trans area.get_city_merge_status_display %}</td>
+        <td>{{ area.entity_type|default:"-" }}</td>
+        <td>{{ area.parent.name|default:"-" }}</td>
+        <td>{{ area.pop_latest|default:"-" }}</td>
+        <td>{{ area.area_km2|default:"-" }}</td>
+        <td><a href="{% url 'ciudades_del_mundo:area_map_detail' 'admin' area.id %}">{% trans "Ver" %}</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="10">{% trans "No hay areas para estos filtros." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<nav class="pagination">
+  {% if page_obj.has_previous %}
+  <a href="?{{ querystring }}page={{ page_obj.previous_page_number }}" data-page="{{ page_obj.previous_page_number }}">{% trans "Anterior" %}</a>
+  {% endif %}
+  <span>{% blocktrans with number=page_obj.number total=page_obj.paginator.num_pages %}Pagina {{ number }} de {{ total }}{% endblocktrans %}</span>
+  {% if page_obj.has_next %}
+  <a href="?{{ querystring }}page={{ page_obj.next_page_number }}" data-page="{{ page_obj.next_page_number }}">{% trans "Siguiente" %}</a>
+  {% endif %}
+</nav>

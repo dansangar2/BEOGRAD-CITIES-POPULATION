@@ -1,6 +1,7 @@
 {% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
 
-{% block title %}Tarea {{ task.id }} - Ciudades del Mundo{% endblock %}
+{% block title %}{% blocktrans with task_id=task.id %}Tarea {{ task_id }}{% endblocktrans %} - {% trans "Ciudades del Mundo" %}{% endblock %}
 
 {% block content %}
 {% if task.is_active %}
@@ -9,30 +10,30 @@
 
 <section class="page-head compact">
   <div>
-    <p class="eyebrow">Tarea {{ task.id }}</p>
+    <p class="eyebrow">{% blocktrans with task_id=task.id %}Tarea {{ task_id }}{% endblocktrans %}</p>
     <h1>{{ task.label }}</h1>
   </div>
   <div class="actions">
-    <a class="button secondary" href="{% url 'ciudades_del_mundo:task_list' %}">Historial</a>
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:task_list' %}">{% trans "Historial" %}</a>
     {% if task.is_active %}
     <form method="post" action="{% url 'ciudades_del_mundo:task_cancel' task.id %}">
       {% csrf_token %}
-      <button type="submit" class="danger">Cancelar</button>
+      <button type="submit" class="danger">{% trans "Cancelar" %}</button>
     </form>
     {% endif %}
   </div>
 </section>
 
 <section class="metrics">
-  <article class="metric"><span>Estado</span><strong class="status-text">{{ task.status }}</strong></article>
-  <article class="metric"><span>Codigo salida</span><strong>{{ task.returncode|default:"-" }}</strong></article>
-  <article class="metric"><span>Inicio</span><strong class="small-strong">{{ task.started_at|default:task.created_at|date:"H:i:s" }}</strong></article>
+  <article class="metric"><span>{% trans "Estado" %}</span><strong class="status-text">{% trans task.status %}</strong></article>
+  <article class="metric"><span>{% trans "Codigo salida" %}</span><strong>{{ task.returncode|default:"-" }}</strong></article>
+  <article class="metric"><span>{% trans "Inicio" %}</span><strong class="small-strong">{{ task.started_at|default:task.created_at|date:"H:i:s" }}</strong></article>
 </section>
 
 <section class="panel">
-  <h2>Comando</h2>
+  <h2>{% trans "Comando" %}</h2>
   <p><code>{{ task.command_display }}</code></p>
-  <h2>Salida</h2>
-  <pre class="console"><code>{{ task.output_text|default:"Sin salida todavia." }}</code></pre>
+  <h2>{% trans "Salida" %}</h2>
+  <pre class="console"><code>{% if task.output_text %}{{ task.output_text }}{% else %}{% trans "Sin salida todavia." %}{% endif %}</code></pre>
 </section>
 {% endblock %}

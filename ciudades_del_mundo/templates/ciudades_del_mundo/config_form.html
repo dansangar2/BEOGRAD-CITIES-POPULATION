@@ -1,14 +1,15 @@
 {% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
 
-{% block title %}{% if mode == "new" %}Nueva configuracion{% else %}Editar {{ slug }}{% endif %} - Ciudades del Mundo{% endblock %}
+{% block title %}{% if mode == "new" %}{% trans "Nueva configuracion" %}{% else %}{% blocktrans with slug=slug %}Editar {{ slug }}{% endblocktrans %}{% endif %} - {% trans "Ciudades del Mundo" %}{% endblock %}
 
 {% block content %}
 <section class="page-head compact">
   <div>
-    <p class="eyebrow">Scraping y ciudades unificadas</p>
-    <h1>{% if mode == "new" %}Nueva configuracion{% else %}{{ slug }}.toml{% endif %}</h1>
+    <p class="eyebrow">{% trans "Scraping y ciudades unificadas" %}</p>
+    <h1>{% if mode == "new" %}{% trans "Nueva configuracion" %}{% else %}{{ slug }}.toml{% endif %}</h1>
   </div>
-  <a class="button secondary" href="{% url 'ciudades_del_mundo:config_list' %}">Volver</a>
+  <a class="button secondary" href="{% url 'ciudades_del_mundo:config_list' %}">{% trans "Volver" %}</a>
 </section>
 
 <section class="editor-layout">
@@ -25,16 +26,16 @@
       <textarea name="content" spellcheck="false">{{ content }}</textarea>
     </label>
     <div class="actions">
-      <button type="submit">Guardar</button>
+      <button type="submit">{% trans "Guardar" %}</button>
       {% if mode == "edit" %}
-      <a class="button secondary" href="{% url 'ciudades_del_mundo:start_config_task' slug 'validate' %}" onclick="event.preventDefault(); document.getElementById('validate-form').submit();">Validar</a>
+      <a class="button secondary" href="{% url 'ciudades_del_mundo:start_config_task' slug 'validate' %}" onclick="event.preventDefault(); document.getElementById('validate-form').submit();">{% trans "Validar" %}</a>
       {% endif %}
     </div>
   </form>
 
   <aside class="panel help-panel">
-    <h2>Campos clave</h2>
-    <p><code>[[pages]]</code> controla las paginas scrapeadas. <code>[[cities]]</code> define agregaciones o ciudades unificadas.</p>
+    <h2>{% trans "Campos clave" %}</h2>
+    <p>{% blocktrans %}<code>[[pages]]</code> controla las paginas scrapeadas. <code>[[cities]]</code> define agregaciones o ciudades unificadas.{% endblocktrans %}</p>
     <pre><code>[[cities]]
 city = "Ciudad"
 id = "city-code"
@@ -44,7 +45,7 @@ district_types = ["District"]
 from = { 2 = ["Provincia"] }
 keep_communes = false</code></pre>
     {% if active_task and active_task.is_active %}
-    <p class="notice">Hay una tarea activa para este scraping. Si guardas cambios, se cancela y se reemplaza con una tarea nueva.</p>
+    <p class="notice">{% trans "Hay una tarea activa para este scraping. Si guardas cambios, se cancela y se reemplaza con una tarea nueva." %}</p>
     {% endif %}
   </aside>
 </section>

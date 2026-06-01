@@ -7,6 +7,19 @@ Proyecto Django para:
 - construir subdivisiones derivadas o historicas en `NuevoAdminArea`
 - exportar esas jerarquias a CSV y Excel
 
+## Ejecutar en local
+
+Desde la raiz del proyecto:
+
+```powershell
+py manage.py runserver 127.0.0.1:8000
+```
+
+Abre `http://127.0.0.1:8000/` para el panel principal o
+`http://127.0.0.1:8000/countries/` para el navegador de paises. Usa
+`127.0.0.1` para que Django escuche solo en tu propia maquina; no uses
+`0.0.0.0` salvo que quieras exponerlo en tu red local.
+
 ## Estado actual
 
 El sistema de scraping ya no depende de modulos Python por pais. La configuracion activa vive en:
@@ -38,6 +51,9 @@ El proyecto esta organizado por capas:
 - `ciudades_del_mundo/web`
   Interfaz operativa para inspeccionar datos, editar configuraciones, lanzar
   tareas locales y borrar datos.
+- `locale`
+  Catalogos gettext de la interfaz web en espanol, ingles, frances, aleman,
+  ruso, italiano, serbio cirilico, serbio latino y arabe estandar.
 
 ## Modelos principales
 
@@ -181,10 +197,41 @@ una sola tabla principal de rutas raiz-hoja, sin tablas auxiliares a la derecha.
 Arranca el servidor con:
 
 ```powershell
-py manage.py runserver
+py manage.py runserver 127.0.0.1:8000
 ```
 
-La raiz `/` abre el panel operativo. Secciones principales:
+La raiz `/` abre el panel operativo. Sus datos cargan por la API local con
+indicador de carga: `/api/countries/` alimenta las roscas de poblacion y terreno
+por pais y usa solo filas `AdminArea` de nivel 0; `/api/derived/` alimenta el
+resumen de paises derivados. Las rutas antiguas `/dashboard/population/` y
+`/dashboard/derived/` siguen existiendo por compatibilidad.
+Si un `country_code` trae varias filas `AdminArea.level=0`, la rosca las
+agrupa como un unico pais para no mostrar subdivisiones como paises. La rosca
+mantiene los primeros 20 paises y agrupa el resto como `Otros paises`; el
+buscador compartido filtra solo la tabla combinada, no las graficas. La tabla
+combina poblacion y terreno en una sola vista. El mismo pais comparte siempre
+color en ambas roscas; los colores se asignan al conjunto formado por los 10
+paises mas poblados y los 10 mas extensos, y el resto queda neutral. Al hacer clic en un pais
+de la rosca se carga `/api/countries/<country_code>/`, con datos generales,
+tabla filtrable/ordenable por nivel y graficas de primer orden de poblacion y
+terreno. La tabla de datos esta paginada en el navegador, permite elegir filas
+por pagina, indica la columna activa de ordenacion con flechas y al cambiar de
+nivel actualiza solo la tabla. Tambien incluye porcentaje de poblacion y terreno
+respecto al pais. Las secciones de roscas muestran las graficas arriba y las
+listas/leyendas filtrables debajo. Las tarjetas de
+porcentaje por subdivision de primer orden muestran minipizzas con el reparto
+interno de sus subdivisiones directas del siguiente nivel cuando ese nivel no
+alcanza 150 filas en el pais; no se filtran por nombre de tipo de entidad. Los
+datos generales esperan a resolver nombre oficial, idioma oficial, capital,
+bandera y escudo desde Wikidata/Wikimedia cuando hay identificador disponible;
+bandera y escudo abren una vista previa local y desde ahi la ficha de Commons o
+la imagen completa.
+El renderizado frontend esta centralizado en `window.CiudadesCharts` dentro de
+`ciudades_del_mundo/static/ciudades_del_mundo/app.js`; los contenedores
+reutilizables usan el atributo `data-chart-widget`. La base de API para datos
+web esta en `/api/countries/`, `/api/countries/<country_code>/` y
+`/api/derived/`.
+Secciones principales:
 
 - `/configs/`: lista `subdivisions/*.toml`, permite validar, listar URLs y
   lanzar scraping. El editor guarda TOML y valida sintaxis/esquema antes de
@@ -194,11 +241,49 @@ La raiz `/` abre el panel operativo. Secciones principales:
   Python y lanzar `build_new_subdivisions`, CSV o Excel.
 - `/derived/`: muestra paises `NuevoAdminArea` creados y una tabla comparativa
   por pais con porcentajes respecto al pais y al padre.
-- `/stats/`: graficas HTML/CSS de poblacion, numero de areas, niveles y estado
-  de fusion de ciudades.
+- `/countries/`: navegador de paises en tarjetas de 10 columnas, con bandera,
+  terreno y poblacion desde `/api/countries/`; al hacer clic carga la ficha
+  basica del pais desde `/api/countries/<country_code>/`.
+- `/stats/`: redireccion de compatibilidad hacia `/countries/`.
 - `/delete/`: borrado confirmado de datos `AdminArea` por pais fuente o
   `NuevoAdminArea` por pais derivado.
 - `/tasks/`: historial en memoria de tareas lanzadas desde la web.
+- `/map/<origen>/<id>/`: ficha de mapa e identidad visual para un `AdminArea`
+  (`origen=admin`) o `NuevoAdminArea` (`origen=derived`).
+- `/identity/<tipo>/<archivo>/`: ficha interna placeholder para bandera o
+  escudo resuelto desde Wikimedia; queda preparada para detallar heráldica,
+  colores oficiales, fecha de adopcion y fuente normativa.
+
+La interfaz tiene selector de idioma en la barra superior. Los idiomas
+disponibles son:
+
+- Espanol (`es`)
+- Ingles (`en`)
+- Frances (`fr`)
+- Aleman (`de`)
+- Ruso (`ru`)
+- Italiano (`it`)
+- Serbio cirilico (`sr`)
+- Serbio latino (`sr-latn`)
+- Arabe estandar (`ar`)
+
+Los nombres visibles de paises y subdivisiones pasan por los catalogos gettext.
+Para mostrar `Brazil` como `Brasil` en espanol, la traduccion debe existir en
+`locale/es/LC_MESSAGES/django.po` y despues compilarse con
+`py manage.py compile_local_messages`.
+
+La barra superior tambien incluye un selector de estilo. Los estilos se agrupan
+en `Basico` (`Claro`, `Dark`, `Dracula`), `Complejos` (`Retro 80` en violeta,
+verde, azul celeste y rojo, `Arcoiris`, `Papel`) y `Especiales` (`Espana`). Los
+estilos especiales por pais deben usar imagenes de fondo de ciudades o
+monumentos representativos y recuadros basados en los colores de su bandera; si
+se agregan manana estilos como `Francia` o `Marruecos`, deben seguir esa misma
+regla. `Espana` usa fondos de monumentos/ciudades y recuadros rojo-amarillo-rojo.
+La eleccion se guarda en `localStorage` como `ciudades_del_mundo_theme` y se
+aplica en cliente con `html[data-theme]`. El check `Efectos complejos` guarda
+`ciudades_del_mundo_theme_effects` y activa animaciones opcionales en estilos
+complejos o especiales, como movimiento de colores en `Arcoiris` o barridos en
+`Retro 80`.
 
 Las tareas web se gestionan en `ciudades_del_mundo/web/tasks.py`. Cada accion
 lanza un subproceso `manage.py` y guarda estado/salida en memoria del proceso
@@ -207,6 +292,38 @@ guarda una configuracion/receta mientras su tarea equivalente sigue activa, la
 tarea anterior se cancela y se reemplaza. Al reiniciar el servidor se pierde el
 historial de tareas, pero no los cambios ya persistidos en base de datos o
 ficheros.
+
+Las traducciones viven en `locale/<idioma>/LC_MESSAGES/django.po` y se cargan
+desde los `.mo` compilados. Como Windows puede no tener GNU gettext instalado,
+el proyecto incluye un compilador local:
+
+```powershell
+py manage.py compile_local_messages
+py manage.py compile_local_messages es en fr de ru it sr sr_Latn ar
+```
+
+Cuando cambies texto visible de la web, marca el texto con `{% trans %}` /
+`{% blocktrans %}` en plantillas o `gettext` en Python, actualiza los `.po` y
+vuelve a ejecutar `compile_local_messages`.
+
+Los listados grandes de `/areas/` y `/derived/<id>/` cargan sus tablas de forma
+asincrona desde endpoints parciales (`/areas/table/` y
+`/derived/<id>/table/`). Los filtros avanzados usan Select2 cuando los assets de
+CDN estan disponibles; si no cargan, los selects nativos siguen funcionando.
+
+La ficha de mapa usa Leaflet con teselas de OpenStreetMap y geocodificacion
+client-side por nombre mediante Nominatim, ya que la base de datos no guarda
+geometria ni coordenadas. La bandera, escudo y mapa localizador se intentan
+resolver en el navegador desde Wikidata/Wikimedia Commons; tambien se consultan
+etiquetas traducidas, pais, region superior y capitales de Wikidata. La pagina
+muestra ademas las capitales y la ciudad mayor registradas en la base local
+cuando existen.
+
+Para reducir errores `database is locked` durante tareas de poblacion, SQLite
+se abre con timeout de 30s y PRAGMAs `busy_timeout`, `journal_mode=WAL` y
+`synchronous=NORMAL`. Si aun asi una vista encuentra la base bloqueada, el
+middleware web devuelve una respuesta 503 controlada en vez de romper la
+aplicacion.
 
 ## Estructura del repositorio
 
@@ -250,7 +367,7 @@ py -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 py manage.py migrate
-py manage.py runserver
+py manage.py runserver 127.0.0.1:8000
 ```
 
 Si no existe `requirements.txt`, instala al menos:

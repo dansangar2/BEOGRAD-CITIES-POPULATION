@@ -1,14 +1,15 @@
 {% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
 
-{% block title %}Nueva receta - Ciudades del Mundo{% endblock %}
+{% block title %}{% trans "Nueva receta - Ciudades del Mundo" %}{% endblock %}
 
 {% block content %}
 <section class="page-head compact">
   <div>
-    <p class="eyebrow">Crear NuevoAdminArea</p>
-    <h1>Nueva receta</h1>
+    <p class="eyebrow">{% trans "Crear NuevoAdminArea" %}</p>
+    <h1>{% trans "Nueva receta" %}</h1>
   </div>
-  <a class="button secondary" href="{% url 'ciudades_del_mundo:recipe_list' %}">Volver</a>
+  <a class="button secondary" href="{% url 'ciudades_del_mundo:recipe_list' %}">{% trans "Volver" %}</a>
 </section>
 
 <form class="panel form-grid" method="post">
@@ -18,35 +19,35 @@
     <input name="slug" value="{{ form.slug }}" placeholder="nuevo_pais">
   </label>
   <label>
-    Nombre raiz
+    {% trans "Nombre raiz" %}
     <input name="root_name" value="{{ form.root_name }}" placeholder="Nuevo Pais">
   </label>
   <label>
-    Pais fuente por defecto
+    {% trans "Pais fuente por defecto" %}
     <input name="source_country" value="{{ form.source_country }}" placeholder="spain">
   </label>
   <label>
-    Nivel municipal fuente
+    {% trans "Nivel municipal fuente" %}
     <input name="municipal_level" value="{{ form.municipal_level }}" placeholder="3">
   </label>
   <label>
-    Nivel de representacion
+    {% trans "Nivel de representacion" %}
     <input name="representation_level" value="{{ form.representation_level }}" placeholder="2">
   </label>
   <label>
-    Total de escanos
+    {% trans "Total de escanos" %}
     <input name="representation_total" value="{{ form.representation_total }}" placeholder="350">
   </label>
   <label>
-    Minimo por area
+    {% trans "Minimo por area" %}
     <input name="representation_min" value="{{ form.representation_min }}" placeholder="1">
   </label>
   <label class="wide">
-    DIVISIONS en JSON
+    {% trans "DIVISIONS en JSON" %}
     <textarea name="divisions_json" spellcheck="false">{{ form.divisions_json }}</textarea>
   </label>
   <div class="actions wide">
-    <button type="submit">Crear receta</button>
+    <button type="submit">{% trans "Crear receta" %}</button>
   </div>
 </form>
 {% endblock %}

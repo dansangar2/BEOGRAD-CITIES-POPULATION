@@ -12,6 +12,8 @@ import threading
 import uuid
 
 from django.conf import settings
+from django.db import close_old_connections
+from django.utils.translation import gettext as _
 
 
 TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
@@ -81,7 +83,7 @@ class TaskManager:
             if not task or not task.is_active:
                 return task
             task.cancel_requested = True
-            task.output.append("\n[CANCEL] Cancelacion solicitada desde la interfaz.\n")
+            task.output.append(_("\n[CANCEL] Cancelacion solicitada desde la interfaz.\n"))
             process = task._process
 
         if process and process.poll() is None:
@@ -118,6 +120,7 @@ class TaskManager:
 
         manage_py = Path(settings.BASE_DIR) / "manage.py"
         command = [sys.executable, str(manage_py), *task.args]
+        close_old_connections()
 
         try:
             process = subprocess.Popen(
@@ -134,7 +137,7 @@ class TaskManager:
             with self._lock:
                 task.status = "failed"
                 task.finished_at = datetime.now()
-                task.output.append(f"[ERROR] No se pudo iniciar la tarea: {exc}\n")
+                task.output.append(_("[ERROR] No se pudo iniciar la tarea: %(error)s\n") % {"error": exc})
             return
 
         with self._lock:
@@ -146,6 +149,7 @@ class TaskManager:
                 task.output.append(line)
 
         returncode = process.wait()
+        close_old_connections()
         with self._lock:
             task.returncode = returncode
             task.finished_at = datetime.now()

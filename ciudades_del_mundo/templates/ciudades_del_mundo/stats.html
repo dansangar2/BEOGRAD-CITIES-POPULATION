@@ -1,39 +1,56 @@
 {% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
 
-{% block title %}Graficas - Ciudades del Mundo{% endblock %}
+{% block title %}{% trans "Paises - Ciudades del Mundo" %}{% endblock %}
 
 {% block content %}
 <section class="page-head compact">
   <div>
-    <p class="eyebrow">Estadisticas</p>
-    <h1>Graficas de datos</h1>
+    <p class="eyebrow">{% trans "Estadisticas" %}</p>
+    <h1>{% trans "Paises" %}</h1>
   </div>
 </section>
 
-<section class="layout-2">
-  <div class="panel">
-    <h2>Paises por poblacion fuente</h2>
-    {% include "ciudades_del_mundo/partials/bar_chart.html" with rows=country_population_bars empty="Sin datos." %}
-  </div>
-  <div class="panel">
-    <h2>Paises por numero de areas</h2>
-    {% include "ciudades_del_mundo/partials/bar_chart.html" with rows=country_area_bars empty="Sin datos." %}
+<section class="panel">
+  <div
+    class="stats-country-browser"
+    data-stats-countries
+    data-url="{{ stats_countries_url }}"
+    data-loading="{% trans 'Cargando datos...' %}"
+    data-error="{% trans 'No se pudieron cargar los paises.' %}"
+    data-empty="{% trans 'Sin datos.' %}"
+    data-population-label="{% trans 'Poblacion' %}"
+    data-area-label="{% trans 'Terreno' %}"
+    data-general-title="{% trans 'Datos generales del pais' %}"
+    data-name-label="{% trans 'Nombre' %}"
+    data-official-name-label="{% trans 'Nombre oficial' %}"
+    data-official-language-label="{% trans 'Idioma oficial' %}"
+    data-capital-label="{% trans 'Capital' %}"
+    data-density-label="{% trans 'Densidad' %}"
+    data-subdivision-count-label="{% trans 'Numero de subdivisiones' %}"
+    data-flag-label="{% trans 'Bandera' %}"
+    data-coat-label="{% trans 'Escudo' %}"
+  >
+    <div class="table-loading"><span class="loading-spinner" aria-hidden="true"></span>{% trans "Cargando datos..." %}</div>
   </div>
 </section>
 
-<section class="layout-2">
-  <div class="panel">
-    <h2>AdminArea por nivel</h2>
-    {% include "ciudades_del_mundo/partials/bar_chart.html" with rows=admin_level_bars empty="Sin datos." %}
-  </div>
-  <div class="panel">
-    <h2>NuevoAdminArea por nivel</h2>
-    {% include "ciudades_del_mundo/partials/bar_chart.html" with rows=nuevo_level_bars empty="Sin datos." %}
-  </div>
-</section>
-
-<section class="panel spaced">
-  <h2>Estado de fusion de ciudades</h2>
-  {% include "ciudades_del_mundo/partials/bar_chart.html" with rows=merge_status_bars empty="Sin datos." %}
-</section>
+<section
+  class="stats-country-detail"
+  data-stats-country-detail
+  data-loading="{% trans 'Cargando pais...' %}"
+  data-error="{% trans 'No se pudo cargar el pais.' %}"
+  data-general-title="{% trans 'Datos generales del pais' %}"
+  data-name-label="{% trans 'Nombre' %}"
+  data-official-name-label="{% trans 'Nombre oficial' %}"
+  data-official-language-label="{% trans 'Idioma oficial' %}"
+  data-capital-label="{% trans 'Capital' %}"
+  data-population-label="{% trans 'Poblacion' %}"
+  data-area-label="{% trans 'Terreno' %}"
+  data-density-label="{% trans 'Densidad' %}"
+  data-subdivision-count-label="{% trans 'Numero de subdivisiones' %}"
+  data-flag-label="{% trans 'Bandera' %}"
+  data-coat-label="{% trans 'Escudo' %}"
+  hidden
+></section>
 {% endblock %}

@@ -1,71 +1,144 @@
 {% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
 
-{% block title %}Panel - Ciudades del Mundo{% endblock %}
+{% block title %}{% trans "Panel - Ciudades del Mundo" %}{% endblock %}
 
 {% block content %}
 <section class="page-head compact">
   <div>
-    <p class="eyebrow">Gestion local de datos</p>
-    <h1>Panel operativo</h1>
+    <p class="eyebrow">{% trans "Gestion local de datos" %}</p>
+    <h1>{% trans "Panel operativo" %}</h1>
   </div>
   <div class="actions">
-    <a class="button secondary" href="{% url 'ciudades_del_mundo:config_list' %}">Popular datos</a>
-    <a class="button secondary" href="{% url 'ciudades_del_mundo:recipe_new' %}">Nueva receta</a>
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:config_list' %}">{% trans "Popular datos" %}</a>
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:recipe_new' %}">{% trans "Nueva receta" %}</a>
   </div>
 </section>
 
-<section class="metrics">
-  <article class="metric"><span>AdminArea fuente</span><strong>{{ admin_area_count }}</strong></article>
-  <article class="metric"><span>NuevoAdminArea</span><strong>{{ nuevo_area_count }}</strong></article>
-  <article class="metric"><span>Areas con escanos</span><strong>{{ seat_count }}</strong></article>
-</section>
-
-<section class="layout-2">
-  <div class="panel">
-    <div class="section-title">
-      <h2>Poblacion importada</h2>
-      <a href="{% url 'ciudades_del_mundo:stats' %}">Ver graficas</a>
-    </div>
-    {% include "ciudades_del_mundo/partials/bar_chart.html" with rows=top_country_bars empty="Sin datos importados." %}
-  </div>
-
-  <div class="panel">
-    <div class="section-title">
-      <h2>Subdivisiones derivadas</h2>
-      <a href="{% url 'ciudades_del_mundo:nuevo_area_list' %}">Comparar</a>
-    </div>
-    {% include "ciudades_del_mundo/partials/bar_chart.html" with rows=derived_bars empty="Sin subdivisiones creadas." %}
-  </div>
+<section class="metrics dashboard-metrics">
+  <article class="metric">
+    <span>{% trans "Paises y subdivisiones" %}</span>
+    <strong>{{ admin_country_count }} <small>{% trans "Paises" %}</small></strong>
+    <span class="metric-detail">{{ admin_area_count }} {% trans "Subdivisiones" %}</span>
+  </article>
+  <article class="metric">
+    <span>{% trans "Nuevos paises" %}</span>
+    <strong>{{ nuevo_country_count }} <small>{% trans "Paises" %}</small></strong>
+    <span class="metric-detail">{{ nuevo_area_count }} {% trans "Subdivisiones" %}</span>
+  </article>
 </section>
 
 <section class="layout-2">
   <div class="panel">
     <div class="section-title">
-      <h2>Configuraciones recientes</h2>
-      <a href="{% url 'ciudades_del_mundo:config_list' %}">Todas</a>
+      <h2>{% trans "Poblacion y terreno por país" %}</h2>
+      <a href="{% url 'ciudades_del_mundo:countries' %}">{% trans "Ver datos" %}</a>
+    </div>
+    <div
+      class="population-pie-widget"
+      data-chart-widget
+      data-chart-type="donut"
+      data-dashboard-population
+      data-url="{{ dashboard_population_url }}"
+      data-loading="{% trans 'Cargando datos...' %}"
+      data-error="{% trans 'No se pudo cargar la poblacion.' %}"
+      data-empty="{% trans 'Sin datos importados.' %}"
+      data-other-label="{% trans 'Otros paises' %}"
+      data-max-segments="20"
+      data-search-label="{% trans 'Buscar pais' %}"
+      data-search-placeholder="{% trans 'Buscar por nombre' %}"
+      data-center-label="{% trans 'Total' %}"
+      data-population-label="{% trans 'Poblacion' %}"
+      data-area-label="{% trans 'Terreno' %}"
+      data-country-label="{% trans 'Pais' %}"
+      data-country-detail-base-url="{{ dashboard_country_detail_base_url }}"
+      data-clickable="true"
+    >
+      <div class="table-loading"><span class="loading-spinner" aria-hidden="true"></span>{% trans "Cargando datos..." %}</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="section-title">
+      <h2>{% trans "Subdivisiones derivadas" %}</h2>
+      <a href="{% url 'ciudades_del_mundo:nuevo_area_list' %}">{% trans "Comparar" %}</a>
+    </div>
+    <div
+      class="chart-widget"
+      data-chart-widget
+      data-chart-type="bar"
+      data-url="{{ dashboard_derived_url }}"
+      data-loading="{% trans 'Cargando datos...' %}"
+      data-error="{% trans 'No se pudo cargar la grafica.' %}"
+      data-empty="{% trans 'Sin subdivisiones creadas.' %}"
+    >
+      <div class="table-loading"><span class="loading-spinner" aria-hidden="true"></span>{% trans "Cargando datos..." %}</div>
+    </div>
+  </div>
+</section>
+
+<section
+  id="dashboard-country-detail"
+  class="country-detail-section"
+  data-country-detail
+  data-loading="{% trans 'Cargando pais...' %}"
+  data-error="{% trans 'No se pudo cargar el pais.' %}"
+  data-general-title="{% trans 'Datos generales del pais' %}"
+  data-table-title="{% trans 'Tabla de datos' %}"
+  data-chart-title="{% trans 'Subdivisiones de primer orden' %}"
+  data-cards-title="{% trans 'Porcentaje por subdivision de primer orden' %}"
+  data-level-label="{% trans 'Nivel' %}"
+  data-filter-label="{% trans 'Filtrar' %}"
+  data-filter-placeholder="{% trans 'Filtrar por nombre o padre' %}"
+  data-page-size-label="{% trans 'Filas por pagina' %}"
+  data-population-label="{% trans 'Poblacion' %}"
+  data-area-label="{% trans 'Terreno' %}"
+  data-density-label="{% trans 'Densidad' %}"
+  data-parent-label="{% trans 'Padre' %}"
+  data-name-label="{% trans 'Nombre' %}"
+  data-color-label="{% trans 'Color' %}"
+  data-entity-type-label="{% trans 'Tipo' %}"
+  data-official-name-label="{% trans 'Nombre oficial' %}"
+  data-official-language-label="{% trans 'Idioma oficial' %}"
+  data-capital-label="{% trans 'Capital' %}"
+  data-subdivision-count-label="{% trans 'Numero de subdivisiones' %}"
+  data-flag-label="{% trans 'Bandera' %}"
+  data-coat-label="{% trans 'Escudo' %}"
+  data-previous-label="{% trans 'Anterior' %}"
+  data-next-label="{% trans 'Siguiente' %}"
+  data-sorted-by-label="{% trans 'Ordenado por' %}"
+  data-no-data="{% trans 'Sin datos.' %}"
+  hidden
+></section>
+
+<section class="layout-2">
+  <div class="panel">
+    <div class="section-title">
+      <h2>{% trans "Configuraciones recientes" %}</h2>
+      <a href="{% url 'ciudades_del_mundo:config_list' %}">{% trans "Todas" %}</a>
     </div>
     <div class="stack">
       {% for config in configs %}
       <article class="row-card">
         <div>
           <strong>{{ config.name|default:config.slug }}</strong>
-          <span>{{ config.country_code }} - {{ config.pages }} paginas - {{ config.cities }} ciudades unificadas</span>
+          <span>{% blocktrans with country_code=config.country_code pages=config.pages cities=config.cities %}{{ country_code }} - {{ pages }} paginas - {{ cities }} ciudades unificadas{% endblocktrans %}</span>
         </div>
         <form method="post" action="{% url 'ciudades_del_mundo:start_config_task' config.slug 'scrape' %}">
           {% csrf_token %}
-          <button type="submit">Popular</button>
+          <button type="submit">{% trans "Popular" %}</button>
         </form>
       </article>
       {% empty %}
-      <p class="empty">No hay configuraciones TOML.</p>
+      <p class="empty">{% trans "No hay configuraciones TOML." %}</p>
       {% endfor %}
     </div>
   </div>
 
   <div class="panel">
     <div class="section-title">
-      <h2>Tareas recientes</h2>
-      <a href="{% url 'ciudades_del_mundo:task_list' %}">Historial</a>
+      <h2>{% trans "Tareas recientes" %}</h2>
+      <a href="{% url 'ciudades_del_mundo:task_list' %}">{% trans "Historial" %}</a>
     </div>
     {% include "ciudades_del_mundo/partials/task_table.html" with tasks=recent_tasks compact=True %}
   </div>

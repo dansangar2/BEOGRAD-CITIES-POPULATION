@@ -1,12 +1,13 @@
 {% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
 
-{% block title %}Borrar datos - Ciudades del Mundo{% endblock %}
+{% block title %}{% trans "Borrar datos - Ciudades del Mundo" %}{% endblock %}
 
 {% block content %}
 <section class="page-head compact">
   <div>
-    <p class="eyebrow">Operacion destructiva</p>
-    <h1>Borrar datos</h1>
+    <p class="eyebrow">{% trans "Operacion destructiva" %}</p>
+    <h1>{% trans "Borrar datos" %}</h1>
   </div>
 </section>
 
@@ -14,35 +15,35 @@
   <form class="panel form-panel" method="post">
     {% csrf_token %}
     <input type="hidden" name="kind" value="admin-country">
-    <h2>AdminArea fuente</h2>
+    <h2>{% trans "AdminArea fuente" %}</h2>
     <label>
-      Pais importado
+      {% trans "Pais importado" %}
       <select name="target">
-        <option value="">Selecciona pais</option>
+        <option value="">{% trans "Selecciona pais" %}</option>
         {% for country in admin_countries %}
-        <option value="{{ country }}">{{ country }}</option>
+        <option value="{{ country.code }}">{{ country.label }} ({{ country.code }})</option>
         {% endfor %}
       </select>
     </label>
-    <label class="check-row"><input type="checkbox" name="confirm"> Confirmo el borrado</label>
-    <button type="submit" class="danger">Borrar AdminArea</button>
+    <label class="check-row"><input type="checkbox" name="confirm"> {% trans "Confirmo el borrado" %}</label>
+    <button type="submit" class="danger">{% trans "Borrar AdminArea" %}</button>
   </form>
 
   <form class="panel form-panel" method="post">
     {% csrf_token %}
     <input type="hidden" name="kind" value="nuevo-country">
-    <h2>NuevoAdminArea derivado</h2>
+    <h2>{% trans "NuevoAdminArea derivado" %}</h2>
     <label>
-      Pais derivado
+      {% trans "Pais derivado" %}
       <select name="target">
-        <option value="">Selecciona pais</option>
+        <option value="">{% trans "Selecciona pais" %}</option>
         {% for country in nuevo_countries %}
-        <option value="{{ country }}">{{ country }}</option>
+        <option value="{{ country.code }}">{{ country.label }} ({{ country.code }})</option>
         {% endfor %}
       </select>
     </label>
-    <label class="check-row"><input type="checkbox" name="confirm"> Confirmo el borrado</label>
-    <button type="submit" class="danger">Borrar NuevoAdminArea</button>
+    <label class="check-row"><input type="checkbox" name="confirm"> {% trans "Confirmo el borrado" %}</label>
+    <button type="submit" class="danger">{% trans "Borrar NuevoAdminArea" %}</button>
   </form>
 </section>
 {% endblock %}

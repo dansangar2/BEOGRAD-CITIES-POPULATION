@@ -1,0 +1,522 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: BEOGRAD-CITIES-POPULATION\n"
+"Language: es\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Ciudades del Mundo"
+msgstr "Ciudades del Mundo"
+
+msgid "Panel"
+msgstr "Panel"
+
+msgid "Scraping"
+msgstr "Scraping"
+
+msgid "Recetas"
+msgstr "Recetas"
+
+msgid "Subdivisiones"
+msgstr "Subdivisiones"
+
+msgid "Datos fuente"
+msgstr "Datos fuente"
+
+msgid "Graficas"
+msgstr "Graficas"
+
+msgid "Tareas"
+msgstr "Tareas"
+
+msgid "Borrar"
+msgstr "Borrar"
+
+msgid "Idioma"
+msgstr "Idioma"
+
+msgid "Gestion local de datos"
+msgstr "Gestion local de datos"
+
+msgid "Panel operativo"
+msgstr "Panel operativo"
+
+msgid "Popular datos"
+msgstr "Popular datos"
+
+msgid "Nueva receta"
+msgstr "Nueva receta"
+
+msgid "Poblacion importada"
+msgstr "Poblacion importada"
+
+msgid "Poblacion por pais"
+msgstr "Poblacion por pais"
+
+msgid "Cargando datos..."
+msgstr "Cargando datos..."
+
+msgid "No se pudo cargar la poblacion."
+msgstr "No se pudo cargar la poblacion."
+
+msgid "Sin datos importados."
+msgstr "Sin datos importados."
+
+msgid "Otros paises"
+msgstr "Otros paises"
+
+msgid "Ver graficas"
+msgstr "Ver graficas"
+
+msgid "Subdivisiones derivadas"
+msgstr "Subdivisiones derivadas"
+
+msgid "Comparar"
+msgstr "Comparar"
+
+msgid "Configuraciones TOML"
+msgstr "Configuraciones TOML"
+
+msgid "Nueva configuracion"
+msgstr "Nueva configuracion"
+
+msgid "Pais"
+msgstr "Pais"
+
+msgid "Paginas"
+msgstr "Paginas"
+
+msgid "Tarea"
+msgstr "Tarea"
+
+msgid "Acciones"
+msgstr "Acciones"
+
+msgid "Validar"
+msgstr "Validar"
+
+msgid "Popular"
+msgstr "Popular"
+
+msgid "Volver"
+msgstr "Volver"
+
+msgid "Guardar"
+msgstr "Guardar"
+
+msgid "Recetas derivadas"
+msgstr "Recetas derivadas"
+
+msgid "Crear"
+msgstr "Crear"
+
+msgid "Subdivisiones creadas"
+msgstr "Subdivisiones creadas"
+
+msgid "Buscar por nombre"
+msgstr "Buscar por nombre"
+
+msgid "Todos los niveles"
+msgstr "Todos los niveles"
+
+msgid "Filtrar"
+msgstr "Filtrar"
+
+msgid "Graficas de datos"
+msgstr "Graficas de datos"
+
+msgid "Borrar datos"
+msgstr "Borrar datos"
+
+msgid "Cancelar"
+msgstr "Cancelar"
+
+msgid "Abrir"
+msgstr "Abrir"
+
+msgid "queued"
+msgstr "queued"
+
+msgid "running"
+msgstr "running"
+
+msgid "succeeded"
+msgstr "succeeded"
+
+msgid "failed"
+msgstr "failed"
+
+msgid "cancelled"
+msgstr "cancelled"
+
+msgid "Base de datos ocupada"
+msgstr "Base de datos ocupada"
+
+msgid "Operacion en curso"
+msgstr "Operacion en curso"
+
+msgid "Reintentar"
+msgstr "Reintentar"
+
+msgid "La base de datos esta ocupada por una tarea de escritura. Espera unos segundos y vuelve a intentarlo."
+msgstr "La base de datos esta ocupada por una tarea de escritura. Espera unos segundos y vuelve a intentarlo."
+
+msgid "Buscar"
+msgstr "Buscar"
+
+msgid "Paises"
+msgstr "Paises"
+
+msgid "Niveles"
+msgstr "Niveles"
+
+msgid "Todos los tipos"
+msgstr "Todos los tipos"
+
+msgid "Cualquier fusion"
+msgstr "Cualquier fusion"
+
+msgid "Nombre del padre"
+msgstr "Nombre del padre"
+
+msgid "Poblacion minima"
+msgstr "Poblacion minima"
+
+msgid "Poblacion maxima"
+msgstr "Poblacion maxima"
+
+msgid "Area minima"
+msgstr "Area minima"
+
+msgid "Area maxima"
+msgstr "Area maxima"
+
+msgid "Orden"
+msgstr "Orden"
+
+msgid "Limpiar"
+msgstr "Limpiar"
+
+msgid "Cargando tabla..."
+msgstr "Cargando tabla..."
+
+msgid "La tabla no se pudo cargar. Reintenta en unos segundos."
+msgstr "La tabla no se pudo cargar. Reintenta en unos segundos."
+
+msgid "%(count)s areas encontradas"
+msgstr "%(count)s areas encontradas"
+
+msgid "Mapa"
+msgstr "Mapa"
+
+msgid "Ver"
+msgstr "Ver"
+
+msgid "Mapa e identidad visual"
+msgstr "Mapa e identidad visual"
+
+msgid "Abrir en OpenStreetMap"
+msgstr "Abrir en OpenStreetMap"
+
+msgid "El mapa usa busqueda por nombre porque la base de datos no guarda geometria ni coordenadas propias."
+msgstr "El mapa usa busqueda por nombre porque la base de datos no guarda geometria ni coordenadas propias."
+
+msgid "Datos"
+msgstr "Datos"
+
+msgid "Bandera, escudo y mapa localizador"
+msgstr "Bandera, escudo y mapa localizador"
+
+msgid "Buscando imagenes en Wikidata..."
+msgstr "Buscando imagenes en Wikidata..."
+
+msgid "Bandera"
+msgstr "Bandera"
+
+msgid "Escudo"
+msgstr "Escudo"
+
+msgid "Mapa localizador"
+msgstr "Mapa localizador"
+
+msgid "Buscar bandera"
+msgstr "Buscar bandera"
+
+msgid "Buscar escudo"
+msgstr "Buscar escudo"
+
+msgid "Cualquier estado"
+msgstr "Cualquier estado"
+
+msgid "Cualquier padre"
+msgstr "Cualquier padre"
+
+msgid "Cualquiera"
+msgstr "Cualquiera"
+
+msgid "Con escanos"
+msgstr "Con escanos"
+
+msgid "Sin escanos"
+msgstr "Sin escanos"
+
+msgid "No se encontraron imagenes automaticas. Usa las busquedas externas."
+msgstr "No se encontraron imagenes automaticas. Usa las busquedas externas."
+
+msgid "No se encontraron traducciones o capitales automaticas en Wikidata."
+msgstr "No se encontraron traducciones o capitales automaticas en Wikidata."
+
+msgid "Pais en Wikidata"
+msgstr "Pais en Wikidata"
+
+msgid "Capitales en Wikidata"
+msgstr "Capitales en Wikidata"
+
+msgid "Region superior en Wikidata"
+msgstr "Region superior en Wikidata"
+
+msgid "Ficha Wikidata"
+msgstr "Ficha Wikidata"
+
+msgid "Traducciones y capitales"
+msgstr "Traducciones y capitales"
+
+msgid "Buscando nombres traducidos, paises y capitales..."
+msgstr "Buscando nombres traducidos, paises y capitales..."
+
+msgid "Nombre del area"
+msgstr "Nombre del area"
+
+msgid "Pais y capitales"
+msgstr "Pais y capitales"
+
+msgid "Ciudades importantes"
+msgstr "Ciudades importantes"
+
+msgid "Region padre"
+msgstr "Region padre"
+
+msgid "Capital registrada"
+msgstr "Capital registrada"
+
+msgid "Ciudad mayor registrada"
+msgstr "Ciudad mayor registrada"
+
+msgid "Total"
+msgstr "Total"
+
+msgid "No se pudo cargar la grafica."
+msgstr "No se pudo cargar la grafica."
+
+msgid "Sin subdivisiones creadas."
+msgstr "Sin subdivisiones creadas."
+
+msgid "Sin datos."
+msgstr "Sin datos."
+
+msgid "Brazil"
+msgstr "Brasil"
+
+msgid "USA"
+msgstr "Estados Unidos"
+
+msgid "United States"
+msgstr "Estados Unidos"
+
+msgid "UK"
+msgstr "Reino Unido"
+
+msgid "United Kingdom"
+msgstr "Reino Unido"
+
+msgid "Paises y subdivisiones"
+msgstr "Paises y subdivisiones"
+
+msgid "Nuevos paises"
+msgstr "Nuevos paises"
+
+msgid "Cargando pais..."
+msgstr "Cargando pais..."
+
+msgid "No se pudo cargar el pais."
+msgstr "No se pudo cargar el pais."
+
+msgid "Datos generales del pais"
+msgstr "Datos generales del pais"
+
+msgid "Tabla de datos"
+msgstr "Tabla de datos"
+
+msgid "Subdivisiones de primer orden"
+msgstr "Subdivisiones de primer orden"
+
+msgid "Porcentaje por subdivision de primer orden"
+msgstr "Porcentaje por subdivision de primer orden"
+
+msgid "Nivel"
+msgstr "Nivel"
+
+msgid "Filtrar por nombre o padre"
+msgstr "Filtrar por nombre o padre"
+
+msgid "Terreno"
+msgstr "Terreno"
+
+msgid "Densidad"
+msgstr "Densidad"
+
+msgid "Padre"
+msgstr "Padre"
+
+msgid "Nombre oficial"
+msgstr "Nombre oficial"
+
+msgid "Capital"
+msgstr "Capital"
+
+msgid "Numero de subdivisiones"
+msgstr "Numero de subdivisiones"
+
+msgid "Tipos de subdivisiones"
+msgstr "Tipos de subdivisiones"
+
+msgid "Bandera"
+msgstr "Bandera"
+
+msgid "Escudo"
+msgstr "Escudo"
+
+msgid "Sin tipo"
+msgstr "Sin tipo"
+
+msgid "Nivel %(level)s"
+msgstr "Nivel %(level)s"
+
+msgid "No existe el pais '%(country_code)s'."
+msgstr "No existe el pais '%(country_code)s'."
+
+msgid "Anterior"
+msgstr "Anterior"
+
+msgid "Siguiente"
+msgstr "Siguiente"
+
+msgid "Ordenado por"
+msgstr "Ordenado por"
+
+msgid "Buscar pais"
+msgstr "Buscar pais"
+
+msgid "Filas por pagina"
+msgstr "Filas por pagina"
+
+msgid "Estilo"
+msgstr "Estilo"
+
+msgid "Claro"
+msgstr "Claro"
+
+msgid "Dark"
+msgstr "Oscuro"
+
+msgid "Retro 80"
+msgstr "Retro 80"
+
+msgid "Ver datos"
+msgstr "Ver datos"
+
+msgid "Color"
+msgstr "Color"
+
+msgid "Idioma oficial"
+msgstr "Idioma oficial"
+
+msgid "Estilos basicos"
+msgstr "Estilos basicos"
+
+msgid "Estilos avanzados"
+msgstr "Estilos avanzados"
+
+msgid "Retro 80 violeta"
+msgstr "Retro 80 violeta"
+
+msgid "Retro 80 verde"
+msgstr "Retro 80 verde"
+
+msgid "Retro 80 azul celeste"
+msgstr "Retro 80 azul celeste"
+
+msgid "Retro 80 rojo"
+msgstr "Retro 80 rojo"
+
+msgid "España"
+msgstr "España"
+
+msgid "Italy"
+msgstr "Italia"
+
+msgid "Lazio"
+msgstr "Lacio"
+
+msgid "Lombardy"
+msgstr "Lombardía"
+
+msgid "Rome"
+msgstr "Roma"
+
+msgid "Milan"
+msgstr "Milán"
+
+msgid "Poblacion y terreno por país"
+msgstr "Poblacion y terreno por país"
+
+msgid "Basico"
+msgstr "Basico"
+
+msgid "Complejos"
+msgstr "Complejos"
+
+msgid "Especiales"
+msgstr "Especiales"
+
+msgid "Dracula"
+msgstr "Dracula"
+
+msgid "Arcoiris"
+msgstr "Arcoiris"
+
+msgid "Papel"
+msgstr "Papel"
+
+msgid "Paises - Ciudades del Mundo"
+msgstr "Paises - Ciudades del Mundo"
+
+msgid "No se pudieron cargar los paises."
+msgstr "No se pudieron cargar los paises."
+
+msgid "Efectos complejos"
+msgstr "Efectos complejos"
+
+msgid "Ficha heraldica"
+msgstr "Ficha heraldica"
+
+msgid "Identidad visual"
+msgstr "Identidad visual"
+
+msgid "Ver en Commons"
+msgstr "Ver en Commons"
+
+msgid "Detalles heraldicos"
+msgstr "Detalles heraldicos"
+
+msgid "Archivo"
+msgstr "Archivo"
+
+msgid "Descripcion"
+msgstr "Descripcion"
+
+msgid "Ficha descriptiva pendiente. Este espacio queda reservado para blason, significado, colores oficiales, fecha de adopcion y fuente normativa."
+msgstr "Ficha descriptiva pendiente. Este espacio queda reservado para blason, significado, colores oficiales, fecha de adopcion y fuente normativa."
+
+msgid "Fuente visual"
+msgstr "Fuente visual"

@@ -1,0 +1,102 @@
+{% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
+
+{% block title %}{{ area.name }} - {% trans "Mapa" %}{% endblock %}
+
+{% block content %}
+<section class="page-head compact">
+  <div>
+    <p class="eyebrow">{% trans "Mapa e identidad visual" %}</p>
+    <h1>{{ area.name }}</h1>
+  </div>
+  <div class="actions">
+    {% if source == "admin" %}
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:admin_area_list' %}">{% trans "Datos fuente" %}</a>
+    {% else %}
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:nuevo_area_detail' area.country_code %}">{% trans "Subdivisiones" %}</a>
+    {% endif %}
+  </div>
+</section>
+
+<section class="map-layout">
+  <div class="panel">
+    <div class="section-title">
+      <h2>{% trans "Mapa" %}</h2>
+      <a target="_blank" rel="noopener" href="https://www.openstreetmap.org/search?query={{ map_query|urlencode }}">{% trans "Abrir en OpenStreetMap" %}</a>
+    </div>
+    <div class="area-map" data-area-map data-query="{{ map_query }}"></div>
+    <p class="muted">{% blocktrans %}El mapa usa busqueda por nombre porque la base de datos no guarda geometria ni coordenadas propias.{% endblocktrans %}</p>
+  </div>
+
+  <aside class="panel">
+    <h2>{% trans "Datos" %}</h2>
+    <dl class="detail-list">
+      <dt>ID</dt><dd><code>{{ area.id }}</code></dd>
+      <dt>{% trans "Codigo" %}</dt><dd>{{ area.code }}</dd>
+      <dt>{% trans "Pais" %}</dt><dd>{{ country_display_name }}</dd>
+      <dt>{% trans "Nivel" %}</dt><dd>L{{ area.level }}</dd>
+      <dt>{% trans "Tipo" %}</dt><dd>{{ area.entity_type|default:"-" }}</dd>
+      <dt>{% trans "Padre" %}</dt><dd>{{ area.parent.name|default:"-" }}</dd>
+      <dt>{% trans "Poblacion" %}</dt><dd>{{ area.pop_latest|default:"-" }}</dd>
+      <dt>{% trans "Area" %}</dt><dd>{{ area.area_km2|default:"-" }}</dd>
+      <dt>{% trans "Capitales" %}</dt><dd>{{ capital_names|default:"-" }}</dd>
+      <dt>{% trans "Ciudad mayor" %}</dt><dd>{{ area.most_populate_city.name|default:"-" }}</dd>
+    </dl>
+  </aside>
+</section>
+
+<section
+  class="panel spaced"
+  data-visual-identity
+  data-query="{{ wikidata_query }}"
+  data-related-places="{{ related_places_json }}"
+  data-no-images-message="{% trans 'No se encontraron imagenes automaticas. Usa las busquedas externas.' %}"
+  data-no-wikidata-message="{% trans 'No se encontraron traducciones o capitales automaticas en Wikidata.' %}"
+  data-country-label="{% trans 'Pais en Wikidata' %}"
+  data-capital-label="{% trans 'Capitales en Wikidata' %}"
+  data-location-label="{% trans 'Region superior en Wikidata' %}"
+  data-source-label="{% trans 'Ficha Wikidata' %}"
+>
+  <div class="section-title">
+    <h2>{% trans "Bandera, escudo y mapa localizador" %}</h2>
+    <span class="muted" data-visual-status>{% trans "Buscando imagenes en Wikidata..." %}</span>
+  </div>
+  <div class="identity-grid">
+    <article class="identity-card" data-visual-slot="flag" hidden>
+      <h3>{% trans "Bandera" %}</h3>
+      <img alt="">
+    </article>
+    <article class="identity-card" data-visual-slot="coat" hidden>
+      <h3>{% trans "Escudo" %}</h3>
+      <img alt="">
+    </article>
+    <article class="identity-card" data-visual-slot="locator" hidden>
+      <h3>{% trans "Mapa localizador" %}</h3>
+      <img alt="">
+    </article>
+  </div>
+  <div class="button-row">
+    <a class="button secondary" target="_blank" rel="noopener" href="https://commons.wikimedia.org/wiki/Special:MediaSearch?type=image&search={{ commons_flag_query|urlencode }}">{% trans "Buscar bandera" %}</a>
+    <a class="button secondary" target="_blank" rel="noopener" href="https://commons.wikimedia.org/wiki/Special:MediaSearch?type=image&search={{ commons_coat_query|urlencode }}">{% trans "Buscar escudo" %}</a>
+  </div>
+
+  <div class="section-title visual-data-title">
+    <h2>{% trans "Traducciones y capitales" %}</h2>
+    <span class="muted" data-knowledge-status>{% trans "Buscando nombres traducidos, paises y capitales..." %}</span>
+  </div>
+  <div class="knowledge-grid">
+    <article class="knowledge-card">
+      <h3>{% trans "Nombre del area" %}</h3>
+      <dl class="compact-list" data-translation-list></dl>
+    </article>
+    <article class="knowledge-card">
+      <h3>{% trans "Pais y capitales" %}</h3>
+      <dl class="compact-list" data-fact-list></dl>
+    </article>
+    <article class="knowledge-card">
+      <h3>{% trans "Ciudades importantes" %}</h3>
+      <dl class="compact-list" data-related-place-list></dl>
+    </article>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,615 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: BEOGRAD-CITIES-POPULATION\n"
+"Language: ru\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Ciudades del Mundo"
+msgstr "Города мира"
+
+msgid "Panel"
+msgstr "Панель"
+
+msgid "Scraping"
+msgstr "Скрапинг"
+
+msgid "Recetas"
+msgstr "Рецепты"
+
+msgid "Subdivisiones"
+msgstr "Подразделения"
+
+msgid "Datos fuente"
+msgstr "Исходные данные"
+
+msgid "Graficas"
+msgstr "Графики"
+
+msgid "Tareas"
+msgstr "Задачи"
+
+msgid "Borrar"
+msgstr "Удалить"
+
+msgid "Idioma"
+msgstr "Язык"
+
+msgid "Panel - Ciudades del Mundo"
+msgstr "Панель - Города мира"
+
+msgid "Gestion local de datos"
+msgstr "Локальное управление данными"
+
+msgid "Panel operativo"
+msgstr "Операционная панель"
+
+msgid "Popular datos"
+msgstr "Заполнить данные"
+
+msgid "Nueva receta"
+msgstr "Новый рецепт"
+
+msgid "AdminArea fuente"
+msgstr "Исходная AdminArea"
+
+msgid "Areas con escanos"
+msgstr "Области с местами"
+
+msgid "Poblacion importada"
+msgstr "Импортированное население"
+
+msgid "Poblacion por pais"
+msgstr "Население по странам"
+
+msgid "Cargando datos..."
+msgstr "Загрузка данных..."
+
+msgid "No se pudo cargar la poblacion."
+msgstr "Не удалось загрузить население."
+
+msgid "Sin datos importados."
+msgstr "Нет импортированных данных."
+
+msgid "Otros paises"
+msgstr "Другие страны"
+
+msgid "Ver graficas"
+msgstr "Смотреть графики"
+
+msgid "Subdivisiones derivadas"
+msgstr "Производные подразделения"
+
+msgid "Comparar"
+msgstr "Сравнить"
+
+msgid "Configuraciones recientes"
+msgstr "Недавние конфигурации"
+
+msgid "Todas"
+msgstr "Все"
+
+msgid "Popular"
+msgstr "Заполнить"
+
+msgid "Tareas recientes"
+msgstr "Недавние задачи"
+
+msgid "Historial"
+msgstr "История"
+
+msgid "Configuraciones TOML"
+msgstr "Конфигурации TOML"
+
+msgid "Nueva configuracion"
+msgstr "Новая конфигурация"
+
+msgid "Pais"
+msgstr "Страна"
+
+msgid "Paginas"
+msgstr "Страницы"
+
+msgid "Unificaciones"
+msgstr "Объединения"
+
+msgid "Filas"
+msgstr "Строки"
+
+msgid "Tarea"
+msgstr "Задача"
+
+msgid "Acciones"
+msgstr "Действия"
+
+msgid "Validar"
+msgstr "Проверить"
+
+msgid "Ver todas"
+msgstr "Показать все"
+
+msgid "Volver"
+msgstr "Назад"
+
+msgid "Guardar"
+msgstr "Сохранить"
+
+msgid "Recetas derivadas"
+msgstr "Производные рецепты"
+
+msgid "Nombre raiz"
+msgstr "Корневое имя"
+
+msgid "Grupo"
+msgstr "Группа"
+
+msgid "Filas creadas"
+msgstr "Созданные строки"
+
+msgid "Crear"
+msgstr "Создать"
+
+msgid "Crear receta"
+msgstr "Создать рецепт"
+
+msgid "Datos derivados"
+msgstr "Производные данные"
+
+msgid "Subdivisiones creadas"
+msgstr "Созданные подразделения"
+
+msgid "Crear o regenerar"
+msgstr "Создать или пересоздать"
+
+msgid "Pais derivado"
+msgstr "Производная страна"
+
+msgid "Codigo"
+msgstr "Код"
+
+msgid "Areas"
+msgstr "Области"
+
+msgid "Poblacion agregada"
+msgstr "Агрегированное население"
+
+msgid "Escanos"
+msgstr "Места"
+
+msgid "Capital"
+msgstr "Столица"
+
+msgid "Buscar por nombre"
+msgstr "Поиск по имени"
+
+msgid "Todos los niveles"
+msgstr "Все уровни"
+
+msgid "Filtrar"
+msgstr "Фильтр"
+
+msgid "Nombre"
+msgstr "Имя"
+
+msgid "Nivel"
+msgstr "Уровень"
+
+msgid "Tipo"
+msgstr "Тип"
+
+msgid "Padre"
+msgstr "Родитель"
+
+msgid "Poblacion"
+msgstr "Население"
+
+msgid "Estado"
+msgstr "Статус"
+
+msgid "Capitales"
+msgstr "Столицы"
+
+msgid "Ciudad mayor"
+msgstr "Крупнейший город"
+
+msgid "Anterior"
+msgstr "Назад"
+
+msgid "Siguiente"
+msgstr "Далее"
+
+msgid "Estadisticas"
+msgstr "Статистика"
+
+msgid "Graficas de datos"
+msgstr "Графики данных"
+
+msgid "Borrar datos"
+msgstr "Удалить данные"
+
+msgid "Operacion destructiva"
+msgstr "Разрушительная операция"
+
+msgid "Confirmo el borrado"
+msgstr "Я подтверждаю удаление"
+
+msgid "Cancelar"
+msgstr "Отмена"
+
+msgid "Inicio"
+msgstr "Начало"
+
+msgid "Comando"
+msgstr "Команда"
+
+msgid "Salida"
+msgstr "Вывод"
+
+msgid "Abrir"
+msgstr "Открыть"
+
+msgid "queued"
+msgstr "в очереди"
+
+msgid "running"
+msgstr "выполняется"
+
+msgid "succeeded"
+msgstr "успешно"
+
+msgid "failed"
+msgstr "ошибка"
+
+msgid "cancelled"
+msgstr "отменено"
+
+msgid "Base de datos ocupada"
+msgstr "База данных занята"
+
+msgid "Operacion en curso"
+msgstr "Операция выполняется"
+
+msgid "Reintentar"
+msgstr "Повторить"
+
+msgid "Buscar"
+msgstr "Поиск"
+
+msgid "Paises"
+msgstr "Страны"
+
+msgid "Niveles"
+msgstr "Уровни"
+
+msgid "Todos los tipos"
+msgstr "Все типы"
+
+msgid "Cualquier fusion"
+msgstr "Любой статус объединения"
+
+msgid "Nombre del padre"
+msgstr "Имя родителя"
+
+msgid "Poblacion minima"
+msgstr "Минимальное население"
+
+msgid "Poblacion maxima"
+msgstr "Максимальное население"
+
+msgid "Area minima"
+msgstr "Минимальная площадь"
+
+msgid "Area maxima"
+msgstr "Максимальная площадь"
+
+msgid "Orden"
+msgstr "Порядок"
+
+msgid "Limpiar"
+msgstr "Очистить"
+
+msgid "Cargando tabla..."
+msgstr "Загрузка таблицы..."
+
+msgid "La tabla no se pudo cargar. Reintenta en unos segundos."
+msgstr "Не удалось загрузить таблицу. Повторите попытку через несколько секунд."
+
+msgid "%(count)s areas encontradas"
+msgstr "Найдено областей: %(count)s"
+
+msgid "Mapa"
+msgstr "Карта"
+
+msgid "Ver"
+msgstr "Открыть"
+
+msgid "Mapa e identidad visual"
+msgstr "Карта и визуальная идентичность"
+
+msgid "Abrir en OpenStreetMap"
+msgstr "Открыть в OpenStreetMap"
+
+msgid "Datos"
+msgstr "Данные"
+
+msgid "Bandera, escudo y mapa localizador"
+msgstr "Флаг, герб и карта местоположения"
+
+msgid "Buscando imagenes en Wikidata..."
+msgstr "Поиск изображений в Wikidata..."
+
+msgid "Bandera"
+msgstr "Флаг"
+
+msgid "Escudo"
+msgstr "Герб"
+
+msgid "Mapa localizador"
+msgstr "Карта местоположения"
+
+msgid "Buscar bandera"
+msgstr "Искать флаг"
+
+msgid "Buscar escudo"
+msgstr "Искать герб"
+
+msgid "Cualquier estado"
+msgstr "Любой статус"
+
+msgid "Cualquier padre"
+msgstr "Любой родитель"
+
+msgid "Cualquiera"
+msgstr "Любой"
+
+msgid "Con escanos"
+msgstr "С местами"
+
+msgid "Sin escanos"
+msgstr "Без мест"
+
+msgid "No se encontraron imagenes automaticas. Usa las busquedas externas."
+msgstr "Автоматические изображения не найдены. Используйте внешние поиски."
+
+msgid "No se encontraron traducciones o capitales automaticas en Wikidata."
+msgstr "Автоматические переводы или столицы в Wikidata не найдены."
+
+msgid "Pais en Wikidata"
+msgstr "Страна в Wikidata"
+
+msgid "Capitales en Wikidata"
+msgstr "Столицы в Wikidata"
+
+msgid "Region superior en Wikidata"
+msgstr "Вышестоящий регион в Wikidata"
+
+msgid "Ficha Wikidata"
+msgstr "Элемент Wikidata"
+
+msgid "Traducciones y capitales"
+msgstr "Переводы и столицы"
+
+msgid "Buscando nombres traducidos, paises y capitales..."
+msgstr "Поиск переведенных названий, стран и столиц..."
+
+msgid "Nombre del area"
+msgstr "Название территории"
+
+msgid "Pais y capitales"
+msgstr "Страна и столицы"
+
+msgid "Ciudades importantes"
+msgstr "Важные города"
+
+msgid "Region padre"
+msgstr "Родительский регион"
+
+msgid "Capital registrada"
+msgstr "Зарегистрированная столица"
+
+msgid "Ciudad mayor registrada"
+msgstr "Зарегистрированный крупнейший город"
+
+msgid "Total"
+msgstr "Итого"
+
+msgid "No se pudo cargar la grafica."
+msgstr "Не удалось загрузить график."
+
+msgid "Sin subdivisiones creadas."
+msgstr "Созданных подразделений нет."
+
+msgid "Sin datos."
+msgstr "Нет данных."
+
+msgid "Brazil"
+msgstr "Бразилия"
+
+msgid "USA"
+msgstr "США"
+
+msgid "United States"
+msgstr "США"
+
+msgid "UK"
+msgstr "Великобритания"
+
+msgid "United Kingdom"
+msgstr "Великобритания"
+
+msgid "Paises y subdivisiones"
+msgstr "Страны и подразделения"
+
+msgid "Nuevos paises"
+msgstr "Новые страны"
+
+msgid "Cargando pais..."
+msgstr "Загрузка страны..."
+
+msgid "No se pudo cargar el pais."
+msgstr "Не удалось загрузить страну."
+
+msgid "Datos generales del pais"
+msgstr "Общие данные страны"
+
+msgid "Tabla de datos"
+msgstr "Таблица данных"
+
+msgid "Subdivisiones de primer orden"
+msgstr "Подразделения первого уровня"
+
+msgid "Porcentaje por subdivision de primer orden"
+msgstr "Доля по подразделениям первого уровня"
+
+msgid "Nivel"
+msgstr "Уровень"
+
+msgid "Filtrar por nombre o padre"
+msgstr "Фильтр по названию или родителю"
+
+msgid "Terreno"
+msgstr "Площадь"
+
+msgid "Densidad"
+msgstr "Плотность"
+
+msgid "Padre"
+msgstr "Родитель"
+
+msgid "Nombre oficial"
+msgstr "Официальное название"
+
+msgid "Capital"
+msgstr "Столица"
+
+msgid "Numero de subdivisiones"
+msgstr "Количество подразделений"
+
+msgid "Tipos de subdivisiones"
+msgstr "Типы подразделений"
+
+msgid "Bandera"
+msgstr "Флаг"
+
+msgid "Escudo"
+msgstr "Герб"
+
+msgid "Sin tipo"
+msgstr "Без типа"
+
+msgid "Nivel %(level)s"
+msgstr "Уровень %(level)s"
+
+msgid "No existe el pais '%(country_code)s'."
+msgstr "Страна '%(country_code)s' не существует."
+
+msgid "Anterior"
+msgstr "Назад"
+
+msgid "Siguiente"
+msgstr "Далее"
+
+msgid "Buscar pais"
+msgstr "ÐÐ°Ð¹Ñ‚Ð¸ ÑÑ‚Ñ€Ð°Ð½Ñƒ"
+
+msgid "Filas por pagina"
+msgstr "Ð¡Ñ‚Ñ€Ð¾Ðº Ð½Ð° ÑÑ‚Ñ€Ð°Ð½Ð¸Ñ†Ðµ"
+
+msgid "Estilo"
+msgstr "Ð¡Ñ‚Ð¸Ð»ÑŒ"
+
+msgid "Claro"
+msgstr "Ð¡Ð²ÐµÑ‚Ð»Ñ‹Ð¹"
+
+msgid "Dark"
+msgstr "Ð¢ÐµÐ¼Ð½Ñ‹Ð¹"
+
+msgid "Retro 80"
+msgstr "Ð ÐµÑ‚Ñ€Ð¾ 80"
+
+msgid "Ver datos"
+msgstr "ÐŸÐ¾ÐºÐ°Ð·Ð°Ñ‚ÑŒ Ð´Ð°Ð½Ð½Ñ‹Ðµ"
+
+msgid "Ordenado por"
+msgstr "Сортировка по"
+
+msgid "Color"
+msgstr "Цвет"
+
+msgid "Idioma oficial"
+msgstr "Официальный язык"
+
+msgid "Estilos basicos"
+msgstr "Базовые стили"
+
+msgid "Estilos avanzados"
+msgstr "Расширенные стили"
+
+msgid "Retro 80 violeta"
+msgstr "Ретро 80 фиолетовый"
+
+msgid "Retro 80 verde"
+msgstr "Ретро 80 зеленый"
+
+msgid "Retro 80 azul celeste"
+msgstr "Ретро 80 голубой"
+
+msgid "Retro 80 rojo"
+msgstr "Ретро 80 красный"
+
+msgid "España"
+msgstr "Испания"
+
+msgid "Poblacion y terreno por país"
+msgstr "Население и площадь по странам"
+
+msgid "Basico"
+msgstr "Базовые"
+
+msgid "Complejos"
+msgstr "Сложные"
+
+msgid "Especiales"
+msgstr "Специальные"
+
+msgid "Dracula"
+msgstr "Дракула"
+
+msgid "Arcoiris"
+msgstr "Радуга"
+
+msgid "Papel"
+msgstr "Бумага"
+
+msgid "Paises - Ciudades del Mundo"
+msgstr "Страны - Города мира"
+
+msgid "No se pudieron cargar los paises."
+msgstr "Не удалось загрузить страны."
+
+msgid "Efectos complejos"
+msgstr "Сложные эффекты"
+
+msgid "Ficha heraldica"
+msgstr "Геральдическая карточка"
+
+msgid "Identidad visual"
+msgstr "Визуальная идентичность"
+
+msgid "Ver en Commons"
+msgstr "Открыть в Commons"
+
+msgid "Detalles heraldicos"
+msgstr "Геральдические сведения"
+
+msgid "Archivo"
+msgstr "Файл"
+
+msgid "Descripcion"
+msgstr "Описание"
+
+msgid "Ficha descriptiva pendiente. Este espacio queda reservado para blason, significado, colores oficiales, fecha de adopcion y fuente normativa."
+msgstr "Описание ожидает заполнения. Это место зарезервировано для блазона, значения, официальных цветов, даты принятия и нормативного источника."
+
+msgid "Fuente visual"
+msgstr "Визуальный источник"

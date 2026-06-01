@@ -1,3 +1,4 @@
+{% load i18n %}
 <div class="bar-chart">
   {% for row in rows %}
   <div class="bar-row">
@@ -6,6 +7,6 @@
     <strong>{{ row.value }}</strong>
   </div>
   {% empty %}
-  <p class="empty">{{ empty }}</p>
+  <p class="empty">{% trans empty %}</p>
   {% endfor %}
 </div>

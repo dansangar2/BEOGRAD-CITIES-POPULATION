@@ -1,26 +1,99 @@
-{% load static %}
+{% load static i18n %}
+{% get_current_language as LANGUAGE_CODE %}
+{% get_available_languages as LANGUAGES %}
 <!doctype html>
-<html lang="es">
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Ciudades del Mundo{% endblock %}</title>
-  <link rel="stylesheet" href="{% static 'ciudades_del_mundo/app.css' %}">
+  <title>{% block title %}{% trans "Ciudades del Mundo" %}{% endblock %}</title>
+  <script>
+    (function () {
+      try {
+        var theme = window.localStorage.getItem("ciudades_del_mundo_theme") || "light";
+        var effects = window.localStorage.getItem("ciudades_del_mundo_theme_effects") === "1";
+        if (theme !== "light") {
+          document.documentElement.setAttribute("data-theme", theme);
+        }
+        if (effects) {
+          document.documentElement.setAttribute("data-theme-effects", "complex");
+        }
+      } catch (error) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="{% static 'ciudades_del_mundo/app.css' %}?v=20260601-country-ui-4">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="{% url 'ciudades_del_mundo:dashboard' %}">Ciudades del Mundo</a>
+    <a class="brand" href="{% url 'ciudades_del_mundo:dashboard' %}">{% trans "Ciudades del Mundo" %}</a>
     <nav class="nav">
-      <a href="{% url 'ciudades_del_mundo:dashboard' %}">Panel</a>
-      <a href="{% url 'ciudades_del_mundo:config_list' %}">Scraping</a>
-      <a href="{% url 'ciudades_del_mundo:recipe_list' %}">Recetas</a>
-      <a href="{% url 'ciudades_del_mundo:nuevo_area_list' %}">Subdivisiones</a>
-      <a href="{% url 'ciudades_del_mundo:admin_area_list' %}">Datos fuente</a>
-      <a href="{% url 'ciudades_del_mundo:stats' %}">Graficas</a>
-      <a href="{% url 'ciudades_del_mundo:task_list' %}">Tareas</a>
-      <a href="{% url 'ciudades_del_mundo:data_delete' %}">Borrar</a>
+      <a href="{% url 'ciudades_del_mundo:dashboard' %}">{% trans "Panel" %}</a>
+      <a href="{% url 'ciudades_del_mundo:config_list' %}">{% trans "Scraping" %}</a>
+      <a href="{% url 'ciudades_del_mundo:recipe_list' %}">{% trans "Recetas" %}</a>
+      <a href="{% url 'ciudades_del_mundo:nuevo_area_list' %}">{% trans "Subdivisiones" %}</a>
+      <a href="{% url 'ciudades_del_mundo:admin_area_list' %}">{% trans "Datos fuente" %}</a>
+      <a href="{% url 'ciudades_del_mundo:countries' %}">{% trans "Paises" %}</a>
+      <a href="{% url 'ciudades_del_mundo:task_list' %}">{% trans "Tareas" %}</a>
+      <a href="{% url 'ciudades_del_mundo:data_delete' %}">{% trans "Borrar" %}</a>
       <a href="{% url 'admin:index' %}">Admin</a>
     </nav>
+    <div class="topbar-controls">
+      <form class="language-form" action="{% url 'set_language' %}" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <div class="language-picker">
+          <span>{% trans "Idioma" %}</span>
+          <details>
+            <summary>
+              <span class="language-flag language-flag-{{ LANGUAGE_CODE }}" aria-hidden="true"></span>
+              <span>{{ LANGUAGE_CODE|upper }}</span>
+            </summary>
+            <div class="language-options">
+              {% for language_code, language_name in LANGUAGES %}
+              <button type="submit" name="language" value="{{ language_code }}" class="language-option{% if language_code == LANGUAGE_CODE %} is-active{% endif %}">
+                <span class="language-flag language-flag-{{ language_code }}" aria-hidden="true"></span>
+                <span>{{ language_name }}</span>
+              </button>
+              {% endfor %}
+            </div>
+          </details>
+          <select class="language-native-select" aria-hidden="true" tabindex="-1">
+            {% for language_code, language_name in LANGUAGES %}
+            <option value="{{ language_code }}" {% if language_code == LANGUAGE_CODE %}selected{% endif %}>{{ language_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </form>
+      <div class="theme-form">
+        <label>
+          <span>{% trans "Estilo" %}</span>
+          <select data-theme-select>
+            <optgroup label="{% trans 'Basico' %}">
+              <option value="light">{% trans "Claro" %}</option>
+              <option value="dark">{% trans "Dark" %}</option>
+              <option value="dracula">{% trans "Dracula" %}</option>
+            </optgroup>
+            <optgroup label="{% trans 'Complejos' %}">
+              <option value="retro80">{% trans "Retro 80 violeta" %}</option>
+              <option value="retro80-green">{% trans "Retro 80 verde" %}</option>
+              <option value="retro80-cyan">{% trans "Retro 80 azul celeste" %}</option>
+              <option value="retro80-red">{% trans "Retro 80 rojo" %}</option>
+              <option value="rainbow">{% trans "Arcoiris" %}</option>
+              <option value="paper">{% trans "Papel" %}</option>
+            </optgroup>
+            <optgroup label="{% trans 'Especiales' %}">
+              <option value="spain">{% trans "España" %}</option>
+            </optgroup>
+          </select>
+        </label>
+        <label class="theme-effect-toggle">
+          <input type="checkbox" data-theme-effects-toggle>
+          <span>{% trans "Efectos complejos" %}</span>
+        </label>
+      </div>
+    </div>
   </header>
   <main class="shell">
     {% if messages %}
@@ -32,5 +105,10 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="{% static 'ciudades_del_mundo/app.js' %}?v=20260601-country-ui-4"></script>
+  {% block scripts %}{% endblock %}
 </body>
 </html>

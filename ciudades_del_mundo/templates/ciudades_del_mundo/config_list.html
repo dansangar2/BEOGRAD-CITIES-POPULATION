@@ -1,14 +1,15 @@
 {% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
 
-{% block title %}Scraping - Ciudades del Mundo{% endblock %}
+{% block title %}{% trans "Scraping - Ciudades del Mundo" %}{% endblock %}
 
 {% block content %}
 <section class="page-head compact">
   <div>
-    <p class="eyebrow">Scraping CityPopulation</p>
-    <h1>Configuraciones TOML</h1>
+    <p class="eyebrow">{% trans "Scraping CityPopulation" %}</p>
+    <h1>{% trans "Configuraciones TOML" %}</h1>
   </div>
-  <a class="button secondary" href="{% url 'ciudades_del_mundo:config_new' %}">Nueva configuracion</a>
+  <a class="button secondary" href="{% url 'ciudades_del_mundo:config_new' %}">{% trans "Nueva configuracion" %}</a>
 </section>
 
 <div class="table-wrap">
@@ -16,12 +17,12 @@
     <thead>
       <tr>
         <th>Slug</th>
-        <th>Pais</th>
-        <th>Paginas</th>
-        <th>Unificaciones</th>
-        <th>Filas</th>
-        <th>Tarea</th>
-        <th>Acciones</th>
+        <th>{% trans "Pais" %}</th>
+        <th>{% trans "Paginas" %}</th>
+        <th>{% trans "Unificaciones" %}</th>
+        <th>{% trans "Filas" %}</th>
+        <th>{% trans "Tarea" %}</th>
+        <th>{% trans "Acciones" %}</th>
       </tr>
     </thead>
     <tbody>
@@ -34,9 +35,9 @@
         <td>{{ config.rows }}</td>
         <td>
           {% if config.active_task and config.active_task.is_active %}
-          <a class="status running" href="{% url 'ciudades_del_mundo:task_detail' config.active_task.id %}">running</a>
+          <a class="status running" href="{% url 'ciudades_del_mundo:task_detail' config.active_task.id %}">{% trans "running" %}</a>
           {% elif config.error %}
-          <span class="status failed">invalid</span>
+          <span class="status failed">{% trans "invalid" %}</span>
           {% else %}
           <span class="muted">-</span>
           {% endif %}
@@ -45,7 +46,7 @@
           <div class="button-row">
             <form method="post" action="{% url 'ciudades_del_mundo:start_config_task' config.slug 'validate' %}">
               {% csrf_token %}
-              <button type="submit" class="quiet">Validar</button>
+              <button type="submit" class="quiet">{% trans "Validar" %}</button>
             </form>
             <form method="post" action="{% url 'ciudades_del_mundo:start_config_task' config.slug 'list-pages' %}">
               {% csrf_token %}
@@ -53,14 +54,14 @@
             </form>
             <form method="post" action="{% url 'ciudades_del_mundo:start_config_task' config.slug 'scrape' %}">
               {% csrf_token %}
-              <button type="submit">Popular</button>
+              <button type="submit">{% trans "Popular" %}</button>
             </form>
           </div>
           {% if config.error %}<small class="error-text">{{ config.error }}</small>{% endif %}
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="7">No hay ficheros TOML en subdivisions.</td></tr>
+      <tr><td colspan="7">{% trans "No hay ficheros TOML en subdivisions." %}</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -68,8 +69,8 @@
 
 <section class="panel spaced">
   <div class="section-title">
-    <h2>Tareas recientes</h2>
-    <a href="{% url 'ciudades_del_mundo:task_list' %}">Ver todas</a>
+    <h2>{% trans "Tareas recientes" %}</h2>
+    <a href="{% url 'ciudades_del_mundo:task_list' %}">{% trans "Ver todas" %}</a>
   </div>
   {% include "ciudades_del_mundo/partials/task_table.html" with tasks=recent_tasks compact=True %}
 </section>

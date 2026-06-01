@@ -1,0 +1,825 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: BEOGRAD-CITIES-POPULATION\n"
+"Language: en\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Ciudades del Mundo"
+msgstr "World Cities"
+
+msgid "Panel"
+msgstr "Dashboard"
+
+msgid "Scraping"
+msgstr "Scraping"
+
+msgid "Recetas"
+msgstr "Recipes"
+
+msgid "Subdivisiones"
+msgstr "Subdivisions"
+
+msgid "Datos fuente"
+msgstr "Source data"
+
+msgid "Graficas"
+msgstr "Charts"
+
+msgid "Tareas"
+msgstr "Tasks"
+
+msgid "Borrar"
+msgstr "Delete"
+
+msgid "Idioma"
+msgstr "Language"
+
+msgid "Panel - Ciudades del Mundo"
+msgstr "Dashboard - World Cities"
+
+msgid "Gestion local de datos"
+msgstr "Local data management"
+
+msgid "Panel operativo"
+msgstr "Operations dashboard"
+
+msgid "Popular datos"
+msgstr "Populate data"
+
+msgid "Nueva receta"
+msgstr "New recipe"
+
+msgid "AdminArea fuente"
+msgstr "Source AdminArea"
+
+msgid "Areas con escanos"
+msgstr "Areas with seats"
+
+msgid "Poblacion importada"
+msgstr "Imported population"
+
+msgid "Poblacion por pais"
+msgstr "Population by country"
+
+msgid "Cargando datos..."
+msgstr "Loading data..."
+
+msgid "No se pudo cargar la poblacion."
+msgstr "The population could not be loaded."
+
+msgid "Otros paises"
+msgstr "Other countries"
+
+msgid "Ver graficas"
+msgstr "View charts"
+
+msgid "Subdivisiones derivadas"
+msgstr "Derived subdivisions"
+
+msgid "Comparar"
+msgstr "Compare"
+
+msgid "Configuraciones recientes"
+msgstr "Recent configs"
+
+msgid "Todas"
+msgstr "All"
+
+msgid "%(country_code)s - %(pages)s paginas - %(cities)s ciudades unificadas"
+msgstr "%(country_code)s - %(pages)s pages - %(cities)s unified cities"
+
+msgid "Popular"
+msgstr "Populate"
+
+msgid "No hay configuraciones TOML."
+msgstr "There are no TOML configs."
+
+msgid "Tareas recientes"
+msgstr "Recent tasks"
+
+msgid "Historial"
+msgstr "History"
+
+msgid "Scraping - Ciudades del Mundo"
+msgstr "Scraping - World Cities"
+
+msgid "Scraping CityPopulation"
+msgstr "CityPopulation scraping"
+
+msgid "Configuraciones TOML"
+msgstr "TOML configs"
+
+msgid "Nueva configuracion"
+msgstr "New config"
+
+msgid "Pais"
+msgstr "Country"
+
+msgid "Paginas"
+msgstr "Pages"
+
+msgid "Unificaciones"
+msgstr "Unifications"
+
+msgid "Filas"
+msgstr "Rows"
+
+msgid "Tarea"
+msgstr "Task"
+
+msgid "Acciones"
+msgstr "Actions"
+
+msgid "running"
+msgstr "running"
+
+msgid "invalid"
+msgstr "invalid"
+
+msgid "Validar"
+msgstr "Validate"
+
+msgid "No hay ficheros TOML en subdivisions."
+msgstr "There are no TOML files in subdivisions."
+
+msgid "Ver todas"
+msgstr "View all"
+
+msgid "Editar %(slug)s"
+msgstr "Edit %(slug)s"
+
+msgid "Scraping y ciudades unificadas"
+msgstr "Scraping and unified cities"
+
+msgid "Volver"
+msgstr "Back"
+
+msgid "Guardar"
+msgstr "Save"
+
+msgid "Campos clave"
+msgstr "Key fields"
+
+msgid "<code>[[pages]]</code> controla las paginas scrapeadas. <code>[[cities]]</code> define agregaciones o ciudades unificadas."
+msgstr "<code>[[pages]]</code> controls scraped pages. <code>[[cities]]</code> defines aggregations or unified cities."
+
+msgid "Hay una tarea activa para este scraping. Si guardas cambios, se cancela y se reemplaza con una tarea nueva."
+msgstr "There is an active task for this scrape. Saving changes cancels it and replaces it with a new task."
+
+msgid "Recetas - Ciudades del Mundo"
+msgstr "Recipes - World Cities"
+
+msgid "Recetas derivadas"
+msgstr "Derived recipes"
+
+msgid "Nombre raiz"
+msgstr "Root name"
+
+msgid "Grupo"
+msgstr "Group"
+
+msgid "Filas creadas"
+msgstr "Created rows"
+
+msgid "ano"
+msgstr "year"
+
+msgid "Crear"
+msgstr "Build"
+
+msgid "No hay recetas disponibles."
+msgstr "There are no available recipes."
+
+msgid "Nueva receta - Ciudades del Mundo"
+msgstr "New recipe - World Cities"
+
+msgid "Crear NuevoAdminArea"
+msgstr "Create NuevoAdminArea"
+
+msgid "Pais fuente por defecto"
+msgstr "Default source country"
+
+msgid "Nivel municipal fuente"
+msgstr "Source municipal level"
+
+msgid "Nivel de representacion"
+msgstr "Representation level"
+
+msgid "Total de escanos"
+msgstr "Total seats"
+
+msgid "Minimo por area"
+msgstr "Minimum per area"
+
+msgid "DIVISIONS en JSON"
+msgstr "DIVISIONS as JSON"
+
+msgid "Crear receta"
+msgstr "Create recipe"
+
+msgid "Receta Python"
+msgstr "Python recipe"
+
+msgid "Creacion"
+msgstr "Build"
+
+msgid "Guarda la receta y lanza la tarea de creacion desde la lista de recetas. Si ya habia una creacion activa de esta receta, guardar cancela esa tarea y la reemplaza."
+msgstr "Save the recipe and launch the build task from the recipe list. If this recipe already has an active build, saving cancels it and replaces it."
+
+msgid "Hay una construccion activa para esta receta."
+msgstr "There is an active build for this recipe."
+
+msgid "Subdivisiones - Ciudades del Mundo"
+msgstr "Subdivisions - World Cities"
+
+msgid "Datos derivados"
+msgstr "Derived data"
+
+msgid "Subdivisiones creadas"
+msgstr "Created subdivisions"
+
+msgid "Crear o regenerar"
+msgstr "Create or regenerate"
+
+msgid "Pais derivado"
+msgstr "Derived country"
+
+msgid "Codigo"
+msgstr "Code"
+
+msgid "Areas"
+msgstr "Areas"
+
+msgid "Poblacion agregada"
+msgstr "Aggregated population"
+
+msgid "Area km2"
+msgstr "Area km2"
+
+msgid "Escanos"
+msgstr "Seats"
+
+msgid "Capital"
+msgstr "Capital"
+
+msgid "No hay subdivisiones derivadas creadas."
+msgstr "There are no created derived subdivisions."
+
+msgid "Comparativa NuevoAdminArea"
+msgstr "NuevoAdminArea comparison"
+
+msgid "Buscar por nombre"
+msgstr "Search by name"
+
+msgid "Todos los niveles"
+msgstr "All levels"
+
+msgid "Filtrar"
+msgstr "Filter"
+
+msgid "Nombre"
+msgstr "Name"
+
+msgid "Nivel"
+msgstr "Level"
+
+msgid "Tipo"
+msgstr "Type"
+
+msgid "Padre"
+msgstr "Parent"
+
+msgid "Poblacion"
+msgstr "Population"
+
+msgid "% pais"
+msgstr "% country"
+
+msgid "% padre"
+msgstr "% parent"
+
+msgid "Area"
+msgstr "Area"
+
+msgid "% area pais"
+msgstr "% country area"
+
+msgid "Estado"
+msgstr "Status"
+
+msgid "Capitales"
+msgstr "Capitals"
+
+msgid "Ciudad mayor"
+msgstr "Largest city"
+
+msgid "No hay areas para estos filtros."
+msgstr "There are no areas for these filters."
+
+msgid "Anterior"
+msgstr "Previous"
+
+msgid "Pagina %(number)s de %(total)s"
+msgstr "Page %(number)s of %(total)s"
+
+msgid "Siguiente"
+msgstr "Next"
+
+msgid "Graficas - Ciudades del Mundo"
+msgstr "Charts - World Cities"
+
+msgid "Estadisticas"
+msgstr "Statistics"
+
+msgid "Graficas de datos"
+msgstr "Data charts"
+
+msgid "Paises por poblacion fuente"
+msgstr "Countries by source population"
+
+msgid "Paises por numero de areas"
+msgstr "Countries by number of areas"
+
+msgid "AdminArea por nivel"
+msgstr "AdminArea by level"
+
+msgid "NuevoAdminArea por nivel"
+msgstr "NuevoAdminArea by level"
+
+msgid "Estado de fusion de ciudades"
+msgstr "City merge status"
+
+msgid "Borrar datos - Ciudades del Mundo"
+msgstr "Delete data - World Cities"
+
+msgid "Operacion destructiva"
+msgstr "Destructive operation"
+
+msgid "Borrar datos"
+msgstr "Delete data"
+
+msgid "Pais importado"
+msgstr "Imported country"
+
+msgid "Selecciona pais"
+msgstr "Select country"
+
+msgid "Confirmo el borrado"
+msgstr "I confirm deletion"
+
+msgid "Borrar AdminArea"
+msgstr "Delete AdminArea"
+
+msgid "NuevoAdminArea derivado"
+msgstr "Derived NuevoAdminArea"
+
+msgid "Borrar NuevoAdminArea"
+msgstr "Delete NuevoAdminArea"
+
+msgid "Tareas - Ciudades del Mundo"
+msgstr "Tasks - World Cities"
+
+msgid "Procesos en segundo plano"
+msgstr "Background processes"
+
+msgid "Tarea %(task_id)s"
+msgstr "Task %(task_id)s"
+
+msgid "Cancelar"
+msgstr "Cancel"
+
+msgid "Codigo salida"
+msgstr "Exit code"
+
+msgid "Inicio"
+msgstr "Start"
+
+msgid "Comando"
+msgstr "Command"
+
+msgid "Salida"
+msgstr "Output"
+
+msgid "Sin salida todavia."
+msgstr "No output yet."
+
+msgid "Areas - Ciudades del Mundo"
+msgstr "Areas - World Cities"
+
+msgid "Areas administrativas"
+msgstr "Administrative areas"
+
+msgid "Todos los paises"
+msgstr "All countries"
+
+msgid "Fusion"
+msgstr "Merge"
+
+msgid "Abrir"
+msgstr "Open"
+
+msgid "No hay tareas registradas en este proceso."
+msgstr "There are no tasks registered in this process."
+
+msgid "queued"
+msgstr "queued"
+
+msgid "succeeded"
+msgstr "succeeded"
+
+msgid "failed"
+msgstr "failed"
+
+msgid "cancelled"
+msgstr "cancelled"
+
+msgid "Sin datos importados."
+msgstr "No imported data."
+
+msgid "Sin subdivisiones creadas."
+msgstr "No created subdivisions."
+
+msgid "Sin datos."
+msgstr "No data."
+
+msgid "Base de datos ocupada"
+msgstr "Database busy"
+
+msgid "Operacion en curso"
+msgstr "Operation in progress"
+
+msgid "Reintentar"
+msgstr "Retry"
+
+msgid "La base de datos esta ocupada por una tarea de escritura. Espera unos segundos y vuelve a intentarlo."
+msgstr "The database is busy with a write task. Wait a few seconds and try again."
+
+msgid "Buscar"
+msgstr "Search"
+
+msgid "Paises"
+msgstr "Countries"
+
+msgid "Niveles"
+msgstr "Levels"
+
+msgid "Todos los tipos"
+msgstr "All types"
+
+msgid "Cualquier fusion"
+msgstr "Any merge status"
+
+msgid "Nombre del padre"
+msgstr "Parent name"
+
+msgid "Poblacion minima"
+msgstr "Minimum population"
+
+msgid "Poblacion maxima"
+msgstr "Maximum population"
+
+msgid "Area minima"
+msgstr "Minimum area"
+
+msgid "Area maxima"
+msgstr "Maximum area"
+
+msgid "Orden"
+msgstr "Order"
+
+msgid "Limpiar"
+msgstr "Clear"
+
+msgid "Cargando tabla..."
+msgstr "Loading table..."
+
+msgid "La tabla no se pudo cargar. Reintenta en unos segundos."
+msgstr "The table could not be loaded. Try again in a few seconds."
+
+msgid "%(count)s areas encontradas"
+msgstr "%(count)s areas found"
+
+msgid "Mapa"
+msgstr "Map"
+
+msgid "Ver"
+msgstr "View"
+
+msgid "Mapa e identidad visual"
+msgstr "Map and visual identity"
+
+msgid "Abrir en OpenStreetMap"
+msgstr "Open in OpenStreetMap"
+
+msgid "El mapa usa busqueda por nombre porque la base de datos no guarda geometria ni coordenadas propias."
+msgstr "The map searches by name because the database does not store its own geometry or coordinates."
+
+msgid "Datos"
+msgstr "Data"
+
+msgid "Bandera, escudo y mapa localizador"
+msgstr "Flag, coat of arms and locator map"
+
+msgid "Buscando imagenes en Wikidata..."
+msgstr "Searching images in Wikidata..."
+
+msgid "Bandera"
+msgstr "Flag"
+
+msgid "Escudo"
+msgstr "Coat of arms"
+
+msgid "Mapa localizador"
+msgstr "Locator map"
+
+msgid "Buscar bandera"
+msgstr "Search flag"
+
+msgid "Buscar escudo"
+msgstr "Search coat of arms"
+
+msgid "Cualquier estado"
+msgstr "Any status"
+
+msgid "Cualquier padre"
+msgstr "Any parent"
+
+msgid "Cualquiera"
+msgstr "Any"
+
+msgid "Con escanos"
+msgstr "With seats"
+
+msgid "Sin escanos"
+msgstr "Without seats"
+
+msgid "Pais, nivel y nombre"
+msgstr "Country, level and name"
+
+msgid "Poblacion descendente"
+msgstr "Population descending"
+
+msgid "Poblacion ascendente"
+msgstr "Population ascending"
+
+msgid "Area descendente"
+msgstr "Area descending"
+
+msgid "Area ascendente"
+msgstr "Area ascending"
+
+msgid "Actualizacion reciente"
+msgstr "Recently updated"
+
+msgid "Nivel y nombre"
+msgstr "Level and name"
+
+msgid "Escanos descendente"
+msgstr "Seats descending"
+
+msgid "Origen de mapa no soportado."
+msgstr "Map source not supported."
+
+msgid "No se encontro el area solicitada."
+msgstr "The requested area was not found."
+
+msgid "No se encontraron imagenes automaticas. Usa las busquedas externas."
+msgstr "No automatic images were found. Use the external searches."
+
+msgid "No se encontraron traducciones o capitales automaticas en Wikidata."
+msgstr "No automatic translations or capitals were found in Wikidata."
+
+msgid "Pais en Wikidata"
+msgstr "Country in Wikidata"
+
+msgid "Capitales en Wikidata"
+msgstr "Capitals in Wikidata"
+
+msgid "Region superior en Wikidata"
+msgstr "Parent region in Wikidata"
+
+msgid "Ficha Wikidata"
+msgstr "Wikidata item"
+
+msgid "Traducciones y capitales"
+msgstr "Translations and capitals"
+
+msgid "Buscando nombres traducidos, paises y capitales..."
+msgstr "Searching translated names, countries and capitals..."
+
+msgid "Nombre del area"
+msgstr "Area name"
+
+msgid "Pais y capitales"
+msgstr "Country and capitals"
+
+msgid "Ciudades importantes"
+msgstr "Important cities"
+
+msgid "Region padre"
+msgstr "Parent region"
+
+msgid "Capital registrada"
+msgstr "Registered capital"
+
+msgid "Ciudad mayor registrada"
+msgstr "Registered largest city"
+
+msgid "Total"
+msgstr "Total"
+
+msgid "No se pudo cargar la grafica."
+msgstr "The chart could not be loaded."
+
+msgid "Brazil"
+msgstr "Brazil"
+
+msgid "USA"
+msgstr "USA"
+
+msgid "United States"
+msgstr "United States"
+
+msgid "UK"
+msgstr "UK"
+
+msgid "United Kingdom"
+msgstr "United Kingdom"
+
+msgid "Paises y subdivisiones"
+msgstr "Countries and subdivisions"
+
+msgid "Nuevos paises"
+msgstr "New countries"
+
+msgid "Cargando pais..."
+msgstr "Loading country..."
+
+msgid "No se pudo cargar el pais."
+msgstr "The country could not be loaded."
+
+msgid "Datos generales del pais"
+msgstr "Country overview"
+
+msgid "Tabla de datos"
+msgstr "Data table"
+
+msgid "Subdivisiones de primer orden"
+msgstr "First-order subdivisions"
+
+msgid "Porcentaje por subdivision de primer orden"
+msgstr "Percentage by first-order subdivision"
+
+msgid "Nivel"
+msgstr "Level"
+
+msgid "Filtrar por nombre o padre"
+msgstr "Filter by name or parent"
+
+msgid "Terreno"
+msgstr "Land area"
+
+msgid "Densidad"
+msgstr "Density"
+
+msgid "Padre"
+msgstr "Parent"
+
+msgid "Nombre oficial"
+msgstr "Official name"
+
+msgid "Capital"
+msgstr "Capital"
+
+msgid "Numero de subdivisiones"
+msgstr "Number of subdivisions"
+
+msgid "Tipos de subdivisiones"
+msgstr "Subdivision types"
+
+msgid "Bandera"
+msgstr "Flag"
+
+msgid "Escudo"
+msgstr "Coat of arms"
+
+msgid "Sin tipo"
+msgstr "No type"
+
+msgid "Nivel %(level)s"
+msgstr "Level %(level)s"
+
+msgid "No existe el pais '%(country_code)s'."
+msgstr "Country '%(country_code)s' does not exist."
+
+msgid "Anterior"
+msgstr "Previous"
+
+msgid "Siguiente"
+msgstr "Next"
+
+msgid "Ordenado por"
+msgstr "Sorted by"
+
+msgid "Buscar pais"
+msgstr "Search country"
+
+msgid "Filas por pagina"
+msgstr "Rows per page"
+
+msgid "Estilo"
+msgstr "Style"
+
+msgid "Claro"
+msgstr "Light"
+
+msgid "Dark"
+msgstr "Dark"
+
+msgid "Retro 80"
+msgstr "Retro 80"
+
+msgid "Color"
+msgstr "Color"
+
+msgid "Idioma oficial"
+msgstr "Official language"
+
+msgid "Estilos basicos"
+msgstr "Basic styles"
+
+msgid "Estilos avanzados"
+msgstr "Advanced styles"
+
+msgid "Retro 80 violeta"
+msgstr "Retro 80 violet"
+
+msgid "Retro 80 verde"
+msgstr "Retro 80 green"
+
+msgid "Retro 80 azul celeste"
+msgstr "Retro 80 cyan"
+
+msgid "Retro 80 rojo"
+msgstr "Retro 80 red"
+
+msgid "España"
+msgstr "Spain"
+
+msgid "Ver datos"
+msgstr "View data"
+
+msgid "Poblacion y terreno por país"
+msgstr "Population and area by country"
+
+msgid "Basico"
+msgstr "Basic"
+
+msgid "Complejos"
+msgstr "Complex"
+
+msgid "Especiales"
+msgstr "Special"
+
+msgid "Dracula"
+msgstr "Dracula"
+
+msgid "Arcoiris"
+msgstr "Rainbow"
+
+msgid "Papel"
+msgstr "Paper"
+
+msgid "Paises - Ciudades del Mundo"
+msgstr "Countries - Cities of the World"
+
+msgid "No se pudieron cargar los paises."
+msgstr "Could not load countries."
+
+msgid "Efectos complejos"
+msgstr "Complex effects"
+
+msgid "Ficha heraldica"
+msgstr "Heraldic sheet"
+
+msgid "Identidad visual"
+msgstr "Visual identity"
+
+msgid "Ver en Commons"
+msgstr "View on Commons"
+
+msgid "Detalles heraldicos"
+msgstr "Heraldic details"
+
+msgid "Archivo"
+msgstr "File"
+
+msgid "Descripcion"
+msgstr "Description"
+
+msgid "Ficha descriptiva pendiente. Este espacio queda reservado para blason, significado, colores oficiales, fecha de adopcion y fuente normativa."
+msgstr "Description pending. This space is reserved for blazon, meaning, official colors, adoption date and legal source."
+
+msgid "Fuente visual"
+msgstr "Visual source"

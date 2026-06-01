@@ -16,39 +16,106 @@ PANAMA_MUN_A_DARIEN = ["Cañita", "Madungandí", "Brujas", "Gonzalo Vásquez"]
 A_DARIEN = ["Guna Yala", "Darién", "Emberá-Wounaan"]
 
 
-#Amazonas
 #Antioquia
-#Arauca
-#Atlántico
-#Bogotá, Distrito Capital
-#Bolívar
 #Boyacá
 #Caldas
-#Caquetá
-#Casanare
 #Cauca
-#Cesar
 #Chocó
-#Córdoba
 #Cundinamarca
-#Guainía
-#Guaviare
 #Huila
-#La Guajira
-#Magdalena
-#Meta
-#Nariño
 #Norte de Santander
-#Putumayo
-#Quindío
 #Risaralda
-#San Andrés y Providencia
 #Santander
-#Sucre
 #Tolima
-#Valle del Cauca
-#Vaupés
-#Vichada
+
+BOLIVAR_A_ANTIOQUIA = ["Cantagallo"]
+RIOHACHA_A_SANTA_MARTA = ["Dibulla", "San Juan del Cesar", "Villanueva", "La Jagua del Pilar", "Urumita", "El Molino",
+                          "Fonseca", "Distracción", "Barrancas"]
+META_A_POPAYAN = ["La Macarena"]
+
+CARTAGENA = {
+    "name": "Cartagena",
+    "code": "CAR",
+    "entity_type": "Provincia",
+    "capitals": ["Cartagena"],
+    "spec": {
+        1: {"colombia": ["Bolívar", "Sucre", "Córdoba", "Atlántico", "San Andrés y Providencia"]},
+        2: {"colombia": COSTA_RICA_DISTR_A_VERAGUAS, "panama": VERAGUAS_MUN_A_EXCLUIR_PANAMA},
+        "restar": {
+            2: {"colombia": BOLIVAR_A_ANTIOQUIA},
+        },
+    }
+}
+
+SANTA_MARTA = {
+    "name": "Santa Marta",
+    "code": "SMA",
+    "entity_type": "Provincia",
+    "capitals": ["Santa Marta"],
+    "spec": {
+        1: {"colombia": ["Magdalena", "Cesar"]},
+        2: {"colombia": RIOHACHA_A_SANTA_MARTA}
+    }
+}
+
+RIOHACHA = {
+    "name": "Riohacha",
+    "code": "RIO",
+    "entity_type": "Provincia",
+    "capitals": ["Riohacha"],
+    "spec": {
+        1: {"colombia": ["La Guajira"]},
+        "restar": {
+            2 : {"colombia": RIOHACHA_A_SANTA_MARTA}
+        }
+    }
+}
+
+SANTAFE = {
+    "name": "Santafe",
+    "code": "STF",
+    "entity_type": "Provincia",
+    "capitals": ["Bogotá"],
+    "spec": {
+        1: {"colombia": ["Bogotá, D.C.", "Meta", "Vichada"]},
+        "restar": {
+            2 : {"colombia": META_A_POPAYAN}
+        }
+    }
+}
+
+CASANARE = {
+    "name": "Casanare",
+    "code": "CAS",
+    "entity_type": "Provincia",
+    "capitals": ["Casanare"],
+    "spec": {
+        1: {"colombia": ["Casanare", "Arauca"]},
+    }
+}
+
+POPAYAN = {
+    "name": "Popayán",
+    "code": "POP",
+    "entity_type": "Provincia",
+    "capitals": ["Popayán"],
+    "spec": {
+        1: {"colombia": ["Guainía", "Amazonas", "Putumayo", "Guaviare", "Caquetá", "Vaupés", "Nariño", "Valle del Cauca",
+                         "Quindío"]},
+        2 : {"colombia": META_A_POPAYAN}
+    }
+}
+
+#ANTIOQUIA = {
+#    "name": "Cartagena",
+#    "code": "VER",
+#    "entity_type": "Provincia",
+#    "capitals": ["Cartagena"],
+#    "spec": {
+#        1: {"colombia": []},
+#        2: {"colombia": BOLIVAR_A_ANTIOQUIA},
+#    }
+#}
 
 
 VERAGUAS = {

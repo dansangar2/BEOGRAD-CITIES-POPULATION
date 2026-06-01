@@ -1,0 +1,37 @@
+{% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Ficha heraldica" %} - {{ kind_label }}{% endblock %}
+
+{% block content %}
+<section class="page-head compact">
+  <div>
+    <p class="eyebrow">{% trans "Identidad visual" %}</p>
+    <h1>{{ kind_label }}</h1>
+  </div>
+  <div class="actions">
+    <a class="button secondary" href="{{ commons_url }}" target="_blank" rel="noopener">{% trans "Ver en Commons" %}</a>
+  </div>
+</section>
+
+<section class="layout-2 identity-detail-layout">
+  <article class="panel identity-detail-image">
+    <a href="{{ image_url }}" target="_blank" rel="noopener">
+      <img src="{{ image_url }}" alt="{{ kind_label }}">
+    </a>
+  </article>
+  <article class="panel">
+    <h2>{% trans "Detalles heraldicos" %}</h2>
+    <dl class="detail-list">
+      <dt>{% trans "Tipo" %}</dt>
+      <dd>{{ kind_label }}</dd>
+      <dt>{% trans "Archivo" %}</dt>
+      <dd>{{ filename }}</dd>
+      <dt>{% trans "Descripcion" %}</dt>
+      <dd>{% trans "Ficha descriptiva pendiente. Este espacio queda reservado para blason, significado, colores oficiales, fecha de adopcion y fuente normativa." %}</dd>
+      <dt>{% trans "Fuente visual" %}</dt>
+      <dd><a href="{{ commons_url }}" target="_blank" rel="noopener">Wikimedia Commons</a></dd>
+    </dl>
+  </article>
+</section>
+{% endblock %}

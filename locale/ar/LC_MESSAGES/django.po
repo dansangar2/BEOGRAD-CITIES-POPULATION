@@ -1,0 +1,324 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: BEOGRAD-CITIES-POPULATION\n"
+"Language: ar\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Ciudades del Mundo"
+msgstr "مدن العالم"
+
+msgid "Panel"
+msgstr "لوحة"
+
+msgid "Scraping"
+msgstr "استخراج البيانات"
+
+msgid "Recetas"
+msgstr "وصفات"
+
+msgid "Subdivisiones"
+msgstr "تقسيمات"
+
+msgid "Datos fuente"
+msgstr "بيانات المصدر"
+
+msgid "Graficas"
+msgstr "رسوم بيانية"
+
+msgid "Tareas"
+msgstr "مهام"
+
+msgid "Borrar"
+msgstr "حذف"
+
+msgid "Idioma"
+msgstr "اللغة"
+
+msgid "Estilo"
+msgstr "النمط"
+
+msgid "Estilos basicos"
+msgstr "أنماط أساسية"
+
+msgid "Estilos avanzados"
+msgstr "أنماط متقدمة"
+
+msgid "Claro"
+msgstr "فاتح"
+
+msgid "Dark"
+msgstr "داكن"
+
+msgid "Retro 80 violeta"
+msgstr "ريترو 80 بنفسجي"
+
+msgid "Retro 80 verde"
+msgstr "ريترو 80 أخضر"
+
+msgid "Retro 80 azul celeste"
+msgstr "ريترو 80 أزرق سماوي"
+
+msgid "Retro 80 rojo"
+msgstr "ريترو 80 أحمر"
+
+msgid "España"
+msgstr "إسبانيا"
+
+msgid "Poblacion por pais"
+msgstr "السكان حسب البلد"
+
+msgid "Poblacion"
+msgstr "السكان"
+
+msgid "Terreno"
+msgstr "المساحة"
+
+msgid "Otros paises"
+msgstr "بلدان أخرى"
+
+msgid "Buscar pais"
+msgstr "بحث عن بلد"
+
+msgid "Buscar por nombre"
+msgstr "بحث بالاسم"
+
+msgid "Ver datos"
+msgstr "عرض البيانات"
+
+msgid "Datos generales del pais"
+msgstr "بيانات عامة عن البلد"
+
+msgid "Tabla de datos"
+msgstr "جدول البيانات"
+
+msgid "Subdivisiones de primer orden"
+msgstr "تقسيمات المستوى الأول"
+
+msgid "Porcentaje por subdivision de primer orden"
+msgstr "النسبة حسب تقسيم المستوى الأول"
+
+msgid "Nivel"
+msgstr "المستوى"
+
+msgid "Filtrar"
+msgstr "تصفية"
+
+msgid "Filtrar por nombre o padre"
+msgstr "تصفية بالاسم أو الأصل"
+
+msgid "Filas por pagina"
+msgstr "صفوف لكل صفحة"
+
+msgid "Densidad"
+msgstr "الكثافة"
+
+msgid "Padre"
+msgstr "الأصل"
+
+msgid "Nombre"
+msgstr "الاسم"
+
+msgid "Color"
+msgstr "اللون"
+
+msgid "Tipo"
+msgstr "النوع"
+
+msgid "Nombre oficial"
+msgstr "الاسم الرسمي"
+
+msgid "Idioma oficial"
+msgstr "اللغة الرسمية"
+
+msgid "Capital"
+msgstr "العاصمة"
+
+msgid "Numero de subdivisiones"
+msgstr "عدد التقسيمات"
+
+msgid "Bandera"
+msgstr "العلم"
+
+msgid "Escudo"
+msgstr "الشعار"
+
+msgid "Anterior"
+msgstr "السابق"
+
+msgid "Siguiente"
+msgstr "التالي"
+
+msgid "Ordenado por"
+msgstr "مرتب حسب"
+
+msgid "Sin datos."
+msgstr "لا توجد بيانات."
+
+msgid "Brazil"
+msgstr "البرازيل"
+
+msgid "Spain"
+msgstr "إسبانيا"
+
+msgid "Italy"
+msgstr "إيطاليا"
+
+msgid "France"
+msgstr "فرنسا"
+
+msgid "Germany"
+msgstr "ألمانيا"
+
+msgid "Portugal"
+msgstr "البرتغال"
+
+msgid "USA"
+msgstr "الولايات المتحدة"
+
+msgid "United States"
+msgstr "الولايات المتحدة"
+
+msgid "United Kingdom"
+msgstr "المملكة المتحدة"
+
+msgid "Serbia"
+msgstr "صربيا"
+
+msgid "Morocco"
+msgstr "المغرب"
+
+msgid "China"
+msgstr "الصين"
+
+msgid "India"
+msgstr "الهند"
+
+msgid "Japan"
+msgstr "اليابان"
+
+msgid "Russia"
+msgstr "روسيا"
+
+msgid "Canada"
+msgstr "كندا"
+
+msgid "Australia"
+msgstr "أستراليا"
+
+msgid "Mexico"
+msgstr "المكسيك"
+
+msgid "Lazio"
+msgstr "لاتسيو"
+
+msgid "Lombardy"
+msgstr "لومبارديا"
+
+msgid "Rome"
+msgstr "روما"
+
+msgid "Milan"
+msgstr "ميلانو"
+
+msgid "Indonesia"
+msgstr "إندونيسيا"
+
+msgid "Pakistan"
+msgstr "باكستان"
+
+msgid "Nigeria"
+msgstr "نيجيريا"
+
+msgid "Bangladesh"
+msgstr "بنغلاديش"
+
+msgid "Philippines"
+msgstr "الفلبين"
+
+msgid "Ethiopia"
+msgstr "إثيوبيا"
+
+msgid "Congo (Dem. Rep.)"
+msgstr "جمهورية الكونغو الديمقراطية"
+
+msgid "Vietnam"
+msgstr "فيتنام"
+
+msgid "Iran"
+msgstr "إيران"
+
+msgid "Thailand"
+msgstr "تايلاند"
+
+msgid "South Africa"
+msgstr "جنوب أفريقيا"
+
+msgid "Tanzania"
+msgstr "تنزانيا"
+
+msgid "Kenya"
+msgstr "كينيا"
+
+msgid "Myanmar"
+msgstr "ميانمار"
+
+msgid "South Korea"
+msgstr "كوريا الجنوبية"
+
+msgid "Iraq"
+msgstr "العراق"
+
+msgid "Poblacion y terreno por país"
+msgstr "السكان والمساحة حسب البلد"
+
+msgid "Basico"
+msgstr "أساسي"
+
+msgid "Complejos"
+msgstr "معقدة"
+
+msgid "Especiales"
+msgstr "خاصة"
+
+msgid "Dracula"
+msgstr "دراكولا"
+
+msgid "Arcoiris"
+msgstr "قوس قزح"
+
+msgid "Papel"
+msgstr "ورق"
+
+msgid "Paises - Ciudades del Mundo"
+msgstr "البلدان - مدن العالم"
+
+msgid "No se pudieron cargar los paises."
+msgstr "تعذر تحميل البلدان."
+
+msgid "Efectos complejos"
+msgstr "تأثيرات متقدمة"
+
+msgid "Ficha heraldica"
+msgstr "بطاقة شعارات"
+
+msgid "Identidad visual"
+msgstr "الهوية البصرية"
+
+msgid "Ver en Commons"
+msgstr "عرض في كومنز"
+
+msgid "Detalles heraldicos"
+msgstr "تفاصيل شعاراتية"
+
+msgid "Archivo"
+msgstr "ملف"
+
+msgid "Descripcion"
+msgstr "وصف"
+
+msgid "Ficha descriptiva pendiente. Este espacio queda reservado para blason, significado, colores oficiales, fecha de adopcion y fuente normativa."
+msgstr "الوصف قيد الإعداد. هذه المساحة مخصصة للوصف الشعاراتي والمعنى والألوان الرسمية وتاريخ الاعتماد والمصدر القانوني."
+
+msgid "Fuente visual"
+msgstr "المصدر البصري"

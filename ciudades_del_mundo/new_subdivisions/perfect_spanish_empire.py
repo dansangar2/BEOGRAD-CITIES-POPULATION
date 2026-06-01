@@ -232,7 +232,13 @@ DIVISIONS = _with_spanish_capitals([
             PANAMA,
             DARIEN,
             VERAGUAS,
-            PORTOBELO
+            PORTOBELO,
+            CARTAGENA,
+            SANTA_MARTA,
+            RIOHACHA,
+            SANTAFE,
+            POPAYAN,
+            CASANARE,
         ],
     },
     {

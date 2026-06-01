@@ -99,6 +99,8 @@ Top-level:
 - `AGENTS.md`: this agent context.
 - `db.sqlite3`: local SQLite database. Treat as data, not source.
 - `excels/`: generated CSV/XLSX exports.
+- `locale/`: Django gettext catalogs for the web UI (`django.po` source and
+  compiled `django.mo` files).
 - `ciudades_del_mundo/`: Django project and app package.
 
 Django package:
@@ -666,13 +668,20 @@ py manage.py export_nuevoadmin_excel --country-id spanish_federal_republic
 Run web app:
 
 ```powershell
-py manage.py runserver
+py manage.py runserver 127.0.0.1:8000
 ```
 
 Run tests:
 
 ```powershell
 py manage.py test ciudades_del_mundo.tests
+```
+
+Compile web translations without requiring GNU gettext:
+
+```powershell
+py manage.py compile_local_messages
+py manage.py compile_local_messages es en fr de ru
 ```
 
 ## Testing Map
@@ -690,6 +699,8 @@ Existing tests:
   parentless city URL matching and numeric-code fallback.
 - `test_representation.py`: D'Hondt and legacy representation config aliases.
 - `test_nuevo_admin_excel_export.py`: export row ordering.
+- `test_dashboard.py`: dashboard summary metrics, dynamic root-country
+  population JSON and country display labels.
 
 Testing guidance:
 
@@ -752,18 +763,106 @@ If the user asks about web UI:
 - views: `ciudades_del_mundo/web/views.py`
 - routes: `ciudades_del_mundo/web/urls.py`
 - background task registry: `ciudades_del_mundo/web/tasks.py`
+- database-busy middleware: `ciudades_del_mundo/web/middleware.py`
 - templates: `ciudades_del_mundo/templates/ciudades_del_mundo/`
-- CSS: `ciudades_del_mundo/static/ciudades_del_mundo/app.css`
+- CSS/JS: `ciudades_del_mundo/static/ciudades_del_mundo/app.css` and
+  `ciudades_del_mundo/static/ciudades_del_mundo/app.js`
+- translations: `locale/<language>/LC_MESSAGES/django.po` and compiled
+  `django.mo`; supported web languages are `es`, `en`, `fr`, `de`, `ru`, `it`,
+  `sr`, `sr-latn` and `ar`. The Serbian Latin gettext directory is
+  `locale/sr_Latn/LC_MESSAGES/`.
+- translation compiler: `ciudades_del_mundo/management/commands/compile_local_messages.py`
 - main sections:
   `/configs/` for TOML scraping config editing and scrape/validate/list-URL
   tasks, `/recipes/` for derived recipe creation/editing/build/export tasks,
-  `/derived/` for comparative `NuevoAdminArea` browsing, `/stats/` for
-  statistical charts, `/delete/` for confirmed data deletion and `/tasks/` for
-  in-memory task output/history
+  `/derived/` for comparative `NuevoAdminArea` browsing, `/countries/` for the
+  API-driven country browser, `/stats/` as its compatibility redirect,
+  `/delete/` for confirmed data deletion and `/tasks/` for
+  in-memory task output/history; `/map/<source>/<id>/` shows a map and visual
+  identity lookup for one `AdminArea` or `NuevoAdminArea`, and
+  `/identity/<kind>/<filename>/` shows the internal placeholder detail page for
+  resolved flag/coat images
+- large tables in `/areas/` and `/derived/<id>/` are loaded asynchronously from
+  partial endpoints (`/areas/table/`, `/derived/<id>/table/`), with advanced
+  filters and Select2-enhanced selects. Keep non-JS/native-select fallback
+  working when editing these pages.
+- Dashboard/statistical country bars and country selectors display names from
+  root database rows (`AdminArea.level=0` and root `NuevoAdminArea`) while
+  keeping `country_code` as the submitted/filter value. Display labels are
+  passed through Django `gettext`, so country/subdivision names that need
+  localization (for example `Brazil` -> `Brasil` in Spanish) must be present in
+  the `locale/*/LC_MESSAGES/django.po` catalogs and compiled.
+- Dashboard/statistical data loads dynamically with visible loading spinners.
+  Current web data should be consumed through the local API endpoints:
+  `/api/countries/`, `/api/countries/<country_code>/` and `/api/derived/`.
+  The older `/dashboard/population/`, `/dashboard/derived/` and
+  `/dashboard/country/<country_code>/` JSON endpoints remain for compatibility.
+  `/api/countries/` returns root-country population and area donut data and uses
+  only `AdminArea.level=0` rows, not summed child subdivisions when a single
+  root exists; if CityPopulation provides multiple `level=0` rows for one
+  `country_code`, the dashboard collapses them into one synthetic country entry
+  so the donut never lists subdivisions as countries. `/api/derived/` returns
+  the derived-country dashboard bar data. `/api/countries/<country_code>/`
+  returns the clicked-country dashboard
+  detail: general country data, one-level subdivision table rows, first-order
+  population/area comparison rows and first-order share-card data. The detail
+  table is client-paginated, has a client-selectable page size, marks the active
+  sort column with arrows, includes population/area percentages relative to the
+  country, and changing its level selector reloads only that table panel.
+  First-order and share summary tables are also client-sortable with sticky
+  headers. First-order share cards show each area's direct children at the next
+  level with mini pie percentages when the country has fewer than 150 rows at that
+  next level; do not filter those child rows by entity-type name.
+  `/countries/` is now an API-driven country card browser with a 10-column
+  desktop grid, flag, area and population per country; clicking a card loads the
+  basic country panel from `/api/countries/<country_code>/`. `/stats/` redirects
+  to `/countries/` for compatibility and `/stats/data/` still returns the older
+  statistics chart payload for compatibility. Frontend chart rendering is
+  centralized in `ciudades_del_mundo/static/ciudades_del_mundo/app.js`
+  as `window.CiudadesCharts`, using `[data-chart-widget]` containers for reusable
+  bar and donut charts; dashboard donut items dispatch
+  `ciudades:chart-item-click` to load the country detail panel. The dashboard
+  population donut groups only countries after rank 20 into `Otros paises`; the
+  population/area country table is combined into one searchable table without
+  changing either donut. Country colors are shared across both donuts and the
+  combined table; the colored set is the union of the top 10 countries by
+  population and the top 10 by area, while the remaining visible slices are
+  neutral. Country detail
+  visual identity is hydrated in browser-side JavaScript from Wikidata/Wikimedia
+  using a server-provided country QID map where known; flag and coat thumbnails
+  open a local preview overlay, then can open the internal
+  `/identity/<kind>/<filename>/` heraldry placeholder page or the full image.
+  The general panel stays hidden until that lookup and image load completes or
+  fails.
+- The base web layout has a client-side style selector next to the language
+  selector. The language picker is custom markup with CSS-drawn flag spans
+  because native selects and emoji fonts may not render flags consistently. The
+  style selector stores `light`, `dark`, `dracula`, `retro80`, `retro80-green`,
+  `retro80-cyan`, `retro80-red`, `rainbow`, `paper` or `spain` in
+  `localStorage` under `ciudades_del_mundo_theme` and applies the choice through
+  `html[data-theme]`; the `Efectos complejos` checkbox stores
+  `ciudades_del_mundo_theme_effects` and toggles `html[data-theme-effects]`.
+  `rainbow` and `paper` are complex styles, while country-specific styles such
+  as `spain` are special styles. Future country styles such as France or Morocco
+  should use background images of representative cities/monuments and cards
+  based on that country's flag colors. Keep theme-specific colors in CSS
+  variables where possible.
+- map pages do not use stored geometry. They geocode by area name in the
+  browser using OpenStreetMap/Nominatim through Leaflet, and try to resolve
+  flag/coat-of-arms/locator-map images from Wikidata/Wikimedia Commons in
+  browser-side JavaScript. The same browser-side Wikidata lookup also displays
+  translated labels, country, parent region and capital claims when available;
+  the server context additionally passes local registered capitals and
+  most-populated city names for related-place translation lookups. Treat all
+  Wikidata/Wikimedia results as best-effort external lookups.
 - web-launched tasks run `manage.py` subcommands in local subprocesses. A new
   task with the same key cancels/replaces the active one. Saving a TOML config
   or editable recipe from the UI also cancels/replaces the matching active
   scrape/build task if there is one.
+- When changing user-facing web text, wrap static template text with
+  `{% trans %}` / `{% blocktrans %}` or Python text with `gettext`, update the
+  relevant `locale/*/LC_MESSAGES/django.po` entries, then run
+  `py manage.py compile_local_messages` so Django can load the `.mo` catalogs.
 
 ## Local Development Notes
 
@@ -772,8 +871,12 @@ If the user asks about web UI:
 - There may be no `requirements.txt`; do not invent dependency management unless
   asked.
 - Django version in generated settings comment is 5.2.1.
-- Language/timezone settings are default-ish: `LANGUAGE_CODE = "en-us"`,
-  `TIME_ZONE = "UTC"`.
+- Web i18n is enabled with `LocaleMiddleware`; `LANGUAGE_CODE = "es"`,
+  `LANGUAGES = es/en/fr/de/ru`, and `TIME_ZONE = "UTC"`.
+- SQLite is configured for local concurrent use with a 30s timeout plus
+  `busy_timeout`, `journal_mode=WAL` and `synchronous=NORMAL` in
+  `CiudadesDelMundoConfig.ready()`. The web middleware returns a controlled 503
+  for `database is locked` instead of crashing the UI.
 - The local project may contain files with Spanish text. Do not "fix" encoding
   or mojibake-looking terminal output unless the task is specifically about
   encoding.

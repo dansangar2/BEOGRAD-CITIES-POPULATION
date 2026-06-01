@@ -1,12 +1,13 @@
 {% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
 
-{% block title %}Tareas - Ciudades del Mundo{% endblock %}
+{% block title %}{% trans "Tareas - Ciudades del Mundo" %}{% endblock %}
 
 {% block content %}
 <section class="page-head compact">
   <div>
-    <p class="eyebrow">Procesos en segundo plano</p>
-    <h1>Tareas</h1>
+    <p class="eyebrow">{% trans "Procesos en segundo plano" %}</p>
+    <h1>{% trans "Tareas" %}</h1>
   </div>
 </section>
 

@@ -1,15 +1,16 @@
 {% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
 
-{% block title %}Editar {{ slug }} - Ciudades del Mundo{% endblock %}
+{% block title %}{% blocktrans with slug=slug %}Editar {{ slug }}{% endblocktrans %} - {% trans "Ciudades del Mundo" %}{% endblock %}
 
 {% block content %}
 <section class="page-head compact">
   <div>
-    <p class="eyebrow">Receta Python</p>
+    <p class="eyebrow">{% trans "Receta Python" %}</p>
     <h1>{{ slug }}.py</h1>
   </div>
   <div class="actions">
-    <a class="button secondary" href="{% url 'ciudades_del_mundo:recipe_list' %}">Volver</a>
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:recipe_list' %}">{% trans "Volver" %}</a>
   </div>
 </section>
 
@@ -21,13 +22,13 @@
       <textarea name="content" spellcheck="false">{{ content }}</textarea>
     </label>
     <div class="actions">
-      <button type="submit">Guardar</button>
+      <button type="submit">{% trans "Guardar" %}</button>
     </div>
   </form>
 
   <aside class="panel help-panel">
-    <h2>Creacion</h2>
-    <p>Guarda la receta y lanza la tarea de creacion desde la lista de recetas. Si ya habia una creacion activa de esta receta, guardar cancela esa tarea y la reemplaza.</p>
+    <h2>{% trans "Creacion" %}</h2>
+    <p>{% trans "Guarda la receta y lanza la tarea de creacion desde la lista de recetas. Si ya habia una creacion activa de esta receta, guardar cancela esa tarea y la reemplaza." %}</p>
     <pre><code>DIVISIONS = [
   {
     "name": "Provincia",
@@ -36,7 +37,7 @@
   }
 ]</code></pre>
     {% if active_task and active_task.is_active %}
-    <p class="notice">Hay una construccion activa para esta receta.</p>
+    <p class="notice">{% trans "Hay una construccion activa para esta receta." %}</p>
     {% endif %}
   </aside>
 </section>

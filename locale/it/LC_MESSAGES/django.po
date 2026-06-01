@@ -1,0 +1,339 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: BEOGRAD-CITIES-POPULATION\n"
+"Language: it\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Ciudades del Mundo"
+msgstr "Citta del mondo"
+
+msgid "Panel"
+msgstr "Pannello"
+
+msgid "Scraping"
+msgstr "Scraping"
+
+msgid "Recetas"
+msgstr "Ricette"
+
+msgid "Subdivisiones"
+msgstr "Suddivisioni"
+
+msgid "Datos fuente"
+msgstr "Dati fonte"
+
+msgid "Graficas"
+msgstr "Grafici"
+
+msgid "Tareas"
+msgstr "Attivita"
+
+msgid "Borrar"
+msgstr "Elimina"
+
+msgid "Idioma"
+msgstr "Lingua"
+
+msgid "Estilo"
+msgstr "Stile"
+
+msgid "Estilos basicos"
+msgstr "Stili base"
+
+msgid "Estilos avanzados"
+msgstr "Stili avanzati"
+
+msgid "Claro"
+msgstr "Chiaro"
+
+msgid "Dark"
+msgstr "Scuro"
+
+msgid "Retro 80 violeta"
+msgstr "Retro 80 viola"
+
+msgid "Retro 80 verde"
+msgstr "Retro 80 verde"
+
+msgid "Retro 80 azul celeste"
+msgstr "Retro 80 azzurro"
+
+msgid "Retro 80 rojo"
+msgstr "Retro 80 rosso"
+
+msgid "España"
+msgstr "Spagna"
+
+msgid "Poblacion por pais"
+msgstr "Popolazione per paese"
+
+msgid "Poblacion"
+msgstr "Popolazione"
+
+msgid "Terreno"
+msgstr "Territorio"
+
+msgid "Otros paises"
+msgstr "Altri paesi"
+
+msgid "Buscar pais"
+msgstr "Cerca paese"
+
+msgid "Buscar por nombre"
+msgstr "Cerca per nome"
+
+msgid "Ver datos"
+msgstr "Vedi dati"
+
+msgid "Datos generales del pais"
+msgstr "Dati generali del paese"
+
+msgid "Tabla de datos"
+msgstr "Tabella dati"
+
+msgid "Subdivisiones de primer orden"
+msgstr "Suddivisioni di primo ordine"
+
+msgid "Porcentaje por subdivision de primer orden"
+msgstr "Percentuale per suddivisione di primo ordine"
+
+msgid "Nivel"
+msgstr "Livello"
+
+msgid "Filtrar"
+msgstr "Filtra"
+
+msgid "Filtrar por nombre o padre"
+msgstr "Filtra per nome o padre"
+
+msgid "Filas por pagina"
+msgstr "Righe per pagina"
+
+msgid "Densidad"
+msgstr "Densita"
+
+msgid "Padre"
+msgstr "Padre"
+
+msgid "Nombre"
+msgstr "Nome"
+
+msgid "Color"
+msgstr "Colore"
+
+msgid "Tipo"
+msgstr "Tipo"
+
+msgid "Nombre oficial"
+msgstr "Nome ufficiale"
+
+msgid "Idioma oficial"
+msgstr "Lingua ufficiale"
+
+msgid "Capital"
+msgstr "Capitale"
+
+msgid "Numero de subdivisiones"
+msgstr "Numero di suddivisioni"
+
+msgid "Bandera"
+msgstr "Bandiera"
+
+msgid "Escudo"
+msgstr "Stemma"
+
+msgid "Anterior"
+msgstr "Precedente"
+
+msgid "Siguiente"
+msgstr "Successivo"
+
+msgid "Ordenado por"
+msgstr "Ordinato per"
+
+msgid "Sin datos."
+msgstr "Nessun dato."
+
+msgid "Brazil"
+msgstr "Brasile"
+
+msgid "Spain"
+msgstr "Spagna"
+
+msgid "Italy"
+msgstr "Italia"
+
+msgid "France"
+msgstr "Francia"
+
+msgid "Germany"
+msgstr "Germania"
+
+msgid "Portugal"
+msgstr "Portogallo"
+
+msgid "USA"
+msgstr "Stati Uniti"
+
+msgid "United States"
+msgstr "Stati Uniti"
+
+msgid "United Kingdom"
+msgstr "Regno Unito"
+
+msgid "Serbia"
+msgstr "Serbia"
+
+msgid "Morocco"
+msgstr "Marocco"
+
+msgid "China"
+msgstr "Cina"
+
+msgid "India"
+msgstr "India"
+
+msgid "Japan"
+msgstr "Giappone"
+
+msgid "Russia"
+msgstr "Russia"
+
+msgid "Canada"
+msgstr "Canada"
+
+msgid "Australia"
+msgstr "Australia"
+
+msgid "Mexico"
+msgstr "Messico"
+
+msgid "Argentina"
+msgstr "Argentina"
+
+msgid "Colombia"
+msgstr "Colombia"
+
+msgid "Peru"
+msgstr "Peru"
+
+msgid "Chile"
+msgstr "Cile"
+
+msgid "Netherlands"
+msgstr "Paesi Bassi"
+
+msgid "Lazio"
+msgstr "Lazio"
+
+msgid "Lombardy"
+msgstr "Lombardia"
+
+msgid "Rome"
+msgstr "Roma"
+
+msgid "Milan"
+msgstr "Milano"
+
+msgid "Indonesia"
+msgstr "Indonesia"
+
+msgid "Pakistan"
+msgstr "Pakistan"
+
+msgid "Nigeria"
+msgstr "Nigeria"
+
+msgid "Bangladesh"
+msgstr "Bangladesh"
+
+msgid "Philippines"
+msgstr "Filippine"
+
+msgid "Ethiopia"
+msgstr "Etiopia"
+
+msgid "Congo (Dem. Rep.)"
+msgstr "Repubblica Democratica del Congo"
+
+msgid "Vietnam"
+msgstr "Vietnam"
+
+msgid "Iran"
+msgstr "Iran"
+
+msgid "Thailand"
+msgstr "Thailandia"
+
+msgid "South Africa"
+msgstr "Sudafrica"
+
+msgid "Tanzania"
+msgstr "Tanzania"
+
+msgid "Kenya"
+msgstr "Kenya"
+
+msgid "Myanmar"
+msgstr "Myanmar"
+
+msgid "South Korea"
+msgstr "Corea del Sud"
+
+msgid "Iraq"
+msgstr "Iraq"
+
+msgid "Poblacion y terreno por país"
+msgstr "Popolazione e territorio per paese"
+
+msgid "Basico"
+msgstr "Base"
+
+msgid "Complejos"
+msgstr "Complessi"
+
+msgid "Especiales"
+msgstr "Speciali"
+
+msgid "Dracula"
+msgstr "Dracula"
+
+msgid "Arcoiris"
+msgstr "Arcobaleno"
+
+msgid "Papel"
+msgstr "Carta"
+
+msgid "Paises - Ciudades del Mundo"
+msgstr "Paesi - Citta del mondo"
+
+msgid "No se pudieron cargar los paises."
+msgstr "Impossibile caricare i paesi."
+
+msgid "Efectos complejos"
+msgstr "Effetti complessi"
+
+msgid "Ficha heraldica"
+msgstr "Scheda araldica"
+
+msgid "Identidad visual"
+msgstr "Identita visiva"
+
+msgid "Ver en Commons"
+msgstr "Vedi su Commons"
+
+msgid "Detalles heraldicos"
+msgstr "Dettagli araldici"
+
+msgid "Archivo"
+msgstr "File"
+
+msgid "Descripcion"
+msgstr "Descrizione"
+
+msgid "Ficha descriptiva pendiente. Este espacio queda reservado para blason, significado, colores oficiales, fecha de adopcion y fuente normativa."
+msgstr "Descrizione in sospeso. Questo spazio e riservato a blasone, significato, colori ufficiali, data di adozione e fonte normativa."
+
+msgid "Fuente visual"
+msgstr "Fonte visiva"

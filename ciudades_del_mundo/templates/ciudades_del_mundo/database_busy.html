@@ -1,0 +1,18 @@
+{% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Base de datos ocupada" %} - {% trans "Ciudades del Mundo" %}{% endblock %}
+
+{% block content %}
+<section class="page-head compact">
+  <div>
+    <p class="eyebrow">{% trans "Operacion en curso" %}</p>
+    <h1>{% trans "Base de datos ocupada" %}</h1>
+  </div>
+</section>
+
+<section class="panel">
+  <p>{{ message }}</p>
+  <button type="button" onclick="window.location.reload()">{% trans "Reintentar" %}</button>
+</section>
+{% endblock %}

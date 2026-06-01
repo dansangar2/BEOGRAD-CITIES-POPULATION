@@ -1,14 +1,15 @@
 {% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
 
-{% block title %}Recetas - Ciudades del Mundo{% endblock %}
+{% block title %}{% trans "Recetas - Ciudades del Mundo" %}{% endblock %}
 
 {% block content %}
 <section class="page-head compact">
   <div>
     <p class="eyebrow">NuevoAdminArea</p>
-    <h1>Recetas derivadas</h1>
+    <h1>{% trans "Recetas derivadas" %}</h1>
   </div>
-  <a class="button secondary" href="{% url 'ciudades_del_mundo:recipe_new' %}">Nueva receta</a>
+  <a class="button secondary" href="{% url 'ciudades_del_mundo:recipe_new' %}">{% trans "Nueva receta" %}</a>
 </section>
 
 <div class="table-wrap">
@@ -16,11 +17,11 @@
     <thead>
       <tr>
         <th>Slug</th>
-        <th>Nombre raiz</th>
-        <th>Grupo</th>
-        <th>Filas creadas</th>
-        <th>Tarea</th>
-        <th>Acciones</th>
+        <th>{% trans "Nombre raiz" %}</th>
+        <th>{% trans "Grupo" %}</th>
+        <th>{% trans "Filas creadas" %}</th>
+        <th>{% trans "Tarea" %}</th>
+        <th>{% trans "Acciones" %}</th>
       </tr>
     </thead>
     <tbody>
@@ -38,7 +39,7 @@
         <td>{{ recipe.built_count }}</td>
         <td>
           {% if recipe.active_task and recipe.active_task.is_active %}
-          <a class="status running" href="{% url 'ciudades_del_mundo:task_detail' recipe.active_task.id %}">running</a>
+          <a class="status running" href="{% url 'ciudades_del_mundo:task_detail' recipe.active_task.id %}">{% trans "running" %}</a>
           {% else %}
           <span class="muted">-</span>
           {% endif %}
@@ -46,8 +47,8 @@
         <td>
           <form class="inline-form" method="post" action="{% url 'ciudades_del_mundo:start_recipe_task' recipe.slug 'build' %}">
             {% csrf_token %}
-            <input class="small-input" name="population_year" placeholder="ano">
-            <button type="submit">Crear</button>
+            <input class="small-input" name="population_year" placeholder="{% trans 'ano' %}">
+            <button type="submit">{% trans "Crear" %}</button>
           </form>
           <div class="button-row">
             <form method="post" action="{% url 'ciudades_del_mundo:start_recipe_task' recipe.slug 'export-csv' %}">
@@ -62,7 +63,7 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="6">No hay recetas disponibles.</td></tr>
+      <tr><td colspan="6">{% trans "No hay recetas disponibles." %}</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -70,8 +71,8 @@
 
 <section class="panel spaced">
   <div class="section-title">
-    <h2>Tareas recientes</h2>
-    <a href="{% url 'ciudades_del_mundo:task_list' %}">Ver todas</a>
+    <h2>{% trans "Tareas recientes" %}</h2>
+    <a href="{% url 'ciudades_del_mundo:task_list' %}">{% trans "Ver todas" %}</a>
   </div>
   {% include "ciudades_del_mundo/partials/task_table.html" with tasks=recent_tasks compact=True %}
 </section>

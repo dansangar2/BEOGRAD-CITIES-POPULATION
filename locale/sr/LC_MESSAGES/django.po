@@ -1,0 +1,324 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: BEOGRAD-CITIES-POPULATION\n"
+"Language: sr\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Ciudades del Mundo"
+msgstr "Градови света"
+
+msgid "Panel"
+msgstr "Панел"
+
+msgid "Scraping"
+msgstr "Скрапинг"
+
+msgid "Recetas"
+msgstr "Рецепти"
+
+msgid "Subdivisiones"
+msgstr "Поделе"
+
+msgid "Datos fuente"
+msgstr "Изворни подаци"
+
+msgid "Graficas"
+msgstr "Графикони"
+
+msgid "Tareas"
+msgstr "Задаци"
+
+msgid "Borrar"
+msgstr "Обриши"
+
+msgid "Idioma"
+msgstr "Језик"
+
+msgid "Estilo"
+msgstr "Стил"
+
+msgid "Estilos basicos"
+msgstr "Основни стилови"
+
+msgid "Estilos avanzados"
+msgstr "Напредни стилови"
+
+msgid "Claro"
+msgstr "Светли"
+
+msgid "Dark"
+msgstr "Тамни"
+
+msgid "Retro 80 violeta"
+msgstr "Ретро 80 љубичасти"
+
+msgid "Retro 80 verde"
+msgstr "Ретро 80 зелени"
+
+msgid "Retro 80 azul celeste"
+msgstr "Ретро 80 небескоплави"
+
+msgid "Retro 80 rojo"
+msgstr "Ретро 80 црвени"
+
+msgid "España"
+msgstr "Шпанија"
+
+msgid "Poblacion por pais"
+msgstr "Становништво по земљи"
+
+msgid "Poblacion"
+msgstr "Становништво"
+
+msgid "Terreno"
+msgstr "Територија"
+
+msgid "Otros paises"
+msgstr "Остале земље"
+
+msgid "Buscar pais"
+msgstr "Претражи земљу"
+
+msgid "Buscar por nombre"
+msgstr "Претражи по имену"
+
+msgid "Ver datos"
+msgstr "Прикажи податке"
+
+msgid "Datos generales del pais"
+msgstr "Општи подаци о земљи"
+
+msgid "Tabla de datos"
+msgstr "Табела података"
+
+msgid "Subdivisiones de primer orden"
+msgstr "Поделе првог реда"
+
+msgid "Porcentaje por subdivision de primer orden"
+msgstr "Проценат по подели првог реда"
+
+msgid "Nivel"
+msgstr "Ниво"
+
+msgid "Filtrar"
+msgstr "Филтрирај"
+
+msgid "Filtrar por nombre o padre"
+msgstr "Филтрирај по имену или родитељу"
+
+msgid "Filas por pagina"
+msgstr "Редова по страници"
+
+msgid "Densidad"
+msgstr "Густина"
+
+msgid "Padre"
+msgstr "Родитељ"
+
+msgid "Nombre"
+msgstr "Име"
+
+msgid "Color"
+msgstr "Боја"
+
+msgid "Tipo"
+msgstr "Тип"
+
+msgid "Nombre oficial"
+msgstr "Званично име"
+
+msgid "Idioma oficial"
+msgstr "Званични језик"
+
+msgid "Capital"
+msgstr "Главни град"
+
+msgid "Numero de subdivisiones"
+msgstr "Број подела"
+
+msgid "Bandera"
+msgstr "Застава"
+
+msgid "Escudo"
+msgstr "Грб"
+
+msgid "Anterior"
+msgstr "Претходно"
+
+msgid "Siguiente"
+msgstr "Следеће"
+
+msgid "Ordenado por"
+msgstr "Сортирано по"
+
+msgid "Sin datos."
+msgstr "Нема података."
+
+msgid "Brazil"
+msgstr "Бразил"
+
+msgid "Spain"
+msgstr "Шпанија"
+
+msgid "Italy"
+msgstr "Италија"
+
+msgid "France"
+msgstr "Француска"
+
+msgid "Germany"
+msgstr "Немачка"
+
+msgid "Portugal"
+msgstr "Португалија"
+
+msgid "USA"
+msgstr "Сједињене Државе"
+
+msgid "United States"
+msgstr "Сједињене Државе"
+
+msgid "United Kingdom"
+msgstr "Уједињено Краљевство"
+
+msgid "Serbia"
+msgstr "Србија"
+
+msgid "Morocco"
+msgstr "Мароко"
+
+msgid "China"
+msgstr "Кина"
+
+msgid "India"
+msgstr "Индија"
+
+msgid "Japan"
+msgstr "Јапан"
+
+msgid "Russia"
+msgstr "Русија"
+
+msgid "Canada"
+msgstr "Канада"
+
+msgid "Australia"
+msgstr "Аустралија"
+
+msgid "Mexico"
+msgstr "Мексико"
+
+msgid "Lazio"
+msgstr "Лацио"
+
+msgid "Lombardy"
+msgstr "Ломбардија"
+
+msgid "Rome"
+msgstr "Рим"
+
+msgid "Milan"
+msgstr "Милано"
+
+msgid "Indonesia"
+msgstr "Индонезија"
+
+msgid "Pakistan"
+msgstr "Пакистан"
+
+msgid "Nigeria"
+msgstr "Нигерија"
+
+msgid "Bangladesh"
+msgstr "Бангладеш"
+
+msgid "Philippines"
+msgstr "Филипини"
+
+msgid "Ethiopia"
+msgstr "Етиопија"
+
+msgid "Congo (Dem. Rep.)"
+msgstr "Демократска Република Конго"
+
+msgid "Vietnam"
+msgstr "Вијетнам"
+
+msgid "Iran"
+msgstr "Иран"
+
+msgid "Thailand"
+msgstr "Тајланд"
+
+msgid "South Africa"
+msgstr "Јужна Африка"
+
+msgid "Tanzania"
+msgstr "Танзанија"
+
+msgid "Kenya"
+msgstr "Кенија"
+
+msgid "Myanmar"
+msgstr "Мјанмар"
+
+msgid "South Korea"
+msgstr "Јужна Кореја"
+
+msgid "Iraq"
+msgstr "Ирак"
+
+msgid "Poblacion y terreno por país"
+msgstr "Становништво и површина по земљи"
+
+msgid "Basico"
+msgstr "Основни"
+
+msgid "Complejos"
+msgstr "Сложени"
+
+msgid "Especiales"
+msgstr "Посебни"
+
+msgid "Dracula"
+msgstr "Дракула"
+
+msgid "Arcoiris"
+msgstr "Дуга"
+
+msgid "Papel"
+msgstr "Папир"
+
+msgid "Paises - Ciudades del Mundo"
+msgstr "Земље - Градови света"
+
+msgid "No se pudieron cargar los paises."
+msgstr "Није могуће учитати земље."
+
+msgid "Efectos complejos"
+msgstr "Сложени ефекти"
+
+msgid "Ficha heraldica"
+msgstr "Хералдички опис"
+
+msgid "Identidad visual"
+msgstr "Визуелни идентитет"
+
+msgid "Ver en Commons"
+msgstr "Погледај на Commons"
+
+msgid "Detalles heraldicos"
+msgstr "Хералдички детаљи"
+
+msgid "Archivo"
+msgstr "Датотека"
+
+msgid "Descripcion"
+msgstr "Опис"
+
+msgid "Ficha descriptiva pendiente. Este espacio queda reservado para blason, significado, colores oficiales, fecha de adopcion y fuente normativa."
+msgstr "Опис је у припреми. Ово место је резервисано за блазон, значење, званичне боје, датум усвајања и нормативни извор."
+
+msgid "Fuente visual"
+msgstr "Визуелни извор"

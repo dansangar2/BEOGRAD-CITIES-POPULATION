@@ -1,0 +1,615 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: BEOGRAD-CITIES-POPULATION\n"
+"Language: fr\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Ciudades del Mundo"
+msgstr "Villes du monde"
+
+msgid "Panel"
+msgstr "Tableau de bord"
+
+msgid "Scraping"
+msgstr "Scraping"
+
+msgid "Recetas"
+msgstr "Recettes"
+
+msgid "Subdivisiones"
+msgstr "Subdivisions"
+
+msgid "Datos fuente"
+msgstr "Données sources"
+
+msgid "Graficas"
+msgstr "Graphiques"
+
+msgid "Tareas"
+msgstr "Tâches"
+
+msgid "Borrar"
+msgstr "Supprimer"
+
+msgid "Idioma"
+msgstr "Langue"
+
+msgid "Panel - Ciudades del Mundo"
+msgstr "Tableau de bord - Villes du monde"
+
+msgid "Gestion local de datos"
+msgstr "Gestion locale des données"
+
+msgid "Panel operativo"
+msgstr "Tableau de bord opérationnel"
+
+msgid "Popular datos"
+msgstr "Remplir les données"
+
+msgid "Nueva receta"
+msgstr "Nouvelle recette"
+
+msgid "AdminArea fuente"
+msgstr "AdminArea source"
+
+msgid "Areas con escanos"
+msgstr "Zones avec sièges"
+
+msgid "Poblacion importada"
+msgstr "Population importée"
+
+msgid "Poblacion por pais"
+msgstr "Population par pays"
+
+msgid "Cargando datos..."
+msgstr "Chargement des données..."
+
+msgid "No se pudo cargar la poblacion."
+msgstr "La population n'a pas pu être chargée."
+
+msgid "Sin datos importados."
+msgstr "Aucune donnée importée."
+
+msgid "Otros paises"
+msgstr "Autres pays"
+
+msgid "Ver graficas"
+msgstr "Voir les graphiques"
+
+msgid "Subdivisiones derivadas"
+msgstr "Subdivisions dérivées"
+
+msgid "Comparar"
+msgstr "Comparer"
+
+msgid "Configuraciones recientes"
+msgstr "Configurations récentes"
+
+msgid "Todas"
+msgstr "Toutes"
+
+msgid "Popular"
+msgstr "Remplir"
+
+msgid "Tareas recientes"
+msgstr "Tâches récentes"
+
+msgid "Historial"
+msgstr "Historique"
+
+msgid "Configuraciones TOML"
+msgstr "Configurations TOML"
+
+msgid "Nueva configuracion"
+msgstr "Nouvelle configuration"
+
+msgid "Pais"
+msgstr "Pays"
+
+msgid "Paginas"
+msgstr "Pages"
+
+msgid "Unificaciones"
+msgstr "Unifications"
+
+msgid "Filas"
+msgstr "Lignes"
+
+msgid "Tarea"
+msgstr "Tâche"
+
+msgid "Acciones"
+msgstr "Actions"
+
+msgid "Validar"
+msgstr "Valider"
+
+msgid "Ver todas"
+msgstr "Tout voir"
+
+msgid "Volver"
+msgstr "Retour"
+
+msgid "Guardar"
+msgstr "Enregistrer"
+
+msgid "Recetas derivadas"
+msgstr "Recettes dérivées"
+
+msgid "Nombre raiz"
+msgstr "Nom racine"
+
+msgid "Grupo"
+msgstr "Groupe"
+
+msgid "Filas creadas"
+msgstr "Lignes créées"
+
+msgid "Crear"
+msgstr "Créer"
+
+msgid "Crear receta"
+msgstr "Créer la recette"
+
+msgid "Datos derivados"
+msgstr "Données dérivées"
+
+msgid "Subdivisiones creadas"
+msgstr "Subdivisions créées"
+
+msgid "Crear o regenerar"
+msgstr "Créer ou régénérer"
+
+msgid "Pais derivado"
+msgstr "Pays dérivé"
+
+msgid "Codigo"
+msgstr "Code"
+
+msgid "Areas"
+msgstr "Zones"
+
+msgid "Poblacion agregada"
+msgstr "Population agrégée"
+
+msgid "Escanos"
+msgstr "Sièges"
+
+msgid "Capital"
+msgstr "Capitale"
+
+msgid "Buscar por nombre"
+msgstr "Rechercher par nom"
+
+msgid "Todos los niveles"
+msgstr "Tous les niveaux"
+
+msgid "Filtrar"
+msgstr "Filtrer"
+
+msgid "Nombre"
+msgstr "Nom"
+
+msgid "Nivel"
+msgstr "Niveau"
+
+msgid "Tipo"
+msgstr "Type"
+
+msgid "Padre"
+msgstr "Parent"
+
+msgid "Poblacion"
+msgstr "Population"
+
+msgid "Estado"
+msgstr "État"
+
+msgid "Capitales"
+msgstr "Capitales"
+
+msgid "Ciudad mayor"
+msgstr "Plus grande ville"
+
+msgid "Anterior"
+msgstr "Précédent"
+
+msgid "Siguiente"
+msgstr "Suivant"
+
+msgid "Estadisticas"
+msgstr "Statistiques"
+
+msgid "Graficas de datos"
+msgstr "Graphiques de données"
+
+msgid "Borrar datos"
+msgstr "Supprimer les données"
+
+msgid "Operacion destructiva"
+msgstr "Opération destructive"
+
+msgid "Confirmo el borrado"
+msgstr "Je confirme la suppression"
+
+msgid "Cancelar"
+msgstr "Annuler"
+
+msgid "Inicio"
+msgstr "Début"
+
+msgid "Comando"
+msgstr "Commande"
+
+msgid "Salida"
+msgstr "Sortie"
+
+msgid "Abrir"
+msgstr "Ouvrir"
+
+msgid "queued"
+msgstr "en attente"
+
+msgid "running"
+msgstr "en cours"
+
+msgid "succeeded"
+msgstr "réussie"
+
+msgid "failed"
+msgstr "échouée"
+
+msgid "cancelled"
+msgstr "annulée"
+
+msgid "Base de datos ocupada"
+msgstr "Base de données occupée"
+
+msgid "Operacion en curso"
+msgstr "Opération en cours"
+
+msgid "Reintentar"
+msgstr "Réessayer"
+
+msgid "Buscar"
+msgstr "Rechercher"
+
+msgid "Paises"
+msgstr "Pays"
+
+msgid "Niveles"
+msgstr "Niveaux"
+
+msgid "Todos los tipos"
+msgstr "Tous les types"
+
+msgid "Cualquier fusion"
+msgstr "Toute fusion"
+
+msgid "Nombre del padre"
+msgstr "Nom du parent"
+
+msgid "Poblacion minima"
+msgstr "Population minimale"
+
+msgid "Poblacion maxima"
+msgstr "Population maximale"
+
+msgid "Area minima"
+msgstr "Surface minimale"
+
+msgid "Area maxima"
+msgstr "Surface maximale"
+
+msgid "Orden"
+msgstr "Tri"
+
+msgid "Limpiar"
+msgstr "Effacer"
+
+msgid "Cargando tabla..."
+msgstr "Chargement du tableau..."
+
+msgid "La tabla no se pudo cargar. Reintenta en unos segundos."
+msgstr "Le tableau n'a pas pu être chargé. Réessayez dans quelques secondes."
+
+msgid "%(count)s areas encontradas"
+msgstr "%(count)s zones trouvées"
+
+msgid "Mapa"
+msgstr "Carte"
+
+msgid "Ver"
+msgstr "Voir"
+
+msgid "Mapa e identidad visual"
+msgstr "Carte et identité visuelle"
+
+msgid "Abrir en OpenStreetMap"
+msgstr "Ouvrir dans OpenStreetMap"
+
+msgid "Datos"
+msgstr "Données"
+
+msgid "Bandera, escudo y mapa localizador"
+msgstr "Drapeau, blason et carte de localisation"
+
+msgid "Buscando imagenes en Wikidata..."
+msgstr "Recherche d'images dans Wikidata..."
+
+msgid "Bandera"
+msgstr "Drapeau"
+
+msgid "Escudo"
+msgstr "Blason"
+
+msgid "Mapa localizador"
+msgstr "Carte de localisation"
+
+msgid "Buscar bandera"
+msgstr "Rechercher le drapeau"
+
+msgid "Buscar escudo"
+msgstr "Rechercher le blason"
+
+msgid "Cualquier estado"
+msgstr "Tout état"
+
+msgid "Cualquier padre"
+msgstr "Tout parent"
+
+msgid "Cualquiera"
+msgstr "Tous"
+
+msgid "Con escanos"
+msgstr "Avec sièges"
+
+msgid "Sin escanos"
+msgstr "Sans sièges"
+
+msgid "No se encontraron imagenes automaticas. Usa las busquedas externas."
+msgstr "Aucune image automatique n'a été trouvée. Utilisez les recherches externes."
+
+msgid "No se encontraron traducciones o capitales automaticas en Wikidata."
+msgstr "Aucune traduction ou capitale automatique n'a été trouvée dans Wikidata."
+
+msgid "Pais en Wikidata"
+msgstr "Pays dans Wikidata"
+
+msgid "Capitales en Wikidata"
+msgstr "Capitales dans Wikidata"
+
+msgid "Region superior en Wikidata"
+msgstr "Région supérieure dans Wikidata"
+
+msgid "Ficha Wikidata"
+msgstr "Fiche Wikidata"
+
+msgid "Traducciones y capitales"
+msgstr "Traductions et capitales"
+
+msgid "Buscando nombres traducidos, paises y capitales..."
+msgstr "Recherche des noms traduits, pays et capitales..."
+
+msgid "Nombre del area"
+msgstr "Nom de la zone"
+
+msgid "Pais y capitales"
+msgstr "Pays et capitales"
+
+msgid "Ciudades importantes"
+msgstr "Villes importantes"
+
+msgid "Region padre"
+msgstr "Région parente"
+
+msgid "Capital registrada"
+msgstr "Capitale enregistrée"
+
+msgid "Ciudad mayor registrada"
+msgstr "Plus grande ville enregistrée"
+
+msgid "Total"
+msgstr "Total"
+
+msgid "No se pudo cargar la grafica."
+msgstr "Le graphique n'a pas pu être chargé."
+
+msgid "Sin subdivisiones creadas."
+msgstr "Aucune subdivision créée."
+
+msgid "Sin datos."
+msgstr "Aucune donnée."
+
+msgid "Brazil"
+msgstr "Brésil"
+
+msgid "USA"
+msgstr "États-Unis"
+
+msgid "United States"
+msgstr "États-Unis"
+
+msgid "UK"
+msgstr "Royaume-Uni"
+
+msgid "United Kingdom"
+msgstr "Royaume-Uni"
+
+msgid "Paises y subdivisiones"
+msgstr "Pays et subdivisions"
+
+msgid "Nuevos paises"
+msgstr "Nouveaux pays"
+
+msgid "Cargando pais..."
+msgstr "Chargement du pays..."
+
+msgid "No se pudo cargar el pais."
+msgstr "Le pays n'a pas pu être chargé."
+
+msgid "Datos generales del pais"
+msgstr "Données générales du pays"
+
+msgid "Tabla de datos"
+msgstr "Tableau de données"
+
+msgid "Subdivisiones de primer orden"
+msgstr "Subdivisions de premier ordre"
+
+msgid "Porcentaje por subdivision de primer orden"
+msgstr "Pourcentage par subdivision de premier ordre"
+
+msgid "Nivel"
+msgstr "Niveau"
+
+msgid "Filtrar por nombre o padre"
+msgstr "Filtrer par nom ou parent"
+
+msgid "Terreno"
+msgstr "Superficie"
+
+msgid "Densidad"
+msgstr "Densité"
+
+msgid "Padre"
+msgstr "Parent"
+
+msgid "Nombre oficial"
+msgstr "Nom officiel"
+
+msgid "Capital"
+msgstr "Capitale"
+
+msgid "Numero de subdivisiones"
+msgstr "Nombre de subdivisions"
+
+msgid "Tipos de subdivisiones"
+msgstr "Types de subdivisions"
+
+msgid "Bandera"
+msgstr "Drapeau"
+
+msgid "Escudo"
+msgstr "Armoiries"
+
+msgid "Sin tipo"
+msgstr "Sans type"
+
+msgid "Nivel %(level)s"
+msgstr "Niveau %(level)s"
+
+msgid "No existe el pais '%(country_code)s'."
+msgstr "Le pays '%(country_code)s' n'existe pas."
+
+msgid "Anterior"
+msgstr "Précédent"
+
+msgid "Siguiente"
+msgstr "Suivant"
+
+msgid "Buscar pais"
+msgstr "Rechercher un pays"
+
+msgid "Filas por pagina"
+msgstr "Lignes par page"
+
+msgid "Estilo"
+msgstr "Style"
+
+msgid "Claro"
+msgstr "Clair"
+
+msgid "Dark"
+msgstr "Sombre"
+
+msgid "Retro 80"
+msgstr "Retro 80"
+
+msgid "Color"
+msgstr "Couleur"
+
+msgid "Idioma oficial"
+msgstr "Langue officielle"
+
+msgid "Estilos basicos"
+msgstr "Styles de base"
+
+msgid "Estilos avanzados"
+msgstr "Styles avances"
+
+msgid "Retro 80 violeta"
+msgstr "Retro 80 violet"
+
+msgid "Retro 80 verde"
+msgstr "Retro 80 vert"
+
+msgid "Retro 80 azul celeste"
+msgstr "Retro 80 bleu ciel"
+
+msgid "Retro 80 rojo"
+msgstr "Retro 80 rouge"
+
+msgid "España"
+msgstr "Espagne"
+
+msgid "Ver datos"
+msgstr "Voir les donnees"
+
+msgid "Ordenado por"
+msgstr "Trié par"
+
+msgid "Poblacion y terreno por país"
+msgstr "Population et superficie par pays"
+
+msgid "Basico"
+msgstr "Basique"
+
+msgid "Complejos"
+msgstr "Complexes"
+
+msgid "Especiales"
+msgstr "Speciaux"
+
+msgid "Dracula"
+msgstr "Dracula"
+
+msgid "Arcoiris"
+msgstr "Arc-en-ciel"
+
+msgid "Papel"
+msgstr "Papier"
+
+msgid "Paises - Ciudades del Mundo"
+msgstr "Pays - Villes du monde"
+
+msgid "No se pudieron cargar los paises."
+msgstr "Impossible de charger les pays."
+
+msgid "Efectos complejos"
+msgstr "Effets complexes"
+
+msgid "Ficha heraldica"
+msgstr "Fiche heraldique"
+
+msgid "Identidad visual"
+msgstr "Identite visuelle"
+
+msgid "Ver en Commons"
+msgstr "Voir sur Commons"
+
+msgid "Detalles heraldicos"
+msgstr "Details heraldiques"
+
+msgid "Archivo"
+msgstr "Fichier"
+
+msgid "Descripcion"
+msgstr "Description"
+
+msgid "Ficha descriptiva pendiente. Este espacio queda reservado para blason, significado, colores oficiales, fecha de adopcion y fuente normativa."
+msgstr "Description en attente. Cet espace est reserve au blason, au sens, aux couleurs officielles, a la date d'adoption et a la source juridique."
+
+msgid "Fuente visual"
+msgstr "Source visuelle"
