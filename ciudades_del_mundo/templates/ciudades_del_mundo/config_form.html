@@ -1,58 +1,284 @@
 {% extends "ciudades_del_mundo/base.html" %}
 {% load i18n %}
 
-{% block title %}{% if mode == "new" %}{% trans "Nueva configuracion" %}{% else %}{% blocktrans with slug=slug %}Editar {{ slug }}{% endblocktrans %}{% endif %} - {% trans "Ciudades del Mundo" %}{% endblock %}
+{% block title %}{% if mode == "new" %}{% trans "Nueva configuración" %}{% else %}{% blocktrans with slug=slug %}Editar {{ slug }}{% endblocktrans %}{% endif %} - {% trans "Ciudades del Mundo" %}{% endblock %}
 
 {% block content %}
 <section class="page-head compact">
   <div>
     <p class="eyebrow">{% trans "Scraping y ciudades unificadas" %}</p>
-    <h1>{% if mode == "new" %}{% trans "Nueva configuracion" %}{% else %}{{ slug }}.toml{% endif %}</h1>
+    <h1>{% if mode == "new" %}{% trans "Nueva configuración" %}{% else %}{{ slug }}.toml{% endif %}</h1>
   </div>
   <a class="button secondary" href="{% url 'ciudades_del_mundo:config_list' %}">{% trans "Volver" %}</a>
 </section>
 
-<section class="editor-layout">
-  <form class="panel form-panel" method="post">
-    {% csrf_token %}
-    {% if mode == "new" %}
-    <label>
-      Slug
-      <input name="slug" value="{{ slug }}" placeholder="nuevo_pais">
-    </label>
-    {% endif %}
-    <label>
-      TOML
-      <textarea name="content" spellcheck="false">{{ content }}</textarea>
-    </label>
-    <div class="actions">
-      <button type="submit">{% trans "Guardar" %}</button>
-      {% if mode == "edit" %}
-      <a class="button secondary" href="{% url 'ciudades_del_mundo:start_config_task' slug 'validate' %}" onclick="event.preventDefault(); document.getElementById('validate-form').submit();">{% trans "Validar" %}</a>
+<section class="config-editor" data-config-editor data-mode="{{ mode }}" data-slug="{{ slug }}" data-generate-url="{% if mode == 'edit' %}{% url 'ciudades_del_mundo:config_generate_base' slug %}{% endif %}" data-source-entities-url="{% if mode == 'edit' %}{% url 'ciudades_del_mundo:config_source_entities' slug %}{% endif %}" data-empty-label="{% trans 'Sin datos' %}" data-loading-label="{% trans 'Cargando datos...' %}" data-error-label="{% trans 'No se pudieron cargar las entidades.' %}">
+  <div class="config-tabs" role="tablist" aria-label="{% trans 'Modos de configuración' %}">
+    <button type="button" class="config-tab is-active" data-config-tab="manual" role="tab" aria-selected="true">{% trans "Manual" %}</button>
+    <button type="button" class="config-tab" data-config-tab="file" role="tab" aria-selected="false">{% trans "Archivo" %}</button>
+    <button type="button" class="config-tab" data-config-tab="scraping" role="tab" aria-selected="false">{% trans "Scrapping" %}</button>
+    <button type="button" class="config-tab config-tab-ai" data-config-tab="ai" role="tab" aria-selected="false"><span aria-hidden="true">🤖</span> <span class="rainbow-text">{% trans "IA" %}</span></button>
+  </div>
+
+  <div class="config-tab-panel is-active" data-config-panel="manual" role="tabpanel">
+    <form class="panel form-panel config-manual-form" method="post">
+      {% csrf_token %}
+      <input type="hidden" name="editor_mode" value="manual">
+      <input type="hidden" name="selected_city_entities" data-selected-city-entities value="{{ manual_selected_ids_json }}">
+      {% if mode == "new" %}
+      <label>
+        Slug
+        <input name="slug" value="{{ slug }}" placeholder="nuevo_pais" required>
+      </label>
       {% endif %}
-    </div>
-  </form>
 
-  <aside class="panel help-panel">
-    <h2>{% trans "Campos clave" %}</h2>
-    <p>{% blocktrans %}<code>[[pages]]</code> controla las paginas scrapeadas. <code>[[cities]]</code> define agregaciones o ciudades unificadas.{% endblocktrans %}</p>
-    <pre><code>[[cities]]
-city = "Ciudad"
-id = "city-code"
-level = 3
-type = "City"
-district_types = ["District"]
-from = { 2 = ["Provincia"] }
-keep_communes = false</code></pre>
-    {% if active_task and active_task.is_active %}
-    <p class="notice">{% trans "Hay una tarea activa para este scraping. Si guardas cambios, se cancela y se reemplaza con una tarea nueva." %}</p>
-    {% endif %}
-  </aside>
+      <div class="form-grid compact-form-grid">
+        <label>
+          {% trans "Nombre" %}
+          <input name="manual_name" value="{{ manual.name }}" placeholder="Spain">
+        </label>
+        <label>
+          {% trans "Código de país" %}
+          <input name="manual_country_code" value="{{ manual.country_code }}" placeholder="{{ slug }}">
+        </label>
+        <label>
+          {% trans "Subdivisión legal" %}
+          <input type="number" min="0" max="5" name="manual_legal_subdivision" value="{{ manual.legal_subdivision }}">
+        </label>
+      </div>
+
+      <div class="section-title">
+        <h2>{% trans "Rutas de scrapeo" %}</h2>
+        <button type="button" class="secondary" data-add-page-row>{% trans "Añadir línea" %}</button>
+      </div>
+      <p class="muted">{% trans "Formato: NV - URL - Tipo Scrapeo. Puedes usar rutas relativas de CityPopulation o URLs completas." %}</p>
+      <div class="table-wrap subtle manual-pages-wrap">
+        <table class="compact-table manual-pages-table">
+          <thead>
+            <tr>
+              <th>{% trans "NV" %}</th>
+              <th>URL</th>
+              <th>{% trans "Tipo Scrapeo" %}</th>
+              <th>{% trans "Acciones" %}</th>
+            </tr>
+          </thead>
+          <tbody data-manual-pages>
+            {% for page in manual.pages %}
+            <tr>
+              <td><input type="number" min="0" max="5" name="page_level" value="{{ page.lowest_level }}"></td>
+              <td><input name="page_url" value="{{ page.path }}" placeholder="admin"></td>
+              <td>
+                <select name="page_source">
+                  {% for value, label in scrape_types %}
+                  <option value="{{ value }}" {% if page.source == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td><button type="button" class="quiet danger-text" data-remove-page-row>{% trans "Quitar" %}</button></td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td><input type="number" min="0" max="5" name="page_level" value="0"></td>
+              <td><input name="page_url" value="admin" placeholder="admin"></td>
+              <td>
+                <select name="page_source">
+                  {% for value, label in scrape_types %}
+                  <option value="{{ value }}" {% if value == 'admin' %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td><button type="button" class="quiet danger-text" data-remove-page-row>{% trans "Quitar" %}</button></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section-title spaced-title">
+        <h2>{% trans "Unificación de ciudad" %}</h2>
+      </div>
+      <p class="muted">{% trans "Opcional. Mueve entidades scrapeadas a la tabla derecha para crear una ciudad unificada; si no hay selección, se ignora." %}</p>
+      <div class="form-grid compact-form-grid">
+        <label>
+          {% trans "Ciudad unificada" %}
+          <input name="city_name" value="{{ manual.city.name }}" placeholder="Ciudad">
+        </label>
+        <label>
+          ID
+          <input name="city_id" value="{{ manual.city.id }}" placeholder="ciudad">
+        </label>
+        <label>
+          {% trans "Nivel" %}
+          <select name="city_level">
+            <option value="">{% trans "Automático" %}</option>
+            {% for level in city_level_choices %}
+            <option value="{{ level.value }}" {% if level.selected %}selected{% endif %}>{{ level.value }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          {% trans "Tipo" %}
+          <input name="city_type" value="{{ manual.city.type }}" placeholder="City">
+        </label>
+      </div>
+
+      <div class="dual-table-transfer" data-city-transfer>
+        <div class="transfer-panel">
+          <h3>{% trans "Entidades disponibles" %}</h3>
+          <div class="transfer-filters">
+            <label>
+              {% trans "Nivel" %}
+              <select data-transfer-filter="level" data-require-value="true">
+                {% for level in source_level_choices %}
+                <option value="{{ level.value }}">{{ level.label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>{% trans "Nombre" %}<input type="search" data-transfer-filter="name" placeholder="{% trans 'Nombre' %}"></label>
+            <label>
+              {% trans "Padre" %}
+              <select data-transfer-filter="parent" data-select2 data-placeholder="{% trans 'Padre' %}" data-empty-option="{% trans 'Todos' %}">
+                <option value="">{% trans "Todos" %}</option>
+              </select>
+            </label>
+          </div>
+          <div class="table-wrap subtle transfer-table-wrap">
+            <table class="compact-table">
+              <thead><tr><th>{% trans "Nivel" %}</th><th>{% trans "Nombre" %}</th><th>{% trans "Padre" %}</th><th></th></tr></thead>
+              <tbody data-transfer-available></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="transfer-panel">
+          <h3>{% trans "Entidades a unificar" %}</h3>
+          <div class="transfer-filters transfer-filters-placeholder" aria-hidden="true"></div>
+          <div class="table-wrap subtle transfer-table-wrap">
+            <table class="compact-table">
+              <thead><tr><th>{% trans "Nivel" %}</th><th>{% trans "Nombre" %}</th><th>{% trans "Padre" %}</th><th></th></tr></thead>
+              <tbody data-transfer-selected></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="submit">{% trans "Guardar" %}</button>
+        {% if mode == "edit" %}
+        <button type="submit" class="secondary" formaction="{% url 'ciudades_del_mundo:start_config_task' slug 'validate' %}" formmethod="post" data-config-action="validate" data-action-label="{% trans 'Validar' %}">{% trans "Validar" %}</button>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <div class="config-tab-panel" data-config-panel="file" role="tabpanel" hidden>
+    <section class="panel warning-panel">
+      <strong>{% trans "Aviso" %}</strong>
+      <p>{% trans "Editar el archivo a mano es potente, pero conviene saber TOML/Python del proyecto para no romper la configuración. Antes de guardar se validará; si falla, verás un aviso." %}</p>
+    </section>
+    <form class="panel form-panel" method="post" data-raw-config-form>
+      {% csrf_token %}
+      <input type="hidden" name="editor_mode" value="file">
+      {% if mode == "new" %}
+      <label>
+        Slug
+        <input name="slug" value="{{ slug }}" placeholder="nuevo_pais" required>
+      </label>
+      {% endif %}
+      <label>
+        TOML
+        <textarea name="content" spellcheck="false">{{ content }}</textarea>
+      </label>
+      <div class="actions">
+        <button type="submit">{% trans "Guardar" %}</button>
+        {% if mode == "edit" %}
+        <button type="submit" class="secondary" formaction="{% url 'ciudades_del_mundo:start_config_task' slug 'validate' %}" formmethod="post" data-config-action="validate" data-action-label="{% trans 'Validar' %}">{% trans "Validar" %}</button>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <div class="config-tab-panel" data-config-panel="scraping" role="tabpanel" hidden>
+    <section class="panel form-panel">
+      <div class="section-title">
+        <div>
+          <h2>{% trans "Generar base desde CityPopulation" %}</h2>
+          <p class="muted">{% blocktrans with slug=slug|default:'spain' %}Busca rutas en https://www.citypopulation.de/en/{{ slug }}/ y crea una base de configuración editable.{% endblocktrans %}</p>
+        </div>
+        <button type="button" data-generate-config {% if mode == "new" %}disabled{% endif %}>{% trans "Generar" %}</button>
+      </div>
+      <label>
+        {% trans "Proceso" %}
+        <textarea class="task-console" data-generate-log readonly placeholder="{% trans 'Aquí aparecerá el proceso.' %}"></textarea>
+      </label>
+      <form method="post" data-generated-config-form>
+        {% csrf_token %}
+        <input type="hidden" name="editor_mode" value="file">
+        {% if mode == "new" %}
+        <label>
+          Slug
+          <input name="slug" value="{{ slug }}" placeholder="nuevo_pais" required>
+        </label>
+        {% endif %}
+        <label>
+          TOML
+          <textarea name="content" spellcheck="false" data-generated-config>{{ content }}</textarea>
+        </label>
+        <div class="actions">
+          <button type="submit">{% trans "Guardar" %}</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div class="config-tab-panel" data-config-panel="ai" role="tabpanel" hidden>
+    <section class="panel ai-config-panel" data-ai-enabled="{{ ai_enabled|yesno:'true,false' }}">
+      <div class="section-title">
+        <div>
+          <h2><span aria-hidden="true">🤖</span> <span class="rainbow-text">{% trans "Configuración vía IA" %}</span></h2>
+          <p class="muted">{% trans "Sistema preparado para activar/desactivar IA. El login se abre en la web del proveedor elegido y no se guardan credenciales personales." %}</p>
+        </div>
+        <label class="switch-label">
+          <input type="checkbox" {% if ai_enabled %}checked{% endif %} disabled>
+          <span>{% trans "IA habilitada" %}</span>
+        </label>
+      </div>
+      <label>
+        {% trans "Prompt base" %}
+        <textarea readonly>Busca en https://www.citypopulation.de/en/{{ slug|default:'spain' }}/ las rutas útiles de CityPopulation y genera una configuración TOML compatible con este proyecto.</textarea>
+      </label>
+      <label>
+        {% trans "Configuración extra" %}
+        <textarea placeholder="{% trans 'Indicaciones adicionales para la IA cuando se active.' %}"></textarea>
+      </label>
+      <div class="form-grid compact-form-grid ai-login-grid" data-ai-login-panel>
+        <label>
+          {% trans "Proveedor IA" %}
+          <select data-ai-provider>
+            {% for provider_id, provider_label in ai_provider_choices %}
+            <option value="{{ provider_id }}">{{ provider_label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          {% trans "Cuenta IA personal" %}
+          <input type="text" placeholder="{% trans 'Se abrirá la web del proveedor elegido' %}" disabled>
+        </label>
+        <div class="ai-login-actions">
+          <a class="button" data-ai-login-link href="{% if mode == 'edit' %}{% url 'ciudades_del_mundo:config_ai_login' slug %}?provider=chatgpt{% else %}#{% endif %}" {% if not ai_enabled or mode == 'new' %}aria-disabled="true"{% endif %}>{% trans "Iniciar sesión en la web" %}</a>
+          {% if not ai_enabled %}<small class="muted">{% trans "La IA está deshabilitada por configuración." %}</small>{% endif %}
+          {% if mode == "new" %}<small class="muted">{% trans "Guarda la configuración antes de iniciar sesión." %}</small>{% endif %}
+        </div>
+      </div>
+      <label>
+        {% trans "Comentarios de la IA" %}
+        <textarea readonly placeholder="{% trans 'Aquí aparecerán los comentarios de la IA cuando se active.' %}"></textarea>
+      </label>
+      <div class="actions">
+        <button type="button" disabled>{% trans "Generar con IA" %}</button>
+      </div>
+    </section>
+  </div>
+
+  <script type="application/json" data-source-entities-json>{{ source_entities_json|safe }}</script>
 </section>
-
-{% if mode == "edit" %}
-<form id="validate-form" method="post" action="{% url 'ciudades_del_mundo:start_config_task' slug 'validate' %}">
-  {% csrf_token %}
-</form>
-{% endif %}
 {% endblock %}

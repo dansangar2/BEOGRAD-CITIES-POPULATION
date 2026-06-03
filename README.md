@@ -206,12 +206,13 @@ por pais y usa solo filas `AdminArea` de nivel 0; `/api/derived/` alimenta el
 resumen de paises derivados. Las rutas antiguas `/dashboard/population/` y
 `/dashboard/derived/` siguen existiendo por compatibilidad.
 Si un `country_code` trae varias filas `AdminArea.level=0`, la rosca las
-agrupa como un unico pais para no mostrar subdivisiones como paises. La rosca
-mantiene los primeros 20 paises y agrupa el resto como `Otros paises`; el
+agrupa como un unico pais para no mostrar subdivisiones como paises. El
 buscador compartido filtra solo la tabla combinada, no las graficas. La tabla
 combina poblacion y terreno en una sola vista. El mismo pais comparte siempre
 color en ambas roscas; los colores se asignan al conjunto formado por los 10
-paises mas poblados y los 10 mas extensos, y el resto queda neutral. Al hacer clic en un pais
+paises mas poblados y los 10 mas extensos. Los paises sin color se agregan en
+`Otros paises` dentro de cada rosca y siguen apareciendo en la tabla combinada,
+que tiene un unico marcador de color, busqueda y ordenacion por columnas. Al hacer clic en un pais
 de la rosca se carga `/api/countries/<country_code>/`, con datos generales,
 tabla filtrable/ordenable por nivel y graficas de primer orden de poblacion y
 terreno. La tabla de datos esta paginada en el navegador, permite elegir filas
@@ -226,16 +227,31 @@ datos generales esperan a resolver nombre oficial, idioma oficial, capital,
 bandera y escudo desde Wikidata/Wikimedia cuando hay identificador disponible;
 bandera y escudo abren una vista previa local y desde ahi la ficha de Commons o
 la imagen completa.
+En `/countries/`, al seleccionar un pais se muestran dos recuadros: la ficha
+basica y las subdivisiones directas de primer nivel. Al abrir una subdivision,
+el navegador agrega otra ficha con su bandera/escudo y sus hijos directos; se
+puede seguir bajando con `/api/admin-areas/<area_id>/` hasta llegar a entidades
+sin hijos.
+Las traducciones de nombres administrativos de Espana que no son simples cadenas
+de interfaz viven en `ciudades_del_mundo/web/spain_translations.py` para mantener
+juntas las equivalencias de CCAA, provincias, ciudades y tipos de entidad por
+idioma (`Lleida` -> `Lérida` en espanol, `Province` -> `Provincia`, `Provinz`,
+etc.). Los tipos de entidad se traducen solo con contexto de Espana para no
+afectar nombres de areas ficticias. Si se agregan entradas gettext de interfaz,
+compila despues con `py manage.py compile_local_messages`.
 El renderizado frontend esta centralizado en `window.CiudadesCharts` dentro de
 `ciudades_del_mundo/static/ciudades_del_mundo/app.js`; los contenedores
 reutilizables usan el atributo `data-chart-widget`. La base de API para datos
-web esta en `/api/countries/`, `/api/countries/<country_code>/` y
-`/api/derived/`.
+web esta en `/api/countries/`, `/api/countries/<country_code>/`,
+`/api/admin-areas/<area_id>/` y `/api/derived/`.
 Secciones principales:
 
-- `/configs/`: lista `subdivisions/*.toml`, permite validar, listar URLs y
-  lanzar scraping. El editor guarda TOML y valida sintaxis/esquema antes de
-  escribir.
+- `/configs/`: lista `subdivisions/*.toml` con tablas dinamicas cargadas desde
+  `/configs/table/` y `/configs/tasks/table/`; las filas se descargan una vez y
+  la paginacion cambia de pagina en cliente. Permite validar y lanzar scraping.
+  El boton `Validar` de una configuracion queda desactivado mientras esa
+  validacion sigue activa. El editor guarda TOML y valida sintaxis/esquema antes
+  de escribir.
 - `/recipes/`: lista recetas de `new_subdivisions` e `historical_divisions`.
   Permite crear recetas nuevas con un formulario JSON, editar recetas nuevas en
   Python y lanzar `build_new_subdivisions`, CSV o Excel.
@@ -243,11 +259,15 @@ Secciones principales:
   por pais con porcentajes respecto al pais y al padre.
 - `/countries/`: navegador de paises en tarjetas de 10 columnas, con bandera,
   terreno y poblacion desde `/api/countries/`; al hacer clic carga la ficha
-  basica del pais desde `/api/countries/<country_code>/`.
+  basica del pais y sus subdivisiones directas desde
+  `/api/countries/<country_code>/`, y cada subdivision se abre recursivamente con
+  `/api/admin-areas/<area_id>/`.
 - `/stats/`: redireccion de compatibilidad hacia `/countries/`.
 - `/delete/`: borrado confirmado de datos `AdminArea` por pais fuente o
   `NuevoAdminArea` por pais derivado.
-- `/tasks/`: historial en memoria de tareas lanzadas desde la web.
+- `/tasks/`: historial de tareas lanzadas desde la web, cargado dinamicamente
+  desde `/tasks/table/` con paginacion/ordenacion local y refresco periodico.
+  Las filas son clicables y abren el detalle de la tarea.
 - `/map/<origen>/<id>/`: ficha de mapa e identidad visual para un `AdminArea`
   (`origen=admin`) o `NuevoAdminArea` (`origen=derived`).
 - `/identity/<tipo>/<archivo>/`: ficha interna placeholder para bandera o
@@ -273,25 +293,34 @@ Para mostrar `Brazil` como `Brasil` en espanol, la traduccion debe existir en
 `py manage.py compile_local_messages`.
 
 La barra superior tambien incluye un selector de estilo. Los estilos se agrupan
-en `Basico` (`Claro`, `Dark`, `Dracula`), `Complejos` (`Retro 80` en violeta,
-verde, azul celeste y rojo, `Arcoiris`, `Papel`) y `Especiales` (`Espana`). Los
+en `Basico` (`Claro`, `Dark`, `Dracula`), `Complejos` (`Retro`, `Retro Azul`,
+`Retro` en violeta, verde, azul celeste y rojo, `8bits`, `Arcoiris`, `Papel`) y
+`Especiales` (`Espana`). Los
 estilos especiales por pais deben usar imagenes de fondo de ciudades o
 monumentos representativos y recuadros basados en los colores de su bandera; si
 se agregan manana estilos como `Francia` o `Marruecos`, deben seguir esa misma
-regla. `Espana` usa fondos de monumentos/ciudades y recuadros rojo-amarillo-rojo.
+regla. `Espana` usa fondos de monumentos/ciudades, recuadros amarillos con
+bordes rojos y botones rojos, sin convertir los recuadros en una bandera literal.
 La eleccion se guarda en `localStorage` como `ciudades_del_mundo_theme` y se
 aplica en cliente con `html[data-theme]`. El check `Efectos complejos` guarda
 `ciudades_del_mundo_theme_effects` y activa animaciones opcionales en estilos
-complejos o especiales, como movimiento de colores en `Arcoiris` o barridos en
-`Retro 80`.
+complejos o especiales, como movimiento de colores en `Arcoiris`, barridos en
+`Retro` o animacion por pasos en `8bits`.
 
 Las tareas web se gestionan en `ciudades_del_mundo/web/tasks.py`. Cada accion
-lanza un subproceso `manage.py` y guarda estado/salida en memoria del proceso
-del servidor. Si se lanza otra tarea con la misma clave operativa, o si se
-guarda una configuracion/receta mientras su tarea equivalente sigue activa, la
-tarea anterior se cancela y se reemplaza. Al reiniciar el servidor se pierde el
-historial de tareas, pero no los cambios ya persistidos en base de datos o
-ficheros.
+lanza un subproceso `manage.py`, guarda estado/salida reciente en
+`.web_tasks.json` y escribe el log completo en `.web_task_logs/*.log` en la raiz
+del proyecto. Esos ficheros locales estan ignorados por git. Como maximo se
+ejecutan 3 subprocesses a la vez; el resto queda en estado `queued` y se
+despacha por orden cuando termina o se cancela una tarea en ejecucion. Si se
+lanza otra tarea con la misma clave operativa, o si se guarda una
+configuracion/receta mientras su tarea equivalente sigue activa, la tarea
+anterior se cancela y se reemplaza. Al reiniciar el servidor se conserva el
+historial reciente; cualquier tarea activa o en cola se marca como interrumpida.
+
+Las API y graficas del navegador de paises usan solo filas `AdminArea` visibles:
+se excluyen las filas con `city_merge_status = 3` para que no aparezcan en
+tablas, roscas ni tarjetas.
 
 Las traducciones viven en `locale/<idioma>/LC_MESSAGES/django.po` y se cargan
 desde los `.mo` compilados. Como Windows puede no tener GNU gettext instalado,

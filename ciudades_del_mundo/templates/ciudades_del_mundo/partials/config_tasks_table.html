@@ -1,36 +1,32 @@
 {% load i18n %}
 <div data-task-table-snapshot="{{ task_table_snapshot|escape }}" data-has-active-tasks="{% if has_active_tasks %}1{% else %}0{% endif %}">
 <div class="table-wrap subtle">
-  <table class="{% if compact %}compact-table{% endif %}">
+  <table class="compact-table">
     <thead>
       <tr>
         <th><button type="button" class="table-sort-button" data-client-sort="label">{% trans "Tarea" %}</button></th>
         <th><button type="button" class="table-sort-button" data-client-sort="status">{% trans "Estado" %}</button></th>
         <th><button type="button" class="table-sort-button" data-client-sort="started" data-sort-type="number">{% trans "Inicio" %}</button></th>
-        {% if not compact %}<th><button type="button" class="table-sort-button" data-client-sort="command">{% trans "Comando" %}</button></th>{% endif %}
       </tr>
     </thead>
     <tbody data-client-page-rows>
       {% for task in tasks %}
-      <tr data-client-row data-row-href="{% url 'ciudades_del_mundo:task_detail' task.id %}" data-label="{{ task.label }}" data-status="{{ task.status }}" data-started="{{ task.started_at|default:task.created_at|date:'U' }}" data-command="{{ task.command_display }}" class="clickable-row" tabindex="0">
+      <tr data-client-row data-row-href="{% url 'ciudades_del_mundo:task_detail' task.id %}" data-label="{{ task.label }}" data-status="{{ task.status }}" data-started="{{ task.started_at|default:task.created_at|date:'U' }}" class="clickable-row" tabindex="0">
         <td>{{ task.label }}</td>
         <td><span class="status {{ task.status }}">{% trans task.status %}</span></td>
         <td>{{ task.started_at|default:task.created_at|date:"Y-m-d H:i:s" }}</td>
-        {% if not compact %}<td><code>{{ task.command_display }}</code></td>{% endif %}
       </tr>
       {% empty %}
-      <tr data-client-empty><td colspan="{% if compact %}3{% else %}4{% endif %}">{% trans "No hay tareas registradas." %}</td></tr>
+      <tr data-client-empty><td colspan="3">{% trans "No hay tareas registradas en este proceso." %}</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
 
-{% if page_size %}
 <nav class="pagination" data-client-pagination data-initial-page-size="{{ page_size }}">
   <button type="button" class="secondary" data-client-page="previous">{% trans "Anterior" %}</button>
   <span data-client-page-status>1 / 1</span>
   <button type="button" class="secondary" data-client-page="next">{% trans "Siguiente" %}</button>
 </nav>
-{% endif %}
 
 </div>

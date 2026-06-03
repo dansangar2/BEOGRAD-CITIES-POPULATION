@@ -322,3 +322,1189 @@ msgstr "الوصف قيد الإعداد. هذه المساحة مخصصة لل�
 
 msgid "Fuente visual"
 msgstr "المصدر البصري"
+
+msgid "Tipo de entidad"
+msgstr "نوع الكيان"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Cancelado"
+msgstr "ملغى"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Nueva configuración"
+msgstr "إعداد جديد"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "En cola"
+msgstr "في قائمة الانتظار"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Correcto"
+msgstr "ناجح"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Tarea finalizada"
+msgstr "انتهت المهمة"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Editar"
+msgstr "تعديل"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Pagina %(number)s de %(total)s"
+msgstr "الصفحة %(number)s من %(total)s"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Tarea lanzada"
+msgstr "بدأت المهمة"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Sin datos"
+msgstr "لا توجد بيانات"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Inicio"
+msgstr "البداية"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "En ejecución"
+msgstr "قيد التشغيل"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Actualizando tabla"
+msgstr "جارٍ تحديث الجدول"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "No hay tareas registradas en este proceso."
+msgstr "لا توجد مهام مسجلة في هذه العملية."
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Filas"
+msgstr "الصفوف"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Estado"
+msgstr "الحالة"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "8bits"
+msgstr "8 بت"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Retro Azul"
+msgstr "ريترو أزرق"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Retro azul celeste"
+msgstr "ريترو سماوي"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Actualizar"
+msgstr "تحديث"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Retro"
+msgstr "ريترو"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Retro rojo"
+msgstr "ريترو أحمر"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Retro violeta"
+msgstr "ريترو بنفسجي"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Retro verde"
+msgstr "ريترو أخضر"
+
+# Added to keep all supported UI languages in sync.
+
+msgid "% area pais"
+msgstr "% المنطقة البلد"
+
+msgid "% padre"
+msgstr "% الأصل"
+
+msgid "% pais"
+msgstr "% البلد"
+
+msgid "%(count)s areas encontradas"
+msgstr "%(count)s المنطقةs encontradas"
+
+msgid "%(country_code)s - %(pages)s paginas - %(cities)s ciudades unificadas"
+msgstr "%(country_code)s - %(pages)s paginas - %(cities)s ciudades unificadas"
+
+msgid "<code>[[pages]]</code> controla las paginas scrapeadas. <code>[[cities]]</code> define agregaciones o ciudades unificadas."
+msgstr "<code>[[pages]]</code> controla las paginas scrapeadas. <code>[[cities]]</code> define agregaciones o ciudades unificadas."
+
+msgid "A Coruña"
+msgstr "A Coruña"
+
+msgid "Abrir"
+msgstr "Abrir"
+
+msgid "Abrir en OpenStreetMap"
+msgstr "Abrir en OpenStreetMap"
+
+msgid "Accion de receta no soportada."
+msgstr "Accion de الوصفة غير مدعومة."
+
+msgid "Acciones"
+msgstr "الإجراءات"
+
+msgid "Acción de configuración no soportada."
+msgstr "Acción de الإعداد غير مدعومة."
+
+msgid "Actualizacion reciente"
+msgstr "Actualizacion reciente"
+
+msgid "Admin"
+msgstr "Admin"
+
+msgid "AdminArea fuente"
+msgstr "Adminالمنطقة fuente"
+
+msgid "AdminArea por nivel"
+msgstr "Adminالمنطقة por المستوى"
+
+msgid "Alacant"
+msgstr "Alacant"
+
+msgid "Aquí aparecerá el proceso."
+msgstr "Aquí aparecerá el proceso."
+
+msgid "Aquí aparecerán los comentarios de la IA cuando se active."
+msgstr "Aquí aparecerán los comentarios de la IA cuando se active."
+
+msgid "Araba"
+msgstr "Araba"
+
+msgid "Area"
+msgstr "المساحة"
+
+msgid "Area ascendente"
+msgstr "المنطقة ascendente"
+
+msgid "Area descendente"
+msgstr "المنطقة descendente"
+
+msgid "Area km2"
+msgstr "المنطقة km2"
+
+msgid "Area maxima"
+msgstr "المنطقة maxima"
+
+msgid "Area minima"
+msgstr "المنطقة minima"
+
+msgid "Areas"
+msgstr "المناطق"
+
+msgid "Areas - Ciudades del Mundo"
+msgstr "المنطقةs - مدن العالم"
+
+msgid "Areas administrativas"
+msgstr "المنطقةs administrativas"
+
+msgid "Areas con escanos"
+msgstr "المنطقةs con escanos"
+
+msgid "Argentina"
+msgstr "Argentina"
+
+msgid "Automático"
+msgstr "Automático"
+
+msgid "Aviso"
+msgstr "Aviso"
+
+msgid "Añadir línea"
+msgstr "Añadir línea"
+
+msgid "Bandera, escudo y mapa localizador"
+msgstr "Bandera, escudo y mapa localizador"
+
+msgid "Base de datos ocupada"
+msgstr "Base de البيانات ocupada"
+
+msgid "Bizkaia"
+msgstr "Bizkaia"
+
+msgid "Borradas %(deleted)s filas AdminArea para '%(target)s'."
+msgstr "Borradas %(deleted)s filas Adminالمنطقة para '%(target)s'."
+
+msgid "Borradas %(deleted)s filas NuevoAdminArea para '%(target)s'."
+msgstr "Borradas %(deleted)s filas NuevoAdminالمنطقة para '%(target)s'."
+
+msgid "Borrar AdminArea"
+msgstr "Borrar Adminالمنطقة"
+
+msgid "Borrar NuevoAdminArea"
+msgstr "Borrar NuevoAdminالمنطقة"
+
+msgid "Borrar datos"
+msgstr "Borrar البيانات"
+
+msgid "Borrar datos - Ciudades del Mundo"
+msgstr "Borrar البيانات - مدن العالم"
+
+msgid "Busca rutas en https://www.citypopulation.de/en/{{ slug }}/ y crea una base de configuración editable."
+msgstr "Busca rutas en https://www.citypopulation.de/en/{{ slug }}/ y crea una base de الإعداد editable."
+
+msgid "Buscando imagenes en Wikidata..."
+msgstr "Buscando imagenes en Wikidata..."
+
+msgid "Buscando nombres traducidos, paises y capitales..."
+msgstr "Buscando الاسمs traducidos, البلدان y capitales..."
+
+msgid "Buscando rutas en %(url)s"
+msgstr "Buscando rutas en %(url)s"
+
+msgid "Buscar"
+msgstr "بحث"
+
+msgid "Buscar bandera"
+msgstr "Buscar bandera"
+
+msgid "Buscar escudo"
+msgstr "Buscar escudo"
+
+msgid "Cabecera de Municipio/Localidad"
+msgstr "Cabecera de Municipio/Localidad"
+
+msgid "Campos clave"
+msgstr "Campos clave"
+
+msgid "Cancelacion solicitada para '%(label)s'."
+msgstr "Cancelacion solicitada para '%(label)s'."
+
+msgid "Cancelar"
+msgstr "إلغاء"
+
+msgid "Capital registrada"
+msgstr "Capital registrada"
+
+msgid "Capitales"
+msgstr "Capitales"
+
+msgid "Capitales en Wikidata"
+msgstr "Capitales en Wikidata"
+
+msgid "Cargando datos..."
+msgstr "Cargando البيانات..."
+
+msgid "Cargando pais..."
+msgstr "Cargando البلد..."
+
+msgid "Cargando país..."
+msgstr "Cargando البلد..."
+
+msgid "Cargando tabla..."
+msgstr "جارٍ تحميل الجدول..."
+
+msgid "Castelló de la Plana"
+msgstr "Castelló de la Plana"
+
+msgid "Chile"
+msgstr "Chile"
+
+msgid "City"
+msgstr "City"
+
+msgid "City District"
+msgstr "City District"
+
+msgid "Ciudad mayor"
+msgstr "Ciudad mayor"
+
+msgid "Ciudad mayor registrada"
+msgstr "Ciudad mayor registrada"
+
+msgid "Ciudad unificada"
+msgstr "Ciudad unificada"
+
+msgid "Ciudades"
+msgstr "Ciudades"
+
+msgid "Ciudades importantes"
+msgstr "Ciudades importantes"
+
+msgid "Codigo"
+msgstr "Codigo"
+
+msgid "Codigo salida"
+msgstr "Codigo salida"
+
+msgid "Colombia"
+msgstr "Colombia"
+
+msgid "Comando"
+msgstr "Comando"
+
+msgid "Comentarios de la IA"
+msgstr "Comentarios de la IA"
+
+msgid "Comparar"
+msgstr "Comparar"
+
+msgid "Comparativa NuevoAdminArea"
+msgstr "Comparativa NuevoAdminالمنطقة"
+
+msgid "Comunitat Valenciana"
+msgstr "Comunitat Valenciana"
+
+msgid "Con escanos"
+msgstr "Con escanos"
+
+msgid "Configuracion invalida: %(error)s"
+msgstr "الإعداد غير صالحة: %(error)s"
+
+msgid "Configuraciones TOML"
+msgstr "إعدادات TOML"
+
+msgid "Configuraciones recientes"
+msgstr "الإعدادes recientes"
+
+msgid "Configuración '%(slug)s' creada."
+msgstr "الإعداد '%(slug)s' تم إنشاؤها."
+
+msgid "Configuración '%(slug)s' guardada."
+msgstr "الإعداد '%(slug)s' محفوظ."
+
+msgid "Configuración extra"
+msgstr "الإعداد extra"
+
+msgid "Configuración vía IA"
+msgstr "الإعداد vía IA"
+
+msgid "Confirmo el borrado"
+msgstr "Confirmo el borrado"
+
+msgid "Creacion"
+msgstr "Creacion"
+
+msgid "Crear"
+msgstr "إنشاء"
+
+msgid "Crear NuevoAdminArea"
+msgstr "Crear NuevoAdminالمنطقة"
+
+msgid "Crear o regenerar"
+msgstr "Crear o regenerar"
+
+msgid "Crear receta"
+msgstr "Crear الوصفة"
+
+msgid "Crear subdivisiones: %(slug)s"
+msgstr "Crear التقسيمات: %(slug)s"
+
+msgid "Cualquier estado"
+msgstr "Cualquier estado"
+
+msgid "Cualquier fusion"
+msgstr "Cualquier fusion"
+
+msgid "Cualquier padre"
+msgstr "Cualquier الأصل"
+
+msgid "Cualquiera"
+msgstr "Cualquiera"
+
+msgid "Cuenta IA personal"
+msgstr "Cuenta IA personal"
+
+msgid "Código de país"
+msgstr "Código de البلد"
+
+msgid "DIVISIONS debe ser una lista o un objeto JSON."
+msgstr "DIVISIONS debe ser una lista o un objeto JSON."
+
+msgid "DIVISIONS en JSON"
+msgstr "DIVISIONS en JSON"
+
+msgid "DIVISIONS no es JSON valido: %(error)s"
+msgstr "DIVISIONS no es JSON valido: %(error)s"
+
+msgid "Datos"
+msgstr "البيانات"
+
+msgid "Datos derivados"
+msgstr "البيانات derivados"
+
+msgid "Datos generales del país"
+msgstr "البيانات generales del البلد"
+
+msgid "Debes indicar al menos una ruta de scrapeo."
+msgstr "Debes indicar al menos una ruta de scrapeo."
+
+msgid "Doble"
+msgstr "Doble"
+
+msgid "Donostia"
+msgstr "Donostia"
+
+msgid "Editar %(slug)s"
+msgstr "Editar %(slug)s"
+
+msgid "Editar el archivo a mano es potente, pero conviene saber TOML/Python del proyecto para no romper la configuración. Antes de guardar se validará; si falla, verás un aviso."
+msgstr "Editar el archivo a mano es potente, pero conviene saber TOML/Python del proyecto para no romper la الإعداد. Antes de guardar se validará; si falla, verás un aviso."
+
+msgid "Editar {{ slug }}"
+msgstr "Editar {{ slug }}"
+
+msgid "El ano de poblacion debe ser numerico."
+msgstr "El ano de السكان debe ser numerico."
+
+msgid "El mapa usa busqueda por nombre porque la base de datos no guarda geometria ni coordenadas propias."
+msgstr "El mapa usa busqueda por الاسم porque la base de البيانات no guarda geometria ni coordenadas propias."
+
+msgid "El nivel de ciudad unificada debe ser numérico."
+msgstr "El المستوى de ciudad unificada debe ser numérico."
+
+msgid "El nivel de scrapeo debe ser numérico."
+msgstr "El المستوى de scrapeo debe ser numérico."
+
+msgid "El slug de configuracion solo puede usar letras, numeros, guion y guion bajo."
+msgstr "El slug de الإعداد solo puede usar letras, numeros, guion y guion bajo."
+
+msgid "El slug de receta debe ser un identificador Python en minusculas."
+msgstr "El slug de الوصفة debe ser un identificador Python en minusculas."
+
+msgid "Elx"
+msgstr "Elx"
+
+msgid "Entidades a unificar"
+msgstr "Entidades a unificar"
+
+msgid "Entidades disponibles"
+msgstr "Entidades disponibles"
+
+msgid "Error"
+msgstr "خطأ"
+
+msgid "Escanos"
+msgstr "Escanos"
+
+msgid "Escanos descendente"
+msgstr "Escanos descendente"
+
+msgid "Estadisticas"
+msgstr "Estadisticas"
+
+msgid "Estado de fusion de ciudades"
+msgstr "Estado de fusion de ciudades"
+
+msgid "Estadísticas"
+msgstr "Estadísticas"
+
+msgid "Exportar CSV: %(slug)s"
+msgstr "Exportar CSV: %(slug)s"
+
+msgid "Exportar Excel: %(slug)s"
+msgstr "Exportar Excel: %(slug)s"
+
+msgid "Federal District"
+msgstr "Federal District"
+
+msgid "Ficha Wikidata"
+msgstr "Ficha Wikidata"
+
+msgid "Filas creadas"
+msgstr "Filas تم إنشاؤهاs"
+
+msgid "Formato: NV - URL - Tipo Scrapeo. Puedes usar rutas relativas de CityPopulation o URLs completas."
+msgstr "Formato: NV - URL - Tipo Scrapeo. Puedes usar rutas relativas de CityPopulation o URLs completas."
+
+msgid "Fusion"
+msgstr "Fusion"
+
+msgid "Generar"
+msgstr "Generar"
+
+msgid "Generar base desde CityPopulation"
+msgstr "Generar base desde CityPopulation"
+
+msgid "Generar con IA"
+msgstr "Generar con IA"
+
+msgid "Gestion local de datos"
+msgstr "Gestion local de البيانات"
+
+msgid "Gipuzkoa"
+msgstr "Gipuzkoa"
+
+msgid "Girona"
+msgstr "Girona"
+
+msgid "Graficas - Ciudades del Mundo"
+msgstr "Graficas - مدن العالم"
+
+msgid "Graficas de datos"
+msgstr "Graficas de البيانات"
+
+msgid "Grupo"
+msgstr "Grupo"
+
+msgid "Guarda la configuración antes de iniciar sesión."
+msgstr "Guarda la الإعداد antes de iniciar sesión."
+
+msgid "Guarda la receta y lanza la tarea de creacion desde la lista de recetas. Si ya habia una creacion activa de esta receta, guardar cancela esa tarea y la reemplaza."
+msgstr "Guarda la الوصفة y lanza la المهمة de creacion desde la lista de الوصفةs. Si ya habia una creacion activa de esta الوصفة, guardar cancela esa المهمة y la reemplaza."
+
+msgid "Guardar"
+msgstr "حفظ"
+
+msgid "Habia una construccion activa para esta receta; se cancelo y se relanzo."
+msgstr "Habia una construccion activa para esta الوصفة; se cancelo y se relanzo."
+
+msgid "Había un scraping activo para este fichero; se canceló y se lanzó otra tarea."
+msgstr "Había un scraping activo para este fichero; se canceló y se lanzó otra المهمة."
+
+msgid "Hay una construccion activa para esta receta."
+msgstr "Hay una construccion activa para esta الوصفة."
+
+msgid "Hay una tarea activa para este scraping. Si guardas cambios, se cancela y se reemplaza con una tarea nueva."
+msgstr "Hay una المهمة activa para este scraping. Si guardas cambios, se cancela y se reemplaza con una المهمة nueva."
+
+msgid "Historial"
+msgstr "Historial"
+
+msgid "IA"
+msgstr "IA"
+
+msgid "IA habilitada"
+msgstr "IA habilitada"
+
+msgid "Illes Balears"
+msgstr "Illes Balears"
+
+msgid "Imagen"
+msgstr "Imagen"
+
+msgid "Indicaciones adicionales para la IA cuando se active."
+msgstr "Indicaciones adicionales para la IA cuando se active."
+
+msgid "Iniciar sesión en la web"
+msgstr "Iniciar sesión en la web"
+
+msgid "La IA está deshabilitada por configuración."
+msgstr "La IA está deshabilitada por الإعداد."
+
+msgid "La base de datos esta ocupada por una tarea de escritura. "
+msgstr "La base de البيانات esta ocupada por una المهمة de escritura. "
+
+msgid "La base de datos esta ocupada por una tarea de escritura. Espera unos segundos y vuelve a intentarlo."
+msgstr "La base de البيانات esta ocupada por una المهمة de escritura. Espera unos segundos y vuelve a intentarlo."
+
+msgid "La configuracion debe definir al menos una pagina."
+msgstr "La الإعداد debe definir al menos una pagina."
+
+msgid "La receta debe definir DIVISIONS."
+msgstr "La الوصفة debe definir DIVISIONS."
+
+msgid "La subdivisión legal debe ser numérica."
+msgstr "La subdivisión legal debe ser numérica."
+
+msgid "La tabla no se pudo cargar. Reintenta en unos segundos."
+msgstr "تعذر تحميل الجدول. أعد المحاولة بعد بضع ثوانٍ."
+
+msgid "Limpiar"
+msgstr "مسح"
+
+msgid "Lleida"
+msgstr "Lleida"
+
+msgid "Main Locality"
+msgstr "Main Locality"
+
+msgid "Manual"
+msgstr "Manual"
+
+msgid "Mapa"
+msgstr "الخريطة"
+
+msgid "Mapa e identidad visual"
+msgstr "Mapa e identidad visual"
+
+msgid "Mapa localizador"
+msgstr "Mapa localizador"
+
+msgid "Marca la confirmacion antes de borrar datos."
+msgstr "Marca la confirmacion antes de borrar البيانات."
+
+msgid "Minimo por area"
+msgstr "Minimo por المنطقة"
+
+msgid "Modos de configuración"
+msgstr "Modos de الإعداد"
+
+msgid "Municipality"
+msgstr "Municipality"
+
+msgid "NV"
+msgstr "NV"
+
+msgid "Netherlands"
+msgstr "Netherlands"
+
+msgid "Nivel %(level)s"
+msgstr "المستوى %(level)s"
+
+msgid "Nivel de representacion"
+msgstr "المستوى de representacion"
+
+msgid "Nivel municipal fuente"
+msgstr "المستوى municipal fuente"
+
+msgid "Nivel y nombre"
+msgstr "المستوى y الاسم"
+
+msgid "Niveles"
+msgstr "المستوىes"
+
+msgid "No existe AdminArea '%(area_id)s'."
+msgstr "No existe Adminالمنطقة '%(المنطقة_id)s'."
+
+msgid "No existe NuevoAdminArea '%(country_id)s'."
+msgstr "No existe NuevoAdminالمنطقة '%(country_id)s'."
+
+msgid "No existe el pais '%(country_code)s'."
+msgstr "No existe el البلد '%(country_code)s'."
+
+msgid "No existe la configuracion '%(slug)s'."
+msgstr "No existe la الإعداد '%(slug)s'."
+
+msgid "No existe la receta '%(slug)s'."
+msgstr "No existe la الوصفة '%(slug)s'."
+
+msgid "No existe la tarea solicitada."
+msgstr "No existe la المهمة solicitada."
+
+msgid "No hay areas para estos filtros."
+msgstr "No hay المنطقةs para estos filtros."
+
+msgid "No hay configuraciones TOML."
+msgstr "No hay الإعدادes TOML."
+
+msgid "No hay ficheros TOML en subdivisions."
+msgstr "No hay ficheros TOML en subdivisions."
+
+msgid "No hay recetas disponibles."
+msgstr "No hay الوصفةs disponibles."
+
+msgid "No hay subdivisiones derivadas creadas."
+msgstr "No hay التقسيمات derivadas تم إنشاؤهاs."
+
+msgid "No se encontraron imagenes automaticas. Usa las busquedas externas."
+msgstr "No se encontraron imagenes automaticas. Usa las busquedas externas."
+
+msgid "No se encontraron rutas útiles para %(slug)s."
+msgstr "No se encontraron rutas útiles para %(slug)s."
+
+msgid "No se encontraron traducciones o capitales automaticas en Wikidata."
+msgstr "No se encontraron traducciones o capitales automaticas en Wikidata."
+
+msgid "No se encontro el area solicitada."
+msgstr "No se encontro el المنطقة solicitada."
+
+msgid "No se encontro la imagen solicitada."
+msgstr "No se encontro la imagen solicitada."
+
+msgid "No se pudieron cargar las entidades."
+msgstr "No se pudieron cargar las entidades."
+
+msgid "No se pudieron cargar los países."
+msgstr "No se pudieron cargar los البلدان."
+
+msgid "No se pudo cargar el pais."
+msgstr "No se pudo cargar el البلد."
+
+msgid "No se pudo cargar el país."
+msgstr "No se pudo cargar el البلد."
+
+msgid "No se pudo cargar la grafica."
+msgstr "No se pudo cargar la grafica."
+
+msgid "No se pudo cargar la poblacion."
+msgstr "No se pudo cargar la السكان."
+
+msgid "No se pudo leer CityPopulation: %(error)s"
+msgstr "No se pudo leer CityPopulation: %(error)s"
+
+msgid "Nombre del area"
+msgstr "الاسم del المنطقة"
+
+msgid "Nombre del padre"
+msgstr "الاسم del الأصل"
+
+msgid "Nombre raiz"
+msgstr "الاسم raiz"
+
+msgid "Nueva configuracion"
+msgstr "Nueva الإعداد"
+
+msgid "Nueva receta"
+msgstr "Nueva الوصفة"
+
+msgid "Nueva receta - Ciudades del Mundo"
+msgstr "Nueva الوصفة - مدن العالم"
+
+msgid "NuevoAdminArea derivado"
+msgstr "NuevoAdminالمنطقة derivado"
+
+msgid "NuevoAdminArea por nivel"
+msgstr "NuevoAdminالمنطقة por المستوى"
+
+msgid "Nuevos paises"
+msgstr "Nuevos البلدان"
+
+msgid "Número de subdivisiones"
+msgstr "Número de التقسيمات"
+
+msgid "Opcional. Mueve entidades scrapeadas a la tabla derecha para crear una ciudad unificada; si no hay selección, se ignora."
+msgstr "Opcional. Mueve entidades scrapeadas a la الجدول derecha para crear una ciudad unificada; si no hay selección, se ignora."
+
+msgid "Operacion destructiva"
+msgstr "Operacion destructiva"
+
+msgid "Operacion en curso"
+msgstr "Operacion en curso"
+
+msgid "Orden"
+msgstr "Orden"
+
+msgid "Origen de mapa no soportado."
+msgstr "Origen de mapa غير مدعوم."
+
+msgid "Ourense"
+msgstr "Ourense"
+
+msgid "Pagina {{ number }} de {{ total }}"
+msgstr "Pagina {{ number }} de {{ total }}"
+
+msgid "Paginas"
+msgstr "Paginas"
+
+msgid "Pais"
+msgstr "البلد"
+
+msgid "Pais derivado"
+msgstr "البلد derivado"
+
+msgid "Pais en Wikidata"
+msgstr "البلد en Wikidata"
+
+msgid "Pais fuente por defecto"
+msgstr "البلد fuente por defecto"
+
+msgid "Pais importado"
+msgstr "البلد importado"
+
+msgid "Pais y capitales"
+msgstr "البلد y capitales"
+
+msgid "Pais, nivel y nombre"
+msgstr "البلد, المستوى y الاسم"
+
+msgid "Paises"
+msgstr "البلدان"
+
+msgid "Paises por numero de areas"
+msgstr "البلدان por numero de المنطقةs"
+
+msgid "Paises por poblacion fuente"
+msgstr "البلدان por السكان fuente"
+
+msgid "Paises y subdivisiones"
+msgstr "البلدان y التقسيمات"
+
+msgid "Panel - Ciudades del Mundo"
+msgstr "Panel - مدن العالم"
+
+msgid "Panel operativo"
+msgstr "Panel operativo"
+
+msgid "Países"
+msgstr "البلدان"
+
+msgid "Países - Ciudades del Mundo"
+msgstr "البلدان - مدن العالم"
+
+msgid "Peru"
+msgstr "Peru"
+
+msgid "Poblacion agregada"
+msgstr "السكان agregada"
+
+msgid "Poblacion ascendente"
+msgstr "السكان ascendente"
+
+msgid "Poblacion descendente"
+msgstr "السكان descendente"
+
+msgid "Poblacion importada"
+msgstr "السكان importada"
+
+msgid "Poblacion maxima"
+msgstr "السكان maxima"
+
+msgid "Poblacion minima"
+msgstr "السكان minima"
+
+msgid "Población"
+msgstr "السكان"
+
+msgid "Popular"
+msgstr "Popular"
+
+msgid "Popular datos"
+msgstr "Popular البيانات"
+
+msgid "Popular datos: %(slug)s"
+msgstr "Popular البيانات: %(slug)s"
+
+msgid "Proceso"
+msgstr "Proceso"
+
+msgid "Procesos en segundo plano"
+msgstr "Procesos en segundo plano"
+
+msgid "Prompt base"
+msgstr "Prompt base"
+
+msgid "Proveedor IA"
+msgstr "Proveedor IA"
+
+msgid "Proveedor IA no soportado: %(provider)s"
+msgstr "Proveedor IA غير مدعوم: %(provider)s"
+
+msgid "Python invalido: %(error)s"
+msgstr "Python غير صالح: %(error)s"
+
+msgid "Quitar"
+msgstr "Quitar"
+
+msgid "Receta '%(slug)s' creada."
+msgstr "الوصفة '%(slug)s' تم إنشاؤها."
+
+msgid "Receta '%(slug)s' guardada."
+msgstr "الوصفة '%(slug)s' محفوظ."
+
+msgid "Receta Python"
+msgstr "الوصفة Python"
+
+msgid "Recetas - Ciudades del Mundo"
+msgstr "الوصفةs - مدن العالم"
+
+msgid "Recetas derivadas"
+msgstr "الوصفةs derivadas"
+
+msgid "Region padre"
+msgstr "Region الأصل"
+
+msgid "Region superior en Wikidata"
+msgstr "Region superior en Wikidata"
+
+msgid "Reintentar"
+msgstr "Reintentar"
+
+msgid "Retro 80"
+msgstr "Retro 80"
+
+msgid "Rural Locality"
+msgstr "Rural Locality"
+
+msgid "Rutas de scrapeo"
+msgstr "Rutas de scrapeo"
+
+msgid "Rutas detectadas: %(count)s"
+msgstr "Rutas detectadas: %(count)s"
+
+msgid "Salida"
+msgstr "Salida"
+
+msgid "Scraping - Ciudades del Mundo"
+msgstr "Scraping - مدن العالم"
+
+msgid "Scraping CityPopulation"
+msgstr "Scraping CityPopulation"
+
+msgid "Scraping y ciudades unificadas"
+msgstr "Scraping y ciudades unificadas"
+
+msgid "Scrapping"
+msgstr "Scrapping"
+
+msgid "Se abrirá la web del proveedor elegido"
+msgstr "Se abrirá la web del proveedor elegido"
+
+msgid "Sección informativa"
+msgstr "Sección informativa"
+
+msgid "Selecciona pais"
+msgstr "Selecciona البلد"
+
+msgid "Selecciona un objetivo para borrar."
+msgstr "Selecciona un objetivo para borrar."
+
+msgid "Sin datos importados."
+msgstr "Sin البيانات importados."
+
+msgid "Sin escanos"
+msgstr "Sin escanos"
+
+msgid "Sin salida todavia."
+msgstr "Sin salida todavia."
+
+msgid "Sin subdivisiones creadas."
+msgstr "Sin التقسيمات تم إنشاؤهاs."
+
+msgid "Sin tipo"
+msgstr "Sin tipo"
+
+msgid "Sistema preparado para activar/desactivar IA. El login se abre en la web del proveedor elegido y no se guardan credenciales personales."
+msgstr "Sistema preparado para activar/desactivar IA. El login se abre en la web del proveedor elegido y no se guardan credenciales personales."
+
+msgid "State"
+msgstr "State"
+
+msgid "Subdivisiones - Ciudades del Mundo"
+msgstr "التقسيمات - مدن العالم"
+
+msgid "Subdivisiones creadas"
+msgstr "التقسيمات تم إنشاؤهاs"
+
+msgid "Subdivisiones derivadas"
+msgstr "التقسيمات derivadas"
+
+msgid "Subdivisiones directas"
+msgstr "التقسيمات directas"
+
+msgid "Subdivisión legal"
+msgstr "Subdivisión legal"
+
+msgid "TOML invalido: %(error)s"
+msgstr "TOML غير صالح: %(error)s"
+
+msgid "Tabla"
+msgstr "جدول"
+
+msgid "Tarea"
+msgstr "مهمة"
+
+msgid "Tarea %(task_id)s"
+msgstr "المهمة %(task_id)s"
+
+msgid "Tarea lanzada: %(label)s."
+msgstr "المهمة lanzada: %(label)s."
+
+msgid "Tarea no encontrada."
+msgstr "المهمة no encontrada."
+
+msgid "Tarea {{ task_id }}"
+msgstr "المهمة {{ task_id }}"
+
+msgid "Tareas - Ciudades del Mundo"
+msgstr "المهام - مدن العالم"
+
+msgid "Tareas recientes"
+msgstr "المهام الأخيرة"
+
+msgid "Tipo Scrapeo"
+msgstr "Tipo Scrapeo"
+
+msgid "Tipo de borrado no soportado."
+msgstr "Tipo de borrado غير مدعوم."
+
+msgid "Tipos de subdivisiones"
+msgstr "Tipos de التقسيمات"
+
+msgid "Todas"
+msgstr "الكل"
+
+msgid "Todos"
+msgstr "الكل"
+
+msgid "Todos los niveles"
+msgstr "Todos los المستوىes"
+
+msgid "Todos los paises"
+msgstr "Todos los البلدان"
+
+msgid "Todos los tipos"
+msgstr "Todos los tipos"
+
+msgid "Total"
+msgstr "Total"
+
+msgid "Total de escanos"
+msgstr "Total de escanos"
+
+msgid "Traducciones y capitales"
+msgstr "Traducciones y capitales"
+
+msgid "UK"
+msgstr "UK"
+
+msgid "Unificaciones"
+msgstr "Unificaciones"
+
+msgid "Unificación de ciudad"
+msgstr "Unificación de ciudad"
+
+msgid "Urban Locality"
+msgstr "Urban Locality"
+
+msgid "Validar"
+msgstr "Validar"
+
+msgid "Validar configuración: %(slug)s"
+msgstr "Validar الإعداد: %(slug)s"
+
+msgid "València"
+msgstr "València"
+
+msgid "Ver"
+msgstr "Ver"
+
+msgid "Ver graficas"
+msgstr "Ver graficas"
+
+msgid "Ver todas"
+msgstr "عرض الكل"
+
+msgid "Vitoria-Gasteiz"
+msgstr "Vitoria-Gasteiz"
+
+msgid "Volver"
+msgstr "رجوع"
+
+msgid "Ya existe una configuración para '%(slug)s'."
+msgstr "Ya existe una الإعداد para '%(slug)s'."
+
+msgid "Ya existe una receta nueva para '%(slug)s'."
+msgstr "Ya existe una الوصفة nueva para '%(slug)s'."
+
+msgid "[ERROR] No se pudo iniciar la tarea: %(error)s\\n"
+msgstr "[ERROR] No se pudo iniciar la المهمة: %(error)s\\n"
+
+msgid "\\n[CANCEL] Cancelacion solicitada desde la interfaz.\\n"
+msgstr "\\n[CANCEL] Cancelacion solicitada desde la interfaz.\\n"
+
+msgid "\\n[INFO] Tarea interrumpida por reinicio del servidor.\\n"
+msgstr "\\n[INFO] المهمة interrumpida por reinicio del servidor.\\n"
+
+msgid "ano"
+msgstr "ano"
+
+msgid "cancelled"
+msgstr "cancelled"
+
+msgid "correcto"
+msgstr "correcto"
+
+msgid "error"
+msgstr "error"
+
+msgid "failed"
+msgstr "failed"
+
+msgid "invalid"
+msgstr "invalid"
+
+msgid "queued"
+msgstr "queued"
+
+msgid "running"
+msgstr "running"
+
+msgid "succeeded"
+msgstr "succeeded"
+
+msgid "{{ count }} areas encontradas"
+msgstr "{{ count }} المنطقةs encontradas"
+
+msgid "{{ country_code }} - {{ pages }} paginas - {{ cities }} ciudades unificadas"
+msgstr "{{ country_code }} - {{ pages }} paginas - {{ cities }} ciudades unificadas"
+
+# Added to keep all supported UI languages in sync.
+
+msgid "Había un scraping activo para esta configuración; se canceló y se lanzó otra tarea."
+msgstr "كان استخراج البيانات نشطًا لهذه الإعدادات؛ تم إلغاؤه وتشغيل مهمة أخرى."
+
+msgid "No hay tareas registradas."
+msgstr "لا توجد مهام مسجلة."
+
+msgid "Ver registro"
+msgstr "عرض السجل"
+
+msgid "\\n[CANCEL] Cancelación solicitada desde la interfaz.\\n"
+msgstr "\\n[CANCEL] تم طلب الإلغاء من الواجهة.\\n"
+
+# Added to keep all supported UI languages in sync.
+
+msgid "Cargando configuración inicial"
+msgstr "جارٍ تحميل الإعداد الأولي"
+
+msgid "Cargando configuración inicial desde los TOML..."
+msgstr "جارٍ تحميل الإعداد الأولي من ملفات TOML..."
+
+msgid "Configuración inicial cargada. Continuando..."
+msgstr "تم تحميل الإعداد الأولي. جارٍ المتابعة..."
+
+msgid "La tabla de configuraciones está incompleta. Estoy importando todos los TOML a la base de datos antes de continuar."
+msgstr "جدول الإعدادات غير مكتمل. أقوم باستيراد جميع ملفات TOML إلى قاعدة البيانات قبل المتابعة."
+
+msgid "La tabla de configuraciones todavía no está disponible: %(error)s"
+msgstr "جدول الإعدادات غير متاح بعد: %(error)s"
+
+msgid "Método no soportado."
+msgstr "الطريقة غير مدعومة."
+
+msgid "No se pudo cargar la configuración inicial."
+msgstr "تعذر تحميل الإعداد الأولي."
+
+msgid "Primer arranque"
+msgstr "التشغيل الأول"
+
+msgid "{{ stored }} de {{ expected }} configuraciones cargadas. Faltan {{ missing }}."
+msgstr "تم تحميل {{ stored }} من {{ expected }} إعدادات. المتبقي {{ missing }}."

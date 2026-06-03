@@ -11,5 +11,23 @@
   </div>
 </section>
 
-{% include "ciudades_del_mundo/partials/task_table.html" with tasks=tasks compact=False %}
+<section class="panel task-history-panel">
+  <form class="filters compact-filters async-table-form task-table-filter-form" method="get" data-target="#task-table-panel" data-url="{{ task_table_url }}" data-loading="{% trans 'Cargando tabla...' %}" data-error="{% trans 'La tabla no se pudo cargar. Reintenta en unos segundos.' %}">
+    <label>
+      {% trans "Filas" %}
+      <select name="page_size">
+        <option value="10">10</option>
+        <option value="25" selected>25</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+      </select>
+    </label>
+    <div class="filter-actions">
+      <button type="submit">{% trans "Actualizar" %}</button>
+    </div>
+  </form>
+  <section id="task-table-panel" class="async-table-panel" aria-live="polite">
+    <div class="table-loading"><span class="loading-spinner" aria-hidden="true"></span>{% trans "Cargando tabla..." %}</div>
+  </section>
+</section>
 {% endblock %}

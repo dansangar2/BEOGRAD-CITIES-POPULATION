@@ -30,10 +30,10 @@
   <article class="metric"><span>{% trans "Inicio" %}</span><strong class="small-strong">{{ task.started_at|default:task.created_at|date:"H:i:s" }}</strong></article>
 </section>
 
-<section class="panel">
+<section class="panel task-output-panel">
   <h2>{% trans "Comando" %}</h2>
   <p><code>{{ task.command_display }}</code></p>
   <h2>{% trans "Salida" %}</h2>
-  <pre class="console"><code>{% if task.output_text %}{{ task.output_text }}{% else %}{% trans "Sin salida todavia." %}{% endif %}</code></pre>
+  <pre class="console task-console"><code>{% if task_output %}{{ task_output }}{% else %}{% trans "Sin salida todavia." %}{% endif %}</code></pre>
 </section>
 {% endblock %}

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.test import TestCase
 from django.utils import translation
 
@@ -181,6 +182,66 @@ class DashboardViewTests(TestCase):
             ],
         )
 
+    def test_api_country_data_excludes_hidden_city_merge_status_three_rows(self):
+        root = AdminArea.objects.create(
+            id="aa_root",
+            country_code="aa",
+            code="aa",
+            name="AA Country",
+            level=0,
+            area_km2=100,
+            pop_latest=1000,
+        )
+        AdminArea.objects.create(
+            id="aa_visible",
+            country_code="aa",
+            code="visible",
+            name="Visible",
+            level=1,
+            entity_type="Province",
+            parent=root,
+            area_km2=40,
+            pop_latest=400,
+        )
+        AdminArea.objects.create(
+            id="aa_hidden",
+            country_code="aa",
+            code="hidden",
+            name="Hidden",
+            level=1,
+            entity_type="Province",
+            parent=root,
+            area_km2=60,
+            pop_latest=600,
+            city_merge_status=3,
+        )
+        AdminArea.objects.create(
+            id="hidden_root",
+            country_code="hiddenland",
+            code="hiddenland",
+            name="Hiddenland",
+            level=0,
+            pop_latest=9999,
+            city_merge_status=3,
+        )
+
+        response = self.client.get("/api/countries/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([row["code"] for row in response.json()["countries"]], ["aa"])
+
+        response = self.client.get("/api/countries/aa/")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["country"]["subdivision_count"], 1)
+        self.assertEqual([row["name"] for row in data["table"]["rows"]], ["Visible"])
+        self.assertEqual(
+            [row["label"] for row in data["first_order"]["population_chart"]["items"]],
+            ["Visible"],
+        )
+        self.assertEqual([row["name"] for row in data["first_order"]["cards"]], ["Visible"])
+
     def test_dashboard_country_detail_returns_general_table_and_first_order_charts(self):
         root = AdminArea.objects.create(
             id="aa_root",
@@ -232,6 +293,79 @@ class DashboardViewTests(TestCase):
         self.assertEqual(
             [(row["name"], row["population_percent"], row["area_percent"]) for row in data["first_order"]["cards"]],
             [("One", 40.0, 40.0), ("Two", 60.0, 60.0)],
+        )
+        self.assertEqual(data["first_order"]["cards"][0]["detail_url"], "/api/admin-areas/aa_one/")
+        self.assertEqual(data["first_order"]["cards"][0]["child_count"], 0)
+
+    def test_api_admin_area_detail_returns_direct_children_for_recursive_browser(self):
+        root = AdminArea.objects.create(
+            id="aa_root",
+            country_code="aa",
+            code="aa",
+            name="AA Country",
+            level=0,
+            area_km2=100,
+            pop_latest=1000,
+        )
+        region = AdminArea.objects.create(
+            id="aa_region",
+            country_code="aa",
+            code="region",
+            name="Region",
+            level=1,
+            entity_type="Region",
+            parent=root,
+            area_km2=80,
+            pop_latest=800,
+        )
+        AdminArea.objects.create(
+            id="aa_city",
+            country_code="aa",
+            code="city",
+            name="City",
+            level=2,
+            entity_type="Municipality",
+            parent=region,
+            area_km2=20,
+            pop_latest=200,
+        )
+        AdminArea.objects.create(
+            id="aa_hidden",
+            country_code="aa",
+            code="hidden",
+            name="Hidden",
+            level=2,
+            entity_type="Municipality",
+            parent=region,
+            area_km2=10,
+            pop_latest=100,
+            city_merge_status=3,
+        )
+
+        response = self.client.get("/api/admin-areas/aa_region/")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["area"]["name"], "Region")
+        self.assertEqual(data["area"]["subdivision_count"], 1)
+        self.assertEqual(data["area"]["detail_url"], "/api/admin-areas/aa_region/")
+        self.assertEqual(
+            data["children"],
+            [
+                {
+                    "id": "aa_city",
+                    "name": "City",
+                    "entity_type": "Municipality",
+                    "level": 2,
+                    "area_km2": 20.0,
+                    "population": 200,
+                    "density": 10.0,
+                    "population_percent": 25.0,
+                    "area_percent": 25.0,
+                    "child_count": 0,
+                    "detail_url": "/api/admin-areas/aa_city/",
+                }
+            ],
         )
 
     def test_dashboard_country_detail_adds_second_order_shares_by_level(self):
@@ -357,6 +491,8 @@ class DashboardViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'data-stats-countries')
         self.assertContains(response, 'data-url="/api/countries/"')
+        self.assertContains(response, 'data-children-title')
+        self.assertContains(response, 'data-open-label')
 
     def test_stats_redirects_to_countries_page(self):
         response = self.client.get("/stats/")
@@ -405,6 +541,136 @@ class DashboardViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["countries"][0]["label"], "Brasil")
+
+    def test_spain_detail_uses_spanish_geography_labels(self):
+        root = AdminArea.objects.create(
+            id="spain_root",
+            country_code="spain",
+            code="spain",
+            name="España",
+            level=0,
+            entity_type="Kingdom",
+            area_km2=100,
+            pop_latest=1000,
+        )
+        catalonia = AdminArea.objects.create(
+            id="spain_cat",
+            country_code="spain",
+            code="cat",
+            name="Cataluña",
+            level=1,
+            entity_type="Autonomous Community",
+            parent=root,
+            area_km2=60,
+            pop_latest=700,
+        )
+        AdminArea.objects.create(
+            id="spain_lleida",
+            country_code="spain",
+            code="lleida",
+            name="Lleida",
+            level=2,
+            entity_type="Province",
+            parent=catalonia,
+            area_km2=20,
+            pop_latest=200,
+        )
+
+        with translation.override("es"):
+            response = self.client.get("/api/countries/spain/?level=2")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["levels"][1]["entity_type"], "Provincia")
+        self.assertEqual(
+            data["table"]["rows"][0],
+            {
+                "name": "Lérida",
+                "area_km2": 20.0,
+                "population": 200,
+                "density": 10.0,
+                "population_percent": 20.0,
+                "area_percent": 20.0,
+                "parent": "Cataluña",
+                "entity_type": "Provincia",
+            },
+        )
+        self.assertEqual(data["first_order"]["cards"][0]["entity_type"], "Comunidad autónoma")
+        self.assertEqual(data["first_order"]["cards"][0]["children"][0]["name"], "Lérida")
+
+    def test_spain_detail_translates_geography_labels_for_supported_languages(self):
+        root = AdminArea.objects.create(
+            id="spain_root_multilang",
+            country_code="spain",
+            code="spain-multilang",
+            name="Espa\u00f1a",
+            level=0,
+            entity_type="Kingdom",
+            area_km2=100,
+            pop_latest=1000,
+        )
+        catalonia = AdminArea.objects.create(
+            id="spain_cat_multilang",
+            country_code="spain",
+            code="cat-multilang",
+            name="Catalu\u00f1a",
+            level=1,
+            entity_type="Autonomous Community",
+            parent=root,
+            area_km2=60,
+            pop_latest=700,
+        )
+        AdminArea.objects.create(
+            id="spain_lleida_multilang",
+            country_code="spain",
+            code="lleida-multilang",
+            name="Lleida",
+            level=2,
+            entity_type="Province",
+            parent=catalonia,
+            area_km2=20,
+            pop_latest=200,
+        )
+
+        expectations = {
+            "en": ("Spain", "Lleida", "Province", "Autonomous community"),
+            "fr": ("Espagne", "L\u00e9rida", "Province", "Communaut\u00e9 autonome"),
+            "de": ("Spanien", "L\u00e9rida", "Provinz", "Autonome Gemeinschaft"),
+            "ru": (
+                "\u0418\u0441\u043f\u0430\u043d\u0438\u044f",
+                "\u041b\u044c\u0435\u0439\u0434\u0430",
+                "\u041f\u0440\u043e\u0432\u0438\u043d\u0446\u0438\u044f",
+                "\u0410\u0432\u0442\u043e\u043d\u043e\u043c\u043d\u043e\u0435 \u0441\u043e\u043e\u0431\u0449\u0435\u0441\u0442\u0432\u043e",
+            ),
+            "it": ("Spagna", "L\u00e9rida", "Provincia", "Comunit\u00e0 autonoma"),
+            "sr": (
+                "\u0428\u043f\u0430\u043d\u0438\u0458\u0430",
+                "\u0409\u0435\u0438\u0434\u0430",
+                "\u041f\u0440\u043e\u0432\u0438\u043d\u0446\u0438\u0458\u0430",
+                "\u0410\u0443\u0442\u043e\u043d\u043e\u043c\u043d\u0430 \u0437\u0430\u0458\u0435\u0434\u043d\u0438\u0446\u0430",
+            ),
+            "sr-latn": ("\u0160panija", "Ljeida", "Provincija", "Autonomna zajednica"),
+            "ar": (
+                "\u0625\u0633\u0628\u0627\u0646\u064a\u0627",
+                "\u0644\u0627\u0631\u062f\u0629",
+                "\u0645\u0642\u0627\u0637\u0639\u0629",
+                "\u0645\u0646\u0637\u0642\u0629 \u062d\u0643\u0645 \u0630\u0627\u062a\u064a",
+            ),
+        }
+        for language_code, expected in expectations.items():
+            country_name, province_name, province_type, first_order_type = expected
+            self.client.cookies[settings.LANGUAGE_COOKIE_NAME] = language_code
+            with self.subTest(language_code=language_code):
+                response = self.client.get(
+                    "/api/countries/spain/?level=2",
+                    HTTP_ACCEPT_LANGUAGE=language_code,
+                )
+                self.assertEqual(response.status_code, 200)
+                data = response.json()
+                self.assertEqual(data["country"]["name"], country_name)
+                self.assertEqual(data["table"]["rows"][0]["name"], province_name)
+                self.assertEqual(data["table"]["rows"][0]["entity_type"], province_type)
+                self.assertEqual(data["first_order"]["cards"][0]["entity_type"], first_order_type)
 
     def test_country_selectors_use_database_root_names_as_labels(self):
         AdminArea.objects.create(

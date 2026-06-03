@@ -124,9 +124,9 @@
           <strong>{{ config.name|default:config.slug }}</strong>
           <span>{% blocktrans with country_code=config.country_code pages=config.pages cities=config.cities %}{{ country_code }} - {{ pages }} paginas - {{ cities }} ciudades unificadas{% endblocktrans %}</span>
         </div>
-        <form method="post" action="{% url 'ciudades_del_mundo:start_config_task' config.slug 'scrape' %}">
+        <form method="post" action="{% url 'ciudades_del_mundo:start_config_task' config.slug 'scrape' %}" data-config-task-form data-action-label="{% trans 'Popular' %}">
           {% csrf_token %}
-          <button type="submit">{% trans "Popular" %}</button>
+          <button type="submit" data-config-action="scrape">{% trans "Popular" %}</button>
         </form>
       </article>
       {% empty %}

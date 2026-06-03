@@ -39,7 +39,7 @@
         <td>{{ recipe.built_count }}</td>
         <td>
           {% if recipe.active_task and recipe.active_task.is_active %}
-          <a class="status running" href="{% url 'ciudades_del_mundo:task_detail' recipe.active_task.id %}">{% trans "running" %}</a>
+          <a class="status {{ recipe.active_task.status }}" href="{% url 'ciudades_del_mundo:task_detail' recipe.active_task.id %}">{% trans recipe.active_task.status %}</a>
           {% else %}
           <span class="muted">-</span>
           {% endif %}

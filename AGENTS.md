@@ -79,6 +79,9 @@ project's scope is enough.
   work.
 - For every code/config change, review whether `AGENTS.md` needs an update and
   add the relevant new context before finishing.
+- Always translate new user-facing text added to the project. Wrap template
+  strings with `{% trans %}` / `{% blocktrans %}`, Python strings with
+  `gettext`, and update gettext catalogs when the change is meant to ship.
 - For every new feature, add or update user/developer documentation in the
   appropriate place before finishing.
 - Avoid touching generated or local artifacts unless the task requires it:
@@ -631,7 +634,7 @@ py manage.py validate_subdivision_configs
 py manage.py validate_subdivision_configs spain morocco
 ```
 
-List scrape URLs without network fetch:
+List scrape URLs without network fetch from the CLI only; the web UI no longer exposes a URLs action:
 
 ```powershell
 py manage.py scrape_subdivisions --list-pages spain
@@ -772,8 +775,15 @@ If the user asks about web UI:
   `sr`, `sr-latn` and `ar`. The Serbian Latin gettext directory is
   `locale/sr_Latn/LC_MESSAGES/`.
 - translation compiler: `ciudades_del_mundo/management/commands/compile_local_messages.py`
+- Spain-specific display-name translations for geography labels live in
+  `ciudades_del_mundo/web/spain_translations.py`; it maps local/admin source
+  names and CityPopulation entity types for Spain across the supported UI
+  languages, for example `Lleida` -> `Lérida` in Spanish and `Province` ->
+  language-specific labels such as `Provincia` or `Provinz`. Spain entity types
+  are intentionally translated by the contextual helper, not by generic gettext
+  entries, so fake area names such as `Province` are not translated accidentally.
 - main sections:
-  `/configs/` for TOML scraping config editing and scrape/validate/list-URL
+  `/configs/` for TOML scraping config editing and validate/populate
   tasks, `/recipes/` for derived recipe creation/editing/build/export tasks,
   `/derived/` for comparative `NuevoAdminArea` browsing, `/countries/` for the
   API-driven country browser, `/stats/` as its compatibility redirect,
@@ -809,25 +819,43 @@ If the user asks about web UI:
   table is client-paginated, has a client-selectable page size, marks the active
   sort column with arrows, includes population/area percentages relative to the
   country, and changing its level selector reloads only that table panel.
-  First-order and share summary tables are also client-sortable with sticky
-  headers. First-order share cards show each area's direct children at the next
-  level with mini pie percentages when the country has fewer than 150 rows at that
-  next level; do not filter those child rows by entity-type name.
+  First-order comparison rows are shown as a compact client-sortable table below
+  the two donuts; its header is sticky inside the table scroll area and the table
+  should avoid horizontal scroll on desktop by keeping numeric columns narrow.
+  Share summary tables also remain client-sortable with sticky headers.
+  First-order share cards show each area's direct children at the next level with
+  mini pie percentages when the country has fewer than 150 rows at that next
+  level; do not filter those child rows by entity-type name.
   `/countries/` is now an API-driven country card browser with a 10-column
   desktop grid, flag, area and population per country; clicking a card loads the
-  basic country panel from `/api/countries/<country_code>/`. `/stats/` redirects
-  to `/countries/` for compatibility and `/stats/data/` still returns the older
-  statistics chart payload for compatibility. Frontend chart rendering is
+  basic country panel plus a direct-child subdivision panel from
+  `/api/countries/<country_code>/`. Each direct subdivision row can open another
+  card below using `/api/admin-areas/<area_id>/`, showing that area's visual
+  identity on the left and its direct-child table on the right recursively until
+  the area has no visible children. Direct-child panel titles are generated from
+  the pluralized child entity types, joined with `y` when multiple types are
+  present. Those child tables are row-clickable, compact, and act as the legend
+  for direct-child population/area donut charts; they include a text search and
+  sort buttons on every data column, with `Tipo` kept as a compact standalone
+  sortable column. If an area has no children, do not show the direct-child title;
+  show a centered `Sin datos` empty state instead. Omit the area donut when no
+  child has area data. `/stats/` redirects to `/countries/` for compatibility and
+  `/stats/data/` still returns the older statistics chart payload for
+  compatibility. Frontend chart rendering is
   centralized in `ciudades_del_mundo/static/ciudades_del_mundo/app.js`
   as `window.CiudadesCharts`, using `[data-chart-widget]` containers for reusable
   bar and donut charts; dashboard donut items dispatch
-  `ciudades:chart-item-click` to load the country detail panel. The dashboard
-  population donut groups only countries after rank 20 into `Otros paises`; the
-  population/area country table is combined into one searchable table without
-  changing either donut. Country colors are shared across both donuts and the
-  combined table; the colored set is the union of the top 10 countries by
-  population and the top 10 by area, while the remaining visible slices are
-  neutral. Country detail
+  `ciudades:chart-item-click` to load the country detail panel. Donut tooltips
+  are appended to `document.body` and positioned with viewport coordinates so
+  they are not clipped by cards, panels or scroll containers. Do not add native
+  SVG `<title>` elements to donut slices because browsers show delayed default
+  tooltips; use `aria-label` plus the custom chart tooltip instead. The
+  population/area country table is combined into one searchable, sortable table
+  without filtering either dataset. Country colors are shared across both donuts
+  and the combined table; the colored set is the union of the top 10 countries by
+  population and the top 10 by area. Countries outside that colored set are kept
+  in the table with no marker and are aggregated into the `Otros paises` segment
+  inside each donut. Country detail
   visual identity is hydrated in browser-side JavaScript from Wikidata/Wikimedia
   using a server-provided country QID map where known; flag and coat thumbnails
   open a local preview overlay, then can open the internal
@@ -837,15 +865,18 @@ If the user asks about web UI:
 - The base web layout has a client-side style selector next to the language
   selector. The language picker is custom markup with CSS-drawn flag spans
   because native selects and emoji fonts may not render flags consistently. The
-  style selector stores `light`, `dark`, `dracula`, `retro80`, `retro80-green`,
-  `retro80-cyan`, `retro80-red`, `rainbow`, `paper` or `spain` in
-  `localStorage` under `ciudades_del_mundo_theme` and applies the choice through
+  style selector stores `light`, `dark`, `dracula`, `retro`, `retro-blue`,
+  `retro80`, `retro80-green`, `retro80-cyan`, `retro80-red`, `8bits`,
+  `rainbow`, `paper` or `spain` in `localStorage` under
+  `ciudades_del_mundo_theme` and applies the choice through
   `html[data-theme]`; the `Efectos complejos` checkbox stores
   `ciudades_del_mundo_theme_effects` and toggles `html[data-theme-effects]`.
   `rainbow` and `paper` are complex styles, while country-specific styles such
   as `spain` are special styles. Future country styles such as France or Morocco
   should use background images of representative cities/monuments and cards
-  based on that country's flag colors. Keep theme-specific colors in CSS
+  based on that country's flag colors. The rainbow complex effect is intentionally
+  faster and layered, using multiple subtle gradients plus `rainbow-shift`; keep
+  it smooth enough to avoid abrupt color jumps. Keep theme-specific colors in CSS
   variables where possible.
 - map pages do not use stored geometry. They geocode by area name in the
   browser using OpenStreetMap/Nominatim through Leaflet, and try to resolve
@@ -855,14 +886,83 @@ If the user asks about web UI:
   the server context additionally passes local registered capitals and
   most-populated city names for related-place translation lookups. Treat all
   Wikidata/Wikimedia results as best-effort external lookups.
+- `/configs/` has dynamic config and recent-task tables loaded from
+  `/configs/table/` and `/configs/tasks/table/`. Those partials return the
+  filtered row set once and use client-side pagination, so changing pages should
+  not refetch data. The config table is searchable. Country labels use the
+  current UI language via `_display_name`; config names/slugs are not edit links,
+  and editing is done through the explicit `Editar` button. Validate and
+  populate actions are launched asynchronously from that list, show stacked
+  toasts in the top-right corner, enter from the right, poll
+  `/tasks/<id>/status/`, disable the clicked button immediately, refresh the
+  config row from `/configs/<slug>/summary/` when finished, and refresh visible
+  task tables. Task tables on `/configs/` and `/tasks/` also poll periodically
+  so queued/running/completed states update without a manual reload. Local
+  pagination click handlers must be bound only to the pagination controls, never
+  delegated broadly enough that ordinary table/button clicks can change pages.
+  Dynamic client-paginated tables can opt into column sorting with
+  `data-client-sort` headers and row `data-*` sort values. A config row's
+  `Validar` button must also stay disabled while its
+  `validate-config:<slug>` task is active, including after the paginated table is
+  rendered again. Success/failure
+  toasts remain visible for 0.5s, then exit to the top-right while lower toasts
+  move up. The toast stack is a fixed
+  three-slot viewport: never show more than 3 visible task toasts, keep each
+  toast at a fixed size, animate movement with `transform` instead of changing
+  layout height, and let queued toasts enter into the bottom slot from the right
+  after the outgoing toast is clipped above the viewport. Config task toasts
+  should reserve their output/log area from creation so success/error output does
+  not resize the toast, and the toast log preview should not display a scrollbar.
+  Config task toasts have CSS enter/exit animations and must respect
+  `prefers-reduced-motion`.
+- All visible web data loads should show the shared circular
+  `.loading-spinner`: async tables, API charts, country/detail panels, maps,
+  Wikidata visual identity lookups, country-card flag hydration, config source
+  entity lookups and config generation should not silently wait behind plain
+  text.
+- `/configs/<slug>/` is a tabbed editor: Manual, Archivo, Scrapping and IA.
+  Manual builds TOML from page rows plus an optional dual-table city unification
+  selector based on already scraped `AdminArea` rows. Source entity lookups for
+  that selector must use the TOML `country_code` when it differs from the file
+  slug, so level and parent filters are populated from the real `AdminArea`
+  country. The available-entities table has filters for level, name and parent.
+  Level options are rendered in the initial HTML and refreshed by the dynamic
+  endpoint; the initial table rows for the first level are also rendered into
+  the page so the table is populated before the full entity payload finishes
+  loading. The level selector has no `Todos` option and defaults to the first
+  available level so the table is always filtered. Level labels are built from
+  the entity types present at that level, for example Spain level 1 appears as
+  `Comunidad Autónoma/Ciudad Autónoma` and Mexico level 1 can appear as
+  `Estado/Distrito Federal`; parent options are rebuilt from the selected
+  level's direct parents, excluding level-0 root parents, so level 1 has no
+  parent filter options. Archivo edits raw
+  TOML with server-side validation before saving. Scrapping can generate a draft
+  TOML by discovering useful CityPopulation links for the country. IA is
+  controlled by `settings.AI_CONFIG_ENABLED`, lets the user choose a provider
+  login route, and must not store personal AI credentials. External AI generation
+  remains a future integration point until a provider flow is configured.
 - web-launched tasks run `manage.py` subcommands in local subprocesses. A new
   task with the same key cancels/replaces the active one. Saving a TOML config
   or editable recipe from the UI also cancels/replaces the matching active
-  scrape/build task if there is one.
-- When changing user-facing web text, wrap static template text with
-  `{% trans %}` / `{% blocktrans %}` or Python text with `gettext`, update the
-  relevant `locale/*/LC_MESSAGES/django.po` entries, then run
-  `py manage.py compile_local_messages` so Django can load the `.mo` catalogs.
+  scrape/build task if there is one. `TaskManager` runs at most 3 subprocesses
+  at once; additional tasks remain `queued` and are dispatched FIFO when a
+  running task finishes or is cancelled. `TaskManager` persists recent task
+  history to `.web_tasks.json` and full per-task logs to `.web_task_logs/*.log`
+  in the repo root; both are git-ignored. `/tasks/` loads its task table
+  dynamically from `/tasks/table/` with a visible spinner and client-side
+  pagination/sorting. Dynamic task-table rows are clickable through
+  `data-row-href`; do not add a separate `Abrir` action button in those tables.
+  Active or queued tasks loaded after a server restart are marked
+  failed/interrupted because their subprocess/queue worker cannot be reattached.
+- country dashboard/API chart and table data should use
+  `_visible_admin_areas()` so rows with `AdminArea.city_merge_status == 3` stay
+  hidden from `/api/countries/`, `/api/countries/<country_code>/`, `/stats/`
+  data and related dashboard counts.
+- Always translate every new user-facing text before considering the change done.
+  Wrap static template text with `{% trans %}` / `{% blocktrans %}` or Python
+  text with `gettext`, update the relevant `locale/*/LC_MESSAGES/django.po`
+  entries, then run `py manage.py compile_local_messages` so Django can load the
+  `.mo` catalogs.
 
 ## Local Development Notes
 
@@ -872,7 +972,7 @@ If the user asks about web UI:
   asked.
 - Django version in generated settings comment is 5.2.1.
 - Web i18n is enabled with `LocaleMiddleware`; `LANGUAGE_CODE = "es"`,
-  `LANGUAGES = es/en/fr/de/ru`, and `TIME_ZONE = "UTC"`.
+  `LANGUAGES = es/en/fr/de/ru/it/sr/sr-latn/ar`, and `TIME_ZONE = "UTC"`.
 - SQLite is configured for local concurrent use with a 30s timeout plus
   `busy_timeout`, `journal_mode=WAL` and `synchronous=NORMAL` in
   `CiudadesDelMundoConfig.ready()`. The web middleware returns a controlled 503
@@ -889,9 +989,10 @@ If the user asks about web UI:
   rows for the requested country.
 - Generated Excel/CSV files can clutter `excels/`; avoid creating them unless
   the task requires verification.
-- Web task history is process-local and disappears when the development server
-  restarts. The task side effects in `db.sqlite3`, `subdivisions/*.toml`,
-  `new_subdivisions/*.py` or `excels/` remain.
+- Web task history is persisted locally in `.web_tasks.json`, but running
+  subprocesses and queued workers are still process-local and cannot continue
+  after a development server restart. The task side effects in `db.sqlite3`,
+  `subdivisions/*.toml`, `new_subdivisions/*.py` or `excels/` remain.
 - The web delete page performs confirmed bulk deletes for one source
   `AdminArea.country_code` or one derived `NuevoAdminArea.country_code`.
 - CityPopulation layouts can vary by page; prefer small parser tests with saved

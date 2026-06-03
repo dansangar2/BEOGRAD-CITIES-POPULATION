@@ -1,13 +1,13 @@
 {% extends "ciudades_del_mundo/base.html" %}
 {% load i18n %}
 
-{% block title %}{% trans "Paises - Ciudades del Mundo" %}{% endblock %}
+{% block title %}{% trans "Países - Ciudades del Mundo" %}{% endblock %}
 
 {% block content %}
 <section class="page-head compact">
   <div>
-    <p class="eyebrow">{% trans "Estadisticas" %}</p>
-    <h1>{% trans "Paises" %}</h1>
+    <p class="eyebrow">{% trans "Estadísticas" %}</p>
+    <h1>{% trans "Países" %}</h1>
   </div>
 </section>
 
@@ -17,38 +17,43 @@
     data-stats-countries
     data-url="{{ stats_countries_url }}"
     data-loading="{% trans 'Cargando datos...' %}"
-    data-error="{% trans 'No se pudieron cargar los paises.' %}"
-    data-empty="{% trans 'Sin datos.' %}"
-    data-population-label="{% trans 'Poblacion' %}"
+    data-error="{% trans 'No se pudieron cargar los países.' %}"
+    data-empty="{% trans 'Sin datos' %}"
+    data-population-label="{% trans 'Población' %}"
     data-area-label="{% trans 'Terreno' %}"
-    data-general-title="{% trans 'Datos generales del pais' %}"
+    data-general-title="{% trans 'Datos generales del país' %}"
+    data-children-title="{% trans 'Subdivisiones directas' %}"
+    data-open-label="{% trans 'Ver datos' %}"
+    data-entity-type-label="{% trans 'Tipo' %}"
     data-name-label="{% trans 'Nombre' %}"
     data-official-name-label="{% trans 'Nombre oficial' %}"
     data-official-language-label="{% trans 'Idioma oficial' %}"
     data-capital-label="{% trans 'Capital' %}"
     data-density-label="{% trans 'Densidad' %}"
-    data-subdivision-count-label="{% trans 'Numero de subdivisiones' %}"
+    data-subdivision-count-label="{% trans 'Número de subdivisiones' %}"
     data-flag-label="{% trans 'Bandera' %}"
     data-coat-label="{% trans 'Escudo' %}"
-  >
-    <div class="table-loading"><span class="loading-spinner" aria-hidden="true"></span>{% trans "Cargando datos..." %}</div>
-  </div>
+  ></div>
 </section>
 
 <section
   class="stats-country-detail"
   data-stats-country-detail
-  data-loading="{% trans 'Cargando pais...' %}"
-  data-error="{% trans 'No se pudo cargar el pais.' %}"
-  data-general-title="{% trans 'Datos generales del pais' %}"
+  data-loading="{% trans 'Cargando país...' %}"
+  data-error="{% trans 'No se pudo cargar el país.' %}"
+  data-empty="{% trans 'Sin datos' %}"
+  data-general-title="{% trans 'Datos generales del país' %}"
+  data-children-title="{% trans 'Subdivisiones directas' %}"
+  data-open-label="{% trans 'Ver datos' %}"
+  data-entity-type-label="{% trans 'Tipo' %}"
   data-name-label="{% trans 'Nombre' %}"
   data-official-name-label="{% trans 'Nombre oficial' %}"
   data-official-language-label="{% trans 'Idioma oficial' %}"
   data-capital-label="{% trans 'Capital' %}"
-  data-population-label="{% trans 'Poblacion' %}"
+  data-population-label="{% trans 'Población' %}"
   data-area-label="{% trans 'Terreno' %}"
   data-density-label="{% trans 'Densidad' %}"
-  data-subdivision-count-label="{% trans 'Numero de subdivisiones' %}"
+  data-subdivision-count-label="{% trans 'Número de subdivisiones' %}"
   data-flag-label="{% trans 'Bandera' %}"
   data-coat-label="{% trans 'Escudo' %}"
   hidden

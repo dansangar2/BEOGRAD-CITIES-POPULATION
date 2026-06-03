@@ -1,0 +1,62 @@
+{% load i18n %}
+<div class="table-wrap">
+  <table class="compact-table config-table">
+    <thead>
+      <tr>
+        <th><button type="button" class="table-sort-button" data-client-sort="slug">Slug</button></th>
+        <th><button type="button" class="table-sort-button" data-client-sort="country">{% trans "Pais" %}</button></th>
+        <th><button type="button" class="table-sort-button" data-client-sort="pages" data-sort-type="number">{% trans "Paginas" %}</button></th>
+        <th><button type="button" class="table-sort-button" data-client-sort="cities" data-sort-type="number">{% trans "Unificaciones" %}</button></th>
+        <th><button type="button" class="table-sort-button" data-client-sort="rows" data-sort-type="number">{% trans "Filas" %}</button></th>
+        <th><button type="button" class="table-sort-button" data-client-sort="task">{% trans "Tarea" %}</button></th>
+        <th>{% trans "Acciones" %}</th>
+      </tr>
+    </thead>
+    <tbody data-client-page-rows>
+      {% for config in rows %}
+      <tr data-client-row data-config-row="{{ config.slug }}" data-search="{{ config.slug }} {{ config.country_label }} {{ config.name|default:'' }}" data-slug="{{ config.slug }}" data-country="{{ config.country_label }}" data-pages="{{ config.pages }}" data-cities="{{ config.cities }}" data-rows="{{ config.rows }}" data-task="{% if config.active_task %}{{ config.active_task.status }}{% endif %}">
+        <td data-field="slug"><code>{{ config.slug }}</code></td>
+        <td data-field="country">{{ config.country_label }}</td>
+        <td data-field="pages">{{ config.pages }}</td>
+        <td data-field="cities">{{ config.cities }}</td>
+        <td data-field="rows">{{ config.rows }}</td>
+        <td data-field="task">
+          {% if config.active_task and config.active_task.is_active %}
+          <a class="status {{ config.active_task.status }}" href="{% url 'ciudades_del_mundo:task_detail' config.active_task.id %}">{% trans config.active_task.status %}</a>
+          {% elif config.error %}
+          <span class="status failed">{% trans "invalid" %}</span>
+          {% elif config.active_task and config.active_task.status == "succeeded" %}
+          <span class="status succeeded">{% trans "correcto" %}</span>
+          {% elif config.active_task and config.active_task.status == "failed" %}
+          <span class="status failed">{% trans "error" %}</span>
+          {% else %}
+          <span class="muted">-</span>
+          {% endif %}
+        </td>
+        <td>
+          <div class="button-row">
+            <a class="button secondary" href="{% url 'ciudades_del_mundo:config_edit' config.slug %}">{% trans "Editar" %}</a>
+            <form method="post" action="{% url 'ciudades_del_mundo:start_config_task' config.slug 'validate' %}" data-config-task-form data-action-label="{% trans 'Validar' %}" data-summary-url="{% url 'ciudades_del_mundo:config_summary' config.slug %}">
+              {% csrf_token %}
+              <button type="submit" class="quiet" data-config-action="validate" {% if config.validate_task and config.validate_task.is_active %}disabled{% endif %}>{% trans "Validar" %}</button>
+            </form>
+            <form method="post" action="{% url 'ciudades_del_mundo:start_config_task' config.slug 'scrape' %}" data-config-task-form data-action-label="{% trans 'Popular' %}" data-summary-url="{% url 'ciudades_del_mundo:config_summary' config.slug %}">
+              {% csrf_token %}
+              <button type="submit" data-config-action="scrape">{% trans "Popular" %}</button>
+            </form>
+          </div>
+          {% if config.error %}<small class="error-text">{{ config.error }}</small>{% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr data-client-empty data-empty-row><td colspan="7" class="table-empty-cell">{% trans "Sin datos" %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<nav class="pagination" data-client-pagination data-initial-page-size="{{ page_size }}">
+  <button type="button" class="secondary" data-client-page="previous">{% trans "Anterior" %}</button>
+  <span data-client-page-status>1 / 1</span>
+  <button type="button" class="secondary" data-client-page="next">{% trans "Siguiente" %}</button>
+</nav>

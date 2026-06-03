@@ -1,4 +1,4 @@
-{% extends "ciudades_del_mundo/base.html" %}
+﻿{% extends "ciudades_del_mundo/base.html" %}
 {% load i18n %}
 
 {% block title %}{% trans "Scraping - Ciudades del Mundo" %}{% endblock %}
@@ -9,69 +9,69 @@
     <p class="eyebrow">{% trans "Scraping CityPopulation" %}</p>
     <h1>{% trans "Configuraciones TOML" %}</h1>
   </div>
-  <a class="button secondary" href="{% url 'ciudades_del_mundo:config_new' %}">{% trans "Nueva configuracion" %}</a>
+  <a class="button secondary" href="{% url 'ciudades_del_mundo:config_new' %}">{% trans "Nueva configuración" %}</a>
 </section>
 
-<div class="table-wrap">
-  <table>
-    <thead>
-      <tr>
-        <th>Slug</th>
-        <th>{% trans "Pais" %}</th>
-        <th>{% trans "Paginas" %}</th>
-        <th>{% trans "Unificaciones" %}</th>
-        <th>{% trans "Filas" %}</th>
-        <th>{% trans "Tarea" %}</th>
-        <th>{% trans "Acciones" %}</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for config in configs %}
-      <tr>
-        <td><a href="{% url 'ciudades_del_mundo:config_edit' config.slug %}"><code>{{ config.slug }}</code></a></td>
-        <td>{{ config.name|default:config.country_code }}</td>
-        <td>{{ config.pages }}</td>
-        <td>{{ config.cities }}</td>
-        <td>{{ config.rows }}</td>
-        <td>
-          {% if config.active_task and config.active_task.is_active %}
-          <a class="status running" href="{% url 'ciudades_del_mundo:task_detail' config.active_task.id %}">{% trans "running" %}</a>
-          {% elif config.error %}
-          <span class="status failed">{% trans "invalid" %}</span>
-          {% else %}
-          <span class="muted">-</span>
-          {% endif %}
-        </td>
-        <td>
-          <div class="button-row">
-            <form method="post" action="{% url 'ciudades_del_mundo:start_config_task' config.slug 'validate' %}">
-              {% csrf_token %}
-              <button type="submit" class="quiet">{% trans "Validar" %}</button>
-            </form>
-            <form method="post" action="{% url 'ciudades_del_mundo:start_config_task' config.slug 'list-pages' %}">
-              {% csrf_token %}
-              <button type="submit" class="quiet">URLs</button>
-            </form>
-            <form method="post" action="{% url 'ciudades_del_mundo:start_config_task' config.slug 'scrape' %}">
-              {% csrf_token %}
-              <button type="submit">{% trans "Popular" %}</button>
-            </form>
-          </div>
-          {% if config.error %}<small class="error-text">{{ config.error }}</small>{% endif %}
-        </td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="7">{% trans "No hay ficheros TOML en subdivisions." %}</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+{% if not config_bootstrap_status.ready %}
+<div class="startup-config-overlay" data-config-bootstrap data-bootstrap-url="{{ config_bootstrap_url }}" data-ready="0" data-loading-label="{% trans 'Cargando configuración inicial desde los TOML...' %}" data-done-label="{% trans 'Configuración inicial cargada. Continuando...' %}" data-error-label="{% trans 'No se pudo cargar la configuración inicial.' %}">
+  <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+  <div class="startup-config-dialog" role="alertdialog" aria-modal="true" aria-labelledby="startup-config-title" aria-describedby="startup-config-description">
+    <span class="loading-spinner startup-config-spinner" aria-hidden="true"></span>
+    <p class="eyebrow">{% trans "Primer arranque" %}</p>
+    <h2 id="startup-config-title">{% trans "Cargando configuración inicial" %}</h2>
+    <p id="startup-config-description" data-bootstrap-message>{% trans "La tabla de configuraciones está incompleta. Estoy importando todos los TOML a la base de datos antes de continuar." %}</p>
+    <p class="muted" data-bootstrap-progress>
+      {% blocktrans with stored=config_bootstrap_status.stored_count expected=config_bootstrap_status.expected_count missing=config_bootstrap_status.missing_count %}{{ stored }} de {{ expected }} configuraciones cargadas. Faltan {{ missing }}.{% endblocktrans %}
+    </p>
+  </div>
 </div>
+{% endif %}
+
+<section class="panel config-list-panel" data-config-table data-empty-label="{% trans 'Sin datos' %}" data-running-label="{% trans 'En ejecución' %}" data-queued-label="{% trans 'En cola' %}" data-succeeded-label="{% trans 'Correcto' %}" data-failed-label="{% trans 'Error' %}" data-cancelled-label="{% trans 'Cancelado' %}" data-started-label="{% trans 'Tarea lanzada' %}" data-finished-label="{% trans 'Tarea finalizada' %}" data-updating-label="{% trans 'Actualizando tabla' %}" data-log-label="{% trans 'Ver registro' %}">
+  <form class="filters advanced-filters async-table-form config-table-filter-form" method="get" data-target="#config-table-panel" data-url="{{ config_table_url }}" data-defer-bootstrap="{% if not config_bootstrap_status.ready %}1{% else %}0{% endif %}" data-loading="{% trans 'Cargando tabla...' %}" data-error="{% trans 'La tabla no se pudo cargar. Reintenta en unos segundos.' %}">
+    <label>
+      {% trans "Buscar" %}
+      <input type="search" name="q" placeholder="{% trans 'Buscar por nombre' %}">
+    </label>
+    <label>
+      {% trans "Filas" %}
+      <select name="page_size">
+        <option value="10">10</option>
+        <option value="25" selected>25</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+      </select>
+    </label>
+    <div class="filter-actions">
+      <button type="submit">{% trans "Filtrar" %}</button>
+      <button type="reset" class="quiet">{% trans "Limpiar" %}</button>
+    </div>
+  </form>
+  <section id="config-table-panel" class="async-table-panel" aria-live="polite">
+    <div class="table-loading"><span class="loading-spinner" aria-hidden="true"></span>{% trans "Cargando tabla..." %}</div>
+  </section>
+</section>
 
 <section class="panel spaced">
   <div class="section-title">
     <h2>{% trans "Tareas recientes" %}</h2>
     <a href="{% url 'ciudades_del_mundo:task_list' %}">{% trans "Ver todas" %}</a>
   </div>
-  {% include "ciudades_del_mundo/partials/task_table.html" with tasks=recent_tasks compact=True %}
+  <form class="filters compact-filters async-table-form" method="get" data-target="#config-tasks-table-panel" data-url="{{ config_tasks_table_url }}" data-defer-bootstrap="{% if not config_bootstrap_status.ready %}1{% else %}0{% endif %}" data-loading="{% trans 'Cargando tabla...' %}" data-error="{% trans 'La tabla no se pudo cargar. Reintenta en unos segundos.' %}">
+    <label>
+      {% trans "Filas" %}
+      <select name="page_size">
+        <option value="10" selected>10</option>
+        <option value="25">25</option>
+        <option value="50">50</option>
+      </select>
+    </label>
+    <div class="filter-actions">
+      <button type="submit">{% trans "Filtrar" %}</button>
+    </div>
+  </form>
+  <section id="config-tasks-table-panel" class="async-table-panel" aria-live="polite">
+    <div class="table-loading"><span class="loading-spinner" aria-hidden="true"></span>{% trans "Cargando tabla..." %}</div>
+  </section>
 </section>
 {% endblock %}

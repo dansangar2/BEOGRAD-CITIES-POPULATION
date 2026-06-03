@@ -23,24 +23,24 @@
   </script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="{% static 'ciudades_del_mundo/app.css' %}?v=20260601-country-ui-4">
+  <link rel="stylesheet" href="{% static 'ciudades_del_mundo/app.css' %}?v=20260603-task-sort-rows">
 </head>
-<body>
+<body data-running-label="{% trans 'En ejecución' %}" data-queued-label="{% trans 'En cola' %}" data-succeeded-label="{% trans 'Correcto' %}" data-failed-label="{% trans 'Error' %}" data-cancelled-label="{% trans 'Cancelado' %}" data-log-label="{% trans 'Ver registro' %}">
   <header class="topbar">
     <a class="brand" href="{% url 'ciudades_del_mundo:dashboard' %}">{% trans "Ciudades del Mundo" %}</a>
     <nav class="nav">
       <a href="{% url 'ciudades_del_mundo:dashboard' %}">{% trans "Panel" %}</a>
+      <a href="{% url 'ciudades_del_mundo:countries' %}">{% trans "Países" %}</a>
       <a href="{% url 'ciudades_del_mundo:config_list' %}">{% trans "Scraping" %}</a>
       <a href="{% url 'ciudades_del_mundo:recipe_list' %}">{% trans "Recetas" %}</a>
       <a href="{% url 'ciudades_del_mundo:nuevo_area_list' %}">{% trans "Subdivisiones" %}</a>
       <a href="{% url 'ciudades_del_mundo:admin_area_list' %}">{% trans "Datos fuente" %}</a>
-      <a href="{% url 'ciudades_del_mundo:countries' %}">{% trans "Paises" %}</a>
       <a href="{% url 'ciudades_del_mundo:task_list' %}">{% trans "Tareas" %}</a>
       <a href="{% url 'ciudades_del_mundo:data_delete' %}">{% trans "Borrar" %}</a>
       <a href="{% url 'admin:index' %}">Admin</a>
     </nav>
     <div class="topbar-controls">
-      <form class="language-form" action="{% url 'set_language' %}" method="post">
+      <form class="language-form" action="{% url 'set_language' %}" method="post" data-language-form>
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ request.get_full_path }}">
         <div class="language-picker">
@@ -76,10 +76,13 @@
               <option value="dracula">{% trans "Dracula" %}</option>
             </optgroup>
             <optgroup label="{% trans 'Complejos' %}">
-              <option value="retro80">{% trans "Retro 80 violeta" %}</option>
-              <option value="retro80-green">{% trans "Retro 80 verde" %}</option>
-              <option value="retro80-cyan">{% trans "Retro 80 azul celeste" %}</option>
-              <option value="retro80-red">{% trans "Retro 80 rojo" %}</option>
+              <option value="retro">{% trans "Retro" %}</option>
+              <option value="retro-blue">{% trans "Retro Azul" %}</option>
+              <option value="retro80">{% trans "Retro violeta" %}</option>
+              <option value="retro80-green">{% trans "Retro verde" %}</option>
+              <option value="retro80-cyan">{% trans "Retro azul celeste" %}</option>
+              <option value="retro80-red">{% trans "Retro rojo" %}</option>
+              <option value="8bits">{% trans "8bits" %}</option>
               <option value="rainbow">{% trans "Arcoiris" %}</option>
               <option value="paper">{% trans "Papel" %}</option>
             </optgroup>
@@ -108,7 +111,7 @@
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="{% static 'ciudades_del_mundo/app.js' %}?v=20260601-country-ui-4"></script>
+  <script src="{% static 'ciudades_del_mundo/app.js' %}?v=20260603-task-sort-rows"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

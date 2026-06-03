@@ -276,3 +276,79 @@ class NuevoAdminArea(models.Model):
         return None
 
 
+
+
+class WebTask(models.Model):
+    """Persistent background task launched from the web UI/API."""
+
+    class Status(models.TextChoices):
+        QUEUED = "queued", "Queued"
+        RUNNING = "running", "Running"
+        SUCCEEDED = "succeeded", "Succeeded"
+        FAILED = "failed", "Failed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.CharField(max_length=32, primary_key=True)
+    key = models.CharField(max_length=255, db_index=True)
+    label = models.CharField(max_length=255)
+    args = models.JSONField(default=list, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.QUEUED, db_index=True)
+    created_at = models.DateTimeField(db_index=True)
+    started_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    finished_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    returncode = models.IntegerField(null=True, blank=True)
+    cancel_requested = models.BooleanField(default=False)
+    log_path = models.CharField(max_length=500, null=True, blank=True)
+    output = models.JSONField(default=list, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["key", "-created_at"], name="webtask_key_created_idx"),
+            models.Index(fields=["status", "-created_at"], name="webtask_status_created_idx"),
+        ]
+
+    @property
+    def command_display(self) -> str:
+        return " ".join(["py", "manage.py", *(str(arg) for arg in (self.args or []))])
+
+    @property
+    def output_text(self) -> str:
+        return "".join(str(line) for line in (self.output or []))
+
+    @property
+    def is_active(self) -> bool:
+        return self.status not in {self.Status.SUCCEEDED, self.Status.FAILED, self.Status.CANCELLED}
+
+    def __str__(self):
+        return f"{self.id} — {self.label} ({self.status})"
+
+
+class ScrapingConfig(models.Model):
+    """CityPopulation scraping configuration migrated from TOML to SQL."""
+
+    slug = models.SlugField(max_length=128, primary_key=True)
+    country_code = models.CharField(max_length=64, db_index=True)
+    name = models.CharField(max_length=255, blank=True, default="")
+    content = models.TextField()
+    content_hash = models.CharField(max_length=64, db_index=True)
+    source_path = models.CharField(max_length=500, blank=True, default="")
+    pages_count = models.PositiveIntegerField(default=0)
+    cities_count = models.PositiveIntegerField(default=0)
+    has_representation = models.BooleanField(default=False)
+    is_valid = models.BooleanField(default=True, db_index=True)
+    validation_error = models.TextField(blank=True, default="")
+    imported_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["slug"]
+        indexes = [
+            models.Index(fields=["country_code", "slug"], name="scrconf_country_slug_idx"),
+            models.Index(fields=["is_valid", "slug"], name="scrconf_valid_slug_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.slug} ({self.country_code})"

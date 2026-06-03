@@ -1,13 +1,13 @@
 {% extends "ciudades_del_mundo/base.html" %}
 {% load i18n %}
 
-{% block title %}{{ area.name }} - {% trans "Mapa" %}{% endblock %}
+{% block title %}{{ area_display_name }} - {% trans "Mapa" %}{% endblock %}
 
 {% block content %}
 <section class="page-head compact">
   <div>
     <p class="eyebrow">{% trans "Mapa e identidad visual" %}</p>
-    <h1>{{ area.name }}</h1>
+    <h1>{{ area_display_name }}</h1>
   </div>
   <div class="actions">
     {% if source == "admin" %}
@@ -35,12 +35,12 @@
       <dt>{% trans "Codigo" %}</dt><dd>{{ area.code }}</dd>
       <dt>{% trans "Pais" %}</dt><dd>{{ country_display_name }}</dd>
       <dt>{% trans "Nivel" %}</dt><dd>L{{ area.level }}</dd>
-      <dt>{% trans "Tipo" %}</dt><dd>{{ area.entity_type|default:"-" }}</dd>
-      <dt>{% trans "Padre" %}</dt><dd>{{ area.parent.name|default:"-" }}</dd>
+      <dt>{% trans "Tipo" %}</dt><dd>{{ entity_type_display|default:"-" }}</dd>
+      <dt>{% trans "Padre" %}</dt><dd>{{ parent_display_name|default:"-" }}</dd>
       <dt>{% trans "Poblacion" %}</dt><dd>{{ area.pop_latest|default:"-" }}</dd>
       <dt>{% trans "Area" %}</dt><dd>{{ area.area_km2|default:"-" }}</dd>
       <dt>{% trans "Capitales" %}</dt><dd>{{ capital_names|default:"-" }}</dd>
-      <dt>{% trans "Ciudad mayor" %}</dt><dd>{{ area.most_populate_city.name|default:"-" }}</dd>
+      <dt>{% trans "Ciudad mayor" %}</dt><dd>{{ most_populate_city_display_name|default:"-" }}</dd>
     </dl>
   </aside>
 </section>

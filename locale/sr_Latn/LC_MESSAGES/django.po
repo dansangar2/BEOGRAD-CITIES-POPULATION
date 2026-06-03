@@ -322,3 +322,1189 @@ msgstr "Opis je u pripremi. Ovo mesto je rezervisano za blazon, znacenje, zvanic
 
 msgid "Fuente visual"
 msgstr "Vizuelni izvor"
+
+msgid "Tipo de entidad"
+msgstr "Tip entiteta"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Cancelado"
+msgstr "Otkazano"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Nueva configuración"
+msgstr "Nova konfiguracija"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "En cola"
+msgstr "U redu"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Correcto"
+msgstr "Uspešno"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Tarea finalizada"
+msgstr "Zadatak završen"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Editar"
+msgstr "Izmeni"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Pagina %(number)s de %(total)s"
+msgstr "Stranica %(number)s od %(total)s"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Tarea lanzada"
+msgstr "Zadatak pokrenut"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Sin datos"
+msgstr "Nema podataka"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Inicio"
+msgstr "Početak"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "En ejecución"
+msgstr "U toku"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Actualizando tabla"
+msgstr "Ažuriranje tabele"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "No hay tareas registradas en este proceso."
+msgstr "Nema registrovanih zadataka u ovom procesu."
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Filas"
+msgstr "Redovi"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Estado"
+msgstr "Status"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "8bits"
+msgstr "8 bita"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Retro Azul"
+msgstr "Retro plava"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Retro azul celeste"
+msgstr "Retro cijan"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Actualizar"
+msgstr "Osveži"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Retro"
+msgstr "Retro"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Retro rojo"
+msgstr "Retro crvena"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Retro violeta"
+msgstr "Retro ljubičasta"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Retro verde"
+msgstr "Retro zelena"
+
+# Added to keep all supported UI languages in sync.
+
+msgid "% area pais"
+msgstr "% oblast zemlja"
+
+msgid "% padre"
+msgstr "% roditelj"
+
+msgid "% pais"
+msgstr "% zemlja"
+
+msgid "%(count)s areas encontradas"
+msgstr "%(count)s oblasts encontradas"
+
+msgid "%(country_code)s - %(pages)s paginas - %(cities)s ciudades unificadas"
+msgstr "%(country_code)s - %(pages)s paginas - %(cities)s ciudades unificadas"
+
+msgid "<code>[[pages]]</code> controla las paginas scrapeadas. <code>[[cities]]</code> define agregaciones o ciudades unificadas."
+msgstr "<code>[[pages]]</code> controla las paginas scrapeadas. <code>[[cities]]</code> define agregaciones o ciudades unificadas."
+
+msgid "A Coruña"
+msgstr "A Coruña"
+
+msgid "Abrir"
+msgstr "Abrir"
+
+msgid "Abrir en OpenStreetMap"
+msgstr "Abrir en OpenStreetMap"
+
+msgid "Accion de receta no soportada."
+msgstr "Accion de recept nije podržana."
+
+msgid "Acciones"
+msgstr "Radnje"
+
+msgid "Acción de configuración no soportada."
+msgstr "Acción de konfiguracija nije podržana."
+
+msgid "Actualizacion reciente"
+msgstr "Actualizacion reciente"
+
+msgid "Admin"
+msgstr "Admin"
+
+msgid "AdminArea fuente"
+msgstr "AdminOblast fuente"
+
+msgid "AdminArea por nivel"
+msgstr "AdminOblast por nivo"
+
+msgid "Alacant"
+msgstr "Alacant"
+
+msgid "Aquí aparecerá el proceso."
+msgstr "Aquí aparecerá el proceso."
+
+msgid "Aquí aparecerán los comentarios de la IA cuando se active."
+msgstr "Aquí aparecerán los comentarios de la IA cuando se active."
+
+msgid "Araba"
+msgstr "Araba"
+
+msgid "Area"
+msgstr "Površina"
+
+msgid "Area ascendente"
+msgstr "Oblast ascendente"
+
+msgid "Area descendente"
+msgstr "Oblast descendente"
+
+msgid "Area km2"
+msgstr "Oblast km2"
+
+msgid "Area maxima"
+msgstr "Oblast maxima"
+
+msgid "Area minima"
+msgstr "Oblast minima"
+
+msgid "Areas"
+msgstr "Oblasti"
+
+msgid "Areas - Ciudades del Mundo"
+msgstr "Oblasts - Gradovi sveta"
+
+msgid "Areas administrativas"
+msgstr "Oblasts administrativas"
+
+msgid "Areas con escanos"
+msgstr "Oblasts con escanos"
+
+msgid "Argentina"
+msgstr "Argentina"
+
+msgid "Automático"
+msgstr "Automático"
+
+msgid "Aviso"
+msgstr "Aviso"
+
+msgid "Añadir línea"
+msgstr "Añadir línea"
+
+msgid "Bandera, escudo y mapa localizador"
+msgstr "Bandera, escudo y mapa localizador"
+
+msgid "Base de datos ocupada"
+msgstr "Base de podaci ocupada"
+
+msgid "Bizkaia"
+msgstr "Bizkaia"
+
+msgid "Borradas %(deleted)s filas AdminArea para '%(target)s'."
+msgstr "Borradas %(deleted)s filas AdminOblast para '%(target)s'."
+
+msgid "Borradas %(deleted)s filas NuevoAdminArea para '%(target)s'."
+msgstr "Borradas %(deleted)s filas NuevoAdminOblast para '%(target)s'."
+
+msgid "Borrar AdminArea"
+msgstr "Borrar AdminOblast"
+
+msgid "Borrar NuevoAdminArea"
+msgstr "Borrar NuevoAdminOblast"
+
+msgid "Borrar datos"
+msgstr "Borrar podaci"
+
+msgid "Borrar datos - Ciudades del Mundo"
+msgstr "Borrar podaci - Gradovi sveta"
+
+msgid "Busca rutas en https://www.citypopulation.de/en/{{ slug }}/ y crea una base de configuración editable."
+msgstr "Busca rutas en https://www.citypopulation.de/en/{{ slug }}/ y crea una base de konfiguracija editable."
+
+msgid "Buscando imagenes en Wikidata..."
+msgstr "Buscando imagenes en Wikidata..."
+
+msgid "Buscando nombres traducidos, paises y capitales..."
+msgstr "Buscando nazivs traducidos, zemlje y capitales..."
+
+msgid "Buscando rutas en %(url)s"
+msgstr "Buscando rutas en %(url)s"
+
+msgid "Buscar"
+msgstr "Pretraži"
+
+msgid "Buscar bandera"
+msgstr "Buscar bandera"
+
+msgid "Buscar escudo"
+msgstr "Buscar escudo"
+
+msgid "Cabecera de Municipio/Localidad"
+msgstr "Cabecera de Municipio/Localidad"
+
+msgid "Campos clave"
+msgstr "Campos clave"
+
+msgid "Cancelacion solicitada para '%(label)s'."
+msgstr "Cancelacion solicitada para '%(label)s'."
+
+msgid "Cancelar"
+msgstr "Otkaži"
+
+msgid "Capital registrada"
+msgstr "Capital registrada"
+
+msgid "Capitales"
+msgstr "Capitales"
+
+msgid "Capitales en Wikidata"
+msgstr "Capitales en Wikidata"
+
+msgid "Cargando datos..."
+msgstr "Cargando podaci..."
+
+msgid "Cargando pais..."
+msgstr "Cargando zemlja..."
+
+msgid "Cargando país..."
+msgstr "Cargando zemlja..."
+
+msgid "Cargando tabla..."
+msgstr "Učitavanje tabele..."
+
+msgid "Castelló de la Plana"
+msgstr "Castelló de la Plana"
+
+msgid "Chile"
+msgstr "Chile"
+
+msgid "City"
+msgstr "City"
+
+msgid "City District"
+msgstr "City District"
+
+msgid "Ciudad mayor"
+msgstr "Ciudad mayor"
+
+msgid "Ciudad mayor registrada"
+msgstr "Ciudad mayor registrada"
+
+msgid "Ciudad unificada"
+msgstr "Ciudad unificada"
+
+msgid "Ciudades"
+msgstr "Ciudades"
+
+msgid "Ciudades importantes"
+msgstr "Ciudades importantes"
+
+msgid "Codigo"
+msgstr "Codigo"
+
+msgid "Codigo salida"
+msgstr "Codigo salida"
+
+msgid "Colombia"
+msgstr "Colombia"
+
+msgid "Comando"
+msgstr "Comando"
+
+msgid "Comentarios de la IA"
+msgstr "Comentarios de la IA"
+
+msgid "Comparar"
+msgstr "Comparar"
+
+msgid "Comparativa NuevoAdminArea"
+msgstr "Comparativa NuevoAdminOblast"
+
+msgid "Comunitat Valenciana"
+msgstr "Comunitat Valenciana"
+
+msgid "Con escanos"
+msgstr "Con escanos"
+
+msgid "Configuracion invalida: %(error)s"
+msgstr "Konfiguracija nevažeća: %(error)s"
+
+msgid "Configuraciones TOML"
+msgstr "TOML konfiguracije"
+
+msgid "Configuraciones recientes"
+msgstr "Konfiguracijaes recientes"
+
+msgid "Configuración '%(slug)s' creada."
+msgstr "Konfiguracija '%(slug)s' napravljena."
+
+msgid "Configuración '%(slug)s' guardada."
+msgstr "Konfiguracija '%(slug)s' sačuvana."
+
+msgid "Configuración extra"
+msgstr "Konfiguracija extra"
+
+msgid "Configuración vía IA"
+msgstr "Konfiguracija vía IA"
+
+msgid "Confirmo el borrado"
+msgstr "Confirmo el borrado"
+
+msgid "Creacion"
+msgstr "Creacion"
+
+msgid "Crear"
+msgstr "Napravi"
+
+msgid "Crear NuevoAdminArea"
+msgstr "Crear NuevoAdminOblast"
+
+msgid "Crear o regenerar"
+msgstr "Crear o regenerar"
+
+msgid "Crear receta"
+msgstr "Crear recept"
+
+msgid "Crear subdivisiones: %(slug)s"
+msgstr "Crear podele: %(slug)s"
+
+msgid "Cualquier estado"
+msgstr "Cualquier estado"
+
+msgid "Cualquier fusion"
+msgstr "Cualquier fusion"
+
+msgid "Cualquier padre"
+msgstr "Cualquier roditelj"
+
+msgid "Cualquiera"
+msgstr "Cualquiera"
+
+msgid "Cuenta IA personal"
+msgstr "Cuenta IA personal"
+
+msgid "Código de país"
+msgstr "Código de zemlja"
+
+msgid "DIVISIONS debe ser una lista o un objeto JSON."
+msgstr "DIVISIONS debe ser una lista o un objeto JSON."
+
+msgid "DIVISIONS en JSON"
+msgstr "DIVISIONS en JSON"
+
+msgid "DIVISIONS no es JSON valido: %(error)s"
+msgstr "DIVISIONS no es JSON valido: %(error)s"
+
+msgid "Datos"
+msgstr "Podaci"
+
+msgid "Datos derivados"
+msgstr "Podaci derivados"
+
+msgid "Datos generales del país"
+msgstr "Podaci generales del zemlja"
+
+msgid "Debes indicar al menos una ruta de scrapeo."
+msgstr "Debes indicar al menos una ruta de scrapeo."
+
+msgid "Doble"
+msgstr "Doble"
+
+msgid "Donostia"
+msgstr "Donostia"
+
+msgid "Editar %(slug)s"
+msgstr "Editar %(slug)s"
+
+msgid "Editar el archivo a mano es potente, pero conviene saber TOML/Python del proyecto para no romper la configuración. Antes de guardar se validará; si falla, verás un aviso."
+msgstr "Editar el archivo a mano es potente, pero conviene saber TOML/Python del proyecto para no romper la konfiguracija. Antes de guardar se validará; si falla, verás un aviso."
+
+msgid "Editar {{ slug }}"
+msgstr "Editar {{ slug }}"
+
+msgid "El ano de poblacion debe ser numerico."
+msgstr "El ano de stanovništvo debe ser numerico."
+
+msgid "El mapa usa busqueda por nombre porque la base de datos no guarda geometria ni coordenadas propias."
+msgstr "El mapa usa busqueda por naziv porque la base de podaci no guarda geometria ni coordenadas propias."
+
+msgid "El nivel de ciudad unificada debe ser numérico."
+msgstr "El nivo de ciudad unificada debe ser numérico."
+
+msgid "El nivel de scrapeo debe ser numérico."
+msgstr "El nivo de scrapeo debe ser numérico."
+
+msgid "El slug de configuracion solo puede usar letras, numeros, guion y guion bajo."
+msgstr "El slug de konfiguracija solo puede usar letras, numeros, guion y guion bajo."
+
+msgid "El slug de receta debe ser un identificador Python en minusculas."
+msgstr "El slug de recept debe ser un identificador Python en minusculas."
+
+msgid "Elx"
+msgstr "Elx"
+
+msgid "Entidades a unificar"
+msgstr "Entidades a unificar"
+
+msgid "Entidades disponibles"
+msgstr "Entidades disponibles"
+
+msgid "Error"
+msgstr "Greška"
+
+msgid "Escanos"
+msgstr "Escanos"
+
+msgid "Escanos descendente"
+msgstr "Escanos descendente"
+
+msgid "Estadisticas"
+msgstr "Estadisticas"
+
+msgid "Estado de fusion de ciudades"
+msgstr "Estado de fusion de ciudades"
+
+msgid "Estadísticas"
+msgstr "Estadísticas"
+
+msgid "Exportar CSV: %(slug)s"
+msgstr "Exportar CSV: %(slug)s"
+
+msgid "Exportar Excel: %(slug)s"
+msgstr "Exportar Excel: %(slug)s"
+
+msgid "Federal District"
+msgstr "Federal District"
+
+msgid "Ficha Wikidata"
+msgstr "Ficha Wikidata"
+
+msgid "Filas creadas"
+msgstr "Filas napravljenas"
+
+msgid "Formato: NV - URL - Tipo Scrapeo. Puedes usar rutas relativas de CityPopulation o URLs completas."
+msgstr "Formato: NV - URL - Tipo Scrapeo. Puedes usar rutas relativas de CityPopulation o URLs completas."
+
+msgid "Fusion"
+msgstr "Fusion"
+
+msgid "Generar"
+msgstr "Generar"
+
+msgid "Generar base desde CityPopulation"
+msgstr "Generar base desde CityPopulation"
+
+msgid "Generar con IA"
+msgstr "Generar con IA"
+
+msgid "Gestion local de datos"
+msgstr "Gestion local de podaci"
+
+msgid "Gipuzkoa"
+msgstr "Gipuzkoa"
+
+msgid "Girona"
+msgstr "Girona"
+
+msgid "Graficas - Ciudades del Mundo"
+msgstr "Graficas - Gradovi sveta"
+
+msgid "Graficas de datos"
+msgstr "Graficas de podaci"
+
+msgid "Grupo"
+msgstr "Grupo"
+
+msgid "Guarda la configuración antes de iniciar sesión."
+msgstr "Guarda la konfiguracija antes de iniciar sesión."
+
+msgid "Guarda la receta y lanza la tarea de creacion desde la lista de recetas. Si ya habia una creacion activa de esta receta, guardar cancela esa tarea y la reemplaza."
+msgstr "Guarda la recept y lanza la zadatak de creacion desde la lista de recepts. Si ya habia una creacion activa de esta recept, guardar cancela esa zadatak y la reemplaza."
+
+msgid "Guardar"
+msgstr "Sačuvaj"
+
+msgid "Habia una construccion activa para esta receta; se cancelo y se relanzo."
+msgstr "Habia una construccion activa para esta recept; se cancelo y se relanzo."
+
+msgid "Había un scraping activo para este fichero; se canceló y se lanzó otra tarea."
+msgstr "Había un scraping activo para este fichero; se canceló y se lanzó otra zadatak."
+
+msgid "Hay una construccion activa para esta receta."
+msgstr "Hay una construccion activa para esta recept."
+
+msgid "Hay una tarea activa para este scraping. Si guardas cambios, se cancela y se reemplaza con una tarea nueva."
+msgstr "Hay una zadatak activa para este scraping. Si guardas cambios, se cancela y se reemplaza con una zadatak nueva."
+
+msgid "Historial"
+msgstr "Historial"
+
+msgid "IA"
+msgstr "IA"
+
+msgid "IA habilitada"
+msgstr "IA habilitada"
+
+msgid "Illes Balears"
+msgstr "Illes Balears"
+
+msgid "Imagen"
+msgstr "Imagen"
+
+msgid "Indicaciones adicionales para la IA cuando se active."
+msgstr "Indicaciones adicionales para la IA cuando se active."
+
+msgid "Iniciar sesión en la web"
+msgstr "Iniciar sesión en la web"
+
+msgid "La IA está deshabilitada por configuración."
+msgstr "La IA está deshabilitada por konfiguracija."
+
+msgid "La base de datos esta ocupada por una tarea de escritura. "
+msgstr "La base de podaci esta ocupada por una zadatak de escritura. "
+
+msgid "La base de datos esta ocupada por una tarea de escritura. Espera unos segundos y vuelve a intentarlo."
+msgstr "La base de podaci esta ocupada por una zadatak de escritura. Espera unos segundos y vuelve a intentarlo."
+
+msgid "La configuracion debe definir al menos una pagina."
+msgstr "La konfiguracija debe definir al menos una pagina."
+
+msgid "La receta debe definir DIVISIONS."
+msgstr "La recept debe definir DIVISIONS."
+
+msgid "La subdivisión legal debe ser numérica."
+msgstr "La subdivisión legal debe ser numérica."
+
+msgid "La tabla no se pudo cargar. Reintenta en unos segundos."
+msgstr "Tabela nije mogla da se učita. Pokušaj ponovo za nekoliko sekundi."
+
+msgid "Limpiar"
+msgstr "Očisti"
+
+msgid "Lleida"
+msgstr "Lleida"
+
+msgid "Main Locality"
+msgstr "Main Locality"
+
+msgid "Manual"
+msgstr "Manual"
+
+msgid "Mapa"
+msgstr "Mapa"
+
+msgid "Mapa e identidad visual"
+msgstr "Mapa e identidad visual"
+
+msgid "Mapa localizador"
+msgstr "Mapa localizador"
+
+msgid "Marca la confirmacion antes de borrar datos."
+msgstr "Marca la confirmacion antes de borrar podaci."
+
+msgid "Minimo por area"
+msgstr "Minimo por oblast"
+
+msgid "Modos de configuración"
+msgstr "Modos de konfiguracija"
+
+msgid "Municipality"
+msgstr "Municipality"
+
+msgid "NV"
+msgstr "NV"
+
+msgid "Netherlands"
+msgstr "Netherlands"
+
+msgid "Nivel %(level)s"
+msgstr "Nivo %(level)s"
+
+msgid "Nivel de representacion"
+msgstr "Nivo de representacion"
+
+msgid "Nivel municipal fuente"
+msgstr "Nivo municipal fuente"
+
+msgid "Nivel y nombre"
+msgstr "Nivo y naziv"
+
+msgid "Niveles"
+msgstr "Nivoes"
+
+msgid "No existe AdminArea '%(area_id)s'."
+msgstr "No existe AdminOblast '%(oblast_id)s'."
+
+msgid "No existe NuevoAdminArea '%(country_id)s'."
+msgstr "No existe NuevoAdminOblast '%(country_id)s'."
+
+msgid "No existe el pais '%(country_code)s'."
+msgstr "No existe el zemlja '%(country_code)s'."
+
+msgid "No existe la configuracion '%(slug)s'."
+msgstr "No existe la konfiguracija '%(slug)s'."
+
+msgid "No existe la receta '%(slug)s'."
+msgstr "No existe la recept '%(slug)s'."
+
+msgid "No existe la tarea solicitada."
+msgstr "No existe la zadatak solicitada."
+
+msgid "No hay areas para estos filtros."
+msgstr "No hay oblasts para estos filtros."
+
+msgid "No hay configuraciones TOML."
+msgstr "No hay konfiguracijaes TOML."
+
+msgid "No hay ficheros TOML en subdivisions."
+msgstr "No hay ficheros TOML en subdivisions."
+
+msgid "No hay recetas disponibles."
+msgstr "No hay recepts disponibles."
+
+msgid "No hay subdivisiones derivadas creadas."
+msgstr "No hay podele derivadas napravljenas."
+
+msgid "No se encontraron imagenes automaticas. Usa las busquedas externas."
+msgstr "No se encontraron imagenes automaticas. Usa las busquedas externas."
+
+msgid "No se encontraron rutas útiles para %(slug)s."
+msgstr "No se encontraron rutas útiles para %(slug)s."
+
+msgid "No se encontraron traducciones o capitales automaticas en Wikidata."
+msgstr "No se encontraron traducciones o capitales automaticas en Wikidata."
+
+msgid "No se encontro el area solicitada."
+msgstr "No se encontro el oblast solicitada."
+
+msgid "No se encontro la imagen solicitada."
+msgstr "No se encontro la imagen solicitada."
+
+msgid "No se pudieron cargar las entidades."
+msgstr "No se pudieron cargar las entidades."
+
+msgid "No se pudieron cargar los países."
+msgstr "No se pudieron cargar los zemlje."
+
+msgid "No se pudo cargar el pais."
+msgstr "No se pudo cargar el zemlja."
+
+msgid "No se pudo cargar el país."
+msgstr "No se pudo cargar el zemlja."
+
+msgid "No se pudo cargar la grafica."
+msgstr "No se pudo cargar la grafica."
+
+msgid "No se pudo cargar la poblacion."
+msgstr "No se pudo cargar la stanovništvo."
+
+msgid "No se pudo leer CityPopulation: %(error)s"
+msgstr "No se pudo leer CityPopulation: %(error)s"
+
+msgid "Nombre del area"
+msgstr "Naziv del oblast"
+
+msgid "Nombre del padre"
+msgstr "Naziv del roditelj"
+
+msgid "Nombre raiz"
+msgstr "Naziv raiz"
+
+msgid "Nueva configuracion"
+msgstr "Nueva konfiguracija"
+
+msgid "Nueva receta"
+msgstr "Nueva recept"
+
+msgid "Nueva receta - Ciudades del Mundo"
+msgstr "Nueva recept - Gradovi sveta"
+
+msgid "NuevoAdminArea derivado"
+msgstr "NuevoAdminOblast derivado"
+
+msgid "NuevoAdminArea por nivel"
+msgstr "NuevoAdminOblast por nivo"
+
+msgid "Nuevos paises"
+msgstr "Nuevos zemlje"
+
+msgid "Número de subdivisiones"
+msgstr "Número de podele"
+
+msgid "Opcional. Mueve entidades scrapeadas a la tabla derecha para crear una ciudad unificada; si no hay selección, se ignora."
+msgstr "Opcional. Mueve entidades scrapeadas a la tabela derecha para crear una ciudad unificada; si no hay selección, se ignora."
+
+msgid "Operacion destructiva"
+msgstr "Operacion destructiva"
+
+msgid "Operacion en curso"
+msgstr "Operacion en curso"
+
+msgid "Orden"
+msgstr "Orden"
+
+msgid "Origen de mapa no soportado."
+msgstr "Origen de mapa nije podržano."
+
+msgid "Ourense"
+msgstr "Ourense"
+
+msgid "Pagina {{ number }} de {{ total }}"
+msgstr "Pagina {{ number }} de {{ total }}"
+
+msgid "Paginas"
+msgstr "Paginas"
+
+msgid "Pais"
+msgstr "Zemlja"
+
+msgid "Pais derivado"
+msgstr "Zemlja derivado"
+
+msgid "Pais en Wikidata"
+msgstr "Zemlja en Wikidata"
+
+msgid "Pais fuente por defecto"
+msgstr "Zemlja fuente por defecto"
+
+msgid "Pais importado"
+msgstr "Zemlja importado"
+
+msgid "Pais y capitales"
+msgstr "Zemlja y capitales"
+
+msgid "Pais, nivel y nombre"
+msgstr "Zemlja, nivo y naziv"
+
+msgid "Paises"
+msgstr "Zemlje"
+
+msgid "Paises por numero de areas"
+msgstr "Zemlje por numero de oblasts"
+
+msgid "Paises por poblacion fuente"
+msgstr "Zemlje por stanovništvo fuente"
+
+msgid "Paises y subdivisiones"
+msgstr "Zemlje y podele"
+
+msgid "Panel - Ciudades del Mundo"
+msgstr "Panel - Gradovi sveta"
+
+msgid "Panel operativo"
+msgstr "Panel operativo"
+
+msgid "Países"
+msgstr "Zemlje"
+
+msgid "Países - Ciudades del Mundo"
+msgstr "Zemlje - Gradovi sveta"
+
+msgid "Peru"
+msgstr "Peru"
+
+msgid "Poblacion agregada"
+msgstr "Stanovništvo agregada"
+
+msgid "Poblacion ascendente"
+msgstr "Stanovništvo ascendente"
+
+msgid "Poblacion descendente"
+msgstr "Stanovništvo descendente"
+
+msgid "Poblacion importada"
+msgstr "Stanovništvo importada"
+
+msgid "Poblacion maxima"
+msgstr "Stanovništvo maxima"
+
+msgid "Poblacion minima"
+msgstr "Stanovništvo minima"
+
+msgid "Población"
+msgstr "Stanovništvo"
+
+msgid "Popular"
+msgstr "Popular"
+
+msgid "Popular datos"
+msgstr "Popular podaci"
+
+msgid "Popular datos: %(slug)s"
+msgstr "Popular podaci: %(slug)s"
+
+msgid "Proceso"
+msgstr "Proceso"
+
+msgid "Procesos en segundo plano"
+msgstr "Procesos en segundo plano"
+
+msgid "Prompt base"
+msgstr "Prompt base"
+
+msgid "Proveedor IA"
+msgstr "Proveedor IA"
+
+msgid "Proveedor IA no soportado: %(provider)s"
+msgstr "Proveedor IA nije podržano: %(provider)s"
+
+msgid "Python invalido: %(error)s"
+msgstr "Python nevažeće: %(error)s"
+
+msgid "Quitar"
+msgstr "Quitar"
+
+msgid "Receta '%(slug)s' creada."
+msgstr "Recept '%(slug)s' napravljena."
+
+msgid "Receta '%(slug)s' guardada."
+msgstr "Recept '%(slug)s' sačuvana."
+
+msgid "Receta Python"
+msgstr "Recept Python"
+
+msgid "Recetas - Ciudades del Mundo"
+msgstr "Recepts - Gradovi sveta"
+
+msgid "Recetas derivadas"
+msgstr "Recepts derivadas"
+
+msgid "Region padre"
+msgstr "Region roditelj"
+
+msgid "Region superior en Wikidata"
+msgstr "Region superior en Wikidata"
+
+msgid "Reintentar"
+msgstr "Reintentar"
+
+msgid "Retro 80"
+msgstr "Retro 80"
+
+msgid "Rural Locality"
+msgstr "Rural Locality"
+
+msgid "Rutas de scrapeo"
+msgstr "Rutas de scrapeo"
+
+msgid "Rutas detectadas: %(count)s"
+msgstr "Rutas detectadas: %(count)s"
+
+msgid "Salida"
+msgstr "Salida"
+
+msgid "Scraping - Ciudades del Mundo"
+msgstr "Scraping - Gradovi sveta"
+
+msgid "Scraping CityPopulation"
+msgstr "Scraping CityPopulation"
+
+msgid "Scraping y ciudades unificadas"
+msgstr "Scraping y ciudades unificadas"
+
+msgid "Scrapping"
+msgstr "Scrapping"
+
+msgid "Se abrirá la web del proveedor elegido"
+msgstr "Se abrirá la web del proveedor elegido"
+
+msgid "Sección informativa"
+msgstr "Sección informativa"
+
+msgid "Selecciona pais"
+msgstr "Selecciona zemlja"
+
+msgid "Selecciona un objetivo para borrar."
+msgstr "Selecciona un objetivo para borrar."
+
+msgid "Sin datos importados."
+msgstr "Sin podaci importados."
+
+msgid "Sin escanos"
+msgstr "Sin escanos"
+
+msgid "Sin salida todavia."
+msgstr "Sin salida todavia."
+
+msgid "Sin subdivisiones creadas."
+msgstr "Sin podele napravljenas."
+
+msgid "Sin tipo"
+msgstr "Sin tipo"
+
+msgid "Sistema preparado para activar/desactivar IA. El login se abre en la web del proveedor elegido y no se guardan credenciales personales."
+msgstr "Sistema preparado para activar/desactivar IA. El login se abre en la web del proveedor elegido y no se guardan credenciales personales."
+
+msgid "State"
+msgstr "State"
+
+msgid "Subdivisiones - Ciudades del Mundo"
+msgstr "Podele - Gradovi sveta"
+
+msgid "Subdivisiones creadas"
+msgstr "Podele napravljenas"
+
+msgid "Subdivisiones derivadas"
+msgstr "Podele derivadas"
+
+msgid "Subdivisiones directas"
+msgstr "Podele directas"
+
+msgid "Subdivisión legal"
+msgstr "Subdivisión legal"
+
+msgid "TOML invalido: %(error)s"
+msgstr "TOML nevažeće: %(error)s"
+
+msgid "Tabla"
+msgstr "Tabela"
+
+msgid "Tarea"
+msgstr "Zadatak"
+
+msgid "Tarea %(task_id)s"
+msgstr "Zadatak %(task_id)s"
+
+msgid "Tarea lanzada: %(label)s."
+msgstr "Zadatak lanzada: %(label)s."
+
+msgid "Tarea no encontrada."
+msgstr "Zadatak no encontrada."
+
+msgid "Tarea {{ task_id }}"
+msgstr "Zadatak {{ task_id }}"
+
+msgid "Tareas - Ciudades del Mundo"
+msgstr "Zadaci - Gradovi sveta"
+
+msgid "Tareas recientes"
+msgstr "Nedavni zadaci"
+
+msgid "Tipo Scrapeo"
+msgstr "Tipo Scrapeo"
+
+msgid "Tipo de borrado no soportado."
+msgstr "Tipo de borrado nije podržano."
+
+msgid "Tipos de subdivisiones"
+msgstr "Tipos de podele"
+
+msgid "Todas"
+msgstr "Sve"
+
+msgid "Todos"
+msgstr "Svi"
+
+msgid "Todos los niveles"
+msgstr "Todos los nivoes"
+
+msgid "Todos los paises"
+msgstr "Todos los zemlje"
+
+msgid "Todos los tipos"
+msgstr "Todos los tipos"
+
+msgid "Total"
+msgstr "Total"
+
+msgid "Total de escanos"
+msgstr "Total de escanos"
+
+msgid "Traducciones y capitales"
+msgstr "Traducciones y capitales"
+
+msgid "UK"
+msgstr "UK"
+
+msgid "Unificaciones"
+msgstr "Unificaciones"
+
+msgid "Unificación de ciudad"
+msgstr "Unificación de ciudad"
+
+msgid "Urban Locality"
+msgstr "Urban Locality"
+
+msgid "Validar"
+msgstr "Validar"
+
+msgid "Validar configuración: %(slug)s"
+msgstr "Validar konfiguracija: %(slug)s"
+
+msgid "València"
+msgstr "València"
+
+msgid "Ver"
+msgstr "Ver"
+
+msgid "Ver graficas"
+msgstr "Ver graficas"
+
+msgid "Ver todas"
+msgstr "Prikaži sve"
+
+msgid "Vitoria-Gasteiz"
+msgstr "Vitoria-Gasteiz"
+
+msgid "Volver"
+msgstr "Nazad"
+
+msgid "Ya existe una configuración para '%(slug)s'."
+msgstr "Ya existe una konfiguracija para '%(slug)s'."
+
+msgid "Ya existe una receta nueva para '%(slug)s'."
+msgstr "Ya existe una recept nueva para '%(slug)s'."
+
+msgid "[ERROR] No se pudo iniciar la tarea: %(error)s\\n"
+msgstr "[ERROR] No se pudo iniciar la zadatak: %(error)s\\n"
+
+msgid "\\n[CANCEL] Cancelacion solicitada desde la interfaz.\\n"
+msgstr "\\n[CANCEL] Cancelacion solicitada desde la interfaz.\\n"
+
+msgid "\\n[INFO] Tarea interrumpida por reinicio del servidor.\\n"
+msgstr "\\n[INFO] Zadatak interrumpida por reinicio del servidor.\\n"
+
+msgid "ano"
+msgstr "ano"
+
+msgid "cancelled"
+msgstr "cancelled"
+
+msgid "correcto"
+msgstr "correcto"
+
+msgid "error"
+msgstr "error"
+
+msgid "failed"
+msgstr "failed"
+
+msgid "invalid"
+msgstr "invalid"
+
+msgid "queued"
+msgstr "queued"
+
+msgid "running"
+msgstr "running"
+
+msgid "succeeded"
+msgstr "succeeded"
+
+msgid "{{ count }} areas encontradas"
+msgstr "{{ count }} oblasts encontradas"
+
+msgid "{{ country_code }} - {{ pages }} paginas - {{ cities }} ciudades unificadas"
+msgstr "{{ country_code }} - {{ pages }} paginas - {{ cities }} ciudades unificadas"
+
+# Added to keep all supported UI languages in sync.
+
+msgid "Había un scraping activo para esta configuración; se canceló y se lanzó otra tarea."
+msgstr "Skraping je bio aktivan za ovu konfiguraciju; otkazan je i pokrenut je drugi zadatak."
+
+msgid "No hay tareas registradas."
+msgstr "Nema registrovanih zadataka."
+
+msgid "Ver registro"
+msgstr "Prikaži dnevnik"
+
+msgid "\\n[CANCEL] Cancelación solicitada desde la interfaz.\\n"
+msgstr "\\n[CANCEL] Otkazivanje je zatraženo iz interfejsa.\\n"
+
+# Added to keep all supported UI languages in sync.
+
+msgid "Cargando configuración inicial"
+msgstr "Učitavanje početne konfiguracije"
+
+msgid "Cargando configuración inicial desde los TOML..."
+msgstr "Učitavanje početne konfiguracije iz TOML datoteka..."
+
+msgid "Configuración inicial cargada. Continuando..."
+msgstr "Početna konfiguracija je učitana. Nastavljam..."
+
+msgid "La tabla de configuraciones está incompleta. Estoy importando todos los TOML a la base de datos antes de continuar."
+msgstr "Tabela konfiguracija je nepotpuna. Uvozim sve TOML datoteke u bazu podataka pre nastavka."
+
+msgid "La tabla de configuraciones todavía no está disponible: %(error)s"
+msgstr "Tabela konfiguracija još nije dostupna: %(error)s"
+
+msgid "Método no soportado."
+msgstr "Metod nije podržan."
+
+msgid "No se pudo cargar la configuración inicial."
+msgstr "Nije moguće učitati početnu konfiguraciju."
+
+msgid "Primer arranque"
+msgstr "Prvo pokretanje"
+
+msgid "{{ stored }} de {{ expected }} configuraciones cargadas. Faltan {{ missing }}."
+msgstr "Učitano je {{ stored }} od {{ expected }} konfiguracija. Preostalo {{ missing }}."

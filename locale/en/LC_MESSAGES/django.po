@@ -823,3 +823,694 @@ msgstr "Description pending. This space is reserved for blazon, meaning, officia
 
 msgid "Fuente visual"
 msgstr "Visual source"
+
+msgid "Tipo de entidad"
+msgstr "Entity type"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Cancelado"
+msgstr "Cancelled"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Nueva configuración"
+msgstr "New config"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "En cola"
+msgstr "Queued"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Correcto"
+msgstr "Success"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Tarea finalizada"
+msgstr "Task finished"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Editar"
+msgstr "Edit"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Tarea lanzada"
+msgstr "Task started"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Sin datos"
+msgstr "No data"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "En ejecución"
+msgstr "Running"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_table.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/partials/config_tasks_table.html
+msgid "Actualizando tabla"
+msgstr "Updating table"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "8bits"
+msgstr "8-bit"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Retro Azul"
+msgstr "Retro Blue"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Retro azul celeste"
+msgstr "Retro cyan"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Actualizar"
+msgstr "Refresh"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Retro"
+msgstr "Retro"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Retro rojo"
+msgstr "Retro red"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Retro violeta"
+msgstr "Retro violet"
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/base.html
+#: ciudades_del_mundo/templates/ciudades_del_mundo/task_list.html
+msgid "Retro verde"
+msgstr "Retro green"
+
+# Added to keep all supported UI languages in sync.
+
+msgid "A Coruña"
+msgstr "A Coruña"
+
+msgid "Accion de receta no soportada."
+msgstr "Unsupported recipe action."
+
+msgid "Acción de configuración no soportada."
+msgstr "Unsupported configuration action."
+
+msgid "Admin"
+msgstr "Admin"
+
+msgid "Alacant"
+msgstr "Alacant"
+
+msgid "Aquí aparecerá el proceso."
+msgstr "The process will appear here."
+
+msgid "Aquí aparecerán los comentarios de la IA cuando se active."
+msgstr "AI comments will appear here when enabled."
+
+msgid "Araba"
+msgstr "Araba"
+
+msgid "Argentina"
+msgstr "Argentina"
+
+msgid "Australia"
+msgstr "Australia"
+
+msgid "Automático"
+msgstr "Automatic"
+
+msgid "Aviso"
+msgstr "Notice"
+
+msgid "Añadir línea"
+msgstr "Add line"
+
+msgid "Bangladesh"
+msgstr "Bangladesh"
+
+msgid "Bizkaia"
+msgstr "Bizkaia"
+
+msgid "Borradas %(deleted)s filas AdminArea para '%(target)s'."
+msgstr "Borradas %(deleted)s filas AdminArea para '%(target)s'."
+
+msgid "Borradas %(deleted)s filas NuevoAdminArea para '%(target)s'."
+msgstr "Borradas %(deleted)s filas NuevoAdminArea para '%(target)s'."
+
+msgid "Busca rutas en https://www.citypopulation.de/en/{{ slug }}/ y crea una base de configuración editable."
+msgstr "Busca rutas en https://www.citypopulation.de/en/{{ slug }}/ y crea una base de configuration editable."
+
+msgid "Buscando rutas en %(url)s"
+msgstr "Buscando rutas en %(url)s"
+
+msgid "Cabecera de Municipio/Localidad"
+msgstr "Municipality/locality header"
+
+msgid "Canada"
+msgstr "Canada"
+
+msgid "Cancelacion solicitada para '%(label)s'."
+msgstr "Cancelacion solicitada para '%(label)s'."
+
+msgid "Cargando país..."
+msgstr "Loading country..."
+
+msgid "Castelló de la Plana"
+msgstr "Castelló de la Plana"
+
+msgid "Chile"
+msgstr "Chile"
+
+msgid "China"
+msgstr "China"
+
+msgid "City"
+msgstr "City"
+
+msgid "City District"
+msgstr "City District"
+
+msgid "Ciudad unificada"
+msgstr "Unified city"
+
+msgid "Ciudades"
+msgstr "Cities"
+
+msgid "Colombia"
+msgstr "Colombia"
+
+msgid "Comentarios de la IA"
+msgstr "AI comments"
+
+msgid "Comunitat Valenciana"
+msgstr "Comunitat Valenciana"
+
+msgid "Configuracion invalida: %(error)s"
+msgstr "Configuration invalid: %(error)s"
+
+msgid "Configuración '%(slug)s' creada."
+msgstr "Configuration '%(slug)s' created."
+
+msgid "Configuración '%(slug)s' guardada."
+msgstr "Configuration '%(slug)s' saved."
+
+msgid "Configuración extra"
+msgstr "Extra configuration"
+
+msgid "Configuración vía IA"
+msgstr "AI configuration"
+
+msgid "Congo (Dem. Rep.)"
+msgstr "Congo (Dem. Rep.)"
+
+msgid "Crear subdivisiones: %(slug)s"
+msgstr "Crear subdivisions: %(slug)s"
+
+msgid "Cuenta IA personal"
+msgstr "Personal AI account"
+
+msgid "Código de país"
+msgstr "Country code"
+
+msgid "DIVISIONS debe ser una lista o un objeto JSON."
+msgstr "DIVISIONS must be a list or a JSON object."
+
+msgid "DIVISIONS no es JSON valido: %(error)s"
+msgstr "DIVISIONS no es JSON valido: %(error)s"
+
+msgid "Datos generales del país"
+msgstr "General country data"
+
+msgid "Debes indicar al menos una ruta de scrapeo."
+msgstr "You must provide at least one scraping route."
+
+msgid "Doble"
+msgstr "Double"
+
+msgid "Donostia"
+msgstr "Donostia"
+
+msgid "Editar el archivo a mano es potente, pero conviene saber TOML/Python del proyecto para no romper la configuración. Antes de guardar se validará; si falla, verás un aviso."
+msgstr "Editar el archivo a mano es potente, pero conviene saber TOML/Python del proyecto para no romper la configuration. Antes de guardar se validará; si falla, verás un aviso."
+
+msgid "Editar {{ slug }}"
+msgstr "Editar {{ slug }}"
+
+msgid "El ano de poblacion debe ser numerico."
+msgstr "El ano de population must ser numerico."
+
+msgid "El nivel de ciudad unificada debe ser numérico."
+msgstr "El level de ciudad unificada must ser numérico."
+
+msgid "El nivel de scrapeo debe ser numérico."
+msgstr "El level de scrapeo must ser numérico."
+
+msgid "El slug de configuracion solo puede usar letras, numeros, guion y guion bajo."
+msgstr "El slug de configuration solo puede usar letras, numeros, guion y guion bajo."
+
+msgid "El slug de receta debe ser un identificador Python en minusculas."
+msgstr "El slug de recipe must ser un identificador Python en minusculas."
+
+msgid "Elx"
+msgstr "Elx"
+
+msgid "Entidades a unificar"
+msgstr "Entities to unify"
+
+msgid "Entidades disponibles"
+msgstr "Available entities"
+
+msgid "Error"
+msgstr "Error"
+
+msgid "Estadísticas"
+msgstr "Statistics"
+
+msgid "Ethiopia"
+msgstr "Ethiopia"
+
+msgid "Exportar CSV: %(slug)s"
+msgstr "Exportar CSV: %(slug)s"
+
+msgid "Exportar Excel: %(slug)s"
+msgstr "Exportar Excel: %(slug)s"
+
+msgid "Federal District"
+msgstr "Federal District"
+
+msgid "Formato: NV - URL - Tipo Scrapeo. Puedes usar rutas relativas de CityPopulation o URLs completas."
+msgstr "Formato: NV - URL - Tipo Scrapeo. Puedes usar rutas relativas de CityPopulation o URLs completas."
+
+msgid "France"
+msgstr "France"
+
+msgid "Generar"
+msgstr "Generate"
+
+msgid "Generar base desde CityPopulation"
+msgstr "Generate base from CityPopulation"
+
+msgid "Generar con IA"
+msgstr "Generate with AI"
+
+msgid "Germany"
+msgstr "Germany"
+
+msgid "Gipuzkoa"
+msgstr "Gipuzkoa"
+
+msgid "Girona"
+msgstr "Girona"
+
+msgid "Guarda la configuración antes de iniciar sesión."
+msgstr "Guarda la configuration antes de iniciar sesión."
+
+msgid "Habia una construccion activa para esta receta; se cancelo y se relanzo."
+msgstr "Habia una construccion activa para esta recipe; se cancelo y se relanzo."
+
+msgid "Había un scraping activo para este fichero; se canceló y se lanzó otra tarea."
+msgstr "Había un scraping activo para este fichero; se canceló y se lanzó otra task."
+
+msgid "IA"
+msgstr "IA"
+
+msgid "IA habilitada"
+msgstr "AI enabled"
+
+msgid "Illes Balears"
+msgstr "Illes Balears"
+
+msgid "Imagen"
+msgstr "Image"
+
+msgid "India"
+msgstr "India"
+
+msgid "Indicaciones adicionales para la IA cuando se active."
+msgstr "Indicaciones adicionales para la IA cuando se active."
+
+msgid "Indonesia"
+msgstr "Indonesia"
+
+msgid "Iniciar sesión en la web"
+msgstr "Sign in on the web"
+
+msgid "Iran"
+msgstr "Iran"
+
+msgid "Iraq"
+msgstr "Iraq"
+
+msgid "Italy"
+msgstr "Italy"
+
+msgid "Japan"
+msgstr "Japan"
+
+msgid "Kenya"
+msgstr "Kenya"
+
+msgid "La IA está deshabilitada por configuración."
+msgstr "La IA está deshabilitada por configuration."
+
+msgid "La base de datos esta ocupada por una tarea de escritura. "
+msgstr "La base de data esta ocupada por una task de escritura. "
+
+msgid "La configuracion debe definir al menos una pagina."
+msgstr "La configuration must definir al menos una pagina."
+
+msgid "La receta debe definir DIVISIONS."
+msgstr "La recipe must definir DIVISIONS."
+
+msgid "La subdivisión legal debe ser numérica."
+msgstr "La subdivisión legal must ser numérica."
+
+msgid "Lazio"
+msgstr "Lazio"
+
+msgid "Lleida"
+msgstr "Lleida"
+
+msgid "Lombardy"
+msgstr "Lombardy"
+
+msgid "Main Locality"
+msgstr "Main Locality"
+
+msgid "Manual"
+msgstr "Manual"
+
+msgid "Marca la confirmacion antes de borrar datos."
+msgstr "Marca la confirmacion antes de borrar data."
+
+msgid "Mexico"
+msgstr "Mexico"
+
+msgid "Milan"
+msgstr "Milan"
+
+msgid "Modos de configuración"
+msgstr "Configuration modes"
+
+msgid "Morocco"
+msgstr "Morocco"
+
+msgid "Municipality"
+msgstr "Municipality"
+
+msgid "Myanmar"
+msgstr "Myanmar"
+
+msgid "NV"
+msgstr "NV"
+
+msgid "Netherlands"
+msgstr "Netherlands"
+
+msgid "Nigeria"
+msgstr "Nigeria"
+
+msgid "No existe AdminArea '%(area_id)s'."
+msgstr "Does not exist AdminArea '%(area_id)s'."
+
+msgid "No existe NuevoAdminArea '%(country_id)s'."
+msgstr "Does not exist NuevoAdminArea '%(country_id)s'."
+
+msgid "No existe la configuracion '%(slug)s'."
+msgstr "Does not exist la configuration '%(slug)s'."
+
+msgid "No existe la receta '%(slug)s'."
+msgstr "Does not exist la recipe '%(slug)s'."
+
+msgid "No existe la tarea solicitada."
+msgstr "Does not exist la task solicitada."
+
+msgid "No se encontraron rutas útiles para %(slug)s."
+msgstr "No se encontraron rutas útiles para %(slug)s."
+
+msgid "No se encontro la imagen solicitada."
+msgstr "No se encontro la imagen solicitada."
+
+msgid "No se pudieron cargar las entidades."
+msgstr "No se pudieron cargar las entidades."
+
+msgid "No se pudieron cargar los países."
+msgstr "No se pudieron cargar los countries."
+
+msgid "No se pudo cargar el país."
+msgstr "Could not cargar el country."
+
+msgid "No se pudo leer CityPopulation: %(error)s"
+msgstr "Could not leer CityPopulation: %(error)s"
+
+msgid "Número de subdivisiones"
+msgstr "Number of subdivisions"
+
+msgid "Opcional. Mueve entidades scrapeadas a la tabla derecha para crear una ciudad unificada; si no hay selección, se ignora."
+msgstr "Opcional. Mueve entidades scrapeadas a la table derecha para crear una ciudad unificada; si no hay selección, se ignora."
+
+msgid "Ourense"
+msgstr "Ourense"
+
+msgid "Pagina {{ number }} de {{ total }}"
+msgstr "Pagina {{ number }} de {{ total }}"
+
+msgid "Pakistan"
+msgstr "Pakistan"
+
+msgid "Países"
+msgstr "Countries"
+
+msgid "Países - Ciudades del Mundo"
+msgstr "Countries - World Cities"
+
+msgid "Peru"
+msgstr "Peru"
+
+msgid "Philippines"
+msgstr "Philippines"
+
+msgid "Población"
+msgstr "Population"
+
+msgid "Popular datos: %(slug)s"
+msgstr "Popular data: %(slug)s"
+
+msgid "Portugal"
+msgstr "Portugal"
+
+msgid "Proceso"
+msgstr "Process"
+
+msgid "Prompt base"
+msgstr "Base prompt"
+
+msgid "Proveedor IA"
+msgstr "AI provider"
+
+msgid "Proveedor IA no soportado: %(provider)s"
+msgstr "Proveedor IA unsupported: %(provider)s"
+
+msgid "Python invalido: %(error)s"
+msgstr "Python invalid: %(error)s"
+
+msgid "Quitar"
+msgstr "Remove"
+
+msgid "Receta '%(slug)s' creada."
+msgstr "Recipe '%(slug)s' created."
+
+msgid "Receta '%(slug)s' guardada."
+msgstr "Recipe '%(slug)s' saved."
+
+msgid "Rome"
+msgstr "Rome"
+
+msgid "Rural Locality"
+msgstr "Rural Locality"
+
+msgid "Russia"
+msgstr "Russia"
+
+msgid "Rutas de scrapeo"
+msgstr "Scraping routes"
+
+msgid "Rutas detectadas: %(count)s"
+msgstr "Rutas detectadas: %(count)s"
+
+msgid "Scrapping"
+msgstr "Scraping"
+
+msgid "Se abrirá la web del proveedor elegido"
+msgstr "The selected provider website will open"
+
+msgid "Sección informativa"
+msgstr "Information section"
+
+msgid "Selecciona un objetivo para borrar."
+msgstr "Selecciona un objetivo para borrar."
+
+msgid "Serbia"
+msgstr "Serbia"
+
+msgid "Sistema preparado para activar/desactivar IA. El login se abre en la web del proveedor elegido y no se guardan credenciales personales."
+msgstr "Sistema preparado para activar/desactivar IA. El login se abre en la web del proveedor elegido y no se guardan credenciales personales."
+
+msgid "South Africa"
+msgstr "South Africa"
+
+msgid "South Korea"
+msgstr "South Korea"
+
+msgid "Spain"
+msgstr "Spain"
+
+msgid "State"
+msgstr "State"
+
+msgid "Subdivisiones directas"
+msgstr "Direct subdivisions"
+
+msgid "Subdivisión legal"
+msgstr "Legal subdivision"
+
+msgid "TOML invalido: %(error)s"
+msgstr "TOML invalid: %(error)s"
+
+msgid "Tabla"
+msgstr "Table"
+
+msgid "Tanzania"
+msgstr "Tanzania"
+
+msgid "Tarea lanzada: %(label)s."
+msgstr "Task lanzada: %(label)s."
+
+msgid "Tarea no encontrada."
+msgstr "Task not found."
+
+msgid "Tarea {{ task_id }}"
+msgstr "Task {{ task_id }}"
+
+msgid "Thailand"
+msgstr "Thailand"
+
+msgid "Tipo Scrapeo"
+msgstr "Scraping type"
+
+msgid "Tipo de borrado no soportado."
+msgstr "Tipo de borrado unsupported."
+
+msgid "Todos"
+msgstr "All"
+
+msgid "Unificación de ciudad"
+msgstr "City unification"
+
+msgid "Urban Locality"
+msgstr "Urban Locality"
+
+msgid "Validar configuración: %(slug)s"
+msgstr "Validar configuration: %(slug)s"
+
+msgid "València"
+msgstr "València"
+
+msgid "Vietnam"
+msgstr "Vietnam"
+
+msgid "Vitoria-Gasteiz"
+msgstr "Vitoria-Gasteiz"
+
+msgid "Ya existe una configuración para '%(slug)s'."
+msgstr "Ya existe una configuration para '%(slug)s'."
+
+msgid "Ya existe una receta nueva para '%(slug)s'."
+msgstr "Ya existe una recipe nueva para '%(slug)s'."
+
+msgid "[ERROR] No se pudo iniciar la tarea: %(error)s\\n"
+msgstr "[ERROR] Could not iniciar la task: %(error)s\\n"
+
+msgid "\\n[CANCEL] Cancelacion solicitada desde la interfaz.\\n"
+msgstr "\\n[CANCEL] Cancelacion solicitada desde la interfaz.\\n"
+
+msgid "\\n[INFO] Tarea interrumpida por reinicio del servidor.\\n"
+msgstr "\\n[INFO] Task interrumpida por reinicio del servidor.\\n"
+
+msgid "correcto"
+msgstr "succeeded"
+
+msgid "error"
+msgstr "error"
+
+msgid "{{ count }} areas encontradas"
+msgstr "{{ count }} areas encontradas"
+
+msgid "{{ country_code }} - {{ pages }} paginas - {{ cities }} ciudades unificadas"
+msgstr "{{ country_code }} - {{ pages }} paginas - {{ cities }} cities unificadas"
+
+# Added to keep all supported UI languages in sync.
+
+msgid "Había un scraping activo para esta configuración; se canceló y se lanzó otra tarea."
+msgstr "An active scrape was running for this config; it was cancelled and another task was launched."
+
+msgid "No hay tareas registradas."
+msgstr "No tasks registered."
+
+msgid "Ver registro"
+msgstr "View log"
+
+msgid "\\n[CANCEL] Cancelación solicitada desde la interfaz.\\n"
+msgstr "\\n[CANCEL] Cancellation requested from the interface.\\n"
+
+# Added to keep all supported UI languages in sync.
+
+msgid "Cargando configuración inicial"
+msgstr "Loading initial configuration"
+
+msgid "Cargando configuración inicial desde los TOML..."
+msgstr "Loading initial configuration from TOML..."
+
+msgid "Configuración inicial cargada. Continuando..."
+msgstr "Initial configuration loaded. Continuing..."
+
+msgid "La tabla de configuraciones está incompleta. Estoy importando todos los TOML a la base de datos antes de continuar."
+msgstr "The configurations table is incomplete. I am importing all TOML files into the database before continuing."
+
+msgid "La tabla de configuraciones todavía no está disponible: %(error)s"
+msgstr "The configurations table is not available yet: %(error)s"
+
+msgid "Método no soportado."
+msgstr "Unsupported method."
+
+msgid "No se pudo cargar la configuración inicial."
+msgstr "Initial configuration could not be loaded."
+
+msgid "Primer arranque"
+msgstr "First startup"
+
+msgid "{{ stored }} de {{ expected }} configuraciones cargadas. Faltan {{ missing }}."
+msgstr "{{ stored }} of {{ expected }} configurations loaded. {{ missing }} remaining."

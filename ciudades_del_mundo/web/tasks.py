@@ -1,131 +1,188 @@
-"""In-process task registry for long-running local management commands."""
+"""Persistent task registry for long-running local management commands."""
 
 from __future__ import annotations
 
-from collections import deque
-from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+import os
 import subprocess
 import sys
 import threading
 import uuid
 
 from django.conf import settings
-from django.db import close_old_connections
+from django.db import OperationalError, ProgrammingError, close_old_connections, connection
+from django.utils import timezone
 from django.utils.translation import gettext as _
 
+from ciudades_del_mundo.models import WebTask
 
-TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
 
-
-@dataclass
-class ManagedTask:
-    """State tracked for one background command."""
-
-    id: str
-    key: str
-    label: str
-    args: list[str]
-    status: str = "queued"
-    created_at: datetime = field(default_factory=datetime.now)
-    started_at: datetime | None = None
-    finished_at: datetime | None = None
-    returncode: int | None = None
-    cancel_requested: bool = False
-    output: deque[str] = field(default_factory=lambda: deque(maxlen=240))
-    _process: subprocess.Popen | None = field(default=None, repr=False)
-
-    @property
-    def command_display(self) -> str:
-        return " ".join(["py", "manage.py", *self.args])
-
-    @property
-    def output_text(self) -> str:
-        return "".join(self.output)
-
-    @property
-    def is_active(self) -> bool:
-        return self.status not in TERMINAL_STATUSES
+TERMINAL_STATUSES = {WebTask.Status.SUCCEEDED, WebTask.Status.FAILED, WebTask.Status.CANCELLED}
+MAX_RUNNING_TASKS = 3
+MAX_PERSISTED_TASKS = 300
+TASK_LOG_DIR_NAME = ".web_task_logs"
+OUTPUT_TAIL_LINES = 240
 
 
 class TaskManager:
-    """Small background task manager for the local web dashboard.
+    """Background task manager backed by the Django database.
 
-    Tasks are process-local and intentionally simple: the development server can
-    start, inspect and terminate Django management commands without introducing
-    Celery, Redis or a migration-backed job table.
+    The database is the source of truth for task history and status. The current
+    Python process only owns live subprocess handles so cancellation still works
+    for tasks started by this server instance.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        history_path: Path | None = None,
+        *,
+        max_running_tasks: int = MAX_RUNNING_TASKS,
+    ) -> None:
         self._lock = threading.RLock()
-        self._tasks: dict[str, ManagedTask] = {}
-        self._latest_by_key: dict[str, str] = {}
+        self._processes: dict[str, subprocess.Popen] = {}
+        self._history_path = history_path or (Path(settings.BASE_DIR) / ".web_tasks.json")
+        self._log_dir = Path(settings.BASE_DIR) / TASK_LOG_DIR_NAME
+        self._max_running_tasks = max(1, int(max_running_tasks))
+        self._recovery_done = False
 
-    def start(self, *, key: str, label: str, args: list[str]) -> ManagedTask:
-        """Start a task, cancelling the active task with the same key first."""
+    def start(self, *, key: str, label: str, args: list[str]) -> WebTask:
+        """Queue a task, cancelling the active task with the same key first."""
+        self._ensure_recovered()
+        process_to_terminate = None
         with self._lock:
             previous = self.latest_for_key(key)
             if previous and previous.is_active:
-                self.cancel(previous.id)
+                process_to_terminate = self._cancel_locked(previous)
 
-            task = ManagedTask(id=uuid.uuid4().hex[:12], key=key, label=label, args=args)
-            self._tasks[task.id] = task
-            self._latest_by_key[key] = task.id
+            task_id = uuid.uuid4().hex[:12]
+            task = WebTask.objects.create(
+                id=task_id,
+                key=key,
+                label=label,
+                args=[str(arg) for arg in args],
+                status=WebTask.Status.QUEUED,
+                created_at=timezone.now(),
+                log_path=self._relative_log_path(task_id),
+            )
+            task_ids_to_start = self._dispatch_queued_locked()
+            self._trim_history_locked()
 
-            thread = threading.Thread(target=self._run, args=(task.id,), daemon=True)
-            thread.start()
-            return task
+        if process_to_terminate and process_to_terminate.poll() is None:
+            process_to_terminate.terminate()
+        self._start_workers(task_ids_to_start)
+        return task
 
-    def cancel(self, task_id: str) -> ManagedTask | None:
+    def cancel(self, task_id: str) -> WebTask | None:
+        self._ensure_recovered()
+        process = None
         with self._lock:
-            task = self._tasks.get(task_id)
+            task = self.get(task_id)
             if not task or not task.is_active:
                 return task
-            task.cancel_requested = True
-            task.output.append(_("\n[CANCEL] Cancelacion solicitada desde la interfaz.\n"))
-            process = task._process
+            process = self._cancel_locked(task)
+            task_ids_to_start = self._dispatch_queued_locked()
 
         if process and process.poll() is None:
             process.terminate()
-        return task
+        self._start_workers(task_ids_to_start)
+        return self.get(task_id)
 
-    def get(self, task_id: str) -> ManagedTask | None:
-        with self._lock:
-            return self._tasks.get(task_id)
-
-    def latest_for_key(self, key: str) -> ManagedTask | None:
-        task_id = self._latest_by_key.get(key)
-        if not task_id:
+    def get(self, task_id: str) -> WebTask | None:
+        self._ensure_recovered()
+        if not self._table_ready():
             return None
-        return self._tasks.get(task_id)
+        return WebTask.objects.filter(id=task_id).first()
 
-    def list(self, limit: int = 20) -> list[ManagedTask]:
-        with self._lock:
-            tasks = sorted(
-                self._tasks.values(),
-                key=lambda task: task.created_at,
-                reverse=True,
-            )
-            return tasks[:limit]
+    def latest_for_key(self, key: str) -> WebTask | None:
+        self._ensure_recovered()
+        if not self._table_ready():
+            return None
+        return WebTask.objects.filter(key=key).order_by("-created_at", "-id").first()
+
+    def list(self, limit: int = 20) -> list[WebTask]:
+        self._ensure_recovered()
+        if not self._table_ready():
+            return []
+        return list(WebTask.objects.order_by("-created_at", "-id")[:limit])
+
+    def output_text(self, task: WebTask) -> str:
+        """Return the full persisted log when available, otherwise the DB tail."""
+        log_path = self._resolve_log_path(task)
+        if log_path and log_path.exists():
+            try:
+                return log_path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                pass
+        return task.output_text
+
+    def _cancel_locked(self, task: WebTask) -> subprocess.Popen | None:
+        task.cancel_requested = True
+        self._append_output_locked(task, _("\n[CANCEL] Cancelación solicitada desde la interfaz.\n"))
+        if task.status == WebTask.Status.QUEUED:
+            task.status = WebTask.Status.CANCELLED
+            task.finished_at = timezone.now()
+            task.save(update_fields=["cancel_requested", "status", "finished_at", "output", "log_path", "updated_at"])
+            return None
+        task.save(update_fields=["cancel_requested", "output", "log_path", "updated_at"])
+        return self._processes.get(task.id)
+
+    def _dispatch_queued_locked(self) -> list[str]:
+        running = WebTask.objects.filter(status=WebTask.Status.RUNNING).count()
+        capacity = self._max_running_tasks - running
+        if capacity <= 0:
+            return []
+
+        queued = list(
+            WebTask.objects.filter(status=WebTask.Status.QUEUED, cancel_requested=False)
+            .order_by("created_at", "id")[:capacity]
+        )
+        now = timezone.now()
+        task_ids = []
+        for task in queued:
+            task.status = WebTask.Status.RUNNING
+            task.started_at = now
+            task.save(update_fields=["status", "started_at", "updated_at"])
+            task_ids.append(task.id)
+        return task_ids
+
+    def _start_workers(self, task_ids: list[str]) -> None:
+        for task_id in task_ids:
+            thread = threading.Thread(target=self._run, args=(task_id,), daemon=True)
+            thread.start()
 
     def _run(self, task_id: str) -> None:
+        close_old_connections()
         task = self.get(task_id)
         if not task:
             return
 
         with self._lock:
-            task.status = "running"
-            task.started_at = datetime.now()
+            task = self.get(task_id)
+            if not task or task.status != WebTask.Status.RUNNING:
+                return
+            if task.cancel_requested:
+                task.status = WebTask.Status.CANCELLED
+                task.finished_at = timezone.now()
+                task.save(update_fields=["status", "finished_at", "updated_at"])
+                task_ids_to_start = self._dispatch_queued_locked()
+                should_stop = True
+            else:
+                task_ids_to_start = []
+                should_stop = False
+        if should_stop:
+            self._start_workers(task_ids_to_start)
+            close_old_connections()
+            return
 
         manage_py = Path(settings.BASE_DIR) / "manage.py"
-        command = [sys.executable, str(manage_py), *task.args]
-        close_old_connections()
+        command = [sys.executable, str(manage_py), *(task.args or [])]
 
         try:
             process = subprocess.Popen(
                 command,
                 cwd=settings.BASE_DIR,
+                env={**os.environ, "CIUDADES_WEB_TASK_CHILD": "1"},
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -135,31 +192,132 @@ class TaskManager:
             )
         except OSError as exc:
             with self._lock:
-                task.status = "failed"
-                task.finished_at = datetime.now()
-                task.output.append(_("[ERROR] No se pudo iniciar la tarea: %(error)s\n") % {"error": exc})
+                task = self.get(task_id)
+                if task:
+                    task.status = WebTask.Status.FAILED
+                    task.finished_at = timezone.now()
+                    self._append_output_locked(
+                        task,
+                        _("[ERROR] No se pudo iniciar la tarea: %(error)s\n") % {"error": exc},
+                    )
+                    task.save(update_fields=["status", "finished_at", "output", "log_path", "updated_at"])
+                task_ids_to_start = self._dispatch_queued_locked()
+            self._start_workers(task_ids_to_start)
+            close_old_connections()
             return
 
         with self._lock:
-            task._process = process
+            self._processes[task_id] = process
+            task = self.get(task_id)
+            cancel_requested = bool(task and task.cancel_requested)
+
+        if cancel_requested and process.poll() is None:
+            process.terminate()
 
         assert process.stdout is not None
         for line in process.stdout:
             with self._lock:
-                task.output.append(line)
+                task = self.get(task_id)
+                if task:
+                    self._append_output_locked(task, line)
+                    task.save(update_fields=["output", "log_path", "updated_at"])
 
         returncode = process.wait()
         close_old_connections()
         with self._lock:
-            task.returncode = returncode
-            task.finished_at = datetime.now()
-            task._process = None
-            if task.cancel_requested:
-                task.status = "cancelled"
-            elif returncode == 0:
-                task.status = "succeeded"
-            else:
-                task.status = "failed"
+            task = self.get(task_id)
+            if task:
+                task.returncode = returncode
+                task.finished_at = timezone.now()
+                if task.cancel_requested:
+                    task.status = WebTask.Status.CANCELLED
+                elif returncode == 0:
+                    task.status = WebTask.Status.SUCCEEDED
+                else:
+                    task.status = WebTask.Status.FAILED
+                task.save(update_fields=["returncode", "finished_at", "status", "updated_at"])
+            self._processes.pop(task_id, None)
+            task_ids_to_start = self._dispatch_queued_locked()
+            self._trim_history_locked()
+        self._start_workers(task_ids_to_start)
+        close_old_connections()
 
+    def _append_output_locked(self, task: WebTask, text: str) -> None:
+        output = [str(line) for line in (task.output or [])]
+        output.append(text)
+        task.output = output[-OUTPUT_TAIL_LINES:]
+        self._append_log_file_locked(task, text)
+    def _append_log_file_locked(self, task: WebTask, text: str) -> None:
+        log_path = self._ensure_log_path_locked(task)
+        try:
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with log_path.open("a", encoding="utf-8", errors="replace") as handle:
+                handle.write(text)
+        except OSError:
+            return
+
+    def _ensure_log_path_locked(self, task: WebTask) -> Path:
+        if not task.log_path:
+            task.log_path = self._relative_log_path(task.id)
+        return self._resolve_log_path(task) or (self._log_dir / f"{task.id}.log")
+
+    def _resolve_log_path(self, task: WebTask) -> Path | None:
+        if not task.log_path:
+            return None
+        path = Path(task.log_path)
+        if path.is_absolute():
+            return path
+        return Path(settings.BASE_DIR) / path
+
+    def _relative_log_path(self, task_id: str) -> str:
+        return str(Path(TASK_LOG_DIR_NAME) / f"{task_id}.log")
+
+    def _ensure_recovered(self) -> None:
+        """Recover stale DB tasks lazily, outside Django app initialization.
+
+        Importing URL/views during Django startup must not query the database.
+        Child management-command processes launched by a web task also skip this
+        step so they do not mark their own parent task as interrupted while it is
+        still running.
+        """
+        if self._recovery_done or os.environ.get("CIUDADES_WEB_TASK_CHILD") == "1":
+            return
+        with self._lock:
+            if self._recovery_done or os.environ.get("CIUDADES_WEB_TASK_CHILD") == "1":
+                return
+            self._recover_interrupted_tasks()
+            self._recovery_done = True
+
+    def _recover_interrupted_tasks(self) -> None:
+        if not self._table_ready():
+            return
+        try:
+            interrupted = list(WebTask.objects.exclude(status__in=TERMINAL_STATUSES))
+        except (OperationalError, ProgrammingError):
+            return
+        for task in interrupted:
+            task.status = WebTask.Status.FAILED
+            task.finished_at = timezone.now()
+            self._append_output_locked(task, _("\n[INFO] Tarea interrumpida por reinicio del servidor.\n"))
+            task.save(update_fields=["status", "finished_at", "output", "log_path", "updated_at"])
+
+    def _trim_history_locked(self) -> None:
+        stale_ids = list(
+            WebTask.objects.order_by("-created_at", "-id")
+            .values_list("id", flat=True)[MAX_PERSISTED_TASKS:]
+        )
+        if stale_ids:
+            WebTask.objects.filter(id__in=stale_ids, status__in=TERMINAL_STATUSES).delete()
+
+    @staticmethod
+    def _table_ready() -> bool:
+        try:
+            return WebTask._meta.db_table in connection.introspection.table_names()
+        except (OperationalError, ProgrammingError):
+            return False
+
+
+# Kept as a stable import name for views and commands.
+ManagedTask = WebTask
 
 task_manager = TaskManager()

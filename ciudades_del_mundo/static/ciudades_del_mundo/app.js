@@ -1,6 +1,7 @@
 (function () {
   var THEME_STORAGE_KEY = "ciudades_del_mundo_theme";
   var THEME_EFFECTS_STORAGE_KEY = "ciudades_del_mundo_theme_effects";
+  var STATS_COUNTRY_CACHE_KEY = "ciudades_del_mundo_stats_country_payload";
 
   function applyTheme(theme) {
     var selected = theme || "light";
@@ -103,6 +104,22 @@
     setStatus(target, "table-error", message, false);
   }
 
+  function setInlineStatus(target, message, loading) {
+    if (!target) {
+      return;
+    }
+    target.hidden = false;
+    target.innerHTML = "";
+    target.classList.toggle("inline-loading", Boolean(loading));
+    if (loading) {
+      var spinner = document.createElement("span");
+      spinner.className = "loading-spinner";
+      spinner.setAttribute("aria-hidden", "true");
+      target.appendChild(spinner);
+    }
+    target.appendChild(document.createTextNode(message || ""));
+  }
+
   function formParams(form, page) {
     var params = new URLSearchParams(new FormData(form));
     if (page) {
@@ -118,14 +135,242 @@
     return params;
   }
 
-  function loadTable(form, page) {
+  function tableTarget(form) {
     var target = document.querySelector(form.dataset.target);
+    return target;
+  }
+
+  function pageSizeForForm(form, fallback) {
+    var select = form ? form.querySelector("select[name='page_size']") : null;
+    var parsed = parseInt(select ? select.value : fallback, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  }
+
+  function renderClientPagination(target, form, requestedPage) {
+    var nav = target.querySelector("[data-client-pagination]");
+    if (!nav) {
+      return false;
+    }
+    var rows = Array.prototype.slice.call(target.querySelectorAll("[data-client-row]"));
+    var emptyRow = target.querySelector("[data-client-empty]");
+    var initialSize = parseInt(nav.dataset.initialPageSize || "25", 10);
+    var pageSize = pageSizeForForm(form, initialSize);
+    var pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+    var page = parseInt(requestedPage || target.dataset.clientPage || "1", 10);
+    if (!Number.isFinite(page) || page < 1) {
+      page = 1;
+    }
+    if (page > pageCount) {
+      page = pageCount;
+    }
+    var start = (page - 1) * pageSize;
+    var end = start + pageSize;
+    rows.forEach(function (row, index) {
+      row.hidden = index < start || index >= end;
+    });
+    if (emptyRow) {
+      emptyRow.hidden = rows.length > 0;
+    }
+    nav.hidden = rows.length <= pageSize;
+    nav.querySelectorAll("[data-client-page='previous']").forEach(function (button) {
+      button.disabled = page <= 1 || rows.length === 0;
+    });
+    nav.querySelectorAll("[data-client-page='next']").forEach(function (button) {
+      button.disabled = page >= pageCount || rows.length === 0;
+    });
+    var status = nav.querySelector("[data-client-page-status]");
+    if (status) {
+      status.textContent = rows.length ? page + " / " + pageCount : "0 / 0";
+    }
+    target.dataset.clientPage = String(page);
+    target.dataset.clientPaginationReady = "1";
+    return true;
+  }
+
+  function clientSortButtonLabel(button) {
+    return button.dataset.baseLabel || button.textContent.replace(/\s+[\u2191\u2193]$/, "");
+  }
+
+  function clientSortValue(row, key, type) {
+    var value = row.dataset[key] || "";
+    if (type === "number") {
+      var number = Number(value || 0);
+      return Number.isFinite(number) ? number : 0;
+    }
+    return String(value).toLocaleLowerCase();
+  }
+
+  function updateClientSortButtons(target) {
+    var sortKey = target.dataset.clientSortKey || "";
+    var direction = Number(target.dataset.clientSortDirection || 1);
+    target.querySelectorAll("[data-client-sort]").forEach(function (button) {
+      if (!button.dataset.baseLabel) {
+        button.dataset.baseLabel = clientSortButtonLabel(button);
+      }
+      var active = button.dataset.clientSort === sortKey;
+      button.classList.toggle("is-sorted", active);
+      button.classList.toggle("is-asc", active && direction > 0);
+      button.classList.toggle("is-desc", active && direction < 0);
+      button.textContent = clientSortButtonLabel(button) + (active ? (direction > 0 ? " \u2191" : " \u2193") : "");
+    });
+  }
+
+  function applyClientSort(target, form, key, direction, requestedPage) {
+    var tbody = target.querySelector("[data-client-page-rows]");
+    if (!tbody || !key) {
+      return false;
+    }
+    var button = target.querySelector('[data-client-sort="' + key + '"]');
+    var type = button ? button.dataset.sortType : "";
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll("[data-client-row]"));
+    rows.sort(function (left, right) {
+      var a = clientSortValue(left, key, type);
+      var b = clientSortValue(right, key, type);
+      if (a < b) {
+        return -1 * direction;
+      }
+      if (a > b) {
+        return 1 * direction;
+      }
+      return 0;
+    });
+    rows.forEach(function (row) {
+      tbody.appendChild(row);
+    });
+    target.dataset.clientSortKey = key;
+    target.dataset.clientSortDirection = String(direction);
+    updateClientSortButtons(target);
+    renderClientPagination(target, form, requestedPage || 1);
+    return true;
+  }
+
+  function initClientSorting(target, form) {
+    target.querySelectorAll("[data-client-sort]").forEach(function (button) {
+      if (!button.dataset.baseLabel) {
+        button.dataset.baseLabel = clientSortButtonLabel(button);
+      }
+      if (button.dataset.clientSortBound === "1") {
+        return;
+      }
+      button.dataset.clientSortBound = "1";
+      button.addEventListener("click", function () {
+        var key = button.dataset.clientSort;
+        var currentKey = target.dataset.clientSortKey || "";
+        var currentDirection = Number(target.dataset.clientSortDirection || 1);
+        var nextDirection = currentKey === key ? currentDirection * -1 : 1;
+        applyClientSort(target, form, key, nextDirection, 1);
+      });
+    });
+    updateClientSortButtons(target);
+  }
+
+  function initClickableRows(target) {
+    target.querySelectorAll("[data-row-href]").forEach(function (row) {
+      if (row.dataset.rowClickBound === "1") {
+        return;
+      }
+      row.dataset.rowClickBound = "1";
+      row.addEventListener("click", function (event) {
+        if (event.target.closest("a, button, input, select, textarea, label")) {
+          return;
+        }
+        window.location.href = row.dataset.rowHref;
+      });
+      row.addEventListener("keydown", function (event) {
+        if (event.key !== "Enter" && event.key !== " ") {
+          return;
+        }
+        event.preventDefault();
+        window.location.href = row.dataset.rowHref;
+      });
+    });
+  }
+
+  function initClientPagination(target, form, requestedPage) {
+    if (!renderClientPagination(target, form, requestedPage || 1)) {
+      return;
+    }
+    target.querySelectorAll("[data-client-pagination]").forEach(function (nav) {
+      if (nav.dataset.clientPaginationBound === "1") {
+        return;
+      }
+      nav.dataset.clientPaginationBound = "1";
+      nav.querySelectorAll("[data-client-page]").forEach(function (button) {
+        button.addEventListener("click", function (event) {
+          event.preventDefault();
+          var current = parseInt(target.dataset.clientPage || "1", 10);
+          var next = button.dataset.clientPage === "next" ? current + 1 : current - 1;
+          renderClientPagination(target, form, next);
+        });
+      });
+    });
+  }
+
+  var TASK_TABLE_ACTIVE_POLL_MS = 5000;
+  var TASK_TABLE_IDLE_POLL_MS = 60000;
+
+  function taskTableMarker(target) {
+    return target ? target.querySelector("[data-task-table-snapshot]") : null;
+  }
+
+  function taskTableHasActive(target) {
+    var marker = taskTableMarker(target);
+    return marker && marker.dataset.hasActiveTasks === "1";
+  }
+
+  function updateTaskTableState(target) {
+    var marker = taskTableMarker(target);
+    if (!marker) {
+      return;
+    }
+    target.dataset.taskTableSnapshot = marker.dataset.taskTableSnapshot || "";
+    target.dataset.taskTableHasActive = marker.dataset.hasActiveTasks || "0";
+  }
+
+  function htmlTaskTableSnapshot(html) {
+    var template = document.createElement("template");
+    template.innerHTML = html.trim();
+    var marker = template.content.querySelector("[data-task-table-snapshot]");
+    return marker ? marker.dataset.taskTableSnapshot || "" : "";
+  }
+
+  function scheduleTaskTablePolling(form) {
+    if (!isTaskTableForm(form)) {
+      return;
+    }
+    if (form._taskPollingTimer) {
+      window.clearTimeout(form._taskPollingTimer);
+    }
+    if (!document.body.contains(form)) {
+      return;
+    }
+    var target = tableTarget(form);
+    var active = taskTableHasActive(target);
+    var delay = active ? TASK_TABLE_ACTIVE_POLL_MS : TASK_TABLE_IDLE_POLL_MS;
+    form._taskPollingTimer = window.setTimeout(function () {
+      if (!document.body.contains(form)) {
+        return;
+      }
+      loadTable(form, null, { preserveClientPage: true, silent: true });
+    }, delay);
+  }
+
+  function loadTable(form, page, options) {
+    var target = tableTarget(form);
     if (!target) {
       return;
     }
+    options = options || {};
+    var preserveClientState = options.preserveClientPage;
+    var silent = Boolean(options.silent);
+    var clientPage = preserveClientState ? target.dataset.clientPage : null;
+    var clientSortKey = preserveClientState ? target.dataset.clientSortKey : null;
+    var clientSortDirection = preserveClientState ? Number(target.dataset.clientSortDirection || 1) : 1;
     var params = formParams(form, page);
     var url = form.dataset.url + (params.toString() ? "?" + params.toString() : "");
-    setLoading(target, form.dataset.loading || "Cargando tabla...");
+    if (!silent) {
+      setLoading(target, form.dataset.loading || "Cargando tabla...");
+    }
     fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } })
       .then(function (response) {
         if (!response.ok) {
@@ -136,15 +381,102 @@
         return response.text();
       })
       .then(function (html) {
+        var nextSnapshot = silent ? htmlTaskTableSnapshot(html) : "";
+        if (silent && nextSnapshot && target.dataset.taskTableSnapshot === nextSnapshot) {
+          return;
+        }
         target.innerHTML = html;
+        updateTaskTableState(target);
+        initSelect2(target);
+        initConfigTaskActions(target);
+        initClientSorting(target, form);
+        initClickableRows(target);
+        if (!clientSortKey || !applyClientSort(target, form, clientSortKey, clientSortDirection, clientPage || 1)) {
+          initClientPagination(target, form, clientPage || 1);
+        }
       })
       .catch(function () {
-        setError(target, form.dataset.error || "La tabla no se pudo cargar. Reintenta en unos segundos.");
+        if (!silent) {
+          setError(target, form.dataset.error || "La tabla no se pudo cargar. Reintenta en unos segundos.");
+        }
+      })
+      .finally(function () {
+        scheduleTaskTablePolling(form);
       });
+  }
+
+  function refreshTaskTables() {
+    document.querySelectorAll(".async-table-form").forEach(function (form) {
+      var url = form.dataset.url || "";
+      if (url.indexOf("/tasks/table/") >= 0 || url.indexOf("/configs/tasks/table/") >= 0) {
+        loadTable(form, null, { preserveClientPage: true, silent: true });
+      }
+    });
+  }
+
+  function isTaskTableForm(form) {
+    var url = form.dataset.url || "";
+    return url.indexOf("/tasks/table/") >= 0 || url.indexOf("/configs/tasks/table/") >= 0;
+  }
+
+  function configBootstrapIsActive() {
+    var overlay = document.querySelector("[data-config-bootstrap]");
+    return Boolean(overlay && overlay.dataset.ready !== "1");
+  }
+
+  function updateConfigBootstrapText(overlay, data) {
+    var message = overlay.querySelector("[data-bootstrap-message]");
+    var progress = overlay.querySelector("[data-bootstrap-progress]");
+    if (message) {
+      message.textContent = data && data.ready
+        ? (overlay.dataset.doneLabel || "Configuración inicial cargada. Continuando...")
+        : (overlay.dataset.loadingLabel || "Cargando configuración inicial desde los TOML...");
+    }
+    if (progress && data) {
+      progress.textContent = String(data.stored_count || 0) + " / " + String(data.expected_count || 0)
+        + " · " + String(data.missing_count || 0) + " pendientes";
+    }
+  }
+
+  function initConfigBootstrap(root) {
+    var overlay = (root || document).querySelector("[data-config-bootstrap]");
+    if (!overlay || overlay.dataset.started === "1") {
+      return;
+    }
+    overlay.dataset.started = "1";
+    updateConfigBootstrapText(overlay, null);
+    var tokenInput = overlay.querySelector("input[name='csrfmiddlewaretoken']");
+    fetch(overlay.dataset.bootstrapUrl || window.location.href, {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+        "X-CSRFToken": tokenInput ? tokenInput.value : ""
+      }
+    }).then(parseJsonResponse).then(function (data) {
+      updateConfigBootstrapText(overlay, data);
+      if (data.ready) {
+        overlay.dataset.ready = "1";
+        window.setTimeout(function () { window.location.reload(); }, 250);
+      }
+    }).catch(function (error) {
+      var message = overlay.querySelector("[data-bootstrap-message]");
+      overlay.classList.add("is-error");
+      if (message) {
+        message.textContent = (overlay.dataset.errorLabel || "No se pudo cargar la configuración inicial.") + " " + (error.message || "");
+      }
+    });
   }
 
   function initAsyncTables(root) {
     (root || document).querySelectorAll(".async-table-form").forEach(function (form) {
+      if (form.dataset.asyncTableBound === "1") {
+        return;
+      }
+      if (form.dataset.deferBootstrap === "1" && configBootstrapIsActive()) {
+        return;
+      }
+      form.dataset.asyncTableBound = "1";
       loadTable(form);
       form.addEventListener("submit", function (event) {
         event.preventDefault();
@@ -158,7 +490,16 @@
           loadTable(form);
         }, 0);
       });
-      var target = document.querySelector(form.dataset.target);
+      form.querySelectorAll("select[name='page_size']").forEach(function (select) {
+        select.addEventListener("change", function () {
+          var target = tableTarget(form);
+          if (target && renderClientPagination(target, form, 1)) {
+            return;
+          }
+          loadTable(form);
+        });
+      });
+      var target = tableTarget(form);
       if (!target) {
         return;
       }
@@ -185,6 +526,7 @@
       attribution: "&copy; OpenStreetMap"
     }).addTo(map);
 
+    mapEl.classList.add("is-loading");
     fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(query))
       .then(function (response) { return response.json(); })
       .then(function (results) {
@@ -200,6 +542,9 @@
       })
       .catch(function () {
         mapEl.classList.add("map-empty");
+      })
+      .finally(function () {
+        mapEl.classList.remove("is-loading");
       });
   }
 
@@ -329,13 +674,45 @@
     return uniqueValues([query, query.split(",")[0].trim()]);
   }
 
-  function fetchJson(url) {
-    return fetch(url).then(function (response) {
-      if (!response.ok) {
-        throw new Error(response.statusText);
+  function readableResponseText(text, fallback) {
+    var value = String(text || "").replace(/^\uFEFF/, "").trim();
+    if (!value) {
+      return fallback || "Error";
+    }
+    value = value.replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    return value.slice(0, 320) || fallback || "Error";
+  }
+
+  function parseJsonResponse(response) {
+    return response.text().then(function (text) {
+      var clean = String(text || "").replace(/^\uFEFF/, "").trim();
+      var data = null;
+      if (clean) {
+        try {
+          data = JSON.parse(clean);
+        } catch (error) {
+          var readable = readableResponseText(clean, "La respuesta del servidor no es JSON.");
+          if (/^</.test(clean)) {
+            readable = "El servidor devolvió una página HTML en vez de JSON. Recarga la página e inténtalo de nuevo. Detalle: " + readable;
+          }
+          throw new Error(readable);
+        }
+      } else {
+        data = {};
       }
-      return response.json();
+      if (!response.ok || data.ok === false) {
+        throw new Error(data.error || data.detail || response.statusText || "Error");
+      }
+      return data;
     });
+  }
+
+  function fetchJson(url) {
+    return fetch(url).then(parseJsonResponse);
   }
 
   function formatNumber(value) {
@@ -374,14 +751,26 @@
       "#a21caf",
       "#4d7c0f",
       "#4338ca",
-      "#ca8a04"
+      "#ca8a04",
+      "#dc2626",
+      "#0284c7",
+      "#65a30d",
+      "#db2777",
+      "#0d9488",
+      "#ea580c",
+      "#9333ea",
+      "#256d85",
+      "#854d0e",
+      "#1d4ed8",
+      "#16a34a",
+      "#e11d48"
     ];
   }
 
   function assignRowColors(rows) {
     var colors = chartColors();
     (rows || []).forEach(function (row, index) {
-      row.color = row.color || colors[index % colors.length];
+      row.color = row.color || colors[index] || "hsl(" + Math.round((index * 137.508) % 360) + " 72% 46%)";
     });
     return rows || [];
   }
@@ -507,11 +896,16 @@
     container.innerHTML = "";
     var empty = document.createElement("p");
     empty.className = "empty";
-    empty.textContent = container.dataset.empty || "Sin datos.";
+    empty.textContent = container.dataset.empty || "Sin datos";
     container.appendChild(empty);
   }
 
   function renderDonutChart(container, data) {
+    if (container._chartTooltip && container._chartTooltip.parentNode) {
+      container._chartTooltip.parentNode.removeChild(container._chartTooltip);
+    }
+    container._chartTooltip = null;
+
     var items = normalizeChartItems(data);
     var total = chartTotal(data, items);
     if (!items.length || !total) {
@@ -555,6 +949,8 @@
     var tooltip = document.createElement("div");
     tooltip.className = "chart-tooltip";
     tooltip.hidden = true;
+    container._chartTooltip = tooltip;
+    document.body.appendChild(tooltip);
 
     function setCenter(label, value) {
       totalLabel.textContent = label;
@@ -562,12 +958,27 @@
     }
 
     function positionTooltip(event) {
-      var rect = chart.getBoundingClientRect();
-      tooltip.style.left = (event.clientX - rect.left) + "px";
-      tooltip.style.top = (event.clientY - rect.top) + "px";
+      if (tooltip.hidden) {
+        return;
+      }
+      var padding = 12;
+      var offset = 14;
+      var x = event.clientX + offset;
+      var y = event.clientY + offset;
+      var width = tooltip.offsetWidth || 0;
+      var height = tooltip.offsetHeight || 0;
+      if (x + width + padding > window.innerWidth) {
+        x = event.clientX - width - offset;
+      }
+      if (y + height + padding > window.innerHeight) {
+        y = event.clientY - height - offset;
+      }
+      tooltip.style.left = Math.max(padding, Math.round(x)) + "px";
+      tooltip.style.top = Math.max(padding, Math.round(y)) + "px";
     }
 
     function selectSegment(segment) {
+      tooltip.hidden = true;
       if (!segment.detailUrl) {
         return;
       }
@@ -596,13 +1007,12 @@
         path.classList.add("is-clickable");
       }
 
-      var title = document.createElementNS("http://www.w3.org/2000/svg", "title");
-      title.textContent = segment.label + " - " + formatNumber(segment.value) + " (" + formatPercent(segment.value, total) + ")";
-      path.appendChild(title);
+      var tooltipLabel = segment.label + " - " + formatNumber(segment.value) + " (" + formatPercent(segment.value, total) + ")";
+      path.setAttribute("aria-label", tooltipLabel);
 
       path.addEventListener("mouseenter", function (event) {
         setCenter(segment.label, segment.value);
-        tooltip.textContent = title.textContent;
+        tooltip.textContent = tooltipLabel;
         tooltip.hidden = false;
         positionTooltip(event);
       });
@@ -631,7 +1041,6 @@
 
     chart.appendChild(svg);
     chart.appendChild(center);
-    chart.appendChild(tooltip);
 
     var sidePanel = document.createElement("div");
     sidePanel.className = "population-country-panel";
@@ -899,6 +1308,58 @@
     });
   }
 
+  function chartItemRawValue(item) {
+    if (!item) {
+      return 0;
+    }
+    var value = item.value;
+    if (value === undefined) {
+      value = item.population;
+    }
+    if (value === undefined) {
+      value = item.total;
+    }
+    if (value === undefined) {
+      value = item.area_km2 || item.area;
+    }
+    return Number(value || 0);
+  }
+
+  function withSharedCountryColorsAndOther(payload, colors, otherLabel) {
+    if (!payload || !payload.items) {
+      return payload;
+    }
+    var otherValue = 0;
+    var visibleItems = [];
+    payload.items.forEach(function (item) {
+      var key = keyForChartItem(item);
+      var value = chartItemRawValue(item);
+      if (colors[key]) {
+        visibleItems.push(Object.assign({}, item, {
+          color: colors[key]
+        }));
+      } else {
+        otherValue += value;
+      }
+    });
+    if (otherValue > 0) {
+      visibleItems.push({
+        key: "other",
+        code: "other",
+        label: otherLabel || "Otros paises",
+        value: otherValue,
+        color: "#94a3b8",
+        detailUrl: ""
+      });
+    }
+    return Object.assign({}, payload, {
+      total: visibleItems.reduce(function (total, item) {
+        return total + chartItemRawValue(item);
+      }, 0),
+      items: visibleItems
+    });
+  }
+
   function itemMapByKey(items) {
     var map = {};
     (items || []).forEach(function (item) {
@@ -932,13 +1393,10 @@
         detailUrl: population.detailUrl || area.detailUrl || "",
         population: Number(population.value || 0),
         area: Number(area.value || 0),
-        populationColor: sharedColors[key] || "",
-        areaColor: sharedColors[key] || ""
+        population_percent: populationTotal ? Number(population.value || 0) / populationTotal * 100 : 0,
+        area_percent: areaTotal ? Number(area.value || 0) / areaTotal * 100 : 0,
+        color: sharedColors[key] || ""
       });
-    });
-
-    rows.sort(function (left, right) {
-      return right.population - left.population || String(left.label).localeCompare(String(right.label));
     });
 
     var panel = document.createElement("div");
@@ -959,9 +1417,28 @@
     table.className = "compact-table dashboard-combined-table";
     var thead = document.createElement("thead");
     var header = document.createElement("tr");
-    ["", "", container.dataset.countryLabel || "Pais", container.dataset.populationLabel || "Poblacion", "%", container.dataset.areaLabel || "Terreno", "%"].forEach(function (label) {
+    var columns = [
+      ["color", ""],
+      ["label", container.dataset.countryLabel || "Pais"],
+      ["population", container.dataset.populationLabel || "Poblacion"],
+      ["population_percent", "%"],
+      ["area", container.dataset.areaLabel || "Terreno"],
+      ["area_percent", "%"]
+    ];
+    columns.forEach(function (column) {
       var th = document.createElement("th");
-      th.textContent = label;
+      if (column[0] === "color") {
+        th.className = "color-column";
+        th.setAttribute("aria-label", container.dataset.colorLabel || "Color");
+        header.appendChild(th);
+        return;
+      }
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "table-sort-button";
+      button.dataset.sort = column[0];
+      button.textContent = column[1];
+      th.appendChild(button);
       header.appendChild(th);
     });
     thead.appendChild(header);
@@ -971,9 +1448,34 @@
     wrap.appendChild(table);
     panel.appendChild(wrap);
 
-    var rowEntries = [];
-    rows.forEach(function (entry) {
-      var row = document.createElement("tr");
+    var sortKey = "population";
+    var sortDirection = -1;
+
+    function combinedComparable(row, key) {
+      var value = row[key];
+      if (value === null || value === undefined) {
+        return "";
+      }
+      return typeof value === "number" ? value : String(value).toLowerCase();
+    }
+
+    function updateCombinedSortButtons() {
+      table.querySelectorAll("[data-sort]").forEach(function (button) {
+        var active = button.dataset.sort === sortKey;
+        var column = columns.filter(function (item) {
+          return item[0] === button.dataset.sort;
+        })[0];
+        button.classList.toggle("is-sorted", active);
+        button.classList.toggle("is-desc", active && sortDirection < 0);
+        button.classList.toggle("is-asc", active && sortDirection > 0);
+        button.textContent = column ? column[1] : button.dataset.sort;
+        if (active) {
+          button.textContent += sortDirection > 0 ? " \u2191" : " \u2193";
+        }
+      });
+    }
+
+    function attachCountryRowEvents(row, entry) {
       if (entry.detailUrl) {
         row.className = "is-clickable";
         row.tabIndex = 0;
@@ -993,45 +1495,82 @@
           }
         });
       }
-      [
-        { color: entry.populationColor, title: container.dataset.populationLabel || "Poblacion" },
-        { color: entry.areaColor, title: container.dataset.areaLabel || "Terreno" }
-      ].forEach(function (markerData) {
+    }
+
+    function drawCombinedRows() {
+      var query = searchInput.value.trim().toLowerCase();
+      var visibleRows = rows.filter(function (entry) {
+        return !query || [entry.label, entry.code].join(" ").toLowerCase().indexOf(query) !== -1;
+      }).sort(function (left, right) {
+        var a = combinedComparable(left, sortKey);
+        var b = combinedComparable(right, sortKey);
+        if (a < b) {
+          return -1 * sortDirection;
+        }
+        if (a > b) {
+          return 1 * sortDirection;
+        }
+        return String(left.label).localeCompare(String(right.label));
+      });
+
+      tbody.innerHTML = "";
+      if (!visibleRows.length) {
+        var emptyRow = document.createElement("tr");
         var td = document.createElement("td");
-        if (markerData.color) {
+        td.colSpan = columns.length;
+        td.textContent = container.dataset.emptyLabel || "";
+        emptyRow.appendChild(td);
+        tbody.appendChild(emptyRow);
+        updateCombinedSortButtons();
+        return;
+      }
+
+      visibleRows.forEach(function (entry) {
+        var row = document.createElement("tr");
+        attachCountryRowEvents(row, entry);
+        var colorCell = document.createElement("td");
+        if (entry.color) {
           var marker = document.createElement("span");
           marker.className = "table-color-dot";
-          marker.title = markerData.title;
-          marker.style.background = markerData.color;
-          td.appendChild(marker);
+          marker.title = container.dataset.countryLabel || "Pais";
+          marker.style.background = entry.color;
+          colorCell.appendChild(marker);
         }
-        row.appendChild(td);
+        row.appendChild(colorCell);
+        [
+          entry.label,
+          formattedNumberOrDash(entry.population),
+          formatPercent(entry.population, populationTotal),
+          formattedNumberOrDash(entry.area),
+          formatPercent(entry.area, areaTotal)
+        ].forEach(function (value) {
+          var td = document.createElement("td");
+          td.textContent = value;
+          row.appendChild(td);
+        });
+        tbody.appendChild(row);
       });
-      [
-        entry.label,
-        formattedNumberOrDash(entry.population),
-        formatPercent(entry.population, populationTotal),
-        formattedNumberOrDash(entry.area),
-        formatPercent(entry.area, areaTotal)
-      ].forEach(function (value) {
-        var td = document.createElement("td");
-        td.textContent = value;
-        row.appendChild(td);
-      });
-      tbody.appendChild(row);
-      rowEntries.push({
-        row: row,
-        text: [entry.label, entry.code].join(" ").toLowerCase()
+      updateCombinedSortButtons();
+    }
+
+    table.querySelectorAll("[data-sort]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var nextKey = button.dataset.sort;
+        if (sortKey === nextKey) {
+          sortDirection *= -1;
+        } else {
+          sortKey = nextKey;
+          sortDirection = 1;
+        }
+        drawCombinedRows();
       });
     });
 
     searchInput.addEventListener("input", function () {
-      var query = searchInput.value.trim().toLowerCase();
-      rowEntries.forEach(function (entry) {
-        entry.row.hidden = Boolean(query && entry.text.indexOf(query) === -1);
-      });
+      drawCombinedRows();
     });
 
+    drawCombinedRows();
     container.appendChild(panel);
   }
 
@@ -1048,8 +1587,8 @@
     var areaItems = normalizeChartItems(charts.area || { items: [] });
     var sharedColors = sharedTopColorMap([populationItems, areaItems], 10);
     var entries = [
-      [container.dataset.populationLabel || "Poblacion", withSharedCountryColors(charts.population, sharedColors)],
-      [container.dataset.areaLabel || "Terreno", withSharedCountryColors(charts.area, sharedColors)]
+      [container.dataset.populationLabel || "Poblacion", withSharedCountryColorsAndOther(charts.population, sharedColors, container.dataset.otherLabel || "")],
+      [container.dataset.areaLabel || "Terreno", withSharedCountryColorsAndOther(charts.area, sharedColors, container.dataset.otherLabel || "")]
     ];
     entries.forEach(function (entry) {
       var panel = document.createElement("div");
@@ -1059,7 +1598,7 @@
       var chart = document.createElement("div");
       chart.dataset.chartType = "donut";
       chart.dataset.otherLabel = container.dataset.otherLabel || "";
-      chart.dataset.maxSegments = container.dataset.maxSegments || "";
+      chart.dataset.maxSegments = "";
       chart.dataset.colorLimit = "10";
       chart.dataset.centerLabel = entry[0];
       chart.dataset.hideList = "true";
@@ -1104,7 +1643,7 @@
         }
       })
       .catch(function () {
-        setError(container, container.dataset.error || "No se pudo cargar la grafica.");
+          setError(container, container.dataset.error || "No se pudieron cargar los paises.");
       });
   }
 
@@ -1216,7 +1755,7 @@
     (data.levels || []).forEach(function (level) {
       var option = document.createElement("option");
       option.value = level.value;
-      option.textContent = level.label + (level.entity_type ? " · " + level.entity_type : "");
+      option.textContent = level.label + (level.entity_type ? " \u00b7 " + level.entity_type : "");
       option.selected = String(level.value) === String(data.selected_level);
       levelSelect.appendChild(option);
     });
@@ -1257,11 +1796,11 @@
     var columns = [
       ["name", labels.nameLabel],
       ["entity_type", labels.entityTypeLabel],
-      ["area_km2", labels.areaLabel],
-      ["area_percent", "%"],
-      ["population", labels.populationLabel],
-      ["population_percent", "%"],
-      ["density", labels.densityLabel],
+      ["population", "POB"],
+      ["population_percent", "% POB"],
+      ["area_km2", "KM2"],
+      ["area_percent", "% KM2"],
+      ["density", "DENS"],
       ["parent", labels.parentLabel]
     ];
     columns.forEach(function (column) {
@@ -1374,10 +1913,10 @@
         [
           row.name,
           row.entity_type || "-",
-          formattedNumberOrDash(row.area_km2),
-          formatPercentNumber(row.area_percent),
           formattedNumberOrDash(row.population),
           formatPercentNumber(row.population_percent),
+          formattedNumberOrDash(row.area_km2),
+          formatPercentNumber(row.area_percent),
           formattedNumberOrDash(row.density),
           row.parent || "-"
         ].forEach(function (value) {
@@ -1491,23 +2030,34 @@
       charts.appendChild(chart);
     });
     parent.appendChild(charts);
+    return charts;
   }
 
   function appendShareSummaryTable(parent, rows, labels, extraWrapClass) {
+    var compact = Boolean(extraWrapClass && extraWrapClass.indexOf("subdivision-share-wrap") !== -1);
+    var searchLabel = document.createElement("label");
+    searchLabel.className = "chart-list-search table-search-control";
+    searchLabel.textContent = labels.filterLabel || "Filtrar";
+    var searchInput = document.createElement("input");
+    searchInput.type = "search";
+    searchInput.placeholder = labels.filterPlaceholder || "Filtrar por nombre o tipo";
+    searchLabel.appendChild(searchInput);
+    parent.appendChild(searchLabel);
+
     var wrap = document.createElement("div");
     wrap.className = "table-wrap subtle first-order-summary-wrap" + (extraWrapClass ? " " + extraWrapClass : "");
     var table = document.createElement("table");
     table.className = "compact-table first-order-summary-table";
     var thead = document.createElement("thead");
     var header = document.createElement("tr");
-    var compact = Boolean(extraWrapClass && extraWrapClass.indexOf("subdivision-share-wrap") !== -1);
     var columns = [
       ["color", ""],
       ["name", labels.nameLabel],
-      ["population", compact ? "Pob." : labels.populationLabel],
-      ["population_percent", "%"],
-      ["area_km2", compact ? "Km2" : labels.areaLabel],
-      ["area_percent", "%"]
+      ["entity_type", labels.entityTypeLabel],
+      ["population", compact ? "POB" : labels.populationLabel],
+      ["population_percent", "% POB"],
+      ["area_km2", compact ? "KM2" : labels.areaLabel],
+      ["area_percent", "% KM2"]
     ];
     columns.forEach(function (column) {
       var th = document.createElement("th");
@@ -1529,6 +2079,7 @@
     table.appendChild(thead);
 
     var tbody = document.createElement("tbody");
+    table.appendChild(tbody);
     var dataRows = (rows || []).slice();
     var sortKey = "name";
     var sortDirection = 1;
@@ -1539,6 +2090,12 @@
         return "";
       }
       return typeof value === "number" ? value : String(value).toLowerCase();
+    }
+
+    function shareSearchText(row) {
+      return [row.name, row.entity_type, row.population, row.population_percent, row.area_km2, row.area_percent]
+        .map(function (value) { return String(value || "").toLowerCase(); })
+        .join(" ");
     }
 
     function updateShareSortButtons() {
@@ -1558,7 +2115,10 @@
     }
 
     function drawShareRows() {
-      var sortedRows = dataRows.slice().sort(function (left, right) {
+      var query = searchInput.value.trim().toLowerCase();
+      var sortedRows = dataRows.filter(function (row) {
+        return !query || shareSearchText(row).indexOf(query) !== -1;
+      }).sort(function (left, right) {
         var a = shareComparable(left, sortKey);
         var b = shareComparable(right, sortKey);
         if (a < b) {
@@ -1567,9 +2127,20 @@
         if (a > b) {
           return 1 * sortDirection;
         }
-        return 0;
+        return String(left.name || "").localeCompare(String(right.name || ""));
       });
       tbody.innerHTML = "";
+      if (!sortedRows.length) {
+        var emptyRow = document.createElement("tr");
+        var emptyCell = document.createElement("td");
+        emptyCell.colSpan = columns.length;
+        emptyCell.className = "muted table-empty-cell";
+        emptyCell.textContent = labels.noData;
+        emptyRow.appendChild(emptyCell);
+        tbody.appendChild(emptyRow);
+        updateShareSortButtons();
+        return;
+      }
       sortedRows.forEach(function (rowData) {
         var row = document.createElement("tr");
         var colorCell = document.createElement("td");
@@ -1580,6 +2151,7 @@
         row.appendChild(colorCell);
         [
           rowData.name,
+          rowData.entity_type || "-",
           formattedNumberOrDash(rowData.population),
           formatPercentNumber(rowData.population_percent),
           formattedNumberOrDash(rowData.area_km2),
@@ -1587,6 +2159,7 @@
         ].forEach(function (value) {
           var td = document.createElement("td");
           td.textContent = value;
+          td.title = value;
           row.appendChild(td);
         });
         tbody.appendChild(row);
@@ -1607,8 +2180,11 @@
       });
     });
 
+    searchInput.addEventListener("input", function () {
+      drawShareRows();
+    });
+
     drawShareRows();
-    table.appendChild(tbody);
     wrap.appendChild(table);
     parent.appendChild(wrap);
   }
@@ -1633,8 +2209,8 @@
     layout.className = "first-order-visual-layout first-order-visual-layout-stacked";
     var charts = document.createElement("div");
     charts.className = "first-order-chart-stack";
-    var legendPanel = document.createElement("div");
-    legendPanel.className = "population-country-panel first-order-color-panel";
+    var tablePanel = document.createElement("div");
+    tablePanel.className = "population-country-panel first-order-color-panel";
     var searchLabel = document.createElement("label");
     searchLabel.className = "chart-list-search";
     searchLabel.textContent = labels.filterLabel;
@@ -1642,62 +2218,151 @@
     searchInput.type = "search";
     searchInput.placeholder = labels.filterPlaceholder;
     searchLabel.appendChild(searchInput);
-    legendPanel.appendChild(searchLabel);
-    var legend = document.createElement("div");
-    legend.className = "population-country-list first-order-color-legend";
-    var legendHeader = document.createElement("div");
-    legendHeader.className = "population-country-row first-order-legend-row first-order-legend-heading";
-    ["", labels.nameLabel, labels.populationLabel, "%", labels.areaLabel, "%"].forEach(function (value) {
-      var cell = document.createElement("span");
-      cell.textContent = value;
-      legendHeader.appendChild(cell);
+    tablePanel.appendChild(searchLabel);
+
+    var tableWrap = document.createElement("div");
+    tableWrap.className = "table-wrap subtle first-order-color-legend-wrap";
+    var table = document.createElement("table");
+    table.className = "compact-table first-order-legend-table";
+    var thead = document.createElement("thead");
+    var header = document.createElement("tr");
+    var columns = [
+      ["color", ""],
+      ["name", labels.nameLabel],
+      ["entity_type", labels.entityTypeLabel],
+      ["population", "POB"],
+      ["population_percent", "% POB"],
+      ["area_km2", "KM2"],
+      ["area_percent", "% KM2"]
+    ];
+    columns.forEach(function (column) {
+      var th = document.createElement("th");
+      if (column[0] === "color") {
+        th.className = "color-column";
+        th.setAttribute("aria-label", labels.colorLabel || "Color");
+        header.appendChild(th);
+        return;
+      }
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "table-sort-button";
+      button.dataset.sort = column[0];
+      button.textContent = column[1];
+      th.appendChild(button);
+      header.appendChild(th);
     });
-    legend.appendChild(legendHeader);
-    var legendRows = [];
-    cards.forEach(function (card) {
-      var row = document.createElement("div");
-      row.className = "population-country-row first-order-legend-row";
-      var marker = document.createElement("span");
-      marker.className = "population-country-marker";
-      marker.style.background = card.color;
-      var name = document.createElement("span");
-      name.className = "population-country-name";
-      name.textContent = card.name;
-      var value = document.createElement("strong");
-      value.textContent = formatNumber(card.population || 0);
-      var percent = document.createElement("span");
-      percent.className = "population-country-percent";
-      percent.textContent = formatPercentNumber(card.population_percent);
-      var area = document.createElement("strong");
-      area.textContent = formattedNumberOrDash(card.area_km2);
-      var areaPercent = document.createElement("span");
-      areaPercent.className = "population-country-percent";
-      areaPercent.textContent = formatPercentNumber(card.area_percent);
-      row.appendChild(marker);
-      row.appendChild(name);
-      row.appendChild(value);
-      row.appendChild(percent);
-      row.appendChild(area);
-      row.appendChild(areaPercent);
-      legend.appendChild(row);
-      legendRows.push({
-        row: row,
-        text: [card.name, card.entity_type].join(" ").toLowerCase()
+    thead.appendChild(header);
+    table.appendChild(thead);
+    var tbody = document.createElement("tbody");
+    table.appendChild(tbody);
+    tableWrap.appendChild(table);
+    tablePanel.appendChild(tableWrap);
+
+    var dataRows = cards.slice();
+    var sortKey = "name";
+    var sortDirection = 1;
+
+    function firstOrderComparable(row, key) {
+      var value = row[key];
+      if (value === null || value === undefined) {
+        return "";
+      }
+      return typeof value === "number" ? value : String(value).toLowerCase();
+    }
+
+    function updateFirstOrderSortButtons() {
+      table.querySelectorAll("[data-sort]").forEach(function (button) {
+        var active = button.dataset.sort === sortKey;
+        var column = columns.filter(function (item) {
+          return item[0] === button.dataset.sort;
+        })[0];
+        button.classList.toggle("is-sorted", active);
+        button.classList.toggle("is-desc", active && sortDirection < 0);
+        button.classList.toggle("is-asc", active && sortDirection > 0);
+        button.textContent = column ? column[1] : button.dataset.sort;
+        if (active) {
+          button.textContent += sortDirection > 0 ? " \u2191" : " \u2193";
+        }
       });
-    });
-    searchInput.addEventListener("input", function () {
+    }
+
+    function drawFirstOrderRows() {
       var query = searchInput.value.trim().toLowerCase();
-      legendRows.forEach(function (entry) {
-        entry.row.hidden = Boolean(query && entry.text.indexOf(query) === -1);
+      var visibleRows = dataRows.filter(function (card) {
+        return !query || [card.name, card.entity_type].join(" ").toLowerCase().indexOf(query) !== -1;
+      }).sort(function (left, right) {
+        var a = firstOrderComparable(left, sortKey);
+        var b = firstOrderComparable(right, sortKey);
+        if (a < b) {
+          return -1 * sortDirection;
+        }
+        if (a > b) {
+          return 1 * sortDirection;
+        }
+        return String(left.name).localeCompare(String(right.name));
+      });
+
+      tbody.innerHTML = "";
+      if (!visibleRows.length) {
+        var emptyRow = document.createElement("tr");
+        var emptyCell = document.createElement("td");
+        emptyCell.colSpan = columns.length;
+        emptyCell.textContent = labels.noData;
+        emptyRow.appendChild(emptyCell);
+        tbody.appendChild(emptyRow);
+        updateFirstOrderSortButtons();
+        return;
+      }
+
+      visibleRows.forEach(function (card) {
+        var row = document.createElement("tr");
+        var colorCell = document.createElement("td");
+        var marker = document.createElement("span");
+        marker.className = "table-color-dot";
+        marker.style.background = card.color || "#94a3b8";
+        colorCell.appendChild(marker);
+        row.appendChild(colorCell);
+        [
+          card.name,
+          card.entity_type || "-",
+          formattedNumberOrDash(card.population),
+          formatPercentNumber(card.population_percent),
+          formattedNumberOrDash(card.area_km2),
+          formatPercentNumber(card.area_percent)
+        ].forEach(function (value) {
+          var td = document.createElement("td");
+          td.textContent = value;
+          row.appendChild(td);
+        });
+        tbody.appendChild(row);
+      });
+      updateFirstOrderSortButtons();
+    }
+
+    table.querySelectorAll("[data-sort]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var nextKey = button.dataset.sort;
+        if (sortKey === nextKey) {
+          sortDirection *= -1;
+        } else {
+          sortKey = nextKey;
+          sortDirection = 1;
+        }
+        drawFirstOrderRows();
       });
     });
-    legendPanel.appendChild(legend);
+
+    searchInput.addEventListener("input", function () {
+      drawFirstOrderRows();
+    });
+
     renderShareChartPair(charts, [
       [labels.populationLabel, withChartColors(data.first_order && data.first_order.population_chart, colors)],
       [labels.areaLabel, withChartColors(data.first_order && data.first_order.area_chart, colors)]
     ], "country-first-order-charts");
     layout.appendChild(charts);
-    layout.appendChild(legendPanel);
+    layout.appendChild(tablePanel);
+    drawFirstOrderRows();
     panel.appendChild(layout);
   }
 
@@ -1723,7 +2388,7 @@
     pie.className = "mini-share-pie";
     pie.style.background = "conic-gradient(var(--accent) 0 " + percent + "%, var(--chart-empty) " + percent + "% 100%)";
     var text = document.createElement("span");
-    text.textContent = label + " · " + percent.toFixed(2) + "%";
+    text.textContent = label + " \u00b7 " + percent.toFixed(2) + "%";
     item.appendChild(pie);
     item.appendChild(text);
     return item;
@@ -1789,6 +2454,7 @@
       tableTitle: detailLabel(target, "tableTitle", "Tabla de datos"),
       chartTitle: detailLabel(target, "chartTitle", "Subdivisiones de primer orden"),
       cardsTitle: detailLabel(target, "cardsTitle", "Porcentaje por subdivision de primer orden"),
+      childrenTitle: detailLabel(target, "childrenTitle", "Subdivisiones directas"),
       levelLabel: detailLabel(target, "levelLabel", "Nivel"),
       filterLabel: detailLabel(target, "filterLabel", "Filtrar"),
       filterPlaceholder: detailLabel(target, "filterPlaceholder", "Filtrar por nombre o padre"),
@@ -1806,10 +2472,11 @@
       subdivisionCountLabel: detailLabel(target, "subdivisionCountLabel", "Numero de subdivisiones"),
       flagLabel: detailLabel(target, "flagLabel", "Bandera"),
       coatLabel: detailLabel(target, "coatLabel", "Escudo"),
+      openLabel: detailLabel(target, "openLabel", "Ver datos"),
       previousLabel: detailLabel(target, "previousLabel", "Anterior"),
       nextLabel: detailLabel(target, "nextLabel", "Siguiente"),
       sortedByLabel: detailLabel(target, "sortedByLabel", "Ordenado por"),
-      noData: detailLabel(target, "noData", "Sin datos.")
+      noData: detailLabel(target, "noData", detailLabel(target, "empty", ""))
     };
   }
 
@@ -1979,23 +2646,37 @@
     }
     var languages = wikidataLanguages();
     for (var index = 0; index < ids.length; index += 50) {
-      fetchWikidataEntities(ids.slice(index, index + 50), "claims", languages)
-        .then(function (entities) {
-          Object.keys(entities).forEach(function (id) {
-            var slot = cardsById[id];
-            var filename = flagFilenameFromEntity(entities[id]);
-            if (!slot || !filename) {
-              return;
-            }
-            slot.innerHTML = "";
-            var image = document.createElement("img");
-            image.alt = "";
-            image.loading = "lazy";
-            image.src = commonsFileUrl(filename, 180);
-            slot.appendChild(image);
+      (function (batchIds) {
+        fetchWikidataEntities(batchIds, "claims", languages)
+          .then(function (entities) {
+            batchIds.forEach(function (id) {
+              var slot = cardsById[id];
+              var filename = flagFilenameFromEntity(entities[id]);
+              if (!slot) {
+                return;
+              }
+              slot.innerHTML = "";
+              if (!filename) {
+                slot.textContent = "\u2691";
+                return;
+              }
+              var image = document.createElement("img");
+              image.alt = "";
+              image.loading = "lazy";
+              image.src = commonsFileUrl(filename, 180);
+              slot.appendChild(image);
+            });
+          })
+          .catch(function () {
+            batchIds.forEach(function (id) {
+              var slot = cardsById[id];
+              if (slot) {
+                slot.innerHTML = "";
+                slot.textContent = "\u2691";
+              }
+            });
           });
-        })
-        .catch(function () {});
+      })(ids.slice(index, index + 50));
     }
   }
 
@@ -2017,7 +2698,14 @@
       var flag = document.createElement("span");
       flag.className = "stats-country-flag";
       flag.dataset.statsCountryFlag = country.wikidata_id || "";
-      flag.textContent = "⚑";
+      if (country.wikidata_id) {
+        var flagSpinner = document.createElement("span");
+        flagSpinner.className = "loading-spinner";
+        flagSpinner.setAttribute("aria-hidden", "true");
+        flag.appendChild(flagSpinner);
+      } else {
+        flag.textContent = "\u2691";
+      }
       var name = document.createElement("strong");
       name.textContent = country.label || country.code;
       var metrics = document.createElement("span");
@@ -2043,17 +2731,457 @@
     hydrateStatsCountryFlags(container, countries);
   }
 
+  function statsChildRowsFromCountry(data) {
+    return ((data.first_order && data.first_order.cards) || []).map(function (row) {
+      return {
+        id: row.id,
+        name: row.name,
+        entity_type: row.entity_type,
+        population: row.population,
+        population_percent: row.population_percent,
+        area_km2: row.area_km2,
+        area_percent: row.area_percent,
+        density: row.density,
+        child_count: row.child_count,
+        detail_url: row.detail_url
+      };
+    });
+  }
+
+  function normalizedEntityType(value) {
+    var text = String(value || "").trim();
+    if (text.normalize) {
+      text = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    }
+    return text.toLowerCase();
+  }
+
+  function pluralizeEntityType(value) {
+    var clean = String(value || "").trim();
+    if (!clean) {
+      return "";
+    }
+    var key = normalizedEntityType(clean);
+    var language = (document.documentElement.lang || "es").toLowerCase();
+    var spanishOverrides = {
+      "autonomous community": "Comunidades aut\u00f3nomas",
+      "comunidad autonoma": "Comunidades aut\u00f3nomas",
+      "province": "Provincias",
+      "provincia": "Provincias",
+      "municipality": "Municipios",
+      "municipio": "Municipios",
+      "county": "Condados",
+      "region": "Regiones",
+      "region administrativa": "Regiones administrativas",
+      "department": "Departamentos",
+      "departamento": "Departamentos",
+      "district": "Distritos",
+      "distrito": "Distritos",
+      "commune": "Comunas",
+      "comuna": "Comunas",
+      "state": "Estados",
+      "estado": "Estados",
+      "governorate": "Gobernaciones",
+      "parish": "Parroquias",
+      "pais": "Pa\u00edses"
+    };
+    var englishOverrides = {
+      "autonomous community": "Autonomous Communities",
+      "province": "Provinces",
+      "municipality": "Municipalities",
+      "county": "Counties",
+      "region": "Regions",
+      "department": "Departments",
+      "district": "Districts",
+      "commune": "Communes",
+      "state": "States",
+      "governorate": "Governorates",
+      "parish": "Parishes",
+      "country": "Countries"
+    };
+    if (language.indexOf("es") === 0 && spanishOverrides[key]) {
+      return spanishOverrides[key];
+    }
+    if (language.indexOf("en") === 0 && englishOverrides[key]) {
+      return englishOverrides[key];
+    }
+    if (/s$/i.test(clean) && key !== "pais") {
+      return clean;
+    }
+    if (/z$/i.test(clean)) {
+      return clean.slice(0, -1) + "ces";
+    }
+    if (/i\u00f3n$/i.test(clean)) {
+      return clean.slice(0, -3) + "iones";
+    }
+    if (/^[A-Za-z][A-Za-z\s-]*$/.test(clean)) {
+      if (/[^aeiou]y$/i.test(clean)) {
+        return clean.slice(0, -1) + "ies";
+      }
+      if (/(s|x|ch|sh)$/i.test(clean)) {
+        return clean + "es";
+      }
+      return clean + "s";
+    }
+    if (/[aeiou\u00e1\u00e9\u00f3]$/i.test(clean)) {
+      return clean + "s";
+    }
+    return clean + "es";
+  }
+
+  function statsChildrenTitle(rows, fallback) {
+    var counts = {};
+    (rows || []).forEach(function (row) {
+      var type = String(row.entity_type || "").trim();
+      if (type) {
+        counts[type] = (counts[type] || 0) + 1;
+      }
+    });
+    var types = Object.keys(counts).sort(function (left, right) {
+      if (counts[left] !== counts[right]) {
+        return counts[right] - counts[left];
+      }
+      return left.localeCompare(right);
+    });
+    if (!types.length) {
+      return fallback;
+    }
+    return types.map(pluralizeEntityType).join(" y ");
+  }
+
+  function chartPayloadFromStatsRows(rows, valueKey) {
+    return {
+      type: "donut",
+      items: (rows || []).map(function (row, index) {
+        return {
+          key: row.id || (row.name || "row") + "-" + index,
+          label: row.name || "",
+          value: Number(row[valueKey] || 0),
+          color: row.color,
+          detailUrl: row.detail_url || ""
+        };
+      }).filter(function (item) {
+        return Number.isFinite(item.value) && item.value > 0;
+      })
+    };
+  }
+
+  function hasPositiveStatsValue(rows, valueKey) {
+    return (rows || []).some(function (row) {
+      var value = Number(row[valueKey] || 0);
+      return Number.isFinite(value) && value > 0;
+    });
+  }
+
+  function renderStatsChildrenCharts(panel, rows, labels, openHandler) {
+    var entries = [];
+    if (hasPositiveStatsValue(rows, "population")) {
+      entries.push([labels.populationLabel, chartPayloadFromStatsRows(rows, "population")]);
+    }
+    if (hasPositiveStatsValue(rows, "area_km2")) {
+      entries.push([labels.areaLabel, chartPayloadFromStatsRows(rows, "area_km2")]);
+    }
+    if (!entries.length) {
+      return;
+    }
+    var charts = renderShareChartPair(
+      panel,
+      entries,
+      "country-first-order-charts stats-children-charts" + (entries.length === 1 ? " stats-children-charts-one" : "")
+    );
+    charts.addEventListener("ciudades:chart-item-click", function (event) {
+      if (!event.detail || !event.detail.url || !openHandler) {
+        return;
+      }
+      event.stopPropagation();
+      openHandler({ detail_url: event.detail.url });
+    });
+  }
+
+  function renderStatsChildrenPanel(panel, title, rows, labels, openHandler) {
+    var preparedRows = assignRowColors((rows || []).slice());
+    panel.innerHTML = "";
+
+    if (!preparedRows.length) {
+      panel.classList.add("stats-empty-only-panel");
+      var empty = document.createElement("p");
+      empty.className = "empty stats-empty-state";
+      empty.textContent = labels.noData;
+      panel.appendChild(empty);
+      return;
+    }
+
+    panel.classList.remove("stats-empty-only-panel");
+    var heading = document.createElement("h2");
+    heading.textContent = title || statsChildrenTitle(preparedRows, labels.childrenTitle);
+    panel.appendChild(heading);
+
+    renderStatsChildrenCharts(panel, preparedRows, labels, openHandler);
+
+    var searchLabel = document.createElement("label");
+    searchLabel.className = "chart-list-search table-search-control";
+    searchLabel.textContent = labels.filterLabel || "Filtrar";
+    var searchInput = document.createElement("input");
+    searchInput.type = "search";
+    searchInput.placeholder = labels.filterPlaceholder || "Filtrar por nombre o tipo";
+    searchLabel.appendChild(searchInput);
+    panel.appendChild(searchLabel);
+
+    var wrap = document.createElement("div");
+    wrap.className = "table-wrap subtle stats-children-wrap";
+    var table = document.createElement("table");
+    table.className = "compact-table stats-children-table";
+    var thead = document.createElement("thead");
+    var header = document.createElement("tr");
+    var columns = [
+      ["color", ""],
+      ["name", labels.nameLabel],
+      ["entity_type", labels.entityTypeLabel],
+      ["population", "POB"],
+      ["population_percent", "% POB"],
+      ["area_km2", "KM2"],
+      ["area_percent", "% KM2"],
+      ["density", "DENS"],
+      ["child_count", "Subd."]
+    ];
+    columns.forEach(function (column) {
+      var th = document.createElement("th");
+      if (column[0] === "color") {
+        th.className = "color-column";
+        th.setAttribute("aria-label", labels.colorLabel || "Color");
+        header.appendChild(th);
+        return;
+      }
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "table-sort-button";
+      button.dataset.sort = column[0];
+      button.textContent = column[1];
+      th.appendChild(button);
+      header.appendChild(th);
+    });
+    thead.appendChild(header);
+    table.appendChild(thead);
+
+    var tbody = document.createElement("tbody");
+    table.appendChild(tbody);
+    var sortKey = "name";
+    var sortDirection = 1;
+
+    function statsComparable(row, key) {
+      var value = row[key];
+      if (value === null || value === undefined) {
+        return "";
+      }
+      return typeof value === "number" ? value : String(value).toLowerCase();
+    }
+
+    function statsSearchText(row) {
+      return [row.name, row.entity_type, row.population, row.population_percent, row.area_km2, row.area_percent, row.density, row.child_count]
+        .map(function (value) { return String(value || "").toLowerCase(); })
+        .join(" ");
+    }
+
+    function updateStatsSortButtons() {
+      table.querySelectorAll("[data-sort]").forEach(function (button) {
+        var active = button.dataset.sort === sortKey;
+        var column = columns.filter(function (item) {
+          return item[0] === button.dataset.sort;
+        })[0];
+        button.classList.toggle("is-sorted", active);
+        button.classList.toggle("is-desc", active && sortDirection < 0);
+        button.classList.toggle("is-asc", active && sortDirection > 0);
+        button.textContent = column ? column[1] : button.dataset.sort;
+        if (active) {
+          button.textContent += sortDirection > 0 ? " \u2191" : " \u2193";
+        }
+      });
+    }
+
+    function drawStatsRows() {
+      var query = searchInput.value.trim().toLowerCase();
+      var visibleRows = preparedRows.filter(function (row) {
+        return !query || statsSearchText(row).indexOf(query) !== -1;
+      }).sort(function (left, right) {
+        var a = statsComparable(left, sortKey);
+        var b = statsComparable(right, sortKey);
+        if (a < b) {
+          return -1 * sortDirection;
+        }
+        if (a > b) {
+          return 1 * sortDirection;
+        }
+        return String(left.name || "").localeCompare(String(right.name || ""));
+      });
+
+      tbody.innerHTML = "";
+      if (!visibleRows.length) {
+        var emptyRow = document.createElement("tr");
+        var emptyCell = document.createElement("td");
+        emptyCell.colSpan = columns.length;
+        emptyCell.className = "muted table-empty-cell";
+        emptyCell.textContent = labels.noData;
+        emptyRow.appendChild(emptyCell);
+        tbody.appendChild(emptyRow);
+        updateStatsSortButtons();
+        return;
+      }
+
+      visibleRows.forEach(function (item) {
+        var row = document.createElement("tr");
+        if (item.detail_url && openHandler) {
+          row.classList.add("is-clickable");
+          row.tabIndex = 0;
+          row.addEventListener("click", function () {
+            openHandler(item);
+          });
+          row.addEventListener("keydown", function (event) {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              row.click();
+            }
+          });
+        }
+
+        var colorCell = document.createElement("td");
+        var marker = document.createElement("span");
+        marker.className = "table-color-dot";
+        marker.style.background = item.color || "#94a3b8";
+        colorCell.appendChild(marker);
+        row.appendChild(colorCell);
+
+        [
+          item.name || "-",
+          item.entity_type || "-",
+          formattedNumberOrDash(item.population),
+          formatPercentNumber(item.population_percent),
+          formattedNumberOrDash(item.area_km2),
+          formatPercentNumber(item.area_percent),
+          formattedNumberOrDash(item.density),
+          formattedNumberOrDash(item.child_count)
+        ].forEach(function (value, index) {
+          var td = document.createElement("td");
+          if (index === 0) {
+            td.className = "stats-child-name-cell";
+            var name = document.createElement("strong");
+            name.textContent = value;
+            td.appendChild(name);
+          } else {
+            td.textContent = value;
+          }
+          td.title = value;
+          row.appendChild(td);
+        });
+        tbody.appendChild(row);
+      });
+      updateStatsSortButtons();
+    }
+
+    table.querySelectorAll("[data-sort]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var nextKey = button.dataset.sort;
+        if (sortKey === nextKey) {
+          sortDirection *= -1;
+        } else {
+          sortKey = nextKey;
+          sortDirection = 1;
+        }
+        drawStatsRows();
+      });
+    });
+
+    searchInput.addEventListener("input", function () {
+      drawStatsRows();
+    });
+
+    drawStatsRows();
+    wrap.appendChild(table);
+    panel.appendChild(wrap);
+  }
+
+  function trimStatsAreaStack(stack, depth) {
+    Array.prototype.slice.call(stack.querySelectorAll("[data-stats-area-depth]")).forEach(function (panel) {
+      if (Number(panel.dataset.statsAreaDepth || 0) > depth) {
+        panel.remove();
+      }
+    });
+  }
+
+  function renderStatsAreaPanel(panel, payload, labels, stack, depth, source) {
+    var area = payload.area || {};
+    panel.innerHTML = "";
+    var grid = document.createElement("div");
+    grid.className = "stats-country-detail-grid stats-area-detail-grid";
+    var basicPanel = document.createElement("article");
+    basicPanel.className = "panel stats-area-basic-panel";
+    basicPanel.dataset.loading = source.dataset.loading || "";
+    var childrenPanel = document.createElement("article");
+    childrenPanel.className = "panel stats-country-first-level-panel";
+
+    renderCountryGeneralPanel(basicPanel, { country: area }, Object.assign({}, labels, {
+      generalTitle: area.name || labels.generalTitle
+    }));
+
+    renderStatsChildrenPanel(childrenPanel, null, payload.children || [], labels, function (item) {
+      loadStatsAreaDetail(stack, item.detail_url, labels, source, depth);
+    });
+    grid.appendChild(basicPanel);
+    grid.appendChild(childrenPanel);
+    panel.appendChild(grid);
+  }
+
+  function loadStatsAreaDetail(stack, url, labels, source, depth) {
+    if (!stack || !url) {
+      return;
+    }
+    trimStatsAreaStack(stack, depth);
+    var panel = document.createElement("div");
+    panel.className = "stats-area-panel";
+    panel.dataset.statsAreaDepth = String(depth + 1);
+    var loadingPanel = document.createElement("article");
+    loadingPanel.className = "panel";
+    setLoading(loadingPanel, source.dataset.loading || "Cargando pais...");
+    panel.appendChild(loadingPanel);
+    stack.appendChild(panel);
+    fetchJson(url)
+      .then(function (payload) {
+        renderStatsAreaPanel(panel, payload, labels, stack, depth + 1, source);
+        panel.scrollIntoView({ behavior: "smooth", block: "start" });
+      })
+      .catch(function () {
+        setError(loadingPanel, source.dataset.error || "No se pudo cargar el pais.");
+      });
+  }
+
   function loadStatsCountryDetail(target, url, source) {
     setLoading(target, target.dataset.loading || "Cargando pais...");
     target.hidden = false;
     fetchJson(url)
       .then(function (data) {
+        var labels = countryDetailLabels(source || target);
         target.innerHTML = "";
-        var panel = document.createElement("article");
-        panel.className = "panel stats-country-basic-panel";
-        panel.dataset.loading = target.dataset.loading || "";
-        renderCountryGeneralPanel(panel, data, countryDetailLabels(source || target));
-        target.appendChild(panel);
+        var grid = document.createElement("div");
+        grid.className = "stats-country-detail-grid";
+
+        var basicPanel = document.createElement("article");
+        basicPanel.className = "panel stats-country-basic-panel";
+        basicPanel.dataset.loading = target.dataset.loading || "";
+        renderCountryGeneralPanel(basicPanel, data, labels);
+
+        var firstLevelPanel = document.createElement("article");
+        firstLevelPanel.className = "panel stats-country-first-level-panel";
+
+        var stack = document.createElement("div");
+        stack.className = "stats-area-stack";
+
+        renderStatsChildrenPanel(firstLevelPanel, null, statsChildRowsFromCountry(data), labels, function (item) {
+          loadStatsAreaDetail(stack, item.detail_url, labels, target, 0);
+        });
+
+        grid.appendChild(basicPanel);
+        grid.appendChild(firstLevelPanel);
+        target.appendChild(grid);
+        target.appendChild(stack);
         target.scrollIntoView({ behavior: "smooth", block: "start" });
       })
       .catch(function () {
@@ -2061,18 +3189,44 @@
       });
   }
 
+  function readStatsCountryCache(url) {
+    try {
+      var raw = window.sessionStorage.getItem(STATS_COUNTRY_CACHE_KEY) || "";
+      var cached = raw ? JSON.parse(raw) : null;
+      if (cached && cached.url === url && cached.payload) {
+        return cached.payload;
+      }
+    } catch (error) {}
+    return null;
+  }
+
+  function writeStatsCountryCache(url, payload) {
+    try {
+      window.sessionStorage.setItem(STATS_COUNTRY_CACHE_KEY, JSON.stringify({
+        url: url,
+        payload: payload
+      }));
+    } catch (error) {}
+  }
+
   function initStatsCountries(root) {
     var container = (root || document).querySelector("[data-stats-countries]");
     if (!container) {
       return;
     }
+    var cachedPayload = readStatsCountryCache(container.dataset.url);
     setLoading(container, container.dataset.loading || "Cargando datos...");
     fetchJson(container.dataset.url)
       .then(function (payload) {
+        writeStatsCountryCache(container.dataset.url, payload);
         renderStatsCountryGrid(container, payload);
       })
       .catch(function () {
-        setError(container, container.dataset.error || "No se pudieron cargar los paises.");
+        if (cachedPayload) {
+          renderStatsCountryGrid(container, cachedPayload);
+        } else {
+          setError(container, container.dataset.error || "No se pudieron cargar los paises.");
+        }
       });
   }
 
@@ -2219,7 +3373,7 @@
       if (shown) {
         status.hidden = true;
       } else {
-        status.textContent = noImagesMessage;
+        setInlineStatus(status, noImagesMessage, false);
       }
     }
     return shown;
@@ -2312,6 +3466,12 @@
       source: panel.dataset.sourceLabel || "Ficha Wikidata"
     };
     var relatedPlaces = parseRelatedPlaces(panel.dataset.relatedPlaces);
+    if (status) {
+      setInlineStatus(status, status.textContent || "Buscando imagenes en Wikidata...", true);
+    }
+    if (knowledgeStatus) {
+      setInlineStatus(knowledgeStatus, knowledgeStatus.textContent || "Buscando nombres traducidos, paises y capitales...", true);
+    }
 
     var mainKnowledge = searchWikidataEntity(query, languages)
       .then(function (id) {
@@ -2334,7 +3494,7 @@
       })
       .catch(function () {
         if (status) {
-          status.textContent = noImagesMessage;
+          setInlineStatus(status, noImagesMessage, false);
         }
         return false;
       });
@@ -2347,19 +3507,1352 @@
       if (results.some(Boolean)) {
         knowledgeStatus.hidden = true;
       } else {
-        knowledgeStatus.textContent = noWikidataMessage;
+        setInlineStatus(knowledgeStatus, noWikidataMessage, false);
       }
     }).catch(function () {
       if (knowledgeStatus) {
-        knowledgeStatus.textContent = noWikidataMessage;
+        setInlineStatus(knowledgeStatus, noWikidataMessage, false);
       }
     });
   }
 
+  function initConfigTables(root) {
+    (root || document).querySelectorAll("[data-config-table]").forEach(function (container) {
+      var input = container.querySelector("[data-config-table-search]");
+      var table = container.querySelector("table");
+      var tbody = table && table.querySelector("tbody");
+      if (!input || !table || !tbody) {
+        return;
+      }
+      var sortKey = "country";
+      var sortDirection = 1;
+      var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr[data-config-row]"));
+
+      function comparable(row, key) {
+        var value = row.dataset[key] || "";
+        if (["pages", "cities", "rows"].indexOf(key) !== -1) {
+          return Number(value || 0);
+        }
+        return String(value).toLowerCase();
+      }
+
+      function buttonLabel(button) {
+        return button.dataset.baseLabel || button.textContent.replace(/\s+[\u2191\u2193]$/, "");
+      }
+
+      table.querySelectorAll("[data-sort]").forEach(function (button) {
+        button.dataset.baseLabel = buttonLabel(button);
+        button.addEventListener("click", function () {
+          var nextKey = button.dataset.sort;
+          if (sortKey === nextKey) {
+            sortDirection *= -1;
+          } else {
+            sortKey = nextKey;
+            sortDirection = 1;
+          }
+          draw();
+        });
+      });
+
+      function updateButtons() {
+        table.querySelectorAll("[data-sort]").forEach(function (button) {
+          var active = button.dataset.sort === sortKey;
+          button.classList.toggle("is-sorted", active);
+          button.classList.toggle("is-asc", active && sortDirection > 0);
+          button.classList.toggle("is-desc", active && sortDirection < 0);
+          button.textContent = buttonLabel(button) + (active ? (sortDirection > 0 ? " \u2191" : " \u2193") : "");
+        });
+      }
+
+      function draw() {
+        var query = input.value.trim().toLowerCase();
+        var visible = rows.filter(function (row) {
+          return !query || String(row.dataset.search || "").toLowerCase().indexOf(query) !== -1;
+        }).sort(function (left, right) {
+          var a = comparable(left, sortKey);
+          var b = comparable(right, sortKey);
+          if (a < b) {
+            return -1 * sortDirection;
+          }
+          if (a > b) {
+            return 1 * sortDirection;
+          }
+          return String(left.dataset.country || "").localeCompare(String(right.dataset.country || ""));
+        });
+        rows.forEach(function (row) { row.remove(); });
+        var empty = tbody.querySelector("[data-empty-row]");
+        if (empty) {
+          empty.remove();
+        }
+        visible.forEach(function (row) { tbody.appendChild(row); });
+        if (!visible.length) {
+          empty = document.createElement("tr");
+          empty.dataset.emptyRow = "1";
+          var cell = document.createElement("td");
+          cell.colSpan = 7;
+          cell.className = "table-empty-cell";
+          cell.textContent = container.dataset.emptyLabel || "";
+          empty.appendChild(cell);
+          tbody.appendChild(empty);
+        }
+        updateButtons();
+      }
+
+      input.addEventListener("input", draw);
+      container.addEventListener("config-table-row-updated", function () {
+        rows = Array.prototype.slice.call(tbody.querySelectorAll("tr[data-config-row]"));
+        draw();
+      });
+      draw();
+    });
+  }
+
+  function configTaskKey(status) {
+    return String(status || "").replace(/[^a-z]/g, "");
+  }
+
+  function configTaskLabel(container, status) {
+    var key = configTaskKey(status);
+    if (key === "running") {
+      return container.dataset.runningLabel || status;
+    }
+    if (key === "queued") {
+      return container.dataset.queuedLabel || status;
+    }
+    if (key === "succeeded") {
+      return container.dataset.succeededLabel || status;
+    }
+    if (key === "failed") {
+      return container.dataset.failedLabel || status;
+    }
+    if (key === "cancelled") {
+      return container.dataset.cancelledLabel || status;
+    }
+    if (key === "viewtasklog") {
+      return container.dataset.logLabel || "Ver registro";
+    }
+    return status || "";
+  }
+
+  function configTaskIcon(status) {
+    var key = configTaskKey(status);
+    if (key === "succeeded") {
+      return "\u2713";
+    }
+    if (key === "failed") {
+      return "\u00d7";
+    }
+    if (key === "cancelled") {
+      return "!";
+    }
+    if (key === "queued") {
+      return "\u25cc";
+    }
+    if (key === "running") {
+      return "\u2026";
+    }
+    return "i";
+  }
+
+  function appendStatusIcon(parent, status) {
+    var icon = document.createElement("span");
+    icon.className = "status-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = configTaskIcon(status);
+    parent.appendChild(icon);
+    return icon;
+  }
+
+  var CONFIG_TOAST_MAX_VISIBLE = 3;
+  var CONFIG_TOAST_DONE_VISIBLE_MS = 1000;
+  var CONFIG_TOAST_AFTER_INTERACTION_VISIBLE_MS = 4000;
+  var CONFIG_TOAST_SELECTION_RECHECK_MS = 1200;
+  var CONFIG_TASK_POLL_MS = 450;
+  var CONFIG_TOAST_ENTER_MS = 540;
+  var CONFIG_TOAST_EXIT_MS = 580;
+  var CONFIG_TOAST_REPLENISH_DELAY_MS = 280;
+  var configToastVisible = [];
+  var configToastQueue = [];
+
+  function ensureConfigToastStack() {
+    var stack = document.querySelector(".config-toast-stack");
+    if (!stack) {
+      stack = document.createElement("div");
+      stack.className = "config-toast-stack";
+      stack.setAttribute("aria-live", "polite");
+      document.body.appendChild(stack);
+    }
+    return stack;
+  }
+
+  function removeConfigToastFromList(list, toast) {
+    var index = list.indexOf(toast);
+    if (index >= 0) {
+      list.splice(index, 1);
+    }
+  }
+
+  function configToastCssPx(stack, property, fallback) {
+    var value = window.getComputedStyle(stack).getPropertyValue(property);
+    var parsed = parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function configToastMetrics(stack) {
+    return {
+      height: configToastCssPx(stack, "--config-toast-height", 184),
+      gap: configToastCssPx(stack, "--config-toast-gap", 12)
+    };
+  }
+
+  function configToastSlotY(stack, index) {
+    var metrics = configToastMetrics(stack);
+    return index * (metrics.height + metrics.gap);
+  }
+
+  function layoutVisibleConfigToasts() {
+    var stack = ensureConfigToastStack();
+    configToastVisible.forEach(function (toast, index) {
+      if (!toast || !toast.element || toast.isDismissing) {
+        return;
+      }
+      toast.slotIndex = index;
+      toast.element.style.setProperty("--toast-y", configToastSlotY(stack, index) + "px");
+      toast.element.style.setProperty("--toast-x", "0px");
+      toast.element.style.setProperty("--toast-opacity", "1");
+      toast.element.style.zIndex = String(CONFIG_TOAST_MAX_VISIBLE - index);
+    });
+  }
+
+  function showNextQueuedConfigToast() {
+    while (configToastVisible.length < CONFIG_TOAST_MAX_VISIBLE && configToastQueue.length) {
+      showConfigToast(configToastQueue.shift());
+    }
+  }
+
+  function showConfigToast(toast) {
+    if (!toast || toast.isVisible) {
+      return;
+    }
+    var stack = ensureConfigToastStack();
+    var slotIndex = configToastVisible.length;
+    toast.slotIndex = slotIndex;
+    toast.isVisible = true;
+    configToastVisible.push(toast);
+    toast.element.classList.remove("is-dismissing");
+    toast.element.classList.add("is-entering");
+    toast.element.style.setProperty("--toast-y", configToastSlotY(stack, slotIndex) + "px");
+    toast.element.style.setProperty("--toast-x", "var(--config-toast-offscreen-x)");
+    toast.element.style.setProperty("--toast-opacity", "0");
+    stack.appendChild(toast.element);
+    layoutVisibleConfigToasts();
+    window.setTimeout(function () {
+      if (toast.element) {
+        toast.element.classList.remove("is-entering");
+      }
+    }, CONFIG_TOAST_ENTER_MS);
+    if (toast.dismissDelay) {
+      scheduleConfigToastDismiss(toast, toast.dismissDelay);
+    }
+  }
+
+  function enqueueConfigToast(toast) {
+    if (configToastVisible.length < CONFIG_TOAST_MAX_VISIBLE) {
+      showConfigToast(toast);
+    } else {
+      configToastQueue.push(toast);
+    }
+  }
+
+  function dismissConfigToast(toast, immediate) {
+    if (!toast || toast.isDismissing) {
+      return;
+    }
+    if (toast.dismissTimer) {
+      window.clearTimeout(toast.dismissTimer);
+      toast.dismissTimer = null;
+    }
+    var wasVisible = configToastVisible.indexOf(toast) !== -1;
+    removeConfigToastFromList(configToastQueue, toast);
+    removeConfigToastFromList(configToastVisible, toast);
+    toast.isVisible = false;
+    function finishRemoval() {
+      if (toast.element && toast.element.parentNode) {
+        toast.element.parentNode.removeChild(toast.element);
+      }
+    }
+    if (toast.element && toast.element.parentNode && !immediate) {
+      var stack = toast.element.parentNode;
+      var metrics = configToastMetrics(stack);
+      toast.element.classList.remove("is-entering");
+      stack.appendChild(toast.element);
+      toast.element.style.setProperty("--toast-exit-y", (0 - metrics.height - metrics.gap) + "px");
+      toast.element.style.setProperty("--toast-x", "0px");
+      toast.element.style.setProperty("--toast-opacity", "1");
+      toast.element.style.zIndex = "100";
+      toast.isDismissing = true;
+      toast.element.classList.add("is-dismissing");
+      if (wasVisible) {
+        layoutVisibleConfigToasts();
+        window.setTimeout(showNextQueuedConfigToast, CONFIG_TOAST_REPLENISH_DELAY_MS);
+      }
+      window.setTimeout(finishRemoval, CONFIG_TOAST_EXIT_MS);
+    } else {
+      finishRemoval();
+      if (wasVisible) {
+        layoutVisibleConfigToasts();
+        showNextQueuedConfigToast();
+      }
+    }
+  }
+
+  function configToastHasFocus(toast) {
+    return Boolean(toast && toast.element && toast.element.contains(document.activeElement));
+  }
+
+  function configToastContainsSelection(toast) {
+    if (!toast || !toast.element || !window.getSelection) {
+      return false;
+    }
+    var selection = window.getSelection();
+    if (!selection || selection.isCollapsed || selection.rangeCount < 1) {
+      return false;
+    }
+    for (var i = 0; i < selection.rangeCount; i += 1) {
+      var range = selection.getRangeAt(i);
+      try {
+        if (range.intersectsNode(toast.element)) {
+          return true;
+        }
+      } catch (error) {
+        var ancestor = range.commonAncestorContainer;
+        if (ancestor && toast.element.contains(ancestor.nodeType === 1 ? ancestor : ancestor.parentNode)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function pauseConfigToastDismiss(toast) {
+    if (!toast || !toast.dismissTimer) {
+      return;
+    }
+    window.clearTimeout(toast.dismissTimer);
+    toast.dismissTimer = null;
+  }
+
+  function resumeConfigToastDismissAfterInteraction(toast) {
+    if (!toast || !toast.dismissDelay || !toast.isVisible || toast.isDismissing) {
+      return;
+    }
+    scheduleConfigToastDismiss(toast, CONFIG_TOAST_AFTER_INTERACTION_VISIBLE_MS, true);
+  }
+
+  function scheduleConfigToastDismiss(toast, delay, keepDismissDelay) {
+    if (!toast) {
+      return;
+    }
+    var effectiveDelay = delay || toast.dismissDelay || CONFIG_TOAST_DONE_VISIBLE_MS;
+    if (!keepDismissDelay) {
+      toast.dismissDelay = effectiveDelay;
+    }
+    if (!toast.isVisible) {
+      return;
+    }
+    if (toast.dismissTimer) {
+      window.clearTimeout(toast.dismissTimer);
+    }
+    toast.dismissTimer = window.setTimeout(function () {
+      toast.dismissTimer = null;
+      if (toast.isInteracting || configToastHasFocus(toast) || configToastContainsSelection(toast)) {
+        scheduleConfigToastDismiss(toast, CONFIG_TOAST_SELECTION_RECHECK_MS, true);
+        return;
+      }
+      dismissConfigToast(toast);
+    }, effectiveDelay);
+  }
+
+  function createConfigToast(title, message, container) {
+    var toast = document.createElement("div");
+    toast.className = "config-task-toast";
+    var header = document.createElement("div");
+    header.className = "config-task-toast-header";
+    var titleWrap = document.createElement("div");
+    titleWrap.className = "config-task-toast-title";
+    var icon = document.createElement("span");
+    icon.className = "config-task-toast-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = configTaskIcon("running");
+    var strong = document.createElement("strong");
+    strong.textContent = title;
+    titleWrap.appendChild(icon);
+    titleWrap.appendChild(strong);
+    var close = document.createElement("button");
+    close.type = "button";
+    close.className = "quiet";
+    close.textContent = "\u00d7";
+    header.appendChild(titleWrap);
+    header.appendChild(close);
+    var status = document.createElement("p");
+    status.className = "muted config-task-toast-status";
+    status.textContent = message || "";
+    var detailLink = document.createElement("a");
+    detailLink.className = "button secondary config-task-log-link";
+    detailLink.textContent = configTaskLabel(container || document.body, "view_task_log") || "Ver registro";
+    detailLink.hidden = true;
+    toast.appendChild(header);
+    toast.appendChild(status);
+    toast.appendChild(detailLink);
+    var toastData = {
+      element: toast,
+      status: status,
+      detailLink: detailLink,
+      icon: icon,
+      isVisible: false,
+      dismissDelay: 0,
+      dismissTimer: null,
+      isDismissing: false,
+      isInteracting: false
+    };
+    toast.addEventListener("mouseenter", function () {
+      toastData.isInteracting = true;
+      pauseConfigToastDismiss(toastData);
+    });
+    toast.addEventListener("mouseleave", function () {
+      toastData.isInteracting = false;
+      resumeConfigToastDismissAfterInteraction(toastData);
+    });
+    toast.addEventListener("focusin", function () {
+      toastData.isInteracting = true;
+      pauseConfigToastDismiss(toastData);
+    });
+    toast.addEventListener("focusout", function () {
+      window.setTimeout(function () {
+        if (!configToastHasFocus(toastData)) {
+          toastData.isInteracting = false;
+          resumeConfigToastDismissAfterInteraction(toastData);
+        }
+      }, 0);
+    });
+    toast.addEventListener("copy", function () {
+      resumeConfigToastDismissAfterInteraction(toastData);
+    });
+    close.addEventListener("click", function () { dismissConfigToast(toastData, true); });
+    enqueueConfigToast(toastData);
+    return toastData;
+  }
+
+  function setConfigToastStatus(toast, status, message) {
+    if (!toast) {
+      return;
+    }
+    if (toast.dismissTimer) {
+      window.clearTimeout(toast.dismissTimer);
+      toast.dismissTimer = null;
+      toast.dismissDelay = 0;
+    }
+    if (toast.icon) {
+      toast.icon.textContent = configTaskIcon(status);
+    }
+    if (toast.status) {
+      toast.status.textContent = message || status || "";
+    }
+  }
+
+  function csrfFromForm(form) {
+    var input = form.querySelector("input[name='csrfmiddlewaretoken']");
+    return input ? input.value : "";
+  }
+
+  function submitterActionUrl(form, button) {
+    if (button && button.getAttribute && button.hasAttribute("formaction")) {
+      var buttonAction = button.getAttribute("formaction") || "";
+      return button.formAction || new URL(buttonAction, window.location.href).toString();
+    }
+    if (form && form.getAttribute) {
+      var action = form.getAttribute("action") || "";
+      if (action) {
+        return form.action || new URL(action, window.location.href).toString();
+      }
+    }
+    return "";
+  }
+
+  function isConfigTaskUrl(url) {
+    try {
+      var parsed = new URL(url, window.location.href);
+      return /\/configs\/[^/]+\/task\/[^/]+\/?$/.test(parsed.pathname);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function updateConfigRow(summaryUrl, tableContainer) {
+    if (!summaryUrl) {
+      return Promise.resolve();
+    }
+    return fetch(summaryUrl, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+      .then(function (response) { return response.ok ? parseJsonResponse(response) : null; })
+      .then(function (data) {
+        if (!data || !data.slug) {
+          return;
+        }
+        var row = document.querySelector('[data-config-row="' + data.slug + '"]');
+        if (!row) {
+          return;
+        }
+        row.dataset.country = data.country_label || "";
+        row.dataset.search = [data.slug, data.country_label, data.name].join(" ");
+        row.dataset.pages = data.pages;
+        row.dataset.cities = data.cities;
+        row.dataset.rows = data.rows;
+        row.dataset.task = data.task_status || "";
+        var fields = {
+          country: data.country_label,
+          pages: data.pages,
+          cities: data.cities,
+          rows: data.rows
+        };
+        Object.keys(fields).forEach(function (key) {
+          var cell = row.querySelector('[data-field="' + key + '"]');
+          if (cell) {
+            cell.textContent = fields[key];
+          }
+        });
+        var taskCell = row.querySelector('[data-field="task"]');
+        if (taskCell) {
+          taskCell.innerHTML = "";
+          if (data.task_url && data.task_is_active) {
+            var activeStatus = data.task_status || "running";
+            var link = document.createElement("a");
+            link.className = "status " + configTaskKey(activeStatus);
+            link.href = data.task_url;
+            appendStatusIcon(link, activeStatus);
+            link.appendChild(document.createTextNode(configTaskLabel(tableContainer || row, activeStatus)));
+            taskCell.appendChild(link);
+          } else if (data.task_status) {
+            var span = document.createElement("span");
+            span.className = "status " + (data.task_status === "succeeded" ? "succeeded" : data.task_status === "failed" ? "failed" : "");
+            appendStatusIcon(span, data.task_status);
+            span.appendChild(document.createTextNode(configTaskLabel(tableContainer || row, data.task_status)));
+            taskCell.appendChild(span);
+          } else {
+            var muted = document.createElement("span");
+            muted.className = "muted";
+            muted.textContent = "-";
+            taskCell.appendChild(muted);
+          }
+        }
+        var validateButton = row.querySelector('[data-config-action="validate"]');
+        if (validateButton) {
+          validateButton.disabled = Boolean(data.validate_task_is_active);
+        }
+        if (tableContainer) {
+          tableContainer.dispatchEvent(new CustomEvent("config-table-row-updated"));
+        }
+      });
+  }
+
+  function pollConfigTask(statusUrl, toast, button, summaryUrl, tableContainer) {
+    function poll() {
+      if (!statusUrl) {
+        setConfigToastStatus(toast, "failed", "No se recibió la URL de estado de la tarea.");
+        toast.element.classList.add("is-error");
+        if (button) {
+          button.disabled = false;
+        }
+        scheduleConfigToastDismiss(toast, CONFIG_TOAST_DONE_VISIBLE_MS);
+        return;
+      }
+      fetch(statusUrl, { headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" } })
+        .then(parseJsonResponse)
+        .then(function (data) {
+          setConfigToastStatus(toast, data.status, configTaskLabel(tableContainer || document.body, data.status));
+          if (toast.detailLink && data.detail_url) {
+            toast.detailLink.href = data.detail_url;
+            toast.detailLink.hidden = false;
+          }
+          if (data.is_active) {
+            window.setTimeout(poll, CONFIG_TASK_POLL_MS);
+            return;
+          }
+          toast.element.classList.add(data.status === "succeeded" ? "is-success" : "is-error");
+          if (button) {
+            button.disabled = false;
+          }
+          updateConfigRow(summaryUrl, tableContainer).finally(function () {
+            refreshTaskTables();
+            scheduleConfigToastDismiss(toast, CONFIG_TOAST_DONE_VISIBLE_MS);
+          });
+        })
+        .catch(function (error) {
+          setConfigToastStatus(toast, "failed", error.message || configTaskLabel(tableContainer || document.body, "failed"));
+          toast.element.classList.add("is-error");
+          if (button) {
+            button.disabled = false;
+          }
+          scheduleConfigToastDismiss(toast, CONFIG_TOAST_DONE_VISIBLE_MS);
+        });
+    }
+    poll();
+  }
+
+  function initConfigTaskActions(root) {
+    function bindConfigTaskForm(form) {
+      if (!form || form._configTaskBound) {
+        return;
+      }
+      form._configTaskBound = true;
+      form.addEventListener("click", function (event) {
+        var target = event.target && event.target.closest ? event.target.closest("[data-config-action]") : null;
+        if (target && target.form === form) {
+          form._lastConfigTaskButton = target;
+        }
+      }, true);
+      form.addEventListener("submit", function (event) {
+        var submitter = event.submitter || form._lastConfigTaskButton || document.activeElement;
+        var button = submitter && submitter.matches && submitter.matches("[data-config-action]")
+          ? submitter
+          : null;
+        var explicitTaskForm = form.hasAttribute("data-config-task-form");
+        var explicitTaskButton = button && button.matches && button.matches("[data-config-action]");
+        if (!explicitTaskForm && !explicitTaskButton) {
+          return;
+        }
+        if (explicitTaskForm && !button) {
+          button = form.querySelector("[data-config-action]") || form.querySelector("button[type='submit']");
+        }
+        event.preventDefault();
+        var actionUrl = submitterActionUrl(form, button);
+        var tableContainer = form.closest("[data-config-table]");
+        if (!isConfigTaskUrl(actionUrl)) {
+          var badUrlError = "La acción de la tarea no apunta a la API de tareas. Recarga la página con Ctrl+F5.";
+          var badToast = createConfigToast(button ? button.textContent : "Tarea", badUrlError, tableContainer || document.body);
+          badToast.element.classList.add("is-error");
+          setConfigToastStatus(badToast, "failed", badUrlError);
+          scheduleConfigToastDismiss(badToast, CONFIG_TOAST_DONE_VISIBLE_MS);
+          return;
+        }
+        if (button) {
+          button.disabled = true;
+        }
+        var actionLabel = form.dataset.actionLabel || (button && button.dataset.actionLabel) || (button ? button.textContent : "");
+        var toast = createConfigToast(actionLabel, tableContainer && tableContainer.dataset.startedLabel ? tableContainer.dataset.startedLabel : actionLabel, tableContainer || document.body);
+        fetch(actionUrl, {
+          method: "POST",
+          body: new FormData(form),
+          credentials: "same-origin",
+          headers: {
+            "Accept": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRFToken": csrfFromForm(form)
+          }
+        }).then(parseJsonResponse).then(function (data) {
+          setConfigToastStatus(toast, data.status || "running", data.label || actionLabel);
+          if (toast.detailLink && data.detail_url) {
+            toast.detailLink.href = data.detail_url;
+            toast.detailLink.hidden = false;
+          }
+          refreshTaskTables();
+          pollConfigTask(data.status_url, toast, button, form.dataset.summaryUrl || (button && button.dataset.summaryUrl) || data.summary_url, tableContainer);
+        }).catch(function (error) {
+          setConfigToastStatus(toast, "failed", error.message || configTaskLabel(tableContainer || document.body, "failed"));
+          toast.element.classList.add("is-error");
+          if (button) {
+            button.disabled = false;
+          }
+          scheduleConfigToastDismiss(toast, CONFIG_TOAST_DONE_VISIBLE_MS);
+        });
+      });
+    }
+
+    (root || document).querySelectorAll("[data-config-task-form]").forEach(bindConfigTaskForm);
+    (root || document).querySelectorAll("[data-config-action]").forEach(function (button) {
+      bindConfigTaskForm(button.form);
+    });
+  }
+
+  function activateConfigTab(editor, name) {
+    if (!editor || !name) {
+      return;
+    }
+    var selectedButton = editor.querySelector('[data-config-tab="' + name + '"]');
+    if (!selectedButton) {
+      return;
+    }
+    editor.querySelectorAll("[data-config-tab]").forEach(function (tab) {
+      var active = tab === selectedButton;
+      tab.classList.toggle("is-active", active);
+      tab.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    editor.querySelectorAll("[data-config-panel]").forEach(function (panel) {
+      var active = panel.dataset.configPanel === name;
+      panel.classList.toggle("is-active", active);
+      panel.hidden = !active;
+    });
+  }
+
+  function initConfigTabs(root) {
+    (root || document).querySelectorAll("[data-config-editor]").forEach(function (editor) {
+      if (editor.dataset.configTabsReady === "true") {
+        return;
+      }
+      editor.dataset.configTabsReady = "true";
+      editor.querySelectorAll("[data-config-tab]").forEach(function (button) {
+        button.addEventListener("click", function () {
+          activateConfigTab(editor, button.dataset.configTab);
+        });
+      });
+    });
+  }
+
+  function initConfigEditor(root) {
+    initConfigTabs(root);
+    (root || document).querySelectorAll("[data-config-editor]").forEach(function (editor) {
+      if (editor.dataset.configEditorReady === "true") {
+        return;
+      }
+      editor.dataset.configEditorReady = "true";
+      var sourceScript = editor.querySelector("[data-source-entities-json]");
+      var sourceEntities = [];
+      try {
+        sourceEntities = JSON.parse(sourceScript ? sourceScript.textContent : "[]") || [];
+      } catch (error) {
+        sourceEntities = [];
+      }
+      try {
+        initManualPages(editor);
+        initCityTransfer(editor, sourceEntities);
+        initConfigGenerator(editor);
+        initAiLoginLinks(editor);
+      } catch (error) {
+        window.console && window.console.error && window.console.error("Error inicializando configuraci\u00f3n", error);
+      }
+      var params = new URLSearchParams(window.location.search || "");
+      var tab = params.get("tab") || editor.dataset.restoreTab || "";
+      if (tab) {
+        activateConfigTab(editor, tab);
+      }
+    });
+  }
+
+  function initManualPages(editor) {
+    var tbody = editor.querySelector("[data-manual-pages]");
+    var add = editor.querySelector("[data-add-page-row]");
+    if (!tbody || !add) {
+      return;
+    }
+    function bindRemove(row) {
+      var remove = row.querySelector("[data-remove-page-row]");
+      if (remove) {
+        remove.addEventListener("click", function () {
+          if (tbody.querySelectorAll("tr").length > 1) {
+            row.remove();
+          }
+        });
+      }
+    }
+    Array.prototype.slice.call(tbody.querySelectorAll("tr")).forEach(bindRemove);
+    add.addEventListener("click", function () {
+      var first = tbody.querySelector("tr");
+      if (!first) {
+        return;
+      }
+      var clone = first.cloneNode(true);
+      clone.querySelectorAll("input").forEach(function (input) {
+        input.value = input.name === "page_level" ? "1" : "";
+      });
+      clone.querySelectorAll("select").forEach(function (select) { select.value = "table"; });
+      bindRemove(clone);
+      tbody.appendChild(clone);
+    });
+  }
+
+  function initCityTransfer(editor, sourceEntities) {
+    var transfer = editor.querySelector("[data-city-transfer]");
+    if (!transfer) {
+      return;
+    }
+    var availableBody = transfer.querySelector("[data-transfer-available]");
+    var selectedBody = transfer.querySelector("[data-transfer-selected]");
+    var hidden = editor.querySelector("[data-selected-city-entities]");
+    if (!availableBody || !selectedBody) {
+      return;
+    }
+    sourceEntities = normalizeEntities(sourceEntities);
+    var sourceLevelOptions = selectOptions(transfer.querySelector('[data-transfer-filter="level"]'));
+    var sourceParentOptions = null;
+    var sourceParentOptionsByLevel = {};
+    var selected = [];
+
+    function normalizeEntities(entities) {
+      return (entities || []).map(function (entity) {
+        entity.id = String(entity.id || "");
+        entity.parent_key = String(entity.parent_key || entity.raw_parent || entity.parent || "");
+        entity.parent_level = entity.parent_level === null || entity.parent_level === undefined ? "" : String(entity.parent_level);
+        entity.entity_type_filter = String(entity.entity_type_filter || entity.entity_type || entity.raw_entity_type || "");
+        return entity;
+      }).filter(function (entity) { return entity.id; });
+    }
+
+    function readSelectedFromHidden() {
+      try {
+        selected = JSON.parse(hidden ? hidden.value : "[]") || [];
+      } catch (error) {
+        selected = [];
+      }
+      selected = selected.map(function (id) { return String(id); }).filter(Boolean);
+      selected = uniqueValues(selected);
+    }
+    readSelectedFromHidden();
+
+    function setTransferMessage(body, message, loading) {
+      body.innerHTML = "";
+      var row = document.createElement("tr");
+      var cell = document.createElement("td");
+      cell.colSpan = 4;
+      cell.className = "table-empty-cell";
+      if (loading) {
+        var spinner = document.createElement("span");
+        spinner.className = "loading-spinner";
+        spinner.setAttribute("aria-hidden", "true");
+        cell.appendChild(spinner);
+        cell.appendChild(document.createTextNode(message));
+        cell.classList.add("inline-loading");
+      } else {
+        cell.textContent = message;
+      }
+      row.appendChild(cell);
+      body.appendChild(row);
+    }
+
+    function populateSelect(select, values, disableWhenEmpty) {
+      if (!select) {
+        return;
+      }
+      var hasSelect2 = window.jQuery && window.jQuery.fn && window.jQuery.fn.select2 && window.jQuery(select).data("select2");
+      if (hasSelect2) {
+        window.jQuery(select).select2("destroy");
+      }
+      values = values || [];
+      var requireValue = select.dataset.requireValue === "true";
+      var current = select.value || select.dataset.restoreValue || "";
+      var emptyLabel = select.dataset.emptyOption || "";
+      select.innerHTML = "";
+      if (!values.length && disableWhenEmpty) {
+        select.disabled = true;
+        if (window.jQuery && window.jQuery.fn && window.jQuery.fn.select2 && window.jQuery(select).data("select2")) {
+          window.jQuery(select).val(null).trigger("change.select2");
+        }
+        return;
+      }
+      select.disabled = false;
+      if (!requireValue) {
+        var empty = document.createElement("option");
+        empty.value = "";
+        empty.textContent = emptyLabel;
+        select.appendChild(empty);
+      }
+      values.forEach(function (entry) {
+        var option = document.createElement("option");
+        option.value = String(entry.value);
+        option.textContent = entry.label;
+        select.appendChild(option);
+      });
+      if (requireValue && !current && values.length) {
+        current = String(values[0].value);
+      }
+      select.value = current;
+      if (select.value !== current) {
+        select.value = requireValue && values.length ? String(values[0].value) : "";
+      }
+      if (window.jQuery && window.jQuery.fn && window.jQuery.fn.select2 && select.matches("select[data-select2]")) {
+        window.jQuery(select).select2({
+          width: "100%",
+          placeholder: window.jQuery(select).data("placeholder") || "",
+          allowClear: !requireValue
+        });
+      }
+    }
+
+    function selectOptions(select) {
+      if (!select) {
+        return [];
+      }
+      return Array.prototype.slice.call(select.options || []).filter(function (option) {
+        return String(option.value || "").trim();
+      }).map(function (option) {
+        return { value: option.value, label: option.textContent || option.value };
+      });
+    }
+
+    function fallbackLevels() {
+      var levels = {};
+      sourceEntities.forEach(function (entity) {
+        var key = String(entity.level || "").trim();
+        if (!key) {
+          return;
+        }
+        if (!levels[key]) {
+          levels[key] = { count: 0, types: {} };
+        }
+        levels[key].count += 1;
+        var type = String(entity.entity_type || "").trim();
+        if (type) {
+          levels[key].types[type] = (levels[key].types[type] || 0) + 1;
+        }
+      });
+      return Object.keys(levels).sort(function (left, right) { return Number(left) - Number(right); }).map(function (level) {
+        var types = Object.keys(levels[level].types).sort(function (left, right) {
+          var diff = levels[level].types[right] - levels[level].types[left];
+          return diff || left.localeCompare(right);
+        });
+        var label = types.length ? types.join("/") : level;
+        return { value: level, label: label + " (" + levels[level].count + ")" };
+      });
+    }
+
+    function fallbackParents(level) {
+      var seen = {};
+      var parents = [];
+      var levelValue = String(level || "").trim();
+      if (levelValue === "1") {
+        return parents;
+      }
+      sourceEntities.forEach(function (entity) {
+        if (levelValue && String(entity.level || "") !== levelValue) {
+          return;
+        }
+        if (String(entity.parent_level || "") === "0") {
+          return;
+        }
+        var value = String(entity.parent_key || "").trim();
+        if (!value || seen[value]) {
+          return;
+        }
+        seen[value] = true;
+        parents.push({ value: value, label: entity.parent || entity.raw_parent || value });
+      });
+      parents.sort(function (left, right) { return String(left.label || "").localeCompare(String(right.label || "")); });
+      return parents;
+    }
+
+    function parentOptionsForLevel(level) {
+      var levelValue = String(level || "").trim();
+      if (levelValue && sourceParentOptionsByLevel && sourceParentOptionsByLevel[levelValue]) {
+        return sourceParentOptionsByLevel[levelValue];
+      }
+      if (!levelValue && sourceParentOptions) {
+        return sourceParentOptions;
+      }
+      return fallbackParents(levelValue);
+    }
+
+    function refreshParentFilter() {
+      var levelFilter = transfer.querySelector('[data-transfer-filter="level"]');
+      var levelValue = levelFilter ? levelFilter.value.trim() : "";
+      populateSelect(transfer.querySelector('[data-transfer-filter="parent"]'), parentOptionsForLevel(levelValue), true);
+      if (levelValue === "1") {
+        var parentFilter = transfer.querySelector('[data-transfer-filter="parent"]');
+        if (parentFilter) {
+          parentFilter.value = "";
+        }
+      }
+    }
+
+    function populateTransferFilters(levels, parents, parentsByLevel) {
+      sourceLevelOptions = levels && levels.length ? levels : (sourceLevelOptions && sourceLevelOptions.length ? sourceLevelOptions : fallbackLevels());
+      sourceParentOptions = parents || fallbackParents();
+      sourceParentOptionsByLevel = parentsByLevel || {};
+      populateSelect(transfer.querySelector('[data-transfer-filter="level"]'), sourceLevelOptions, true);
+      refreshParentFilter();
+      initSelect2(transfer);
+    }
+
+    function selectedSet() {
+      return selected.reduce(function (acc, id) { acc[id] = true; return acc; }, {});
+    }
+    function rowText(entity) {
+      return [entity.level, entity.name, entity.parent, entity.raw_name, entity.raw_parent, entity.entity_type]
+        .join(" ").toLowerCase();
+    }
+    function syncHidden() {
+      if (hidden) {
+        hidden.value = JSON.stringify(selected);
+      }
+    }
+    function appendRow(body, entity, actionText, action) {
+      var tr = document.createElement("tr");
+      var level = document.createElement("td");
+      level.textContent = entity.level;
+      var name = document.createElement("td");
+      name.innerHTML = "";
+      var strong = document.createElement("strong");
+      strong.textContent = entity.name || entity.raw_name || "";
+      name.appendChild(strong);
+      if (entity.entity_type) {
+        var small = document.createElement("small");
+        small.textContent = entity.entity_type;
+        name.appendChild(document.createElement("br"));
+        name.appendChild(small);
+      }
+      var parent = document.createElement("td");
+      parent.textContent = entity.parent || "-";
+      var actionCell = document.createElement("td");
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "quiet";
+      button.textContent = actionText;
+      button.addEventListener("click", function () { action(entity); });
+      actionCell.appendChild(button);
+      tr.appendChild(level);
+      tr.appendChild(name);
+      tr.appendChild(parent);
+      tr.appendChild(actionCell);
+      body.appendChild(tr);
+    }
+    function draw() {
+      var set = selectedSet();
+      var levelFilter = transfer.querySelector('[data-transfer-filter="level"]');
+      var nameFilter = transfer.querySelector('[data-transfer-filter="name"]');
+      var parentFilter = transfer.querySelector('[data-transfer-filter="parent"]');
+      var levelValue = levelFilter ? levelFilter.value.trim() : "";
+      var nameValue = nameFilter ? nameFilter.value.trim().toLowerCase() : "";
+      var parentValue = parentFilter ? parentFilter.value.trim() : "";
+      availableBody.innerHTML = "";
+      selectedBody.innerHTML = "";
+      sourceEntities.filter(function (entity) {
+        if (set[entity.id]) {
+          return false;
+        }
+        if (levelValue && String(entity.level) !== levelValue) {
+          return false;
+        }
+        if (nameValue && rowText(entity).indexOf(nameValue) === -1) {
+          return false;
+        }
+        if (parentValue && String(entity.parent_key || entity.parent || entity.raw_parent || "") !== parentValue) {
+          return false;
+        }
+        return true;
+      }).forEach(function (entity) {
+        appendRow(availableBody, entity, "\u2192", function (item) {
+          selected.push(String(item.id));
+          selected = uniqueValues(selected);
+          syncHidden();
+          draw();
+        });
+      });
+      sourceEntities.filter(function (entity) { return set[entity.id]; }).forEach(function (entity) {
+        appendRow(selectedBody, entity, "\u00d7", function (item) {
+          selected = selected.filter(function (id) { return String(id) !== String(item.id); });
+          syncHidden();
+          draw();
+        });
+      });
+      if (!availableBody.children.length) {
+        setTransferMessage(availableBody, editor.dataset.emptyLabel || "");
+      }
+      if (!selectedBody.children.length) {
+        setTransferMessage(selectedBody, editor.dataset.emptyLabel || "");
+      }
+    }
+
+    function setSourceEntities(entities, levels, parents, parentsByLevel) {
+      sourceEntities = normalizeEntities(entities);
+      selected = selected.filter(function (id) {
+        return sourceEntities.some(function (entity) { return String(entity.id) === String(id); });
+      });
+      populateTransferFilters(levels, parents, parentsByLevel);
+      syncHidden();
+      draw();
+    }
+
+    transfer.querySelectorAll("[data-transfer-filter]").forEach(function (input) {
+      function handleFilterChange() {
+        if (input.dataset.transferFilter === "level") {
+          refreshParentFilter();
+        }
+        draw();
+      }
+      input.addEventListener("input", handleFilterChange);
+      input.addEventListener("change", handleFilterChange);
+    });
+    if (hidden) {
+      hidden.addEventListener("input", function () {
+        readSelectedFromHidden();
+        draw();
+      });
+      hidden.addEventListener("change", function () {
+        readSelectedFromHidden();
+        draw();
+      });
+    }
+
+    sourceEntities = normalizeEntities(sourceEntities);
+    if (sourceEntities.length) {
+      setSourceEntities(sourceEntities, null, null, null);
+    } else {
+      setTransferMessage(availableBody, editor.dataset.loadingLabel || "", true);
+      setTransferMessage(selectedBody, editor.dataset.emptyLabel || "");
+    }
+    if (editor.dataset.sourceEntitiesUrl) {
+      fetchJson(editor.dataset.sourceEntitiesUrl)
+        .then(function (payload) {
+          setSourceEntities(payload.entities || [], payload.levels || [], payload.parents || [], payload.parents_by_level || {});
+        })
+        .catch(function () {
+          if (!sourceEntities.length) {
+            setTransferMessage(availableBody, editor.dataset.errorLabel || editor.dataset.emptyLabel || "");
+          }
+        });
+    } else if (!sourceEntities.length) {
+      setSourceEntities(sourceEntities, null, null, null);
+    }
+  }
+
+  function initAiLoginLinks(editor) {
+    var provider = editor.querySelector("[data-ai-provider]");
+    var link = editor.querySelector("[data-ai-login-link]");
+    if (!provider || !link) {
+      return;
+    }
+    function updateLink() {
+      if (link.getAttribute("aria-disabled") === "true") {
+        return;
+      }
+      var base = link.href.split("?")[0];
+      link.href = base + "?provider=" + encodeURIComponent(provider.value || "chatgpt");
+    }
+    provider.addEventListener("change", updateLink);
+    link.addEventListener("click", function (event) {
+      if (link.getAttribute("aria-disabled") === "true") {
+        event.preventDefault();
+      }
+    });
+    updateLink();
+  }
+
+  function initConfigGenerator(editor) {
+    var button = editor.querySelector("[data-generate-config]");
+    var output = editor.querySelector("[data-generated-config]");
+    var log = editor.querySelector("[data-generate-log]");
+    if (!button || !output || !log) {
+      return;
+    }
+    var generatorLoading = createStatusElement("table-loading", button.textContent + "...", true);
+    generatorLoading.hidden = true;
+    if (log.parentNode) {
+      log.parentNode.insertBefore(generatorLoading, log.nextSibling);
+    }
+    button.addEventListener("click", function () {
+      if (!editor.dataset.generateUrl) {
+        return;
+      }
+      button.disabled = true;
+      generatorLoading.hidden = false;
+      log.value = "\u23f3 " + button.textContent + "...";
+      fetch(editor.dataset.generateUrl, {
+        method: "POST",
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          "X-CSRFToken": csrfFromDocument()
+        }
+      }).then(function (response) {
+        return response.text().then(function (text) {
+          var data = {};
+          try {
+            data = text ? JSON.parse(text) : {};
+          } catch (error) {
+            throw new Error(text || response.statusText);
+          }
+          if (!response.ok || !data.ok) {
+            throw new Error(data.error || response.statusText);
+          }
+          return data;
+        });
+      }).then(function (data) {
+        output.value = data.content || "";
+        log.value = "\u2705 " + (data.log || "");
+      }).catch(function (error) {
+        log.value = "\u274c " + (error.message || "Error");
+      }).finally(function () {
+        button.disabled = false;
+        generatorLoading.hidden = true;
+      });
+    });
+  }
+
+  function csrfFromDocument() {
+    var input = document.querySelector("input[name='csrfmiddlewaretoken']");
+    return input ? input.value : "";
+  }
+
+
+  var LANGUAGE_STATE_PREFIX = "ciudades_del_mundo_language_state:";
+
+  function languageStateKey() {
+    return LANGUAGE_STATE_PREFIX + window.location.pathname + window.location.search;
+  }
+
+  function isRestorableForm(form) {
+    return form && !form.matches(".language-form, .theme-form") && !form.closest(".language-form, .theme-form");
+  }
+
+  function collectFormState(form) {
+    var values = {};
+    Array.prototype.slice.call(form.elements || []).forEach(function (field) {
+      if (!field.name || field.name === "csrfmiddlewaretoken" || field.disabled) {
+        return;
+      }
+      if (!values[field.name]) {
+        values[field.name] = [];
+      }
+      values[field.name].push({
+        type: (field.type || field.tagName || "").toLowerCase(),
+        value: field.value,
+        checked: !!field.checked
+      });
+    });
+    return values;
+  }
+
+  function savePageStateBeforeLanguageChange() {
+    try {
+      var forms = Array.prototype.slice.call(document.querySelectorAll("form")).filter(isRestorableForm).map(collectFormState);
+      var activeTab = "";
+      var activeTabButton = document.querySelector("[data-config-tab].is-active");
+      if (activeTabButton) {
+        activeTab = activeTabButton.dataset.configTab || "";
+      }
+      var looseFields = Array.prototype.slice.call(document.querySelectorAll("[data-config-table-search]")).map(function (field) {
+        return field.value || "";
+      });
+      window.sessionStorage.setItem(languageStateKey(), JSON.stringify({
+        forms: forms,
+        looseFields: looseFields,
+        activeTab: activeTab,
+        scrollY: window.scrollY || 0
+      }));
+    } catch (error) {}
+  }
+
+  function ensureRepeatedManualRows(form, values) {
+    var expected = Math.max(
+      (values.page_level || []).length,
+      (values.page_url || []).length,
+      (values.page_source || []).length
+    );
+    if (expected <= 1) {
+      return;
+    }
+    var tbody = form.querySelector("[data-manual-pages]");
+    if (!tbody) {
+      return;
+    }
+    while (tbody.querySelectorAll("tr").length < expected) {
+      var first = tbody.querySelector("tr");
+      if (!first) {
+        break;
+      }
+      var clone = first.cloneNode(true);
+      clone.querySelectorAll("input, select, textarea").forEach(function (field) {
+        if (field.type === "checkbox" || field.type === "radio") {
+          field.checked = false;
+        } else {
+          field.value = "";
+        }
+      });
+      tbody.appendChild(clone);
+    }
+  }
+
+  function restoreFormValues(form, values) {
+    ensureRepeatedManualRows(form, values || {});
+    Object.keys(values || {}).forEach(function (name) {
+      var escapedName = window.CSS && window.CSS.escape ? window.CSS.escape(name) : String(name).replace(/"/g, '\"');
+      var fields = Array.prototype.slice.call(form.querySelectorAll('[name="' + escapedName + '"]'));
+      values[name].forEach(function (saved, index) {
+        var field = fields[index];
+        if (!field) {
+          return;
+        }
+        if (saved.type === "checkbox" || saved.type === "radio") {
+          field.checked = !!saved.checked;
+        } else {
+          field.value = saved.value;
+          if (field.tagName === "SELECT" && field.value !== saved.value) {
+            field.dataset.restoreValue = saved.value;
+          }
+        }
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+        field.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    });
+  }
+
+  function restorePageStateAfterLanguageChange() {
+    var raw = "";
+    try {
+      raw = window.sessionStorage.getItem(languageStateKey()) || "";
+    } catch (error) {
+      raw = "";
+    }
+    if (!raw) {
+      return;
+    }
+    var state = null;
+    try {
+      state = JSON.parse(raw);
+      window.sessionStorage.removeItem(languageStateKey());
+    } catch (error) {
+      return;
+    }
+    var forms = Array.prototype.slice.call(document.querySelectorAll("form")).filter(isRestorableForm);
+    (state.forms || []).forEach(function (values, index) {
+      if (forms[index]) {
+        restoreFormValues(forms[index], values);
+      }
+    });
+    Array.prototype.slice.call(document.querySelectorAll("[data-config-table-search]")).forEach(function (field, index) {
+      if (!state.looseFields || state.looseFields[index] === undefined) {
+        return;
+      }
+      field.value = state.looseFields[index];
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    if (state.activeTab) {
+      document.querySelectorAll("[data-config-editor]").forEach(function (editor) {
+        editor.dataset.restoreTab = state.activeTab;
+      });
+    }
+    if (typeof state.scrollY === "number") {
+      window.setTimeout(function () { window.scrollTo(0, state.scrollY); }, 0);
+    }
+  }
+
+  function initLanguageStatePreservation(root) {
+    (root || document).querySelectorAll("[data-language-form]").forEach(function (form) {
+      form.addEventListener("submit", savePageStateBeforeLanguageChange);
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
+    initLanguageStatePreservation(document);
+    initConfigTabs(document);
+    try {
+      restorePageStateAfterLanguageChange();
+    } catch (error) {
+      window.console && window.console.warn && window.console.warn("No se pudo restaurar el estado tras cambiar idioma", error);
+    }
     initThemeSelector(document);
     initSelect2(document);
+    initConfigBootstrap(document);
     initAsyncTables(document);
+    initConfigTables(document);
+    initConfigTaskActions(document);
+    initConfigEditor(document);
     initDataCharts(document);
     initDashboardCountryDetail(document);
     initStatsCountries(document);

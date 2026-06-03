@@ -8,11 +8,14 @@ from pathlib import Path
 from pprint import pformat
 import re
 import tomllib
-from urllib.parse import quote
+from urllib.error import URLError
+from urllib.parse import quote, urljoin, urlparse
+from urllib.request import urlopen
 
 from django.conf import settings
 from django.contrib import messages
 from django.core.paginator import Paginator
+from django.db import OperationalError, ProgrammingError, connection
 from django.db.models import Count, Sum
 from django.http import Http404, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, render
@@ -27,13 +30,32 @@ from ciudades_del_mundo.domain import (
     parse_pages,
 )
 from ciudades_del_mundo.infrastructure.scraping import PythonScrapingConfigRepository
-from ciudades_del_mundo.models import AdminArea, NuevoAdminArea
+from ciudades_del_mundo.models import AdminArea, NuevoAdminArea, ScrapingConfig
 
+from ciudades_del_mundo.services.scraping_configs import (
+    ensure_initial_scraping_configs,
+    parse_config_metadata,
+    scraping_config_bootstrap_status,
+    scraping_config_table_exists,
+    upsert_scraping_config,
+)
+
+from .spain_translations import normalize_language_code, spain_entity_type, spain_name
 from .tasks import task_manager
 
 
 CONFIG_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 RECIPE_SLUG_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+HIDDEN_CITY_MERGE_STATUS = 3
+AI_CONFIG_ENABLED = bool(getattr(settings, "AI_CONFIG_ENABLED", True))
+AI_PERSONAL_LOGIN_ENABLED = bool(getattr(settings, "AI_PERSONAL_LOGIN_ENABLED", True))
+AI_PROVIDER_LOGIN_URLS = {
+    "chatgpt": "https://chat.openai.com/",
+    "openai": "https://platform.openai.com/login",
+    "claude": "https://claude.ai/login",
+    "gemini": "https://gemini.google.com/",
+    **getattr(settings, "AI_PROVIDER_LOGIN_URLS", {}),
+}
 PACKAGE_ROOT = Path(settings.BASE_DIR) / "ciudades_del_mundo"
 SUBDIVISIONS_ROOT = PACKAGE_ROOT / "subdivisions"
 NEW_RECIPES_ROOT = PACKAGE_ROOT / "new_subdivisions"
@@ -286,7 +308,7 @@ COUNTRY_NAME_ES_BY_CODE.update(
 def dashboard(request):
     """Render project summary metrics and current task state."""
     countries = list(
-        AdminArea.objects.values("country_code")
+        _visible_admin_areas().values("country_code")
         .annotate(total=Count("id"), population=Sum("pop_latest"))
         .order_by("country_code")
     )
@@ -300,7 +322,7 @@ def dashboard(request):
     nuevo_country_labels = _nuevo_country_label_map()
     _apply_country_labels(derived, nuevo_country_labels)
     context = {
-        "admin_area_count": AdminArea.objects.count(),
+        "admin_area_count": _visible_admin_areas().count(),
         "admin_country_count": len(countries),
         "nuevo_area_count": NuevoAdminArea.objects.count(),
         "nuevo_country_count": len(derived),
@@ -328,9 +350,59 @@ def api_country_detail(request, country_code):
     return _country_detail_response(request, country_code)
 
 
+def api_admin_area_detail(request, area_id):
+    """Return one imported area and its direct visible child subdivisions."""
+    area = (
+        _visible_admin_areas()
+        .select_related("parent")
+        .prefetch_related("capitals")
+        .filter(id=area_id)
+        .first()
+    )
+    if not area:
+        raise Http404(_("No existe AdminArea '%(area_id)s'.") % {"area_id": area_id})
+    return JsonResponse(_admin_area_detail_payload(area))
+
+
 def api_derived_summary(request):
     """Return derived-country population rows for API-driven views."""
     return JsonResponse(_derived_summary_payload())
+
+
+
+
+def api_task_list(request):
+    """Return persisted task history for external/API consumers."""
+    limit = min(_page_size(request, default=50), 200)
+    return JsonResponse({"tasks": [_task_payload(task) for task in task_manager.list(limit=limit)]})
+
+
+def api_task_detail(request, task_id):
+    """Return one persisted task status and its latest log tail."""
+    task = task_manager.get(task_id)
+    if not task:
+        raise Http404(_("Tarea no encontrada."))
+    return JsonResponse(_task_payload(task, include_output=True))
+
+
+def _task_payload(task, *, include_output: bool = False) -> dict:
+    payload = {
+        "id": task.id,
+        "key": task.key,
+        "label": task.label,
+        "status": task.status,
+        "is_active": task.is_active,
+        "created_at": task.created_at.isoformat() if task.created_at else None,
+        "started_at": task.started_at.isoformat() if task.started_at else None,
+        "finished_at": task.finished_at.isoformat() if task.finished_at else None,
+        "returncode": task.returncode,
+        "command": task.command_display,
+        "detail_url": reverse("ciudades_del_mundo:task_detail", kwargs={"task_id": task.id}),
+        "status_url": reverse("ciudades_del_mundo:task_status", kwargs={"task_id": task.id}),
+    }
+    if include_output:
+        payload["output"] = task_manager.output_text(task)[-4000:]
+    return payload
 
 
 def dashboard_population_data(request):
@@ -412,7 +484,7 @@ def dashboard_country_detail(request, country_code):
 
 def _country_detail_response(request, country_code):
     country_code = country_code.lower()
-    if not AdminArea.objects.filter(country_code=country_code).exists():
+    if not _visible_admin_areas().filter(country_code=country_code).exists():
         raise Http404(_("No existe el pais '%(country_code)s'.") % {"country_code": country_code})
     try:
         selected_level = int(request.GET.get("level")) if request.GET.get("level") not in (None, "") else None
@@ -427,7 +499,7 @@ def admin_area_list(request):
         "table_url": reverse("ciudades_del_mundo:admin_area_table"),
         "countries": _admin_country_options(),
         "entity_types": (
-            AdminArea.objects.exclude(entity_type__isnull=True)
+            _visible_admin_areas().exclude(entity_type__isnull=True)
             .exclude(entity_type="")
             .values_list("entity_type", flat=True)
             .distinct()
@@ -455,18 +527,84 @@ def admin_area_table(request):
 
 
 def config_list(request):
-    """List TOML scraping configs with operational actions."""
+    """List SQL-backed scraping configs with operational actions."""
+    try:
+        bootstrap_status = ensure_initial_scraping_configs(force=False)
+    except (OperationalError, ProgrammingError):
+        bootstrap_status = scraping_config_bootstrap_status()
     context = {
-        "configs": _config_summaries(),
-        "recent_tasks": task_manager.list(limit=12),
+        "config_table_url": reverse("ciudades_del_mundo:config_table"),
+        "config_tasks_table_url": reverse("ciudades_del_mundo:config_tasks_table"),
+        "config_bootstrap_url": reverse("ciudades_del_mundo:config_bootstrap"),
+        "config_bootstrap_status": bootstrap_status.as_dict(),
     }
     return render(request, "ciudades_del_mundo/config_list.html", context)
 
 
+def config_bootstrap(request):
+    """Synchronously populate the SQL config table from bundled TOML files."""
+    if request.method not in {"POST", "GET"}:
+        return JsonResponse({"ok": False, "error": _("Método no soportado.")}, status=405)
+    try:
+        status = ensure_initial_scraping_configs(force=False)
+    except (OperationalError, ProgrammingError) as exc:
+        return JsonResponse(
+            {
+                "ok": False,
+                "ready": False,
+                "error": _("La tabla de configuraciones todavía no está disponible: %(error)s") % {"error": exc},
+            },
+            status=503,
+        )
+    return JsonResponse({"ok": status.ready, **status.as_dict()})
+
+
+def config_table(request):
+    """Render the asynchronous SQL/TOML config table partial."""
+    try:
+        ensure_initial_scraping_configs(force=False)
+    except (OperationalError, ProgrammingError):
+        pass
+    rows = _filtered_config_summaries(request)
+    return render(
+        request,
+        "ciudades_del_mundo/partials/config_table.html",
+        {
+            "rows": rows,
+            "page_size": _page_size(request, default=25),
+        },
+    )
+
+
+def _task_table_context(tasks, *, page_size: int, compact: bool = True) -> dict:
+    """Return shared context for task tables, including a cheap polling signature."""
+    snapshot = "|".join(
+        f"{task.id}:{task.status}:{task.started_at or task.created_at}:{task.finished_at or ''}"
+        for task in tasks
+    )
+    return {
+        "tasks": tasks,
+        "page_size": page_size,
+        "compact": compact,
+        "has_active_tasks": any(task.is_active for task in tasks),
+        "task_table_snapshot": snapshot,
+    }
+
+
+def config_tasks_table(request):
+    """Render the asynchronous recent config/task history table partial."""
+    tasks = task_manager.list(limit=100)
+    return render(
+        request,
+        "ciudades_del_mundo/partials/config_tasks_table.html",
+        _task_table_context(tasks, page_size=_page_size(request, default=10), compact=True),
+    )
+
+
 def config_new(request):
-    """Create a new TOML scraping config."""
+    """Create a new SQL-backed scraping config."""
     default_content = (
-        'name = "Nuevo pais"\n'
+        'name = "Nuevo país"\n'
         "LEGAL_SUBDIVISION = 2\n\n"
         "[[pages]]\n"
         'source = "admin"\n'
@@ -481,50 +619,42 @@ def config_new(request):
         '# from = { 2 = ["Provincia"] }\n'
         "# keep_communes = false\n"
     )
+    slug = ""
+    content = default_content
     if request.method == "POST":
-        slug = _normalize_config_slug(request.POST.get("slug", ""))
-        content = request.POST.get("content", "")
         try:
+            slug = _normalize_config_slug(request.POST.get("slug", ""))
+            if _config_exists(slug):
+                raise ValueError(_("Ya existe una configuración para '%(slug)s'.") % {"slug": slug})
+            content = _config_content_from_request(request, slug, default_content, existing=False)
             _validate_config_text(slug, content)
-            path = _config_path(slug, must_exist=False)
-            if path.exists():
-                raise ValueError(_("Ya existe una configuracion para '%(slug)s'.") % {"slug": slug})
-            path.write_text(content, encoding="utf-8")
+            upsert_scraping_config(slug, content)
         except ValueError as exc:
             messages.error(request, str(exc))
         else:
-            messages.success(request, _("Configuracion '%(slug)s' creada.") % {"slug": slug})
+            messages.success(request, _("Configuración '%(slug)s' creada.") % {"slug": slug})
             return redirect("ciudades_del_mundo:config_edit", slug=slug)
-    else:
-        slug = ""
-        content = default_content
-
-    return render(
-        request,
-        "ciudades_del_mundo/config_form.html",
-        {
-            "mode": "new",
-            "slug": slug,
-            "content": content,
-        },
-    )
+    return render(request, "ciudades_del_mundo/config_form.html", _config_form_context("new", slug, content))
 
 
 def config_edit(request, slug):
-    """Edit a TOML scraping config and restart active scrape work if needed."""
+    """Edit a SQL-backed scraping config and restart active scrape work if needed."""
     slug = _normalize_config_slug(slug)
-    path = _config_path(slug)
+    config_record = _config_record(slug)
+    if config_record is None:
+        raise Http404(_("No existe la configuracion '%(slug)s'.") % {"slug": slug})
     active_scrape = task_manager.latest_for_key(f"scrape:{slug}")
+    content = config_record.content
 
     if request.method == "POST":
-        content = request.POST.get("content", "")
         try:
+            content = _config_content_from_request(request, slug, content, existing=True)
             _validate_config_text(slug, content)
-            path.write_text(content, encoding="utf-8")
+            upsert_scraping_config(slug, content, source_path=config_record.source_path)
         except ValueError as exc:
             messages.error(request, str(exc))
         else:
-            messages.success(request, _("Configuracion '%(slug)s' guardada.") % {"slug": slug})
+            messages.success(request, _("Configuración '%(slug)s' guardada.") % {"slug": slug})
             if active_scrape and active_scrape.is_active:
                 replacement = task_manager.start(
                     key=f"scrape:{slug}",
@@ -533,49 +663,189 @@ def config_edit(request, slug):
                 )
                 messages.info(
                     request,
-                    _("Habia un scraping activo para este fichero; se cancelo y se lanzo otra tarea."),
+                    _("Había un scraping activo para esta configuración; se canceló y se lanzó otra tarea."),
                 )
                 return redirect("ciudades_del_mundo:task_detail", task_id=replacement.id)
             return redirect("ciudades_del_mundo:config_edit", slug=slug)
 
-    return render(
-        request,
-        "ciudades_del_mundo/config_form.html",
-        {
-            "mode": "edit",
-            "slug": slug,
-            "content": path.read_text(encoding="utf-8"),
-            "active_task": active_scrape,
-        },
-    )
+    return render(request, "ciudades_del_mundo/config_form.html", _config_form_context("edit", slug, content, active_scrape))
 
 
 def start_config_task(request, slug, action):
-    """Start validation, URL listing or scraping for one TOML config."""
+    """Start validation or scraping for one SQL/TOML config."""
+    wants_json = _wants_json(request)
     if request.method != "POST":
+        if wants_json:
+            return JsonResponse({"ok": False, "error": _("Método no soportado.")}, status=405)
         return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
 
-    slug = _normalize_config_slug(slug)
-    _config_path(slug)
+    try:
+        slug = _normalize_config_slug(slug)
+    except ValueError as exc:
+        if wants_json:
+            return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+        messages.error(request, str(exc))
+        return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
+
+    config_ready, config_error = _ensure_config_available_for_task(slug)
+    if not config_ready:
+        error = config_error or _("No existe la configuracion '%(slug)s'.") % {"slug": slug}
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=404)
+        raise Http404(error)
+
+    if not _web_task_table_exists():
+        error = _(
+            "La tabla de tareas no existe todavía. Ejecuta 'py manage.py migrate' y recarga la página."
+        )
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=503)
+        messages.error(request, error)
+        return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
 
     if action == "validate":
         key = f"validate-config:{slug}"
-        label = _("Validar configuracion: %(slug)s") % {"slug": slug}
+        label = _("Validar configuración: %(slug)s") % {"slug": slug}
         args = ["validate_subdivision_configs", slug]
-    elif action == "list-pages":
-        key = f"list-pages:{slug}"
-        label = _("Ver URLs de scraping: %(slug)s") % {"slug": slug}
-        args = ["scrape_subdivisions", "--list-pages", slug]
     elif action == "scrape":
         key = f"scrape:{slug}"
         label = _("Popular datos: %(slug)s") % {"slug": slug}
         args = ["scrape_subdivisions", slug]
     else:
-        raise Http404(_("Accion de configuracion no soportada."))
+        error = _("Acción de configuración no soportada.")
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=404)
+        raise Http404(error)
 
-    task = task_manager.start(key=key, label=label, args=args)
+    try:
+        task = task_manager.start(key=key, label=label, args=args)
+    except (OperationalError, ProgrammingError) as exc:
+        error = _(
+            "No se pudo guardar la tarea en la base de datos. Ejecuta 'py manage.py migrate'. Detalle: %(error)s"
+        ) % {"error": exc}
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=503)
+        messages.error(request, error)
+        return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
+    except Exception as exc:  # noqa: BLE001 - AJAX must not receive a Django HTML debug page.
+        if wants_json:
+            return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+        raise
+    if wants_json:
+        return JsonResponse(
+            {
+                "ok": True,
+                "task_id": task.id,
+                "label": label,
+                "status": task.status,
+                "status_url": reverse("ciudades_del_mundo:task_status", kwargs={"task_id": task.id}),
+                "summary_url": reverse("ciudades_del_mundo:config_summary", kwargs={"slug": slug}),
+                "detail_url": reverse("ciudades_del_mundo:task_detail", kwargs={"task_id": task.id}),
+            }
+        )
     messages.info(request, _("Tarea lanzada: %(label)s.") % {"label": label})
     return redirect("ciudades_del_mundo:task_detail", task_id=task.id)
+
+
+def task_status(request, task_id):
+    """Return current state for a web-launched task."""
+    task = task_manager.get(task_id)
+    if not task:
+        if _wants_json(request):
+            return JsonResponse({"ok": False, "error": _("No existe la tarea solicitada.")}, status=404)
+        raise Http404(_("No existe la tarea solicitada."))
+    return JsonResponse(
+        {
+            "id": task.id,
+            "label": task.label,
+            "status": task.status,
+            "is_active": task.is_active,
+            "returncode": task.returncode,
+            "output": task_manager.output_text(task)[-4000:],
+            "detail_url": reverse("ciudades_del_mundo:task_detail", kwargs={"task_id": task.id}),
+        }
+    )
+
+
+def config_summary(request, slug):
+    """Return an updated row summary for one config after an async task."""
+    slug = _normalize_config_slug(slug)
+    row = _config_summary_for_slug(slug)
+    task = row.get("active_task")
+    validate_task = row.get("validate_task")
+    scrape_task = row.get("scrape_task")
+    return JsonResponse(
+        {
+            "slug": row["slug"],
+            "name": row["name"],
+            "country_label": row["country_label"],
+            "pages": row["pages"],
+            "cities": row["cities"],
+            "rows": row["rows"],
+            "task_status": task.status if task else "",
+            "task_is_active": task.is_active if task else False,
+            "task_url": reverse("ciudades_del_mundo:task_detail", kwargs={"task_id": task.id}) if task else "",
+            "validate_task_status": validate_task.status if validate_task else "",
+            "validate_task_is_active": validate_task.is_active if validate_task else False,
+            "scrape_task_status": scrape_task.status if scrape_task else "",
+            "scrape_task_is_active": scrape_task.is_active if scrape_task else False,
+            "error": row.get("error") or "",
+        }
+    )
+
+
+def config_source_entities(request, slug):
+    """Return populated source entities for the manual city-unification UI."""
+    slug = _normalize_config_slug(slug)
+    if not _config_exists(slug):
+        raise Http404(_("No existe la configuracion '%(slug)s'.") % {"slug": slug})
+    entities = _source_entities_for_config(_config_country_code_for_slug(slug))
+    level_rows = _source_level_filter_options(entities)
+    entity_type_rows = _source_entity_type_filter_options(entities)
+    parent_rows = _source_parent_filter_options(entities)
+    parent_rows_by_level = {
+        row["value"]: _source_parent_filter_options(entities, level=row["value"])
+        for row in level_rows
+    }
+    return JsonResponse(
+        {
+            "entities": entities,
+            "levels": level_rows,
+            "entity_types": entity_type_rows,
+            "parents": parent_rows,
+            "parents_by_level": parent_rows_by_level,
+        }
+    )
+
+
+def config_generate_base(request, slug):
+    """Generate a draft TOML config by discovering links on CityPopulation."""
+    if request.method != "POST":
+        return HttpResponseRedirect(reverse("ciudades_del_mundo:config_edit", kwargs={"slug": slug}))
+    slug = _normalize_config_slug(slug)
+    try:
+        content, log_lines = _generate_citypopulation_config(slug)
+        _validate_config_text(slug, content)
+    except ValueError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+    return JsonResponse({"ok": True, "content": content, "log": "\n".join(log_lines)})
+
+
+def config_ai_login(request, slug):
+    """Redirect to the selected AI provider login page without storing credentials."""
+    slug = _normalize_config_slug(slug)
+    if not _config_exists(slug):
+        raise Http404(_("No existe la configuracion '%(slug)s'.") % {"slug": slug})
+    if not AI_CONFIG_ENABLED or not AI_PERSONAL_LOGIN_ENABLED:
+        messages.error(request, _("La IA está deshabilitada por configuración."))
+        return redirect(f"{reverse('ciudades_del_mundo:config_edit', kwargs={'slug': slug})}?tab=ai")
+
+    provider = str(request.GET.get("provider") or "chatgpt").strip().lower()
+    login_url = AI_PROVIDER_LOGIN_URLS.get(provider)
+    if not login_url:
+        messages.error(request, _("Proveedor IA no soportado: %(provider)s") % {"provider": provider})
+        return redirect(f"{reverse('ciudades_del_mundo:config_edit', kwargs={'slug': slug})}?tab=ai")
+    return redirect(login_url)
 
 
 def recipe_list(request):
@@ -815,6 +1085,15 @@ def area_map_detail(request, source, area_id):
     context = {
         "area": area,
         "source": source,
+        "area_display_name": _area_display_name(area),
+        "entity_type_display": _entity_type_label(
+            getattr(area, "entity_type", ""),
+            country_code=getattr(area, "country_code", ""),
+        ),
+        "parent_display_name": _area_display_name(area.parent) if getattr(area, "parent", None) else "",
+        "most_populate_city_display_name": (
+            _area_display_name(area.most_populate_city) if getattr(area, "most_populate_city", None) else ""
+        ),
         "map_query": map_query,
         "wikidata_query": map_query,
         "country_display_name": _area_country_display_name(area),
@@ -866,19 +1145,19 @@ def _stats_chart_payloads() -> dict[str, dict]:
         for row in _admin_root_population_rows()
     ]
     countries = list(
-        AdminArea.objects.values("country_code")
+        _visible_admin_areas().values("country_code")
         .annotate(total=Count("id"), population=Sum("pop_latest"))
         .order_by("-population")
     )
     _apply_country_labels(countries, _admin_country_label_map())
     admin_levels = list(
-        AdminArea.objects.values("level").annotate(total=Count("id")).order_by("level")
+        _visible_admin_areas().values("level").annotate(total=Count("id")).order_by("level")
     )
     nuevo_levels = list(
         NuevoAdminArea.objects.values("level").annotate(total=Count("id")).order_by("level")
     )
     merge_statuses = list(
-        AdminArea.objects.values("city_merge_status")
+        _visible_admin_areas().values("city_merge_status")
         .annotate(total=Count("id"))
         .order_by("city_merge_status")
     )
@@ -947,7 +1226,17 @@ def task_list(request):
     return render(
         request,
         "ciudades_del_mundo/task_list.html",
-        {"tasks": task_manager.list(limit=50)},
+        {"task_table_url": reverse("ciudades_del_mundo:task_table")},
+    )
+
+
+def task_table(request):
+    """Render the asynchronous background task table partial."""
+    tasks = task_manager.list(limit=200)
+    return render(
+        request,
+        "ciudades_del_mundo/partials/task_table.html",
+        _task_table_context(tasks, page_size=_page_size(request, default=25), compact=False),
     )
 
 
@@ -956,7 +1245,14 @@ def task_detail(request, task_id):
     task = task_manager.get(task_id)
     if not task:
         raise Http404(_("Tarea no encontrada."))
-    return render(request, "ciudades_del_mundo/task_detail.html", {"task": task})
+    return render(
+        request,
+        "ciudades_del_mundo/task_detail.html",
+        {
+            "task": task,
+            "task_output": task_manager.output_text(task),
+        },
+    )
 
 
 def task_cancel(request, task_id):
@@ -969,8 +1265,12 @@ def task_cancel(request, task_id):
     return redirect("ciudades_del_mundo:task_detail", task_id=task_id)
 
 
+def _visible_admin_areas():
+    return AdminArea.objects.exclude(city_merge_status=HIDDEN_CITY_MERGE_STATUS)
+
+
 def _filtered_admin_areas(request):
-    areas = AdminArea.objects.select_related("parent", "most_populate_city").order_by("country_code", "level", "name")
+    areas = _visible_admin_areas().select_related("parent", "most_populate_city").order_by("country_code", "level", "name")
     q = (request.GET.get("q") or "").strip()
     countries = _clean_list(request.GET.getlist("country"))
     levels = _clean_list(request.GET.getlist("level"))
@@ -1115,6 +1415,14 @@ def _area_search_query(area) -> str:
     return ", ".join(str(part) for part in parts if part)
 
 
+def _area_display_name(area) -> str:
+    return _display_name(
+        getattr(area, "name", ""),
+        getattr(area, "name", ""),
+        country_code=getattr(area, "country_code", ""),
+    )
+
+
 def _area_capital_display_names(area, language_code: str | None = None) -> list[str]:
     capitals = getattr(area, "capitals", None)
     if not capitals:
@@ -1125,7 +1433,7 @@ def _area_capital_display_names(area, language_code: str | None = None) -> list[
     language_overrides = overrides.get(language, {}) if isinstance(overrides, dict) else {}
     names = []
     for capital in capitals.all():
-        names.append(language_overrides.get(capital.id) or capital.name)
+        names.append(language_overrides.get(capital.id) or _area_display_name(capital))
     return names
 
 
@@ -1145,20 +1453,20 @@ def _area_related_places(area, language_code: str | None = None) -> list[dict[st
     country_code = getattr(area, "country_code", "")
     country_root = _area_country_root(area)
     if country_root:
-        add(_("Pais"), country_root.name, country_root.name)
+        add(_("Pais"), _area_display_name(country_root), country_root.name)
     elif country_code:
         add(_("Pais"), str(country_code), str(country_code))
 
     parent = getattr(area, "parent", None)
     if parent:
-        add(_("Region padre"), parent.name, _area_search_query(parent))
+        add(_("Region padre"), _area_display_name(parent), _area_search_query(parent))
 
     for capital_name in _area_capital_display_names(area, language_code):
-        add(_("Capital registrada"), capital_name, f"{capital_name}, {area.name}")
+        add(_("Capital registrada"), capital_name, f"{capital_name}, {_area_display_name(area)}")
 
     most_populated = getattr(area, "most_populate_city", None)
     if most_populated:
-        add(_("Ciudad mayor registrada"), most_populated.name, f"{most_populated.name}, {area.name}")
+        add(_("Ciudad mayor registrada"), _area_display_name(most_populated), f"{most_populated.name}, {area.name}")
 
     return places
 
@@ -1178,11 +1486,13 @@ def _area_country_root(area):
             .order_by("name")
             .first()
         )
+    if model is AdminArea:
+        return _visible_admin_areas().filter(country_code=country_code, level=0).order_by("name").first()
     return model.objects.filter(country_code=country_code, level=0).order_by("name").first()
 
 
 def _canonical_country_area(country_code: str) -> AdminArea | None:
-    roots = AdminArea.objects.filter(country_code=country_code, level=0, parent__isnull=True)
+    roots = _visible_admin_areas().filter(country_code=country_code, level=0, parent__isnull=True)
     preferred = roots.filter(code=country_code).order_by("name").first()
     if preferred:
         return preferred
@@ -1193,21 +1503,21 @@ def _canonical_country_area(country_code: str) -> AdminArea | None:
 
 def _country_top_level_areas(country_code: str, root: AdminArea | None = None):
     if root:
-        children = AdminArea.objects.filter(parent=root)
+        children = _visible_admin_areas().filter(parent=root)
         first_child_level = children.values_list("level", flat=True).order_by("level").first()
         if first_child_level is not None:
             return children.filter(level=first_child_level).order_by("name")
         next_level = (
-            AdminArea.objects.filter(country_code=country_code)
+            _visible_admin_areas().filter(country_code=country_code)
             .exclude(id=root.id)
             .values_list("level", flat=True)
             .order_by("level")
             .first()
         )
         if next_level is not None:
-            return AdminArea.objects.filter(country_code=country_code, level=next_level).exclude(id=root.id).order_by("name")
+            return _visible_admin_areas().filter(country_code=country_code, level=next_level).exclude(id=root.id).order_by("name")
         return AdminArea.objects.none()
-    return AdminArea.objects.filter(country_code=country_code, level=0, parent__isnull=True).order_by("name")
+    return _visible_admin_areas().filter(country_code=country_code, level=0, parent__isnull=True).order_by("name")
 
 
 def _country_total(country_code: str, field: str, root: AdminArea | None):
@@ -1218,7 +1528,7 @@ def _country_total(country_code: str, field: str, root: AdminArea | None):
 
 def _admin_country_summary_records() -> list[dict]:
     records = []
-    codes = AdminArea.objects.values_list("country_code", flat=True).distinct().order_by("country_code")
+    codes = _visible_admin_areas().values_list("country_code", flat=True).distinct().order_by("country_code")
     for country_code in codes:
         root = _canonical_country_area(country_code)
         population = _country_total(country_code, "pop_latest", root)
@@ -1229,7 +1539,7 @@ def _admin_country_summary_records() -> list[dict]:
         records.append(
             {
                 "code": country_code,
-                "label": _display_name(source_name, country_code),
+                "label": _display_name(source_name, country_code, country_code=country_code),
                 "population": int(population or 0),
                 "area_km2": _number_or_none(area),
                 "root_id": root.id if root else "",
@@ -1260,7 +1570,12 @@ def _country_detail_payload(country_code: str, selected_level: int | None = None
     root = _canonical_country_area(country_code)
     country_record = next(
         (row for row in _admin_country_summary_records() if row["code"] == country_code),
-        {"code": country_code, "label": _display_name("", country_code), "population": 0, "area_km2": None},
+        {
+            "code": country_code,
+            "label": _display_name("", country_code, country_code=country_code),
+            "population": 0,
+            "area_km2": None,
+        },
     )
     available_levels = _country_available_levels(country_code, root)
     if selected_level not in [item["value"] for item in available_levels]:
@@ -1270,13 +1585,17 @@ def _country_detail_payload(country_code: str, selected_level: int | None = None
     population_total = country_record["population"]
     area_total = country_record["area_km2"] or 0
     rows = _country_table_rows(country_code, root, selected_level, population_total, area_total)
-    subdivision_count = AdminArea.objects.filter(country_code=country_code).count() - (1 if root else 0)
+    subdivision_count = _visible_admin_areas().filter(country_code=country_code).count() - (1 if root else 0)
 
     return {
         "country": {
+            "id": root.id if root else "",
             "code": country_code,
             "name": country_record["label"],
             "official_name": country_record["label"],
+            "entity_type": _entity_type_label(root.entity_type, country_code=country_code) if root else "",
+            "level": root.level if root else None,
+            "parent": "",
             "population": population_total,
             "area_km2": area_total,
             "density": _density(population_total, area_total),
@@ -1300,9 +1619,81 @@ def _country_detail_payload(country_code: str, selected_level: int | None = None
     }
 
 
+def _admin_area_detail_payload(area: AdminArea) -> dict:
+    children = list(
+        _visible_admin_areas()
+        .filter(parent=area)
+        .select_related("parent")
+        .order_by("name")
+    )
+    return {
+        "area": _admin_area_identity_payload(area, children),
+        "children": _admin_area_child_rows(children, area.pop_latest, area.area_km2),
+    }
+
+
+def _admin_area_identity_payload(area: AdminArea, children: list[AdminArea] | None = None) -> dict:
+    country_root = _area_country_root(area)
+    return {
+        "id": area.id,
+        "code": area.code,
+        "country_code": area.country_code,
+        "name": _display_name(area.name, area.name, country_code=area.country_code),
+        "official_name": _display_name(area.name, area.name, country_code=area.country_code),
+        "entity_type": _entity_type_label(area.entity_type, country_code=area.country_code),
+        "level": area.level,
+        "parent": _display_name(area.parent.name, area.parent.name, country_code=area.country_code) if area.parent else "",
+        "population": int(area.pop_latest or 0) if area.pop_latest is not None else None,
+        "area_km2": _number_or_none(area.area_km2),
+        "density": _number_or_none(area.density) or _density(area.pop_latest, area.area_km2),
+        "capital": _capital_names_for_area(area),
+        "subdivision_count": len(children) if children is not None else _visible_admin_areas().filter(parent=area).count(),
+        "type_summary": [],
+        "wikidata_query": _area_wikidata_query(area, country_root),
+        "wikidata_id": "",
+        "map_url": reverse("ciudades_del_mundo:area_map_detail", kwargs={"source": "admin", "area_id": area.id}),
+        "detail_url": _admin_area_detail_url(area),
+    }
+
+
+def _admin_area_child_rows(children: list[AdminArea], population_total, area_total) -> list[dict]:
+    return [
+        {
+            "id": child.id,
+            "name": _display_name(child.name, child.name, country_code=child.country_code),
+            "entity_type": _entity_type_label(child.entity_type, country_code=child.country_code),
+            "level": child.level,
+            "area_km2": _number_or_none(child.area_km2),
+            "population": int(child.pop_latest or 0) if child.pop_latest is not None else None,
+            "density": _number_or_none(child.density) or _density(child.pop_latest, child.area_km2),
+            "population_percent": _ratio_percent(child.pop_latest, population_total),
+            "area_percent": _ratio_percent(child.area_km2, area_total),
+            "child_count": _visible_admin_areas().filter(parent=child).count(),
+            "detail_url": _admin_area_detail_url(child),
+        }
+        for child in children
+    ]
+
+
+def _area_wikidata_query(area: AdminArea, country_root: AdminArea | None = None) -> str:
+    parts = [area.name]
+    parent = area.parent
+    if parent:
+        parts.append(parent.name)
+    if country_root and country_root.id != area.id:
+        parts.append(country_root.name)
+    elif area.country_code:
+        parts.append(area.country_code)
+    return ", ".join(str(part) for part in parts if part)
+
+
+def _admin_area_detail_url(area: AdminArea) -> str:
+    return reverse("ciudades_del_mundo:api_admin_area_detail", kwargs={"area_id": area.id})
+
+
 def _country_available_levels(country_code: str, root: AdminArea | None) -> list[dict]:
     levels = (
-        AdminArea.objects.filter(country_code=country_code)
+        _visible_admin_areas().filter(country_code=country_code)
         .values_list("level", flat=True)
         .distinct()
         .order_by("level")
@@ -1330,9 +1721,9 @@ def _display_level(level: int, root: AdminArea | None) -> int:
 
 def _level_entity_types(country_code: str, level: int) -> list[str]:
     return [
-        item or _("Sin tipo")
+        _entity_type_label(item, country_code=country_code) or _("Sin tipo")
         for item in (
-            AdminArea.objects.filter(country_code=country_code, level=level)
+            _visible_admin_areas().filter(country_code=country_code, level=level)
             .exclude(entity_type="")
             .values_list("entity_type", flat=True)
             .distinct()
@@ -1351,7 +1742,7 @@ def _country_table_rows(
     if selected_level is None:
         return []
     rows = (
-        AdminArea.objects.filter(country_code=country_code, level=selected_level)
+        _visible_admin_areas().filter(country_code=country_code, level=selected_level)
         .select_related("parent")
         .order_by("name")
     )
@@ -1359,21 +1750,21 @@ def _country_table_rows(
         rows = rows.exclude(id=root.id)
     return [
         {
-            "name": _display_name(row.name, row.name),
+            "name": _display_name(row.name, row.name, country_code=country_code),
             "area_km2": _number_or_none(row.area_km2),
             "population": int(row.pop_latest or 0) if row.pop_latest is not None else None,
             "density": _number_or_none(row.density) or _density(row.pop_latest, row.area_km2),
             "population_percent": _ratio_percent(row.pop_latest, population_total),
             "area_percent": _ratio_percent(row.area_km2, area_total),
-            "parent": _display_name(row.parent.name, row.parent.name) if row.parent else "",
-            "entity_type": _(row.entity_type) if row.entity_type else "",
+            "parent": _display_name(row.parent.name, row.parent.name, country_code=country_code) if row.parent else "",
+            "entity_type": _entity_type_label(row.entity_type, country_code=country_code),
         }
         for row in rows
     ]
 
 
 def _country_type_summary(country_code: str, root: AdminArea | None) -> list[dict]:
-    rows = AdminArea.objects.filter(country_code=country_code)
+    rows = _visible_admin_areas().filter(country_code=country_code)
     if root:
         rows = rows.exclude(id=root.id)
     grouped = rows.values("level", "entity_type").annotate(total=Count("id")).order_by("level", "entity_type")
@@ -1381,7 +1772,7 @@ def _country_type_summary(country_code: str, root: AdminArea | None) -> list[dic
         {
             "level": item["level"],
             "label": _("Nivel %(level)s") % {"level": _display_level(item["level"], root)},
-            "entity_type": _(item["entity_type"] or _("Sin tipo")),
+            "entity_type": _entity_type_label(item["entity_type"], country_code=country_code) or _("Sin tipo"),
             "total": item["total"],
         }
         for item in grouped
@@ -1391,7 +1782,10 @@ def _country_type_summary(country_code: str, root: AdminArea | None) -> list[dic
 def _capital_names_for_area(area: AdminArea | None) -> list[str]:
     if not area:
         return []
-    return [_display_name(capital.name, capital.name) for capital in area.capitals.all().order_by("name")]
+    return [
+        _display_name(capital.name, capital.name, country_code=area.country_code)
+        for capital in area.capitals.all().order_by("name")
+    ]
 
 
 def _wikidata_country_id(country_code: str) -> str:
@@ -1640,7 +2034,7 @@ def _donut_payload(areas: list[AdminArea], value_field: str, total) -> dict:
         items.append(
             {
                 "key": area.id,
-                "label": _display_name(area.name, area.name),
+                "label": _display_name(area.name, area.name, country_code=area.country_code),
                 "value": _number_or_none(value),
             }
         )
@@ -1654,7 +2048,7 @@ def _donut_payload(areas: list[AdminArea], value_field: str, total) -> dict:
 def _first_order_cards(country_code: str, root: AdminArea | None, first_order: list[AdminArea], population_total, area_total) -> list[dict]:
     child_level = _second_order_level(first_order)
     child_count = (
-        AdminArea.objects.filter(country_code=country_code, level=child_level).count()
+        _visible_admin_areas().filter(country_code=country_code, level=child_level).count()
         if child_level is not None
         else 0
     )
@@ -1676,12 +2070,17 @@ def _first_order_card(area: AdminArea, population_total, area_total, *, include_
     population = int(area.pop_latest or 0) if area.pop_latest is not None else 0
     area_km2 = _number_or_none(area.area_km2) or 0
     return {
-        "name": _display_name(area.name, area.name),
-        "entity_type": _(area.entity_type) if area.entity_type else "",
+        "id": area.id,
+        "name": _display_name(area.name, area.name, country_code=area.country_code),
+        "entity_type": _entity_type_label(area.entity_type, country_code=area.country_code),
+        "level": area.level,
         "population": population,
         "area_km2": area_km2,
+        "density": _number_or_none(area.density) or _density(area.pop_latest, area.area_km2),
         "population_percent": _ratio_percent(population, population_total),
         "area_percent": _ratio_percent(area_km2, area_total),
+        "child_count": _visible_admin_areas().filter(parent=area).count(),
+        "detail_url": _admin_area_detail_url(area),
         "children": _second_order_share_rows(area) if include_children else [],
     }
 
@@ -1689,13 +2088,14 @@ def _first_order_card(area: AdminArea, population_total, area_total, *, include_
 def _second_order_share_rows(area: AdminArea) -> list[dict]:
     children = (
         area.children.exclude(city_merge_status=AdminArea.CityMergeStatus.SOURCE)
+        .exclude(city_merge_status=HIDDEN_CITY_MERGE_STATUS)
         .select_related("parent")
         .order_by("name")
     )
     return [
         {
-            "name": _display_name(child.name, child.name),
-            "entity_type": _(child.entity_type) if child.entity_type else "",
+            "name": _display_name(child.name, child.name, country_code=child.country_code),
+            "entity_type": _entity_type_label(child.entity_type, country_code=child.country_code),
             "population": int(child.pop_latest or 0) if child.pop_latest is not None else None,
             "area_km2": _number_or_none(child.area_km2),
             "population_percent": _ratio_percent(child.pop_latest, area.pop_latest),
@@ -1749,8 +2149,8 @@ def _number_or_none(value):
 
 
 def _admin_country_label_map() -> dict[str, str]:
-    roots = AdminArea.objects.filter(level=0).values_list("country_code", "name")
-    return {country_code: _display_name(name, country_code) for country_code, name in roots}
+    roots = _visible_admin_areas().filter(level=0).values_list("country_code", "name")
+    return {country_code: _display_name(name, country_code, country_code=country_code) for country_code, name in roots}
 
 
 def _nuevo_country_label_map() -> dict[str, str]:
@@ -1759,7 +2159,7 @@ def _nuevo_country_label_map() -> dict[str, str]:
 
 
 def _admin_country_options() -> list[dict[str, str]]:
-    codes = AdminArea.objects.values_list("country_code", flat=True).distinct().order_by("country_code")
+    codes = _visible_admin_areas().values_list("country_code", flat=True).distinct().order_by("country_code")
     return _country_options(codes, _admin_country_label_map())
 
 
@@ -1772,7 +2172,7 @@ def _country_options(codes, label_map: dict[str, str]) -> list[dict[str, str]]:
     return [
         {
             "code": code,
-            "label": label_map.get(code, _display_name("", code)),
+            "label": label_map.get(code, _display_name("", code, country_code=code)),
         }
         for code in codes
     ]
@@ -1781,19 +2181,20 @@ def _country_options(codes, label_map: dict[str, str]) -> list[dict[str, str]]:
 def _apply_country_labels(rows: list[dict], label_map: dict[str, str]) -> None:
     for row in rows:
         country_code = row.get("country_code")
-        row["display_label"] = label_map.get(country_code, _display_name("", country_code))
+        row["display_label"] = label_map.get(country_code, _display_name("", country_code, country_code=country_code))
 
 
 def _area_country_display_name(area) -> str:
     root = _area_country_root(area)
     if root:
-        return _display_name(root.name, area.country_code)
-    return _display_name("", getattr(area, "country_code", ""))
+        return _display_name(root.name, area.country_code, country_code=area.country_code)
+    area_country_code = getattr(area, "country_code", "")
+    return _display_name("", area_country_code, country_code=area_country_code)
 
 
-def _display_name(name, fallback) -> str:
+def _display_name(name, fallback, *, country_code: str | None = None) -> str:
     fallback_value = str(fallback or "").strip()
-    language = (get_language() or "").split("-", 1)[0]
+    language = normalize_language_code(get_language())
     if language == "es":
         mapped = COUNTRY_NAME_ES_BY_CODE.get(fallback_value.lower())
         if mapped:
@@ -1805,42 +2206,619 @@ def _display_name(name, fallback) -> str:
         return ""
     if "_" in value:
         value = value.replace("_", " ")
+    if str(country_code or "").lower() == "spain":
+        value = spain_name(value, language)
     translated = _(value)
     return translated
 
 
-def _config_summaries(limit: int | None = None) -> list[dict]:
-    repository = PythonScrapingConfigRepository()
-    row_counts = {
-        row["country_code"]: row["total"]
-        for row in AdminArea.objects.values("country_code").annotate(total=Count("id"))
+def _entity_type_label(entity_type: str | None, *, country_code: str | None = None) -> str:
+    value = str(entity_type or "").strip()
+    if not value:
+        return ""
+    language = normalize_language_code(get_language())
+    if str(country_code or "").lower() == "spain":
+        return spain_entity_type(value, language)
+    return _(value)
+
+
+def _wants_json(request) -> bool:
+    accept = request.headers.get("accept", "")
+    return request.headers.get("x-requested-with") == "XMLHttpRequest" or "application/json" in accept
+
+
+def _is_ajax(request) -> bool:
+    return _wants_json(request)
+
+
+def _config_form_context(mode: str, slug: str, content: str, active_task=None) -> dict:
+    parsed = _parse_config_editor_data(slug, content)
+    selected_ids = parsed["selected_ids"]
+    city_level = str(parsed.get("city", {}).get("level") or "")
+    country_code = str(parsed.get("country_code") or slug or "")
+    source_level_choices = _source_level_filter_options_for_country(country_code) if mode == "edit" else []
+    initial_source_level = source_level_choices[0]["value"] if source_level_choices else None
+    initial_source_entities = (
+        _source_entities_for_config(country_code, level=initial_source_level)
+        if initial_source_level
+        else []
+    )
+    return {
+        "mode": mode,
+        "slug": slug,
+        "content": content,
+        "active_task": active_task,
+        "manual": parsed,
+        "manual_selected_ids_json": json.dumps(selected_ids, ensure_ascii=False),
+        # Las entidades disponibles se cargan por endpoint para evitar insertar
+        # un JSON enorme en /configs/{country}/ y para poder reconstruir filtros
+        # traducidos sin romper la pestaña Manual.
+        "source_entities_json": json.dumps(initial_source_entities, ensure_ascii=False),
+        "source_level_choices": source_level_choices,
+        "scrape_types": _scrape_type_choices(),
+        "city_level_choices": [
+            {"value": str(level), "selected": str(level) == city_level}
+            for level in range(0, 6)
+        ],
+        "ai_enabled": AI_CONFIG_ENABLED,
+        "ai_personal_login_enabled": AI_PERSONAL_LOGIN_ENABLED,
+        "ai_provider_choices": _ai_provider_choices(),
     }
+
+
+def _scrape_type_choices() -> list[tuple[str, str]]:
+    return [
+        ("admin", _("Admin")),
+        ("table", _("Tabla")),
+        ("double", _("Doble")),
+        ("cities", _("Ciudades")),
+        ("infosection", _("Sección informativa")),
+    ]
+
+
+def _ai_provider_choices() -> list[tuple[str, str]]:
+    labels = {
+        "chatgpt": "ChatGPT",
+        "openai": "OpenAI",
+        "claude": "Claude",
+        "gemini": "Gemini",
+    }
+    return [(provider, labels.get(provider, provider.title())) for provider in AI_PROVIDER_LOGIN_URLS.keys()]
+
+
+def _parse_config_editor_data(slug: str, content: str) -> dict:
+    data = {}
+    try:
+        data = tomllib.loads(content or "")
+    except tomllib.TOMLDecodeError:
+        data = {}
+    pages = []
+    for page in data.get("pages") or []:
+        raw_paths = page.get("path")
+        if raw_paths is None:
+            raw_paths = [""]
+        elif not isinstance(raw_paths, list):
+            raw_paths = [raw_paths]
+        for raw_path in raw_paths:
+            pages.append(
+                {
+                    "path": str(raw_path or ""),
+                    "source": str(page.get("source", page.get("html_format", "admin"))),
+                    "lowest_level": int(page.get("lowest_level", page.get("level", 0)) or 0),
+                }
+            )
+    cities = data.get("cities") or []
+    first_city = cities[0] if cities else {}
+    country_code = str(data.get("country_code") or slug or "")
+    selected_ids = _selected_ids_from_city_config(country_code, first_city)
+    return {
+        "name": str(data.get("name") or ""),
+        "country_code": country_code,
+        "legal_subdivision": "" if data.get("LEGAL_SUBDIVISION") is None else str(data.get("LEGAL_SUBDIVISION")),
+        "pages": pages,
+        "city": {
+            "name": str(first_city.get("city") or ""),
+            "id": str(first_city.get("id") or ""),
+            "level": "" if first_city.get("level") is None else str(first_city.get("level")),
+            "type": str(first_city.get("type") or "City"),
+        },
+        "selected_ids": selected_ids,
+    }
+
+
+def _selected_ids_from_city_config(country_code: str, city_config: dict) -> list[str]:
+    labels = [str(value) for value in city_config.get("communes") or [] if str(value).strip()]
+    areas = _visible_admin_areas().filter(country_code=country_code).only("id", "name", "code", "level", "entity_type", "parent")
+    by_key = {}
+    for area in areas:
+        for key in (area.id, area.code, area.name):
+            by_key[str(key).casefold()] = area.id
+    selected: list[str] = []
+    for label in labels:
+        match = by_key.get(label.casefold())
+        if match and match not in selected:
+            selected.append(match)
+
+    if selected:
+        return selected
+
+    # Algunas configuraciones históricas sólo definen la unificación mediante
+    # `from` + `district_types`, sin listar `communes`. En ese caso reconstruimos
+    # la selección para que la tabla derecha no aparezca vacía al editar.
+    raw_from = city_config.get("from") or {}
+    if not isinstance(raw_from, dict):
+        return selected
+    district_types = {str(value) for value in city_config.get("district_types") or [] if str(value).strip()}
+    for raw_level, raw_parent_labels in raw_from.items():
+        try:
+            parent_level = int(raw_level)
+        except (TypeError, ValueError):
+            continue
+        if isinstance(raw_parent_labels, (str, int)):
+            parent_labels = [str(raw_parent_labels)]
+        else:
+            parent_labels = [str(value) for value in raw_parent_labels or [] if str(value).strip()]
+        if not parent_labels:
+            continue
+        parent_keys = {label.casefold() for label in parent_labels}
+        parents = [
+            area.id
+            for area in _visible_admin_areas().filter(country_code=country_code, level=parent_level).only("id", "name", "code")
+            if str(area.name).casefold() in parent_keys or str(area.code).casefold() in parent_keys or str(area.id).casefold() in parent_keys
+        ]
+        if not parents:
+            continue
+        children = _visible_admin_areas().filter(country_code=country_code, parent_id__in=parents).only("id", "entity_type")
+        if district_types:
+            children = children.filter(entity_type__in=district_types)
+        for area in children:
+            if area.id not in selected:
+                selected.append(area.id)
+    return selected
+
+
+def _source_entities_for_config(slug: str, *, level: str | int | None = None) -> list[dict]:
+    if not slug:
+        return []
+    areas = (
+        _visible_admin_areas()
+        .filter(country_code__iexact=slug)
+        .exclude(level=0)
+        .select_related("parent")
+        .order_by("level", "parent__name", "name")
+    )
+    if level is not None and str(level).strip():
+        areas = areas.filter(level=int(level))
+    rows = []
+    for area in areas:
+        parent = area.parent
+        entity_type = _entity_type_label(area.entity_type, country_code=area.country_code)
+        entity_type_filter = _source_entity_type_filter_label(area.entity_type, entity_type, area.country_code)
+        rows.append(
+            {
+                "id": area.id,
+                "name": _display_name(area.name, area.name, country_code=area.country_code),
+                "raw_name": area.name,
+                "level": area.level,
+                "entity_type": entity_type,
+                "raw_entity_type": area.entity_type,
+                "entity_type_filter": entity_type_filter,
+                "parent": _display_name(parent.name, parent.name, country_code=area.country_code) if parent else "",
+                "parent_key": parent.id if parent else "",
+                "parent_level": parent.level if parent else None,
+                "raw_parent": parent.name if parent else "",
+            }
+        )
+    return rows
+
+
+def _source_level_filter_options_for_country(country_code: str) -> list[dict]:
+    if not country_code:
+        return []
+    levels: dict[str, dict[str, object]] = {}
+    rows = (
+        _visible_admin_areas()
+        .filter(country_code__iexact=country_code)
+        .exclude(level=0)
+        .values("level", "entity_type")
+        .annotate(total=Count("id"))
+        .order_by("level", "entity_type")
+    )
+    for row in rows:
+        level_key = str(row["level"])
+        level_data = levels.setdefault(level_key, {"count": 0, "types": {}})
+        total = int(row["total"] or 0)
+        level_data["count"] = int(level_data["count"]) + total
+        raw_type = str(row["entity_type"] or "")
+        display_type = _entity_type_label(raw_type, country_code=country_code)
+        type_label = _source_entity_type_filter_label(raw_type, display_type, country_code)
+        if type_label:
+            types = level_data["types"]
+            assert isinstance(types, dict)
+            types[type_label] = int(types.get(type_label, 0)) + total
+    return _source_level_rows_from_counts(levels)
+
+
+def _source_level_filter_options(entities: list[dict]) -> list[dict]:
+    levels: dict[str, dict[str, object]] = {}
+    for entity in entities:
+        level_key = str(entity.get("level") or "").strip()
+        if not level_key:
+            continue
+        level_data = levels.setdefault(level_key, {"count": 0, "types": {}})
+        level_data["count"] = int(level_data["count"]) + 1
+        type_label = str(entity.get("entity_type_filter") or entity.get("entity_type") or "").strip()
+        if type_label:
+            types = level_data["types"]
+            assert isinstance(types, dict)
+            types[type_label] = int(types.get(type_label, 0)) + 1
+
+    return _source_level_rows_from_counts(levels)
+
+
+def _source_level_rows_from_counts(levels: dict[str, dict[str, object]]) -> list[dict]:
+    rows = []
+    for level in sorted(levels, key=_source_level_sort_key):
+        level_data = levels[level]
+        count = int(level_data["count"])
+        types = level_data["types"]
+        assert isinstance(types, dict)
+        type_labels = sorted(types, key=lambda value: (-int(types[value]), value.casefold()))
+        label = "/".join(type_labels) if type_labels else _("Nivel %(level)s") % {"level": level}
+        rows.append({"value": level, "label": f"{label} ({count})"})
+    return rows
+
+
+def _source_level_sort_key(value: str) -> tuple[int, int | str]:
+    return (0, int(value)) if str(value).isdigit() else (1, str(value))
+
+
+def _source_entity_type_filter_label(raw_type: str | None, display_type: str, country_code: str) -> str:
+    if str(country_code or "").lower() == "spain" and str(raw_type or "") in {"Municipality seat", "Locality"}:
+        return _("Cabecera de Municipio/Localidad")
+    return display_type
+
+
+def _source_parent_filter_options(entities: list[dict], *, level: str | None = None) -> list[dict]:
+    parents: dict[str, dict[str, str]] = {}
+    level_value = str(level or "").strip()
+    if level_value == "1":
+        return []
+    for entity in entities:
+        if level_value and str(entity.get("level") or "").strip() != level_value:
+            continue
+        parent_level = entity.get("parent_level")
+        if parent_level is not None and int(parent_level) == 0:
+            continue
+        parent_key = str(entity.get("parent_key") or "").strip()
+        if parent_key and parent_key not in parents:
+            parents[parent_key] = {
+                "value": parent_key,
+                "label": str(entity.get("parent") or entity.get("raw_parent") or parent_key),
+            }
+    return sorted(parents.values(), key=lambda row: row["label"].casefold())
+
+
+def _source_entity_type_filter_options(entities: list[dict]) -> list[dict]:
+    counts: dict[str, int] = {}
+    for entity in entities:
+        value = str(entity.get("entity_type_filter") or entity.get("entity_type") or "").strip()
+        if value:
+            counts[value] = counts.get(value, 0) + 1
+    return [
+        {"value": value, "label": f"{value} ({counts[value]})"}
+        for value in sorted(counts, key=str.casefold)
+    ]
+
+
+def _config_content_from_request(request, slug: str, current_content: str, *, existing: bool) -> str:
+    editor_mode = request.POST.get("editor_mode") or "file"
+    if editor_mode == "manual":
+        return _render_config_from_manual_post(slug, request.POST)
+    return request.POST.get("content", current_content)
+
+
+def _render_config_from_manual_post(slug: str, post) -> str:
+    name = (post.get("manual_name") or "").strip()
+    country_code = (post.get("manual_country_code") or slug).strip() or slug
+    legal_subdivision = (post.get("manual_legal_subdivision") or "").strip()
+    page_levels = post.getlist("page_level")
+    page_urls = post.getlist("page_url")
+    page_sources = post.getlist("page_source")
+    pages = []
+    for level, url, source in zip(page_levels, page_urls, page_sources, strict=False):
+        url = str(url or "").strip()
+        source = str(source or "").strip() or "admin"
+        if not url:
+            continue
+        try:
+            level_int = int(level or 0)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(_("El nivel de scrapeo debe ser numérico.")) from exc
+        pages.append({"source": source, "path": url, "lowest_level": level_int})
+    if not pages:
+        raise ValueError(_("Debes indicar al menos una ruta de scrapeo."))
+
+    lines = []
+    if name:
+        lines.append(f"name = {_toml_string(name)}")
+    if country_code and country_code != slug:
+        lines.append(f"country_code = {_toml_string(country_code)}")
+    if legal_subdivision:
+        try:
+            lines.append(f"LEGAL_SUBDIVISION = {int(legal_subdivision)}")
+        except (TypeError, ValueError) as exc:
+            raise ValueError(_("La subdivisión legal debe ser numérica.")) from exc
+    lines.append("")
+
+    for page in pages:
+        lines.extend(
+            [
+                "[[pages]]",
+                f"source = {_toml_string(page['source'])}",
+                f"path = {_toml_string(page['path'])}",
+                f"lowest_level = {page['lowest_level']}",
+                "",
+            ]
+        )
+
+    selected_ids = _json_list(post.get("selected_city_entities"))
+    city_name = (post.get("city_name") or "").strip()
+    if selected_ids and city_name:
+        selected = list(
+            _visible_admin_areas()
+            .filter(country_code=country_code, id__in=selected_ids)
+            .select_related("parent")
+            .order_by("level", "name")
+        )
+        if selected:
+            city_id = (post.get("city_id") or _slugify_code(city_name)).strip()
+            city_type = (post.get("city_type") or "City").strip()
+            try:
+                city_level = int(post.get("city_level") or max(min(area.level for area in selected) - 1, 0))
+            except (TypeError, ValueError) as exc:
+                raise ValueError(_("El nivel de ciudad unificada debe ser numérico.")) from exc
+            parent_from = _parent_from_for_selected(selected)
+            district_types = sorted({area.entity_type for area in selected if area.entity_type})
+            communes = [area.name for area in selected]
+            lines.extend(
+                [
+                    "[[cities]]",
+                    f"city = {_toml_string(city_name)}",
+                    f"id = {_toml_string(city_id)}",
+                    f"level = {city_level}",
+                    f"type = {_toml_string(city_type)}",
+                    f"district_types = {_toml_array(district_types)}",
+                    f"from = {_toml_inline_table(parent_from)}",
+                    f"communes = {_toml_array(communes)}",
+                    "keep_communes = false",
+                    "",
+                ]
+            )
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _json_list(value: str | None) -> list[str]:
+    try:
+        parsed = json.loads(value or "[]")
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [str(item) for item in parsed if str(item).strip()]
+
+
+def _parent_from_for_selected(selected: list[AdminArea]) -> dict[int, list[str]]:
+    grouped: dict[int, list[str]] = {}
+    for area in selected:
+        parent = area.parent
+        if not parent:
+            continue
+        labels = grouped.setdefault(parent.level, [])
+        if parent.name not in labels:
+            labels.append(parent.name)
+    return grouped
+
+
+def _toml_string(value: str) -> str:
+    return json.dumps(str(value), ensure_ascii=False)
+
+
+def _toml_array(values) -> str:
+    return "[" + ", ".join(_toml_string(value) for value in values) + "]"
+
+
+def _toml_inline_table(mapping: dict[int, list[str]]) -> str:
+    if not mapping:
+        return "{}"
+    parts = []
+    for key in sorted(mapping):
+        parts.append(f"{int(key)} = {_toml_array(mapping[key])}")
+    return "{ " + ", ".join(parts) + " }"
+
+
+def _slugify_code(value: str) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", "-", str(value).lower())
+    return normalized.strip("-") or "city"
+
+
+def _generate_citypopulation_config(slug: str) -> tuple[str, list[str]]:
+    url = f"https://www.citypopulation.de/en/{slug}/"
+    log = [_("Buscando rutas en %(url)s") % {"url": url}]
+    try:
+        with urlopen(url, timeout=20) as response:  # noqa: S310 - user-triggered local scraping helper.
+            html = response.read().decode("utf-8", errors="replace")
+    except (OSError, URLError) as exc:
+        raise ValueError(_("No se pudo leer CityPopulation: %(error)s") % {"error": exc}) from exc
+
+    paths = _citypopulation_paths_from_html(slug, html, base_url=url)
+    if not paths:
+        raise ValueError(_("No se encontraron rutas útiles para %(slug)s.") % {"slug": slug})
+    log.append(_("Rutas detectadas: %(count)s") % {"count": len(paths)})
+    grouped: dict[tuple[str, int], list[str]] = {}
+    for path in paths:
+        source, level = _guess_scrape_source(path)
+        grouped.setdefault((source, level), []).append(path)
+
+    lines = [f"name = {_toml_string(_display_name('', slug, country_code=slug))}", "", "LEGAL_SUBDIVISION = 2", ""]
+    for (source, level), values in sorted(grouped.items(), key=lambda item: (item[0][1], item[0][0])):
+        lines.extend(
+            [
+                "[[pages]]",
+                f"source = {_toml_string(source)}",
+                f"path = {_toml_array(values)}",
+                f"lowest_level = {level}",
+                "",
+            ]
+        )
+    return "\n".join(lines).rstrip() + "\n", log
+
+
+def _citypopulation_paths_from_html(slug: str, html: str, *, base_url: str) -> list[str]:
+    raw_links = re.findall(r"href=[\"']([^\"'#?]+)", html, flags=re.IGNORECASE)
+    seen = set()
+    paths = []
+    for href in raw_links:
+        absolute = urljoin(base_url, href)
+        marker = f"/en/{slug}/"
+        if marker not in absolute:
+            continue
+        path = absolute.split(marker, 1)[1].strip("/")
+        if not path or path.startswith(("maps", "search", "help")):
+            continue
+        if path.endswith(('.html', '.htm')):
+            continue
+        if path not in seen:
+            seen.add(path)
+            paths.append(path)
+    if "admin" not in seen:
+        paths.insert(0, "admin")
+    return paths[:120]
+
+
+def _guess_scrape_source(path: str) -> tuple[str, int]:
+    value = path.strip("/").lower()
+    if value in {"", "admin"} or value.endswith("/admin"):
+        return "admin", 0
+    if "localit" in value:
+        return "double", 3
+    if "cities" in value or "city" in value:
+        return "cities", 3
+    return "table", 1
+
+
+def _config_summaries(limit: int | None = None) -> list[dict]:
+    row_counts = _config_row_counts()
+    if scraping_config_table_exists() and ScrapingConfig.objects.exists():
+        records = ScrapingConfig.objects.order_by("slug")
+        if limit:
+            records = records[:limit]
+        return [_config_summary_from_record(record, row_counts=row_counts) for record in records]
+
+    repository = PythonScrapingConfigRepository()
     rows = []
     slugs = repository.list_slugs()
     if limit:
         slugs = slugs[:limit]
     for slug in slugs:
-        error = None
-        try:
-            config = repository.get(slug)
-        except Exception as exc:  # noqa: BLE001 - surfaced in the UI.
-            config = None
-            error = str(exc)
-        country_code = config.country_code if config else slug
-        rows.append(
-            {
-                "slug": slug,
-                "name": config.name if config else slug,
-                "country_code": country_code,
-                "pages": len(config.pages) if config else 0,
-                "cities": len(config.cities) if config else 0,
-                "rows": row_counts.get(country_code, 0),
-                "active_task": task_manager.latest_for_key(f"scrape:{slug}"),
-                "error": error,
-            }
-        )
+        rows.append(_config_summary_for_slug(slug, repository=repository, row_counts=row_counts))
     return rows
 
+
+def _filtered_config_summaries(request) -> list[dict]:
+    rows = _config_summaries()
+    query = str(request.GET.get("q") or "").strip().casefold()
+    if query:
+        rows = [
+            row
+            for row in rows
+            if query in " ".join(
+                [
+                    str(row.get("slug") or ""),
+                    str(row.get("name") or ""),
+                    str(row.get("country_label") or ""),
+                    str(row.get("country_code") or ""),
+                ]
+            ).casefold()
+        ]
+    return rows
+
+
+def _config_summary_for_slug(
+    slug: str,
+    *,
+    repository: PythonScrapingConfigRepository | None = None,
+    row_counts: dict[str, int] | None = None,
+) -> dict:
+    row_counts = row_counts or _config_row_counts()
+    record = _config_record(slug)
+    if record:
+        return _config_summary_from_record(record, row_counts=row_counts)
+
+    repository = repository or PythonScrapingConfigRepository()
+    error = None
+    try:
+        config = repository.get(slug)
+    except Exception as exc:  # noqa: BLE001 - surfaced in the UI.
+        config = None
+        error = str(exc)
+    country_code = config.country_code if config else slug
+    raw_name = config.name if config else slug
+    validate_task = task_manager.latest_for_key(f"validate-config:{slug}")
+    scrape_task = task_manager.latest_for_key(f"scrape:{slug}")
+    return {
+        "slug": slug,
+        "name": raw_name,
+        "country_code": country_code,
+        "country_label": _display_name(raw_name, country_code, country_code=country_code),
+        "pages": len(config.pages) if config else 0,
+        "cities": len(config.cities) if config else 0,
+        "rows": row_counts.get(country_code, 0),
+        "active_task": _latest_config_task(slug, validate_task=validate_task, scrape_task=scrape_task),
+        "validate_task": validate_task,
+        "scrape_task": scrape_task,
+        "error": error,
+    }
+
+
+def _config_summary_from_record(record: ScrapingConfig, *, row_counts: dict[str, int] | None = None) -> dict:
+    row_counts = row_counts or _config_row_counts()
+    slug = record.slug
+    country_code = record.country_code or slug
+    raw_name = record.name or slug
+    validate_task = task_manager.latest_for_key(f"validate-config:{slug}")
+    scrape_task = task_manager.latest_for_key(f"scrape:{slug}")
+    return {
+        "slug": slug,
+        "name": raw_name,
+        "country_code": country_code,
+        "country_label": _display_name(raw_name, country_code, country_code=country_code),
+        "pages": record.pages_count,
+        "cities": record.cities_count,
+        "rows": row_counts.get(country_code, 0),
+        "active_task": _latest_config_task(slug, validate_task=validate_task, scrape_task=scrape_task),
+        "validate_task": validate_task,
+        "scrape_task": scrape_task,
+        "error": record.validation_error if not record.is_valid else "",
+    }
+
+
+def _config_row_counts() -> dict[str, int]:
+    return {
+        row["country_code"]: row["total"]
+        for row in _visible_admin_areas().values("country_code").annotate(total=Count("id"))
+    }
+
+
+def _latest_config_task(slug: str, *, validate_task=None, scrape_task=None):
+    tasks = [
+        validate_task if validate_task is not None else task_manager.latest_for_key(f"validate-config:{slug}"),
+        scrape_task if scrape_task is not None else task_manager.latest_for_key(f"scrape:{slug}"),
+    ]
+    tasks = [task for task in tasks if task]
+    if not tasks:
+        return None
+    return max(tasks, key=lambda task: task.created_at)
 
 def _recipe_summaries() -> list[dict]:
     rows = []
@@ -1939,11 +2917,90 @@ def _normalize_recipe_slug(value: str) -> str:
     return slug
 
 
-def _config_path(slug: str, *, must_exist: bool = True) -> Path:
+def _config_record(slug: str) -> ScrapingConfig | None:
+    if scraping_config_table_exists():
+        record = ScrapingConfig.objects.filter(slug=slug).first()
+        if record:
+            return record
     path = SUBDIVISIONS_ROOT / f"{slug}.toml"
-    if must_exist and not path.is_file():
-        raise Http404(_("No existe la configuracion '%(slug)s'.") % {"slug": slug})
-    return path
+    if not path.is_file():
+        return None
+    try:
+        content = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    metadata = parse_config_metadata(slug, content)
+    return ScrapingConfig(
+        slug=slug,
+        country_code=metadata.country_code,
+        name=metadata.name,
+        content=content,
+        content_hash="",
+        source_path=str(path),
+        pages_count=metadata.pages_count,
+        cities_count=metadata.cities_count,
+        has_representation=metadata.has_representation,
+        is_valid=metadata.is_valid,
+        validation_error=metadata.validation_error,
+    )
+
+
+def _web_task_table_exists() -> bool:
+    """Return whether the persisted task table is migrated and usable."""
+    try:
+        from ciudades_del_mundo.models import WebTask
+
+        return WebTask._meta.db_table in connection.introspection.table_names()
+    except (OperationalError, ProgrammingError):
+        return False
+
+
+def _ensure_config_available_for_task(slug: str) -> tuple[bool, str]:
+    """Ensure a config can be used before launching validate/scrape.
+
+    The UI is SQL-first, but this deliberately repairs interrupted bootstrap runs
+    and falls back to bundled TOML files instead of returning an HTML 404 page to
+    AJAX callers.
+    """
+    path = SUBDIVISIONS_ROOT / f"{slug}.toml"
+    if scraping_config_table_exists():
+        try:
+            ensure_initial_scraping_configs(force=False)
+            if ScrapingConfig.objects.filter(slug=slug).exists():
+                return True, ""
+            if path.is_file():
+                content = path.read_text(encoding="utf-8")
+                upsert_scraping_config(slug, content, source_path=str(path.relative_to(settings.BASE_DIR)))
+                return True, ""
+        except (OperationalError, ProgrammingError) as exc:
+            return False, _(
+                "No se pudo comprobar la tabla de configuraciones. Ejecuta 'py manage.py migrate'. Detalle: %(error)s"
+            ) % {"error": exc}
+        except OSError as exc:
+            return False, _("No se pudo leer el TOML de '%(slug)s': %(error)s") % {"slug": slug, "error": exc}
+        except Exception as exc:  # noqa: BLE001 - turn backend failures into JSON-safe messages.
+            return False, str(exc)
+
+    if _config_record(slug) is not None:
+        return True, ""
+    return False, _("No existe la configuracion '%(slug)s' ni en SQL ni como TOML.") % {"slug": slug}
+
+
+def _config_exists(slug: str) -> bool:
+    return _config_record(slug) is not None
+
+
+def _config_country_code_for_slug(slug: str) -> str:
+    record = _config_record(slug)
+    if not record:
+        return slug
+    if record.country_code:
+        return record.country_code
+    try:
+        data = tomllib.loads(record.content)
+    except tomllib.TOMLDecodeError:
+        return slug
+    return str(data.get("country_code") or slug or "")
 
 
 def _recipe_path(slug: str, *, group: str, must_exist: bool = True) -> Path:
