@@ -1,11 +1,12 @@
 from decimal import Decimal
-import unittest
+
+from django.test import TestCase
 
 from ciudades_del_mundo.domain import DivisionSourceType, RepresentationConfig, RepresentationSystem, parse_pages
 from ciudades_del_mundo.infrastructure.scraping import PythonScrapingConfigRepository
 
 
-class ScrapingConfigTests(unittest.TestCase):
+class ScrapingConfigTests(TestCase):
     def test_parse_pages_expands_paths_and_parses_decimal_overrides(self):
         pages = parse_pages(
             [
@@ -41,7 +42,7 @@ class ScrapingConfigTests(unittest.TestCase):
         self.assertEqual(config.system, RepresentationSystem.DHONDT)
         self.assertEqual(config.total_for_populations([1, 999, 1000, 1001, None, -5]), 5)
 
-    def test_real_toml_configs_load_without_network(self):
+    def test_real_sql_configs_load_without_network(self):
         repository = PythonScrapingConfigRepository()
         slugs = repository.list_slugs()
 
@@ -55,4 +56,3 @@ class ScrapingConfigTests(unittest.TestCase):
                 self.assertGreater(len(config.pages), 0)
                 self.assertTrue(all(page.path for page in config.pages))
                 self.assertTrue(all(page.html_format in {item.value for item in DivisionSourceType} for page in config.pages))
-

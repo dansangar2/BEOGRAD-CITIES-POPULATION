@@ -22,11 +22,13 @@ Abre `http://127.0.0.1:8000/` para el panel principal o
 
 ## Estado actual
 
-El sistema de scraping ya no depende de modulos Python por pais. La configuracion activa vive en:
+El sistema de scraping ya no depende de modulos Python por pais. La
+configuracion activa vive en la tabla SQL `ScrapingConfig`; su campo `content`
+mantiene el mismo formato TOML para que siga siendo editable y versionable como
+texto. Los ficheros de `ciudades_del_mundo/subdivisions/*.toml` son solo seeds
+temporales para bootstrap/import-export.
 
-- `ciudades_del_mundo/subdivisions/<pais>.toml`
-
-Cada fichero TOML describe:
+Cada configuracion SQL describe:
 
 - que scrapers usar (`admin`, `table`, `double`, `cities`, `infosection`)
 - que rutas scrapear
@@ -64,16 +66,17 @@ El proyecto esta organizado por capas:
 
 ## Flujo de trabajo
 
-1. Definir o ajustar una configuracion en `subdivisions/<pais>.toml`.
+1. Definir o ajustar una configuracion en `/configs/` o en una fila `ScrapingConfig`.
 2. Validar la configuracion.
 3. Ejecutar el scraping.
 4. Opcionalmente asignar capitales.
 5. Opcionalmente construir subdivisiones derivadas o historicas.
 6. Exportar a CSV o Excel.
 
-## Formato de configuracion TOML
+## Formato del contenido de configuracion
 
-El nombre del fichero define el prefijo comun de las rutas. Ejemplo: `spain.toml` produce rutas bajo `spain/...`.
+El `slug` SQL define el prefijo comun de las rutas. Ejemplo: el slug `spain`
+produce rutas bajo `spain/...`.
 
 ```toml
 LEGAL_SUBDIVISION = 3
@@ -131,6 +134,21 @@ py manage.py validate_subdivision_configs
 py manage.py validate_subdivision_configs spain morocco
 ```
 
+### Sincronizar configuraciones TOML/SQL
+
+```powershell
+py manage.py sync_scraping_configs
+py manage.py sync_scraping_configs --force
+py manage.py sync_scraping_configs --to-toml --output-dir .tmp-config-export
+```
+
+El runtime usa SQL como unica fuente operativa. Los TOML de `subdivisions/`
+quedan como semillas temporales versionadas para poder reconstruir la tabla
+`ScrapingConfig` tras clonar el proyecto o crear una BBDD limpia. El repositorio
+de scraping no hace fallback a esos ficheros: usa `sync_scraping_configs` o el
+bootstrap web para importarlos. Este puente debe retirarse antes de publicar si
+el proyecto deja de necesitar seeds TOML.
+
 ### Ver las URLs que se van a scrapear
 
 ```powershell
@@ -143,6 +161,24 @@ py manage.py scrape_subdivisions --list-pages spain
 py manage.py scrape_subdivisions spain
 py manage.py scrape_subdivisions spain morocco portugal
 ```
+
+### Reparar banderas y escudos
+
+```powershell
+py manage.py ensure_visual_assets spain
+py manage.py ensure_visual_assets --all
+py manage.py ensure_visual_assets --country-subdivisions spain --levels 1,2
+py manage.py ensure_visual_assets --admin-area spain_cat
+```
+
+El comando usa Wikidata/Commons como fuente principal para banderas y escudos.
+Tambien guarda sellos cuando Wikidata los expone. CityPopulation queda solo como
+respaldo para imagenes explicitamente etiquetadas, porque sus paginas incluyen
+iconos de idioma que no son la bandera del pais. Los ficheros descargados se
+cachean en `media/visual_assets/` y se sirven en local con `MEDIA_URL=/media/`.
+`scrape_subdivisions_with_assets` busca assets del pais y de subdivisiones
+`AdminArea` de niveles 1 y 2 por defecto; usa `--skip-subdivision-assets` o
+`--subdivision-asset-levels` para ajustar ese coste.
 
 ### Asignar capitales
 
@@ -223,10 +259,10 @@ listas/leyendas filtrables debajo. Las tarjetas de
 porcentaje por subdivision de primer orden muestran minipizzas con el reparto
 interno de sus subdivisiones directas del siguiente nivel cuando ese nivel no
 alcanza 150 filas en el pais; no se filtran por nombre de tipo de entidad. Los
-datos generales esperan a resolver nombre oficial, idioma oficial, capital,
-bandera y escudo desde Wikidata/Wikimedia cuando hay identificador disponible;
-bandera y escudo abren una vista previa local y desde ahi la ficha de Commons o
-la imagen completa.
+datos generales usan primero bandera y escudo persistidos en SQL o en
+`media/visual_assets/`; si faltan, intentan completar la identidad visual desde
+Wikidata/Wikimedia cuando hay identificador disponible. Bandera y escudo abren
+una vista previa local y desde ahi la ficha de Commons o la imagen completa.
 En `/countries/`, al seleccionar un pais se muestran dos recuadros: la ficha
 basica y las subdivisiones directas de primer nivel. Al abrir una subdivision,
 el navegador agrega otra ficha con su bandera/escudo y sus hijos directos; se
@@ -246,20 +282,20 @@ web esta en `/api/countries/`, `/api/countries/<country_code>/`,
 `/api/admin-areas/<area_id>/` y `/api/derived/`.
 Secciones principales:
 
-- `/configs/`: lista `subdivisions/*.toml` con tablas dinamicas cargadas desde
-  `/configs/table/` y `/configs/tasks/table/`; las filas se descargan una vez y
-  la paginacion cambia de pagina en cliente. Permite validar y lanzar scraping.
-  El boton `Validar` de una configuracion queda desactivado mientras esa
-  validacion sigue activa. El editor guarda TOML y valida sintaxis/esquema antes
-  de escribir.
+- `/configs/`: lista filas SQL `ScrapingConfig` con tablas dinamicas cargadas
+  desde `/configs/table/` y `/configs/tasks/table/`; las filas se descargan una
+  vez y la paginacion cambia de pagina en cliente. Permite validar y lanzar
+  scraping. El boton `Validar` de una configuracion queda desactivado mientras
+  esa validacion sigue activa. El editor guarda `ScrapingConfig.content` y
+  valida sintaxis/esquema antes de escribir.
 - `/recipes/`: lista recetas de `new_subdivisions` e `historical_divisions`.
   Permite crear recetas nuevas con un formulario JSON, editar recetas nuevas en
   Python y lanzar `build_new_subdivisions`, CSV o Excel.
 - `/derived/`: muestra paises `NuevoAdminArea` creados y una tabla comparativa
   por pais con porcentajes respecto al pais y al padre.
-- `/countries/`: navegador de paises en tarjetas de 10 columnas, con bandera,
-  terreno y poblacion desde `/api/countries/`; al hacer clic carga la ficha
-  basica del pais y sus subdivisiones directas desde
+- `/countries/`: navegador de paises en tarjetas de 10 columnas, con bandera
+  persistida/local cuando existe, terreno y poblacion desde `/api/countries/`;
+  al hacer clic carga la ficha basica del pais y sus subdivisiones directas desde
   `/api/countries/<country_code>/`, y cada subdivision se abre recursivamente con
   `/api/admin-areas/<area_id>/`.
 - `/stats/`: redireccion de compatibilidad hacia `/countries/`.
@@ -342,11 +378,11 @@ CDN estan disponibles; si no cargan, los selects nativos siguen funcionando.
 
 La ficha de mapa usa Leaflet con teselas de OpenStreetMap y geocodificacion
 client-side por nombre mediante Nominatim, ya que la base de datos no guarda
-geometria ni coordenadas. La bandera, escudo y mapa localizador se intentan
-resolver en el navegador desde Wikidata/Wikimedia Commons; tambien se consultan
-etiquetas traducidas, pais, region superior y capitales de Wikidata. La pagina
-muestra ademas las capitales y la ciudad mayor registradas en la base local
-cuando existen.
+geometria ni coordenadas. La bandera y escudo usan primero assets persistidos o
+locales; si faltan, el navegador intenta resolverlos desde Wikidata/Wikimedia
+Commons. Tambien se consultan etiquetas traducidas, pais, region superior y
+capitales de Wikidata. La pagina muestra ademas las capitales y la ciudad mayor
+registradas en la base local cuando existen.
 
 Para reducir errores `database is locked` durante tareas de poblacion, SQLite
 se abre con timeout de 30s y PRAGMAs `busy_timeout`, `journal_mode=WAL` y
@@ -376,7 +412,8 @@ db.sqlite3
 ## Paquetes de configuracion
 
 - `subdivisions`
-  Configuracion activa de scraping en TOML.
+  Seeds TOML temporales para crear/exportar filas `ScrapingConfig`; no son la
+  fuente operativa del runtime.
 - `historical_divisions`
   Recetas Python para subdivisiones historicas.
 - `new_subdivisions`
@@ -407,9 +444,10 @@ pip install django requests beautifulsoup4 lxml openpyxl
 
 ## Tests rapidos
 
-La suite principal es offline: no usa red, no toca `db.sqlite3` y evita crear
-base de datos de test. Sirve para validar cambios de scraping, TOML y logica de
-dominio antes de ejecutar operaciones caras.
+La suite principal es offline: no usa red, no toca `db.sqlite3` y usa una base
+de datos de test aislada cuando necesita modelos SQL. Sirve para validar cambios
+de scraping, contenido TOML almacenado en SQL y logica de dominio antes de
+ejecutar operaciones caras.
 
 ```powershell
 py manage.py test ciudades_del_mundo.tests --verbosity 2
@@ -421,7 +459,7 @@ Tambien puede ejecutarse con `unittest` directo:
 py -m unittest discover ciudades_del_mundo\tests -v
 ```
 
-Para comprobar solo las configuraciones reales de `subdivisions/*.toml`:
+Para comprobar las configuraciones reales almacenadas en SQL:
 
 ```powershell
 py manage.py validate_subdivision_configs
@@ -437,4 +475,4 @@ py manage.py validate_subdivision_configs
 
 - mover recetas historicas y nuevas subdivisiones a un formato declarativo unificado
 - limpiar codificacion legacy en algunos datos historicos
-- anadir tests para configuraciones TOML y scrapers HTML
+- anadir tests para configuraciones SQL y scrapers HTML

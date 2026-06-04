@@ -4,10 +4,11 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from django.test import TestCase
+from django.utils import timezone
 from django.utils import translation
 
 from ciudades_del_mundo.models import AdminArea
-from ciudades_del_mundo.web import views
+from ciudades_del_mundo.services.scraping_configs import upsert_scraping_config
 from ciudades_del_mundo.web.tasks import ManagedTask, TaskManager, task_manager
 from ciudades_del_mundo.web.views import (
     _area_capital_display_names,
@@ -233,11 +234,9 @@ lowest_level = 0
 class ConfigSourceEntitiesViewTests(TestCase):
     def test_config_table_disables_validate_button_while_validation_is_active(self):
         slug = "zztestvalidate"
-        path = views.SUBDIVISIONS_ROOT / f"{slug}.toml"
-        original_content = path.read_text(encoding="utf-8") if path.exists() else None
-        original_tasks = dict(task_manager._tasks)
-        original_latest = dict(task_manager._latest_by_key)
-        path.write_text(
+        original_recovery_done = task_manager._recovery_done
+        upsert_scraping_config(
+            slug,
             """
 name = "Validate Test"
 LEGAL_SUBDIVISION = 2
@@ -246,20 +245,21 @@ LEGAL_SUBDIVISION = 2
 source = "admin"
 path = ["admin"]
 lowest_level = 0
-""".strip()
-            + "\n",
-            encoding="utf-8",
+""".strip() + "\n",
         )
         try:
-            with task_manager._lock:
-                task_manager._tasks["validate-active"] = ManagedTask(
-                    id="validate-active",
-                    key=f"validate-config:{slug}",
-                    label="Validar test",
-                    args=["validate_subdivision_configs", slug],
-                    status="running",
-                )
-                task_manager._latest_by_key[f"validate-config:{slug}"] = "validate-active"
+            task_manager._recovery_done = True
+            now = timezone.now()
+            ManagedTask.objects.create(
+                id="validate-active",
+                key=f"validate-config:{slug}",
+                label="Validar test",
+                args=["validate_subdivision_configs", slug],
+                status=ManagedTask.Status.RUNNING,
+                created_at=now,
+                started_at=now,
+                updated_at=now,
+            )
 
             response = self.client.get(f"/configs/table/?q={slug}")
 
@@ -268,21 +268,12 @@ lowest_level = 0
             self.assertIn(f"/configs/{slug}/task/validate/", html)
             self.assertIn('data-config-action="validate" disabled', html)
         finally:
-            with task_manager._lock:
-                task_manager._tasks.clear()
-                task_manager._tasks.update(original_tasks)
-                task_manager._latest_by_key.clear()
-                task_manager._latest_by_key.update(original_latest)
-            if original_content is None:
-                path.unlink(missing_ok=True)
-            else:
-                path.write_text(original_content, encoding="utf-8")
+            task_manager._recovery_done = original_recovery_done
 
     def test_source_entities_use_configured_country_code_for_levels_and_parents(self):
         slug = "zztestalias"
-        path = views.SUBDIVISIONS_ROOT / f"{slug}.toml"
-        original_content = path.read_text(encoding="utf-8") if path.exists() else None
-        path.write_text(
+        upsert_scraping_config(
+            slug,
             """
 name = "Alias"
 country_code = "realcountry"
@@ -292,59 +283,51 @@ LEGAL_SUBDIVISION = 2
 source = "admin"
 path = ["admin"]
 lowest_level = 0
-""".strip()
-            + "\n",
-            encoding="utf-8",
+""".strip() + "\n",
         )
-        try:
-            root = AdminArea.objects.create(
-                id="real_root",
-                country_code="realcountry",
-                code="root",
-                name="Real Country",
-                level=0,
-            )
-            parent = AdminArea.objects.create(
-                id="real_parent",
-                country_code="realcountry",
-                code="parent",
-                name="Parent",
-                level=1,
-                entity_type="Region",
-                parent=root,
-            )
-            AdminArea.objects.create(
-                id="real_child",
-                country_code="realcountry",
-                code="child",
-                name="Child",
-                level=2,
-                entity_type="Municipality",
-                parent=parent,
-            )
+        root = AdminArea.objects.create(
+            id="real_root",
+            country_code="realcountry",
+            code="root",
+            name="Real Country",
+            level=0,
+        )
+        parent = AdminArea.objects.create(
+            id="real_parent",
+            country_code="realcountry",
+            code="parent",
+            name="Parent",
+            level=1,
+            entity_type="Region",
+            parent=root,
+        )
+        AdminArea.objects.create(
+            id="real_child",
+            country_code="realcountry",
+            code="child",
+            name="Child",
+            level=2,
+            entity_type="Municipality",
+            parent=parent,
+        )
 
-            response = self.client.get(f"/configs/{slug}/source-entities/")
+        response = self.client.get(f"/configs/{slug}/source-entities/")
 
-            self.assertEqual(response.status_code, 200)
-            payload = response.json()
-            self.assertEqual([row["id"] for row in payload["entities"]], ["real_parent", "real_child"])
-            self.assertEqual([row["value"] for row in payload["levels"]], ["1", "2"])
-            self.assertEqual([row["label"] for row in payload["levels"]], ["Region (1)", "Municipio (1)"])
-            self.assertEqual([row["value"] for row in payload["entity_types"]], ["Municipio", "Region"])
-            self.assertIn("real_parent", {row["value"] for row in payload["parents"]})
-            self.assertEqual(payload["parents_by_level"]["1"], [])
-            self.assertIn("real_parent", {row["value"] for row in payload["parents_by_level"]["2"]})
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual([row["id"] for row in payload["entities"]], ["real_parent", "real_child"])
+        self.assertEqual([row["value"] for row in payload["levels"]], ["1", "2"])
+        self.assertEqual([row["label"] for row in payload["levels"]], ["Region (1)", "Municipio (1)"])
+        self.assertEqual([row["value"] for row in payload["entity_types"]], ["Municipio", "Region"])
+        self.assertIn("real_parent", {row["value"] for row in payload["parents"]})
+        self.assertEqual(payload["parents_by_level"]["1"], [])
+        self.assertIn("real_parent", {row["value"] for row in payload["parents_by_level"]["2"]})
 
-            form_response = self.client.get(f"/configs/{slug}/")
-            self.assertEqual(form_response.status_code, 200)
-            form_html = form_response.content.decode("utf-8")
-            level_select = form_html.split('data-transfer-filter="level"', 1)[1].split("</select>", 1)[0]
-            self.assertNotIn('<option value="">Todos</option>', level_select)
-            self.assertIn('<option value="1">Region (1)</option>', form_html)
-            self.assertIn('<option value="2">Municipio (1)</option>', form_html)
-            self.assertIn('"id": "real_parent"', form_html)
-        finally:
-            if original_content is None:
-                path.unlink(missing_ok=True)
-            else:
-                path.write_text(original_content, encoding="utf-8")
+        form_response = self.client.get(f"/configs/{slug}/")
+        self.assertEqual(form_response.status_code, 200)
+        form_html = form_response.content.decode("utf-8")
+        level_select = form_html.split('data-transfer-filter="level"', 1)[1].split("</select>", 1)[0]
+        self.assertNotIn('<option value="">Todos</option>', level_select)
+        self.assertIn('<option value="1">Region (1)</option>', form_html)
+        self.assertIn('<option value="2">Municipio (1)</option>', form_html)
+        self.assertIn('"id": "real_parent"', form_html)

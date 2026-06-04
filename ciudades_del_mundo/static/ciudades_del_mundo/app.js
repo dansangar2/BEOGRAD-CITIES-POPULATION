@@ -121,8 +121,10 @@
   }
 
   function formParams(form, page) {
-    var params = new URLSearchParams(new FormData(form));
-    if (page) {
+    var params = form && form.dataset.clientSideFilter === "1"
+      ? new URLSearchParams()
+      : new URLSearchParams(new FormData(form));
+    if (page && !(form && form.dataset.clientSideFilter === "1")) {
       params.set("page", page);
     } else {
       params.delete("page");
@@ -146,16 +148,133 @@
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
   }
 
+  function normalizedClientValue(value) {
+    return String(value || "").trim().toLocaleLowerCase();
+  }
+
+  function clientRowMatchesForm(row, form) {
+    if (!row || !form || form.dataset.clientSideFilter !== "1") {
+      return true;
+    }
+    var queryInput = form.querySelector("input[type='search'][name='q']");
+    if (queryInput) {
+      var query = normalizedClientValue(queryInput.value);
+      if (query) {
+        var haystack = normalizedClientValue(row.dataset.search || [row.dataset.country, row.dataset.countryCode].join(" "));
+        if (haystack.indexOf(query) === -1) {
+          return false;
+        }
+      }
+    }
+    var statusSelect = form.querySelector("select[name='status']");
+    if (statusSelect) {
+      var selectedStatus = normalizedClientValue(statusSelect.value);
+      if (selectedStatus) {
+        var rowStatus = normalizedClientValue(row.dataset.status || row.dataset.task || "pending");
+        if (!rowStatus) {
+          rowStatus = "pending";
+        }
+        if (rowStatus !== selectedStatus) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  function updateClientFilterState(target, form) {
+    if (!target) {
+      return false;
+    }
+    var rows = Array.prototype.slice.call(target.querySelectorAll("[data-client-row]"));
+    rows.forEach(function (row) {
+      row.dataset.clientFilterHidden = clientRowMatchesForm(row, form) ? "0" : "1";
+    });
+    return true;
+  }
+
+  function applyClientFilters(target, form, requestedPage) {
+    if (!target || !updateClientFilterState(target, form)) {
+      return false;
+    }
+    return renderClientPagination(target, form, requestedPage || 1);
+  }
+
+  function formForTableTarget(target) {
+    if (!target || !target.id) {
+      return null;
+    }
+    var escapedId = window.CSS && typeof window.CSS.escape === "function"
+      ? window.CSS.escape(target.id)
+      : String(target.id).replace(/"/g, '\"');
+    return document.querySelector('.async-table-form[data-target="#' + escapedId + '"]');
+  }
+
+  function rerenderClientTable(target, requestedPage) {
+    if (!target) {
+      return false;
+    }
+    var form = formForTableTarget(target);
+    var page = requestedPage || target.dataset.clientPage || 1;
+    var sortKey = target.dataset.clientSortKey || "";
+    var sortDirection = Number(target.dataset.clientSortDirection || 1);
+    if (sortKey) {
+      return applyClientSort(target, form, sortKey, sortDirection, page);
+    }
+    return applyClientFilters(target, form, page);
+  }
+
+
+  function emptyLabelForClientTable(target, form) {
+    if (form && form.dataset.emptyLabel) {
+      return form.dataset.emptyLabel;
+    }
+    var owner = target ? target.closest("[data-empty-label]") : null;
+    return owner && owner.dataset.emptyLabel ? owner.dataset.emptyLabel : "No hay datos";
+  }
+
+  function ensureClientEmptyRow(target, form) {
+    if (!target) {
+      return null;
+    }
+    var existing = target.querySelector("[data-client-empty]");
+    if (existing) {
+      var existingCell = existing.querySelector("td, th");
+      if (existingCell && !existingCell.textContent.trim()) {
+        existingCell.textContent = emptyLabelForClientTable(target, form);
+      }
+      return existing;
+    }
+    var tbody = target.querySelector("[data-client-page-rows]");
+    if (!tbody) {
+      return null;
+    }
+    var columnCount = target.querySelectorAll("thead th").length || 1;
+    var row = document.createElement("tr");
+    row.setAttribute("data-client-empty", "");
+    row.hidden = true;
+    var cell = document.createElement("td");
+    cell.className = "table-empty-cell";
+    cell.colSpan = columnCount;
+    cell.textContent = emptyLabelForClientTable(target, form);
+    row.appendChild(cell);
+    tbody.appendChild(row);
+    return row;
+  }
+
   function renderClientPagination(target, form, requestedPage) {
     var nav = target.querySelector("[data-client-pagination]");
     if (!nav) {
       return false;
     }
     var rows = Array.prototype.slice.call(target.querySelectorAll("[data-client-row]"));
-    var emptyRow = target.querySelector("[data-client-empty]");
+    var visibleRows = rows.filter(function (row) {
+      return row.dataset.clientFilterHidden !== "1";
+    });
+    var emptyRow = ensureClientEmptyRow(target, form);
     var initialSize = parseInt(nav.dataset.initialPageSize || "25", 10);
     var pageSize = pageSizeForForm(form, initialSize);
-    var pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+    var pageCount = Math.max(1, Math.ceil(visibleRows.length / pageSize));
     var page = parseInt(requestedPage || target.dataset.clientPage || "1", 10);
     if (!Number.isFinite(page) || page < 1) {
       page = 1;
@@ -165,22 +284,28 @@
     }
     var start = (page - 1) * pageSize;
     var end = start + pageSize;
-    rows.forEach(function (row, index) {
-      row.hidden = index < start || index >= end;
+    var visibleIndex = 0;
+    rows.forEach(function (row) {
+      if (row.dataset.clientFilterHidden === "1") {
+        row.hidden = true;
+        return;
+      }
+      row.hidden = visibleIndex < start || visibleIndex >= end;
+      visibleIndex += 1;
     });
     if (emptyRow) {
-      emptyRow.hidden = rows.length > 0;
+      emptyRow.hidden = visibleRows.length > 0;
     }
-    nav.hidden = rows.length <= pageSize;
+    nav.hidden = visibleRows.length <= pageSize;
     nav.querySelectorAll("[data-client-page='previous']").forEach(function (button) {
-      button.disabled = page <= 1 || rows.length === 0;
+      button.disabled = page <= 1 || visibleRows.length === 0;
     });
     nav.querySelectorAll("[data-client-page='next']").forEach(function (button) {
-      button.disabled = page >= pageCount || rows.length === 0;
+      button.disabled = page >= pageCount || visibleRows.length === 0;
     });
     var status = nav.querySelector("[data-client-page-status]");
     if (status) {
-      status.textContent = rows.length ? page + " / " + pageCount : "0 / 0";
+      status.textContent = visibleRows.length ? page + " / " + pageCount : "0 / 0";
     }
     target.dataset.clientPage = String(page);
     target.dataset.clientPaginationReady = "1";
@@ -240,6 +365,7 @@
     target.dataset.clientSortKey = key;
     target.dataset.clientSortDirection = String(direction);
     updateClientSortButtons(target);
+    updateClientFilterState(target, form);
     renderClientPagination(target, form, requestedPage || 1);
     return true;
   }
@@ -277,6 +403,9 @@
         window.location.href = row.dataset.rowHref;
       });
       row.addEventListener("keydown", function (event) {
+        if (event.target.closest("a, button, input, select, textarea, label")) {
+          return;
+        }
         if (event.key !== "Enter" && event.key !== " ") {
           return;
         }
@@ -287,27 +416,153 @@
   }
 
   function initClientPagination(target, form, requestedPage) {
-    if (!renderClientPagination(target, form, requestedPage || 1)) {
+    if (!target) {
       return;
     }
-    target.querySelectorAll("[data-client-pagination]").forEach(function (nav) {
-      if (nav.dataset.clientPaginationBound === "1") {
-        return;
-      }
-      nav.dataset.clientPaginationBound = "1";
-      nav.querySelectorAll("[data-client-page]").forEach(function (button) {
-        button.addEventListener("click", function (event) {
-          event.preventDefault();
-          var current = parseInt(target.dataset.clientPage || "1", 10);
-          var next = button.dataset.clientPage === "next" ? current + 1 : current - 1;
-          renderClientPagination(target, form, next);
-        });
+    applyClientFilters(target, form, requestedPage || 1);
+    if (target.dataset.clientPaginationDelegated !== "1") {
+      target.dataset.clientPaginationDelegated = "1";
+      target.addEventListener("click", function (event) {
+        var button = event.target.closest("button[data-client-page]");
+        if (!button || !target.contains(button)) {
+          return;
+        }
+        event.preventDefault();
+        if (button.disabled) {
+          return;
+        }
+        var current = parseInt(target.dataset.clientPage || "1", 10);
+        if (!Number.isFinite(current) || current < 1) {
+          current = 1;
+        }
+        var next = button.dataset.clientPage === "next" ? current + 1 : current - 1;
+        renderClientPagination(target, formForTableTarget(target) || form, next);
       });
-    });
+    }
   }
 
   var TASK_TABLE_ACTIVE_POLL_MS = 5000;
   var TASK_TABLE_IDLE_POLL_MS = 60000;
+  var ASYNC_TABLE_DYNAMIC_FILTER_MS = 250;
+
+  function padLocalTimePart(value) {
+    return String(value).padStart(2, "0");
+  }
+
+  function formatBrowserLocalDate(date, format) {
+    var year = date.getFullYear();
+    var month = padLocalTimePart(date.getMonth() + 1);
+    var day = padLocalTimePart(date.getDate());
+    var hours = padLocalTimePart(date.getHours());
+    var minutes = padLocalTimePart(date.getMinutes());
+    var seconds = padLocalTimePart(date.getSeconds());
+    if (format === "time") {
+      return hours + ":" + minutes + ":" + seconds;
+    }
+    return year + "-" + month + "-" + day + " " + hours + ":" + minutes + ":" + seconds;
+  }
+
+  function initLocalDateTimes(root) {
+    (root || document).querySelectorAll("[data-local-datetime]").forEach(function (element) {
+      if (element.dataset.localDatetimeApplied === "1") {
+        return;
+      }
+      var epoch = Number(element.dataset.localDatetime || "");
+      if (!Number.isFinite(epoch) || epoch <= 0) {
+        return;
+      }
+      var date = new Date(epoch * 1000);
+      if (Number.isNaN(date.getTime())) {
+        return;
+      }
+      element.textContent = formatBrowserLocalDate(date, element.dataset.localDatetimeFormat || "datetime");
+      element.title = date.toLocaleString();
+      element.dataset.localDatetimeApplied = "1";
+    });
+  }
+
+
+  var TASK_DETAIL_POLL_MS = 1000;
+
+  function taskStatusLabel(panel, status) {
+    if (!status) {
+      return "-";
+    }
+    return configTaskLabel(panel || document.body, status) || status;
+  }
+
+  function shouldStickTaskLogToBottom(container) {
+    if (!container) {
+      return false;
+    }
+    return container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+  }
+
+  function updateTaskDetailFromPayload(panel, data) {
+    var code = document.querySelector("[data-task-log-output]");
+    var logBox = document.querySelector("[data-task-log]");
+    var status = document.querySelector("[data-task-status-text]");
+    var returncode = document.querySelector("[data-task-returncode]");
+    var cancelForm = document.querySelector("[data-task-cancel-form]");
+    if (status) {
+      status.textContent = taskStatusLabel(panel, data.status);
+      status.className = "status-text " + configTaskKey(data.status || "");
+    }
+    if (returncode) {
+      returncode.textContent = data.returncode === null || data.returncode === undefined ? "-" : String(data.returncode);
+    }
+    if (code && typeof data.output === "string") {
+      var nextOutput = data.output || "Sin salida todavia.";
+      var stickToBottom = shouldStickTaskLogToBottom(logBox);
+      if (code.textContent !== nextOutput) {
+        code.textContent = nextOutput;
+        if (stickToBottom && logBox) {
+          logBox.scrollTop = logBox.scrollHeight;
+        }
+      }
+    }
+    if (cancelForm && !data.is_active) {
+      cancelForm.hidden = true;
+    }
+    if (panel) {
+      panel.dataset.active = data.is_active ? "1" : "0";
+    }
+  }
+
+  function initTaskDetailLog(root) {
+    var scope = root || document;
+    var panel = scope.querySelector ? scope.querySelector("[data-task-detail]") : null;
+    if (!panel || panel.dataset.taskDetailBound === "1") {
+      return;
+    }
+    panel.dataset.taskDetailBound = "1";
+    var statusUrl = panel.dataset.statusUrl || "";
+    if (!statusUrl || panel.dataset.active !== "1") {
+      return;
+    }
+    var stopped = false;
+
+    function poll() {
+      if (stopped || !document.body.contains(panel)) {
+        return;
+      }
+      fetch(statusUrl, { headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" } })
+        .then(parseJsonResponse)
+        .then(function (data) {
+          updateTaskDetailFromPayload(panel, data);
+          if (data.is_active) {
+            window.setTimeout(poll, TASK_DETAIL_POLL_MS);
+          } else {
+            stopped = true;
+            refreshTaskTables();
+          }
+        })
+        .catch(function () {
+          window.setTimeout(poll, TASK_DETAIL_POLL_MS * 2);
+        });
+    }
+    window.setTimeout(poll, TASK_DETAIL_POLL_MS);
+  }
 
   function taskTableMarker(target) {
     return target ? target.querySelector("[data-task-table-snapshot]") : null;
@@ -387,6 +642,7 @@
         }
         target.innerHTML = html;
         updateTaskTableState(target);
+        initLocalDateTimes(target);
         initSelect2(target);
         initConfigTaskActions(target);
         initClientSorting(target, form);
@@ -409,6 +665,15 @@
     document.querySelectorAll(".async-table-form").forEach(function (form) {
       var url = form.dataset.url || "";
       if (url.indexOf("/tasks/table/") >= 0 || url.indexOf("/configs/tasks/table/") >= 0) {
+        loadTable(form, null, { preserveClientPage: true, silent: true });
+      }
+    });
+  }
+
+  function refreshConfigTables() {
+    document.querySelectorAll(".async-table-form").forEach(function (form) {
+      var url = form.dataset.url || "";
+      if (url.indexOf("/configs/table/") >= 0) {
         loadTable(form, null, { preserveClientPage: true, silent: true });
       }
     });
@@ -480,6 +745,10 @@
       loadTable(form);
       form.addEventListener("submit", function (event) {
         event.preventDefault();
+        if (form.dataset.clientSideFilter === "1") {
+          applyClientFilters(tableTarget(form), form, 1);
+          return;
+        }
         loadTable(form);
       });
       form.addEventListener("reset", function () {
@@ -487,13 +756,50 @@
           if (window.jQuery && window.jQuery.fn.select2) {
             window.jQuery(form).find("select[data-select2]").val(null).trigger("change");
           }
+          if (form.dataset.clientSideFilter === "1") {
+            applyClientFilters(tableTarget(form), form, 1);
+            return;
+          }
           loadTable(form);
         }, 0);
       });
+      if (form.dataset.dynamicFilter === "1") {
+        var scheduleDynamicFilter = function (delay) {
+          if (form._dynamicFilterTimer) {
+            window.clearTimeout(form._dynamicFilterTimer);
+          }
+          form._dynamicFilterTimer = window.setTimeout(function () {
+            var target = tableTarget(form);
+            if (form.dataset.clientSideFilter === "1") {
+              applyClientFilters(target, form, 1);
+              return;
+            }
+            loadTable(form);
+          }, delay);
+        };
+        form.querySelectorAll("input[type='search']").forEach(function (input) {
+          if (input.dataset.dynamicFilterBound === "1") {
+            return;
+          }
+          input.dataset.dynamicFilterBound = "1";
+          input.addEventListener("input", function () {
+            scheduleDynamicFilter(ASYNC_TABLE_DYNAMIC_FILTER_MS);
+          });
+        });
+        form.querySelectorAll("select[data-dynamic-filter-control]").forEach(function (select) {
+          if (select.dataset.dynamicFilterBound === "1") {
+            return;
+          }
+          select.dataset.dynamicFilterBound = "1";
+          select.addEventListener("change", function () {
+            scheduleDynamicFilter(0);
+          });
+        });
+      }
       form.querySelectorAll("select[name='page_size']").forEach(function (select) {
         select.addEventListener("change", function () {
           var target = tableTarget(form);
-          if (target && renderClientPagination(target, form, 1)) {
+          if (target && applyClientFilters(target, form, 1)) {
             return;
           }
           loadTable(form);
@@ -561,6 +867,39 @@
 
   function visualIdentityDetailUrl(kind, filename) {
     return "/identity/" + encodeURIComponent(kind || "image") + "/" + encodeURIComponent(filename) + "/";
+  }
+
+  function assetImageUrl(asset, width) {
+    if (!asset) {
+      return "";
+    }
+    if (asset.local_url) {
+      return asset.local_url;
+    }
+    if (asset.image_url) {
+      return asset.image_url;
+    }
+    if (asset.remote_url) {
+      return asset.remote_url;
+    }
+    if (asset.commons_filename) {
+      return commonsFileUrl(asset.commons_filename, width || 360);
+    }
+    return "";
+  }
+
+  function openAssetPreview(asset, fallbackLabel, kind) {
+    if (!asset) {
+      return;
+    }
+    if (asset.commons_filename) {
+      openImagePreview(asset.commons_filename, fallbackLabel || asset.commons_filename, kind);
+      return;
+    }
+    var url = assetImageUrl(asset, 1600);
+    if (url) {
+      window.open(url, "_blank", "noopener");
+    }
   }
 
   function openImagePreview(filename, label, kind) {
@@ -2525,8 +2864,47 @@
       });
   }
 
+  function dashboardCountryDetailUrl(baseUrl, item) {
+    var code = item && (item.code || item.key || item.country_code || item.country || item.slug);
+    if (!baseUrl || !code) {
+      return "";
+    }
+    return String(baseUrl).replace("__country__", encodeURIComponent(String(code)));
+  }
+
+  function initDashboardCountryDetail(root) {
+    var scope = root || document;
+    var detailTarget = scope.querySelector("[data-country-detail]") || document.querySelector("[data-country-detail]");
+    if (!detailTarget) {
+      return;
+    }
+    scope.querySelectorAll("[data-dashboard-population]").forEach(function (container) {
+      if (container.dataset.countryDetailBound === "1") {
+        return;
+      }
+      container.dataset.countryDetailBound = "1";
+      container.addEventListener("ciudades:chart-item-click", function (event) {
+        var detail = event.detail || {};
+        var item = detail.item || {};
+        var url = detail.url || dashboardCountryDetailUrl(container.dataset.countryDetailBaseUrl, item);
+        if (!url) {
+          return;
+        }
+        event.preventDefault();
+        loadCountryDetail(detailTarget, url, item.level);
+      });
+    });
+  }
+
   function hydrateCountryIdentity(panel, country) {
-    if (!country || (!country.wikidata_query && !country.wikidata_id)) {
+    var visualAssets = (country && country.visual_assets) || {};
+    var storedCoat = (country && country.coat_asset) || visualAssets.coat || (country && country.seal_asset) || visualAssets.seal;
+    var storedCoatKind = ((country && country.coat_asset) || visualAssets.coat) ? "coat" : "seal";
+    var hasStoredAssets = !!(
+      assetImageUrl((country && country.flag_asset) || visualAssets.flag, 220) ||
+      assetImageUrl(storedCoat, 220)
+    );
+    if (!country || (!hasStoredAssets && !country.wikidata_query && !country.wikidata_id)) {
       return Promise.resolve();
     }
     var languages = wikidataLanguages();
@@ -2536,10 +2914,12 @@
     var officialLanguage = panel.querySelector("[data-country-official-language]");
     var capital = panel.querySelector("[data-country-capital]");
     var imagePromises = [];
+    var shownKinds = {};
 
-    function showImage(slot, filename, kind) {
-      if (!slot || !filename) {
-        return;
+    function showAsset(slot, asset, kind) {
+      var url = assetImageUrl(asset, 220);
+      if (!slot || !url) {
+        return false;
       }
       var image = slot.querySelector("img");
       var empty = slot.querySelector(".muted");
@@ -2548,21 +2928,46 @@
         image.onerror = resolve;
       });
       imagePromises.push(loaded);
-      image.dataset.fullSrc = commonsFileUrl(filename, 1200);
-      image.src = commonsFileUrl(filename, 220);
+      image.dataset.fullSrc = assetImageUrl(asset, 1200) || url;
+      image.src = url;
       image.hidden = false;
       image.onclick = function () {
-        openImagePreview(filename, image.alt || filename, kind);
+        openAssetPreview(asset, image.alt || asset.commons_filename || kind, kind);
       };
+      if (asset.status) {
+        image.title = asset.source ? (asset.source + " · " + asset.status) : asset.status;
+      }
       if (empty) {
         empty.hidden = true;
-        }
+      }
+      shownKinds[kind] = true;
+      return true;
     }
+
+    function showImage(slot, filename, kind) {
+      if (!slot || !filename || shownKinds[kind]) {
+        return;
+      }
+      showAsset(slot, {
+        commons_filename: filename,
+        remote_url: commonsFileUrl(filename, 1200),
+        image_url: commonsFileUrl(filename, 220),
+        source: "wikidata",
+        status: "remote"
+      }, kind);
+    }
+
+    showAsset(flagSlot, country.flag_asset || visualAssets.flag, "flag");
+    showAsset(coatSlot, storedCoat, storedCoatKind);
 
     function waitForIdentityImages() {
       return Promise.all(imagePromises).then(function () {
         return true;
       });
+    }
+
+    if (!country.wikidata_query && !country.wikidata_id) {
+      return waitForIdentityImages();
     }
 
     var entityPromise = country.wikidata_id ? Promise.resolve(country.wikidata_id) : searchWikidataEntity(country.wikidata_query, languages);
@@ -2609,21 +3014,9 @@
           });
         });
       })
-      .catch(function () {});
-  }
-
-  function initDashboardCountryDetail(root) {
-    var scope = root || document;
-    var target = scope.querySelector("[data-country-detail]");
-    if (!target) {
-      return;
-    }
-    scope.addEventListener("ciudades:chart-item-click", function (event) {
-      if (!event.detail || !event.detail.url) {
-        return;
-      }
-      loadCountryDetail(target, event.detail.url);
-    });
+      .catch(function () {
+        return waitForIdentityImages();
+      });
   }
 
   function flagFilenameFromEntity(entity) {
@@ -2632,9 +3025,48 @@
     return flagClaim && flagClaim.mainsnak && flagClaim.mainsnak.datavalue && flagClaim.mainsnak.datavalue.value;
   }
 
+  function showStatsFlagAsset(slot, asset, label) {
+    var url = assetImageUrl(asset, 180);
+    if (!slot || !url) {
+      return false;
+    }
+    slot.innerHTML = "";
+    var image = document.createElement("img");
+    image.alt = label || "";
+    image.loading = "lazy";
+    image.src = url;
+    if (asset && asset.status) {
+      image.title = asset.source ? (asset.source + " - " + asset.status) : asset.status;
+    }
+    slot.appendChild(image);
+    return true;
+  }
+
+  function statsCountryFlagSlot(container, country) {
+    if (!container || !country) {
+      return null;
+    }
+    if (country.code) {
+      return container.querySelector("[data-stats-country-code='" + country.code + "']");
+    }
+    if (country.wikidata_id) {
+      return container.querySelector("[data-stats-country-flag='" + country.wikidata_id + "']");
+    }
+    return null;
+  }
+
   function hydrateStatsCountryFlags(container, countries) {
     var cardsById = {};
     (countries || []).forEach(function (country) {
+      var visualAssets = (country && country.visual_assets) || {};
+      var storedFlag = (country && country.flag_asset) || visualAssets.flag;
+      if (showStatsFlagAsset(
+        statsCountryFlagSlot(container, country),
+        storedFlag,
+        country.label || country.code
+      )) {
+        return;
+      }
       if (!country.wikidata_id) {
         return;
       }
@@ -2697,8 +3129,13 @@
 
       var flag = document.createElement("span");
       flag.className = "stats-country-flag";
+      flag.dataset.statsCountryCode = country.code || "";
       flag.dataset.statsCountryFlag = country.wikidata_id || "";
-      if (country.wikidata_id) {
+      var visualAssets = country.visual_assets || {};
+      var storedFlag = country.flag_asset || visualAssets.flag;
+      if (showStatsFlagAsset(flag, storedFlag, country.label || country.code)) {
+        flag.dataset.statsCountryStored = "1";
+      } else if (country.wikidata_id) {
         var flagSpinner = document.createElement("span");
         flagSpinner.className = "loading-spinner";
         flagSpinner.setAttribute("aria-hidden", "true");
@@ -3612,7 +4049,26 @@
   }
 
   function configTaskLabel(container, status) {
+    container = container || document.body;
     var key = configTaskKey(status);
+    if (key === "pending" || key === "none") {
+      return container.dataset.pendingLabel || "Por Validar";
+    }
+    if (key === "validating") {
+      return container.dataset.validatingLabel || "Validando";
+    }
+    if (key === "validated") {
+      return container.dataset.validatedLabel || "Validado";
+    }
+    if (key === "populating") {
+      return container.dataset.populatingLabel || "Populando";
+    }
+    if (key === "populated") {
+      return container.dataset.populatedLabel || "Populado";
+    }
+    if (key === "invalid") {
+      return container.dataset.invalidLabel || "Fallo";
+    }
     if (key === "running") {
       return container.dataset.runningLabel || status;
     }
@@ -3623,7 +4079,7 @@
       return container.dataset.succeededLabel || status;
     }
     if (key === "failed") {
-      return container.dataset.failedLabel || status;
+      return container.dataset.failedLabel || "Fallo";
     }
     if (key === "cancelled") {
       return container.dataset.cancelledLabel || status;
@@ -3634,21 +4090,30 @@
     return status || "";
   }
 
+  function configTaskClass(status) {
+    var key = configTaskKey(status);
+    if (key === "none" || !key) {
+      key = "pending";
+    }
+    if (["invalid", "cancelled"].indexOf(key) !== -1) {
+      key = "failed";
+    }
+    return "config-status-" + key;
+  }
+
   function configTaskIcon(status) {
     var key = configTaskKey(status);
-    if (key === "succeeded") {
+    if (["succeeded", "validated", "populated"].indexOf(key) !== -1) {
       return "\u2713";
     }
-    if (key === "failed") {
+    if (["failed", "invalid", "cancelled"].indexOf(key) !== -1) {
       return "\u00d7";
     }
-    if (key === "cancelled") {
-      return "!";
-    }
+
     if (key === "queued") {
       return "\u25cc";
     }
-    if (key === "running") {
+    if (["running", "validating", "populating"].indexOf(key) !== -1) {
       return "\u2026";
     }
     return "i";
@@ -3662,6 +4127,18 @@
     parent.appendChild(icon);
     return icon;
   }
+
+  function normalizeConfigStatus(status) {
+    var key = configTaskKey(status);
+    if (!key || key === "none") {
+      return "pending";
+    }
+    if (["invalid", "cancelled"].indexOf(key) !== -1) {
+      return "failed";
+    }
+    return key;
+  }
+
 
   var CONFIG_TOAST_MAX_VISIBLE = 3;
   var CONFIG_TOAST_DONE_VISIBLE_MS = 1000;
@@ -3900,6 +4377,8 @@
     var detailLink = document.createElement("a");
     detailLink.className = "button secondary config-task-log-link";
     detailLink.textContent = configTaskLabel(container || document.body, "view_task_log") || "Ver registro";
+    detailLink.target = "_blank";
+    detailLink.rel = "noopener";
     detailLink.hidden = true;
     toast.appendChild(header);
     toast.appendChild(status);
@@ -4003,11 +4482,14 @@
           return;
         }
         row.dataset.country = data.country_label || "";
-        row.dataset.search = [data.slug, data.country_label, data.name].join(" ");
+        row.dataset.countryCode = data.country_code || "";
+        row.dataset.search = [data.country_label, data.country_code].join(" ");
         row.dataset.pages = data.pages;
         row.dataset.cities = data.cities;
         row.dataset.rows = data.rows;
-        row.dataset.task = data.task_status || "";
+        var normalizedStatus = normalizeConfigStatus(data.status_filter || data.task_status || "pending");
+        row.dataset.task = normalizedStatus;
+        row.dataset.status = normalizedStatus;
         var fields = {
           country: data.country_label,
           pages: data.pages,
@@ -4020,33 +4502,17 @@
             cell.textContent = fields[key];
           }
         });
-        var taskCell = row.querySelector('[data-field="task"]');
-        if (taskCell) {
-          taskCell.innerHTML = "";
-          if (data.task_url && data.task_is_active) {
-            var activeStatus = data.task_status || "running";
-            var link = document.createElement("a");
-            link.className = "status " + configTaskKey(activeStatus);
-            link.href = data.task_url;
-            appendStatusIcon(link, activeStatus);
-            link.appendChild(document.createTextNode(configTaskLabel(tableContainer || row, activeStatus)));
-            taskCell.appendChild(link);
-          } else if (data.task_status) {
-            var span = document.createElement("span");
-            span.className = "status " + (data.task_status === "succeeded" ? "succeeded" : data.task_status === "failed" ? "failed" : "");
-            appendStatusIcon(span, data.task_status);
-            span.appendChild(document.createTextNode(configTaskLabel(tableContainer || row, data.task_status)));
-            taskCell.appendChild(span);
-          } else {
-            var muted = document.createElement("span");
-            muted.className = "muted";
-            muted.textContent = "-";
-            taskCell.appendChild(muted);
-          }
-        }
-        var validateButton = row.querySelector('[data-config-action="validate"]');
-        if (validateButton) {
-          validateButton.disabled = Boolean(data.validate_task_is_active);
+        renderConfigTaskCell(
+          row.querySelector('[data-field="task"]'),
+          data.error ? "failed" : normalizeConfigStatus(data.task_status || data.status_filter || "pending"),
+          data.task_url || "",
+          tableContainer || row,
+          Boolean(data.task_is_active)
+        );
+        updateConfigActionButtons(row, normalizedStatus, data);
+        var asyncPanel = row.closest(".async-table-panel");
+        if (asyncPanel) {
+          rerenderClientTable(asyncPanel);
         }
         if (tableContainer) {
           tableContainer.dispatchEvent(new CustomEvent("config-table-row-updated"));
@@ -4054,12 +4520,136 @@
       });
   }
 
+  function renderConfigTaskCell(taskCell, status, detailUrl, container, isActive) {
+    if (!taskCell) {
+      return;
+    }
+    status = normalizeConfigStatus(status || "pending");
+    taskCell.innerHTML = "";
+    var cssClass = configTaskClass(status);
+    var label = configTaskLabel(container || taskCell, status);
+    var node;
+    if (detailUrl && isActive) {
+      node = document.createElement("a");
+      node.href = detailUrl;
+    } else {
+      node = document.createElement("span");
+    }
+    node.className = "status " + cssClass;
+    if (["validated", "populated"].indexOf(status) === -1) {
+      appendStatusIcon(node, status);
+    }
+    node.appendChild(document.createTextNode(label));
+    taskCell.appendChild(node);
+  }
+
+  function canValidateConfigStatus(status) {
+    var key = normalizeConfigStatus(status || "pending");
+    return ["validated", "populated", "validating", "populating", "running", "queued"].indexOf(key) === -1;
+  }
+
+  function canScrapeConfigStatus(status) {
+    return normalizeConfigStatus(status || "pending") === "validated";
+  }
+
+  function updateConfigActionButtons(row, status, data) {
+    if (!row) {
+      return;
+    }
+    var key = normalizeConfigStatus(status || row.dataset.status || row.dataset.task || "pending");
+    var validateForm = row.querySelector('[data-config-action-form="validate"]');
+    var scrapeForm = row.querySelector('[data-config-action-form="scrape"]');
+    var validateButton = row.querySelector('[data-config-action="validate"]');
+    var scrapeButton = row.querySelector('[data-config-action="scrape"]');
+    var showValidate = ["pending", "failed"].indexOf(key) !== -1;
+    var showValidateBusy = key === "validating";
+    var showScrape = key === "validated";
+    var showScrapeBusy = key === "populating";
+
+    if (data && Object.prototype.hasOwnProperty.call(data, "can_validate") && Boolean(data.can_validate)) {
+      showValidate = true;
+    }
+    if (data && Object.prototype.hasOwnProperty.call(data, "can_scrape") && Boolean(data.can_scrape)) {
+      showScrape = true;
+    }
+
+    if (validateButton) {
+      validateButton.disabled = showValidateBusy;
+      if (showValidateBusy) {
+        validateButton.setAttribute("disabled", "disabled");
+      } else {
+        validateButton.removeAttribute("disabled");
+      }
+    }
+    if (scrapeButton) {
+      scrapeButton.disabled = showScrapeBusy;
+      if (showScrapeBusy) {
+        scrapeButton.setAttribute("disabled", "disabled");
+      } else {
+        scrapeButton.removeAttribute("disabled");
+      }
+    }
+    if (validateForm) {
+      validateForm.hidden = !(showValidate || showValidateBusy);
+    }
+    if (scrapeForm) {
+      scrapeForm.hidden = !(showScrape || showScrapeBusy);
+    }
+  }
+
+  function cssEscape(value) {
+    value = String(value || "");
+    if (window.CSS && typeof window.CSS.escape === "function") {
+      return window.CSS.escape(value);
+    }
+    return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  }
+
+  function applyConfigProgress(progress, detailUrl, container) {
+    if (!progress || typeof progress !== "object") {
+      return;
+    }
+    var tableContainer = container || document.querySelector("[data-config-table]") || document.body;
+    var changed = false;
+    Object.keys(progress).forEach(function (slug) {
+      var item = progress[slug];
+      if (!item || typeof item !== "object") {
+        return;
+      }
+      var status = normalizeConfigStatus(item.status || "pending");
+      var row = document.querySelector('[data-config-row="' + cssEscape(slug) + '"]');
+      if (!row || !status) {
+        return;
+      }
+      row.dataset.task = status;
+      row.dataset.status = status || "none";
+      renderConfigTaskCell(
+        row.querySelector('[data-field="task"]'),
+        status,
+        detailUrl || "",
+        tableContainer,
+        ["validating", "populating", "running", "queued"].indexOf(normalizeConfigStatus(status)) !== -1
+      );
+      updateConfigActionButtons(row, status);
+      changed = true;
+    });
+    if (changed) {
+      var asyncPanel = document.querySelector("#config-table-panel");
+      if (asyncPanel) {
+        rerenderClientTable(asyncPanel);
+      }
+    }
+    if (changed && tableContainer && tableContainer.dispatchEvent) {
+      tableContainer.dispatchEvent(new CustomEvent("config-table-row-updated"));
+    }
+  }
+
   function pollConfigTask(statusUrl, toast, button, summaryUrl, tableContainer) {
     function poll() {
       if (!statusUrl) {
         setConfigToastStatus(toast, "failed", "No se recibió la URL de estado de la tarea.");
         toast.element.classList.add("is-error");
-        if (button) {
+        if (button && !button.closest("[data-config-row]")) {
           button.disabled = false;
         }
         scheduleConfigToastDismiss(toast, CONFIG_TOAST_DONE_VISIBLE_MS);
@@ -4073,15 +4663,19 @@
             toast.detailLink.href = data.detail_url;
             toast.detailLink.hidden = false;
           }
+          applyConfigProgress(data.config_progress, data.detail_url, tableContainer);
           if (data.is_active) {
             window.setTimeout(poll, CONFIG_TASK_POLL_MS);
             return;
           }
           toast.element.classList.add(data.status === "succeeded" ? "is-success" : "is-error");
-          if (button) {
+          if (button && !button.closest("[data-config-row]")) {
             button.disabled = false;
           }
           updateConfigRow(summaryUrl, tableContainer).finally(function () {
+            if (!summaryUrl) {
+              refreshConfigTables();
+            }
             refreshTaskTables();
             scheduleConfigToastDismiss(toast, CONFIG_TOAST_DONE_VISIBLE_MS);
           });
@@ -4089,7 +4683,7 @@
         .catch(function (error) {
           setConfigToastStatus(toast, "failed", error.message || configTaskLabel(tableContainer || document.body, "failed"));
           toast.element.classList.add("is-error");
-          if (button) {
+          if (button && !button.closest("[data-config-row]")) {
             button.disabled = false;
           }
           scheduleConfigToastDismiss(toast, CONFIG_TOAST_DONE_VISIBLE_MS);
@@ -4134,7 +4728,10 @@
           scheduleConfigToastDismiss(badToast, CONFIG_TOAST_DONE_VISIBLE_MS);
           return;
         }
-        if (button) {
+        var actionRow = form.closest("[data-config-row]");
+        if (actionRow) {
+          updateConfigActionButtons(actionRow, form.dataset.configActionForm === "scrape" ? "populating" : "validating");
+        } else if (button) {
           button.disabled = true;
         }
         var actionLabel = form.dataset.actionLabel || (button && button.dataset.actionLabel) || (button ? button.textContent : "");
@@ -4155,11 +4752,14 @@
             toast.detailLink.hidden = false;
           }
           refreshTaskTables();
+          if (data.summary_url || form.dataset.summaryUrl || (button && button.dataset.summaryUrl)) {
+            updateConfigRow(form.dataset.summaryUrl || (button && button.dataset.summaryUrl) || data.summary_url, tableContainer);
+          }
           pollConfigTask(data.status_url, toast, button, form.dataset.summaryUrl || (button && button.dataset.summaryUrl) || data.summary_url, tableContainer);
         }).catch(function (error) {
           setConfigToastStatus(toast, "failed", error.message || configTaskLabel(tableContainer || document.body, "failed"));
           toast.element.classList.add("is-error");
-          if (button) {
+          if (button && !button.closest("[data-config-row]")) {
             button.disabled = false;
           }
           scheduleConfigToastDismiss(toast, CONFIG_TOAST_DONE_VISIBLE_MS);
@@ -4848,6 +5448,8 @@
     }
     initThemeSelector(document);
     initSelect2(document);
+    initLocalDateTimes(document);
+    initTaskDetailLog(document);
     initConfigBootstrap(document);
     initAsyncTables(document);
     initConfigTables(document);

@@ -1,7 +1,12 @@
 {% load i18n %}
 <div data-task-table-snapshot="{{ task_table_snapshot|escape }}" data-has-active-tasks="{% if has_active_tasks %}1{% else %}0{% endif %}">
 <div class="table-wrap subtle">
-  <table class="compact-table">
+  <table class="compact-table config-tasks-table">
+    <colgroup>
+      <col class="task-col-label">
+      <col class="task-col-status">
+      <col class="task-col-started">
+    </colgroup>
     <thead>
       <tr>
         <th><button type="button" class="table-sort-button" data-client-sort="label">{% trans "Tarea" %}</button></th>
@@ -14,10 +19,10 @@
       <tr data-client-row data-row-href="{% url 'ciudades_del_mundo:task_detail' task.id %}" data-label="{{ task.label }}" data-status="{{ task.status }}" data-started="{{ task.started_at|default:task.created_at|date:'U' }}" class="clickable-row" tabindex="0">
         <td>{{ task.label }}</td>
         <td><span class="status {{ task.status }}">{% trans task.status %}</span></td>
-        <td>{{ task.started_at|default:task.created_at|date:"Y-m-d H:i:s" }}</td>
+        <td><time data-local-datetime="{{ task.started_at|default:task.created_at|date:'U' }}" data-local-datetime-format="datetime">{{ task.started_at|default:task.created_at|date:"Y-m-d H:i:s" }}</time></td>
       </tr>
       {% empty %}
-      <tr data-client-empty><td colspan="3">{% trans "No hay tareas registradas en este proceso." %}</td></tr>
+      <tr data-client-empty><td colspan="3">{% trans "No hay datos" %}</td></tr>
       {% endfor %}
     </tbody>
   </table>

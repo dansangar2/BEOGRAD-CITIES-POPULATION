@@ -29,18 +29,23 @@ from ciudades_del_mundo.domain import (
     parse_entity_merges,
     parse_pages,
 )
-from ciudades_del_mundo.infrastructure.scraping import PythonScrapingConfigRepository
 from ciudades_del_mundo.models import AdminArea, NuevoAdminArea, ScrapingConfig
 
 from ciudades_del_mundo.services.scraping_configs import (
     ensure_initial_scraping_configs,
-    parse_config_metadata,
     scraping_config_bootstrap_status,
     scraping_config_table_exists,
     upsert_scraping_config,
 )
+from ciudades_del_mundo.services.visual_assets import (
+    ensure_missing_local_asset_files,
+    ensure_visual_assets_for_config_slug,
+    get_visual_assets_for_entity,
+    visual_asset_tables_exist,
+)
 
 from .spain_translations import normalize_language_code, spain_entity_type, spain_name
+from .task_progress import read_task_config_progress
 from .tasks import task_manager
 
 
@@ -57,7 +62,6 @@ AI_PROVIDER_LOGIN_URLS = {
     **getattr(settings, "AI_PROVIDER_LOGIN_URLS", {}),
 }
 PACKAGE_ROOT = Path(settings.BASE_DIR) / "ciudades_del_mundo"
-SUBDIVISIONS_ROOT = PACKAGE_ROOT / "subdivisions"
 NEW_RECIPES_ROOT = PACKAGE_ROOT / "new_subdivisions"
 HISTORICAL_RECIPES_ROOT = PACKAGE_ROOT / "historical_divisions"
 COUNTRY_NAME_ES_BY_CODE = {
@@ -342,7 +346,12 @@ def dashboard(request):
 
 def api_country_summary(request):
     """Return imported country summary data for API-driven views."""
-    return JsonResponse(_country_summary_payload(detail_route="ciudades_del_mundo:api_country_detail"))
+    return JsonResponse(
+        _country_summary_payload(
+            detail_route="ciudades_del_mundo:api_country_detail",
+            include_visual_assets=True,
+        )
+    )
 
 
 def api_country_detail(request, country_code):
@@ -385,6 +394,16 @@ def api_task_detail(request, task_id):
     return JsonResponse(_task_payload(task, include_output=True))
 
 
+def api_visual_assets(request, entity_type, entity_key):
+    """Return persisted local/remote flag and coat assets for one entity."""
+    return JsonResponse({
+        "ok": True,
+        "entity_type": entity_type,
+        "entity_key": entity_key,
+        "assets": _visual_assets_payload(entity_type, entity_key),
+    })
+
+
 def _task_payload(task, *, include_output: bool = False) -> dict:
     payload = {
         "id": task.id,
@@ -401,7 +420,7 @@ def _task_payload(task, *, include_output: bool = False) -> dict:
         "status_url": reverse("ciudades_del_mundo:task_status", kwargs={"task_id": task.id}),
     }
     if include_output:
-        payload["output"] = task_manager.output_text(task)[-4000:]
+        payload["output"] = task_manager.output_tail_text(task)
     return payload
 
 
@@ -410,8 +429,11 @@ def dashboard_population_data(request):
     return JsonResponse(_country_summary_payload(detail_route="ciudades_del_mundo:dashboard_country_detail"))
 
 
-def _country_summary_payload(*, detail_route: str) -> dict:
-    countries = _admin_root_population_rows(detail_route=detail_route)
+def _country_summary_payload(*, detail_route: str, include_visual_assets: bool = False) -> dict:
+    countries = _admin_root_population_rows(
+        detail_route=detail_route,
+        include_visual_assets=include_visual_assets,
+    )
     population_total = sum(row["population"] for row in countries)
     area_total = sum(row["area_km2"] or 0 for row in countries)
     return {
@@ -535,6 +557,8 @@ def config_list(request):
     context = {
         "config_table_url": reverse("ciudades_del_mundo:config_table"),
         "config_tasks_table_url": reverse("ciudades_del_mundo:config_tasks_table"),
+        "config_validate_all_url": reverse("ciudades_del_mundo:start_all_config_task", kwargs={"action": "validate"}),
+        "config_scrape_all_url": reverse("ciudades_del_mundo:start_all_config_task", kwargs={"action": "scrape"}),
         "config_bootstrap_url": reverse("ciudades_del_mundo:config_bootstrap"),
         "config_bootstrap_status": bootstrap_status.as_dict(),
     }
@@ -547,6 +571,10 @@ def config_bootstrap(request):
         return JsonResponse({"ok": False, "error": _("Método no soportado.")}, status=405)
     try:
         status = ensure_initial_scraping_configs(force=False)
+        try:
+            ensure_missing_local_asset_files(limit=None)
+        except Exception:
+            pass
     except (OperationalError, ProgrammingError) as exc:
         return JsonResponse(
             {
@@ -560,7 +588,7 @@ def config_bootstrap(request):
 
 
 def config_table(request):
-    """Render the asynchronous SQL/TOML config table partial."""
+    """Render the asynchronous SQL-backed config table partial."""
     try:
         ensure_initial_scraping_configs(force=False)
     except (OperationalError, ProgrammingError):
@@ -593,7 +621,7 @@ def _task_table_context(tasks, *, page_size: int, compact: bool = True) -> dict:
 
 def config_tasks_table(request):
     """Render the asynchronous recent config/task history table partial."""
-    tasks = task_manager.list(limit=100)
+    tasks = _filtered_tasks(request, limit=100)
     return render(
         request,
         "ciudades_del_mundo/partials/config_tasks_table.html",
@@ -671,8 +699,84 @@ def config_edit(request, slug):
     return render(request, "ciudades_del_mundo/config_form.html", _config_form_context("edit", slug, content, active_scrape))
 
 
+def start_all_config_task(request, action):
+    """Start a bulk validation or validate-then-scrape task for SQL configs."""
+    wants_json = _wants_json(request)
+    if request.method != "POST":
+        if wants_json:
+            return JsonResponse({"ok": False, "error": _("Método no soportado.")}, status=405)
+        return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
+
+    if not _web_task_table_exists():
+        error = _(
+            "La tabla de tareas no existe todavía. Ejecuta 'py manage.py migrate' y recarga la página."
+        )
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=503)
+        messages.error(request, error)
+        return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
+
+    if action == "validate":
+        eligible_slugs = _eligible_config_slugs_for_bulk("validate")
+        if not eligible_slugs:
+            error = _("No hay configuraciones pendientes de validar.")
+            if wants_json:
+                return JsonResponse({"ok": False, "error": error}, status=400)
+            messages.info(request, error)
+            return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
+        key = "validate-config:all"
+        label = _("Validar configuraciones pendientes (%(count)s)") % {"count": len(eligible_slugs)}
+        args = ["validate_subdivision_configs", *eligible_slugs]
+    elif action == "scrape":
+        eligible_slugs = _eligible_config_slugs_for_bulk("scrape")
+        if not eligible_slugs:
+            error = _("No hay configuraciones validadas pendientes de popular.")
+            if wants_json:
+                return JsonResponse({"ok": False, "error": error}, status=400)
+            messages.info(request, error)
+            return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
+        key = "scrape:all"
+        label = _("Popular configuraciones validadas (%(count)s)") % {"count": len(eligible_slugs)}
+        args = ["validate_and_scrape_configs", *eligible_slugs]
+    else:
+        error = _("Acción de configuración no soportada.")
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=404)
+        raise Http404(error)
+
+    try:
+        task = task_manager.start(key=key, label=label, args=args)
+    except (OperationalError, ProgrammingError) as exc:
+        error = _(
+            "No se pudo guardar la tarea en la base de datos. Ejecuta 'py manage.py migrate'. Detalle: %(error)s"
+        ) % {"error": exc}
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=503)
+        messages.error(request, error)
+        return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
+    except Exception as exc:  # noqa: BLE001 - AJAX must not receive a Django HTML debug page.
+        if wants_json:
+            return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+        raise
+
+    if wants_json:
+        return JsonResponse(
+            {
+                "ok": True,
+                "task_id": task.id,
+                "label": label,
+                "status": task.status,
+                "status_url": reverse("ciudades_del_mundo:task_status", kwargs={"task_id": task.id}),
+                "summary_url": "",
+                "detail_url": reverse("ciudades_del_mundo:task_detail", kwargs={"task_id": task.id}),
+            }
+        )
+    messages.info(request, _("Tarea lanzada: %(label)s.") % {"label": label})
+    return redirect("ciudades_del_mundo:task_detail", task_id=task.id)
+
+
 def start_config_task(request, slug, action):
-    """Start validation or scraping for one SQL/TOML config."""
+    """Start validation or scraping for one SQL config."""
     wants_json = _wants_json(request)
     if request.method != "POST":
         if wants_json:
@@ -703,14 +807,29 @@ def start_config_task(request, slug, action):
         messages.error(request, error)
         return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
 
+    row = _config_summary_for_slug(slug)
+    current_status = _config_row_status(row)
+
     if action == "validate":
+        if not _can_validate_config_status(current_status):
+            error = _("Esta configuración ya está validada o populada. Modifica la configuración SQL antes de volver a validar.")
+            if wants_json:
+                return JsonResponse({"ok": False, "error": error}, status=400)
+            messages.info(request, error)
+            return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
         key = f"validate-config:{slug}"
         label = _("Validar configuración: %(slug)s") % {"slug": slug}
         args = ["validate_subdivision_configs", slug]
     elif action == "scrape":
+        if not _can_scrape_config_status(current_status):
+            error = _("Solo puedes popular una configuración Validada. Modifica la configuración SQL, valida y después popula.")
+            if wants_json:
+                return JsonResponse({"ok": False, "error": error}, status=400)
+            messages.info(request, error)
+            return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
         key = f"scrape:{slug}"
         label = _("Popular datos: %(slug)s") % {"slug": slug}
-        args = ["scrape_subdivisions", slug]
+        args = ["scrape_subdivisions_with_assets", slug]
     else:
         error = _("Acción de configuración no soportada.")
         if wants_json:
@@ -754,6 +873,12 @@ def task_status(request, task_id):
         if _wants_json(request):
             return JsonResponse({"ok": False, "error": _("No existe la tarea solicitada.")}, status=404)
         raise Http404(_("No existe la tarea solicitada."))
+    config_progress = read_task_config_progress(task.id)
+    if not task.is_active and task.status in {"failed", "cancelled"}:
+        terminal_status = "failed"
+        for item in config_progress.values():
+            if isinstance(item, dict) and item.get("status") in {"validating", "populating", "running", "queued"}:
+                item["status"] = terminal_status
     return JsonResponse(
         {
             "id": task.id,
@@ -761,8 +886,9 @@ def task_status(request, task_id):
             "status": task.status,
             "is_active": task.is_active,
             "returncode": task.returncode,
-            "output": task_manager.output_text(task)[-4000:],
+            "output": task_manager.output_tail_text(task),
             "detail_url": reverse("ciudades_del_mundo:task_detail", kwargs={"task_id": task.id}),
+            "config_progress": config_progress,
         }
     )
 
@@ -774,21 +900,27 @@ def config_summary(request, slug):
     task = row.get("active_task")
     validate_task = row.get("validate_task")
     scrape_task = row.get("scrape_task")
+    task_display_status = row.get("task_display_status") or _config_task_display_status(task)
+    status_filter = _config_row_status({**row, "task_display_status": task_display_status})
     return JsonResponse(
         {
             "slug": row["slug"],
             "name": row["name"],
+            "country_code": row["country_code"],
             "country_label": row["country_label"],
             "pages": row["pages"],
             "cities": row["cities"],
             "rows": row["rows"],
-            "task_status": task.status if task else "",
+            "task_status": task_display_status,
+            "status_filter": status_filter,
             "task_is_active": task.is_active if task else False,
             "task_url": reverse("ciudades_del_mundo:task_detail", kwargs={"task_id": task.id}) if task else "",
-            "validate_task_status": validate_task.status if validate_task else "",
+            "validate_task_status": _config_task_display_status(validate_task),
             "validate_task_is_active": validate_task.is_active if validate_task else False,
-            "scrape_task_status": scrape_task.status if scrape_task else "",
+            "scrape_task_status": _config_task_display_status(scrape_task),
             "scrape_task_is_active": scrape_task.is_active if scrape_task else False,
+            "can_validate": _can_validate_config_status(status_filter),
+            "can_scrape": _can_scrape_config_status(status_filter),
             "error": row.get("error") or "",
         }
     )
@@ -1232,7 +1364,7 @@ def task_list(request):
 
 def task_table(request):
     """Render the asynchronous background task table partial."""
-    tasks = task_manager.list(limit=200)
+    tasks = _filtered_tasks(request, limit=200)
     return render(
         request,
         "ciudades_del_mundo/partials/task_table.html",
@@ -1549,9 +1681,14 @@ def _admin_country_summary_records() -> list[dict]:
     return sorted(records, key=lambda row: row["population"], reverse=True)
 
 
-def _admin_root_population_rows(*, detail_route: str = "ciudades_del_mundo:dashboard_country_detail") -> list[dict]:
-    return [
-        {
+def _admin_root_population_rows(
+    *,
+    detail_route: str = "ciudades_del_mundo:dashboard_country_detail",
+    include_visual_assets: bool = False,
+) -> list[dict]:
+    rows = []
+    for row in _admin_country_summary_records():
+        item = {
             "code": row["code"],
             "label": row["label"],
             "population": row["population"],
@@ -1562,8 +1699,30 @@ def _admin_root_population_rows(*, detail_route: str = "ciudades_del_mundo:dashb
                 kwargs={"country_code": row["code"]},
             ),
         }
-        for row in _admin_country_summary_records()
-    ]
+        if include_visual_assets:
+            visual_assets = _visual_assets_payload("country", row["code"])
+            item["visual_assets"] = visual_assets
+            item["flag_asset"] = visual_assets.get("flag", {})
+            item["seal_asset"] = visual_assets.get("seal", {})
+            item["coat_asset"] = visual_assets.get("coat", {}) or item["seal_asset"]
+        rows.append(item)
+    return rows
+
+
+def _visual_assets_payload(entity_type: str, entity_key: str) -> dict:
+    try:
+        return get_visual_assets_for_entity(entity_type, str(entity_key or ""))
+    except (OperationalError, ProgrammingError):
+        return {}
+    except Exception:
+        return {}
+
+
+def _visual_assets_ready() -> bool:
+    try:
+        return visual_asset_tables_exist()
+    except Exception:
+        return False
 
 
 def _country_detail_payload(country_code: str, selected_level: int | None = None) -> dict:
@@ -1586,6 +1745,7 @@ def _country_detail_payload(country_code: str, selected_level: int | None = None
     area_total = country_record["area_km2"] or 0
     rows = _country_table_rows(country_code, root, selected_level, population_total, area_total)
     subdivision_count = _visible_admin_areas().filter(country_code=country_code).count() - (1 if root else 0)
+    visual_assets = _visual_assets_payload("country", country_code)
 
     return {
         "country": {
@@ -1605,6 +1765,10 @@ def _country_detail_payload(country_code: str, selected_level: int | None = None
             "wikidata_query": root.name if root else country_record["label"],
             "wikidata_id": _wikidata_country_id(country_code),
             "map_url": reverse("ciudades_del_mundo:area_map_detail", kwargs={"source": "admin", "area_id": root.id}) if root else "",
+            "visual_assets": visual_assets,
+            "flag_asset": visual_assets.get("flag", {}),
+            "seal_asset": visual_assets.get("seal", {}),
+            "coat_asset": visual_assets.get("coat", {}) or visual_assets.get("seal", {}),
         },
         "levels": available_levels,
         "selected_level": selected_level,
@@ -1634,6 +1798,7 @@ def _admin_area_detail_payload(area: AdminArea) -> dict:
 
 def _admin_area_identity_payload(area: AdminArea, children: list[AdminArea] | None = None) -> dict:
     country_root = _area_country_root(area)
+    visual_assets = _visual_assets_payload("admin_area", str(area.id))
     return {
         "id": area.id,
         "code": area.code,
@@ -1653,6 +1818,10 @@ def _admin_area_identity_payload(area: AdminArea, children: list[AdminArea] | No
         "wikidata_id": "",
         "map_url": reverse("ciudades_del_mundo:area_map_detail", kwargs={"source": "admin", "area_id": area.id}),
         "detail_url": _admin_area_detail_url(area),
+        "visual_assets": visual_assets,
+        "flag_asset": visual_assets.get("flag", {}),
+        "seal_asset": visual_assets.get("seal", {}),
+        "coat_asset": visual_assets.get("coat", {}) or visual_assets.get("seal", {}),
     }
 
 
@@ -2709,45 +2878,99 @@ def _guess_scrape_source(path: str) -> tuple[str, int]:
 
 def _config_summaries(limit: int | None = None) -> list[dict]:
     row_counts = _config_row_counts()
-    if scraping_config_table_exists() and ScrapingConfig.objects.exists():
+    if scraping_config_table_exists():
         records = ScrapingConfig.objects.order_by("slug")
         if limit:
             records = records[:limit]
         return [_config_summary_from_record(record, row_counts=row_counts) for record in records]
-
-    repository = PythonScrapingConfigRepository()
-    rows = []
-    slugs = repository.list_slugs()
-    if limit:
-        slugs = slugs[:limit]
-    for slug in slugs:
-        rows.append(_config_summary_for_slug(slug, repository=repository, row_counts=row_counts))
-    return rows
+    return []
 
 
 def _filtered_config_summaries(request) -> list[dict]:
     rows = _config_summaries()
+    for row in rows:
+        _decorate_config_workflow_flags(row)
     query = str(request.GET.get("q") or "").strip().casefold()
+    status = str(request.GET.get("status") or "").strip().casefold()
     if query:
         rows = [
             row
             for row in rows
             if query in " ".join(
                 [
-                    str(row.get("slug") or ""),
-                    str(row.get("name") or ""),
                     str(row.get("country_label") or ""),
                     str(row.get("country_code") or ""),
                 ]
             ).casefold()
         ]
+    if status:
+        rows = [row for row in rows if str(row.get("status_filter") or "pending") == status]
     return rows
+
+
+def _filtered_tasks(request, *, limit: int):
+    """Return task history filtered by the selected UI state, if present."""
+    tasks = task_manager.list(limit=limit)
+    status = str(request.GET.get("status") or "").strip().casefold()
+    if not status:
+        return tasks
+    return [task for task in tasks if str(getattr(task, "status", "") or "").casefold() == status]
+
+
+def _config_row_status(row: dict) -> str:
+    """Return the normalized filter/sort status for one config row."""
+    if row.get("error"):
+        return "failed"
+    status = str(row.get("task_display_status") or "").strip().casefold()
+    if status in {"validating", "validated", "populating", "populated"}:
+        return status
+    if status in {"failed", "cancelled", "invalid"}:
+        return "failed"
+    if status in {"running", "queued"}:
+        return status
+    return "pending"
+
+
+def _can_validate_config_status(status: str) -> bool:
+    """Validation is only available until a config becomes validated/populated."""
+    return str(status or "pending").strip().casefold() not in {
+        "validated",
+        "populated",
+        "validating",
+        "populating",
+        "running",
+        "queued",
+    }
+
+
+def _can_scrape_config_status(status: str) -> bool:
+    """Population is only available immediately after a successful validation."""
+    return str(status or "pending").strip().casefold() == "validated"
+
+
+def _decorate_config_workflow_flags(row: dict) -> dict:
+    status = _config_row_status(row)
+    row["status_filter"] = status
+    row["can_validate"] = _can_validate_config_status(status)
+    row["can_scrape"] = _can_scrape_config_status(status)
+    return row
+
+
+def _eligible_config_slugs_for_bulk(action: str) -> list[str]:
+    rows = []
+    for row in _config_summaries():
+        _decorate_config_workflow_flags(row)
+        rows.append(row)
+    if action == "validate":
+        return [str(row["slug"]) for row in rows if row.get("can_validate")]
+    if action == "scrape":
+        return [str(row["slug"]) for row in rows if row.get("can_scrape")]
+    return []
 
 
 def _config_summary_for_slug(
     slug: str,
     *,
-    repository: PythonScrapingConfigRepository | None = None,
     row_counts: dict[str, int] | None = None,
 ) -> dict:
     row_counts = row_counts or _config_row_counts()
@@ -2755,30 +2978,102 @@ def _config_summary_for_slug(
     if record:
         return _config_summary_from_record(record, row_counts=row_counts)
 
-    repository = repository or PythonScrapingConfigRepository()
-    error = None
-    try:
-        config = repository.get(slug)
-    except Exception as exc:  # noqa: BLE001 - surfaced in the UI.
-        config = None
-        error = str(exc)
-    country_code = config.country_code if config else slug
-    raw_name = config.name if config else slug
+    error = _(
+        "No existe la configuración SQL '%(slug)s'. Ejecuta "
+        "'py manage.py sync_scraping_configs %(slug)s' si debe importarse desde seeds TOML."
+    ) % {"slug": slug}
+    country_code = slug
+    raw_name = slug
     validate_task = task_manager.latest_for_key(f"validate-config:{slug}")
     scrape_task = task_manager.latest_for_key(f"scrape:{slug}")
+    active_task = _latest_config_task(slug, validate_task=validate_task, scrape_task=scrape_task)
+    bulk_task, bulk_status = _latest_bulk_config_progress(slug)
+    if bulk_task and (not active_task or bulk_task.created_at > active_task.created_at):
+        active_task = bulk_task
+        task_display_status = bulk_status
+    else:
+        task_display_status = _config_task_display_status(active_task)
+    if error:
+        task_display_status = "failed"
     return {
         "slug": slug,
         "name": raw_name,
         "country_code": country_code,
         "country_label": _display_name(raw_name, country_code, country_code=country_code),
-        "pages": len(config.pages) if config else 0,
-        "cities": len(config.cities) if config else 0,
+        "pages": 0,
+        "cities": 0,
         "rows": row_counts.get(country_code, 0),
-        "active_task": _latest_config_task(slug, validate_task=validate_task, scrape_task=scrape_task),
+        "active_task": active_task,
+        "task_display_status": task_display_status,
         "validate_task": validate_task,
         "scrape_task": scrape_task,
         "error": error,
     }
+
+
+def _latest_bulk_config_progress(slug: str, *, record: ScrapingConfig | None = None):
+    """Return the latest bulk task/progress affecting a config row, if any."""
+    candidates = [
+        task_manager.latest_for_key("scrape:all"),
+        task_manager.latest_for_key("validate-config:all"),
+    ]
+    if record is not None:
+        updated_at = getattr(record, "updated_at", None)
+        candidates = [
+            task for task in candidates
+            if task and (not updated_at or not task.created_at or task.created_at >= updated_at)
+        ]
+    else:
+        candidates = [task for task in candidates if task]
+    candidates.sort(key=lambda task: task.created_at, reverse=True)
+    for task in candidates:
+        progress = read_task_config_progress(task.id)
+        item = progress.get(slug) if isinstance(progress, dict) else None
+        if not isinstance(item, dict):
+            continue
+        status = str(item.get("status") or "")
+        if status:
+            if not task.is_active and task.status in {"failed", "cancelled"} and status in {"validating", "populating", "running", "queued"}:
+                status = "failed"
+            return task, status
+    return None, ""
+
+
+def _config_task_display_status(task) -> str:
+    """Return the normalized per-config state for the ESTADO column."""
+    if not task:
+        return "pending"
+    key = str(getattr(task, "key", "") or "")
+    status = str(getattr(task, "status", "") or "")
+    if status == "succeeded":
+        if key.startswith("scrape:"):
+            return "populated"
+        if key.startswith("validate-config:"):
+            return "validated"
+    if status in {"running", "queued"}:
+        if key.startswith("scrape:"):
+            return "populating"
+        if key.startswith("validate-config:"):
+            return "validating"
+    if status in {"failed", "cancelled"}:
+        return "failed"
+    return status or "pending"
+
+
+def _config_task_if_current(task, record: ScrapingConfig):
+    """Ignore task statuses launched before the last config edit.
+
+    Saved config content invalidates the previous validation/scrape result
+    because that result belongs to older content. This keeps /configs/ from
+    showing a stale "correcto" after a user modifies the configuration.
+    """
+    if not task:
+        return None
+    updated_at = getattr(record, "updated_at", None)
+    created_at = getattr(task, "created_at", None)
+    if updated_at and created_at and created_at < updated_at:
+        return None
+    return task
 
 
 def _config_summary_from_record(record: ScrapingConfig, *, row_counts: dict[str, int] | None = None) -> dict:
@@ -2786,8 +3081,17 @@ def _config_summary_from_record(record: ScrapingConfig, *, row_counts: dict[str,
     slug = record.slug
     country_code = record.country_code or slug
     raw_name = record.name or slug
-    validate_task = task_manager.latest_for_key(f"validate-config:{slug}")
-    scrape_task = task_manager.latest_for_key(f"scrape:{slug}")
+    validate_task = _config_task_if_current(task_manager.latest_for_key(f"validate-config:{slug}"), record)
+    scrape_task = _config_task_if_current(task_manager.latest_for_key(f"scrape:{slug}"), record)
+    active_task = _latest_config_task(slug, validate_task=validate_task, scrape_task=scrape_task)
+    bulk_task, bulk_status = _latest_bulk_config_progress(slug, record=record)
+    if bulk_task and (not active_task or bulk_task.created_at > active_task.created_at):
+        active_task = bulk_task
+        task_display_status = bulk_status
+    else:
+        task_display_status = _config_task_display_status(active_task)
+    if record.validation_error and not record.is_valid:
+        task_display_status = "failed"
     return {
         "slug": slug,
         "name": raw_name,
@@ -2796,7 +3100,8 @@ def _config_summary_from_record(record: ScrapingConfig, *, row_counts: dict[str,
         "pages": record.pages_count,
         "cities": record.cities_count,
         "rows": row_counts.get(country_code, 0),
-        "active_task": _latest_config_task(slug, validate_task=validate_task, scrape_task=scrape_task),
+        "active_task": active_task,
+        "task_display_status": task_display_status,
         "validate_task": validate_task,
         "scrape_task": scrape_task,
         "error": record.validation_error if not record.is_valid else "",
@@ -2811,11 +3116,7 @@ def _config_row_counts() -> dict[str, int]:
 
 
 def _latest_config_task(slug: str, *, validate_task=None, scrape_task=None):
-    tasks = [
-        validate_task if validate_task is not None else task_manager.latest_for_key(f"validate-config:{slug}"),
-        scrape_task if scrape_task is not None else task_manager.latest_for_key(f"scrape:{slug}"),
-    ]
-    tasks = [task for task in tasks if task]
+    tasks = [task for task in (validate_task, scrape_task) if task]
     if not tasks:
         return None
     return max(tasks, key=lambda task: task.created_at)
@@ -2919,30 +3220,8 @@ def _normalize_recipe_slug(value: str) -> str:
 
 def _config_record(slug: str) -> ScrapingConfig | None:
     if scraping_config_table_exists():
-        record = ScrapingConfig.objects.filter(slug=slug).first()
-        if record:
-            return record
-    path = SUBDIVISIONS_ROOT / f"{slug}.toml"
-    if not path.is_file():
-        return None
-    try:
-        content = path.read_text(encoding="utf-8")
-    except OSError:
-        return None
-    metadata = parse_config_metadata(slug, content)
-    return ScrapingConfig(
-        slug=slug,
-        country_code=metadata.country_code,
-        name=metadata.name,
-        content=content,
-        content_hash="",
-        source_path=str(path),
-        pages_count=metadata.pages_count,
-        cities_count=metadata.cities_count,
-        has_representation=metadata.has_representation,
-        is_valid=metadata.is_valid,
-        validation_error=metadata.validation_error,
-    )
+        return ScrapingConfig.objects.filter(slug=slug).first()
+    return None
 
 
 def _web_task_table_exists() -> bool:
@@ -2956,34 +3235,20 @@ def _web_task_table_exists() -> bool:
 
 
 def _ensure_config_available_for_task(slug: str) -> tuple[bool, str]:
-    """Ensure a config can be used before launching validate/scrape.
-
-    The UI is SQL-first, but this deliberately repairs interrupted bootstrap runs
-    and falls back to bundled TOML files instead of returning an HTML 404 page to
-    AJAX callers.
-    """
-    path = SUBDIVISIONS_ROOT / f"{slug}.toml"
+    """Ensure a SQL config can be used before launching validate/scrape."""
     if scraping_config_table_exists():
         try:
-            ensure_initial_scraping_configs(force=False)
             if ScrapingConfig.objects.filter(slug=slug).exists():
-                return True, ""
-            if path.is_file():
-                content = path.read_text(encoding="utf-8")
-                upsert_scraping_config(slug, content, source_path=str(path.relative_to(settings.BASE_DIR)))
                 return True, ""
         except (OperationalError, ProgrammingError) as exc:
             return False, _(
                 "No se pudo comprobar la tabla de configuraciones. Ejecuta 'py manage.py migrate'. Detalle: %(error)s"
             ) % {"error": exc}
-        except OSError as exc:
-            return False, _("No se pudo leer el TOML de '%(slug)s': %(error)s") % {"slug": slug, "error": exc}
-        except Exception as exc:  # noqa: BLE001 - turn backend failures into JSON-safe messages.
-            return False, str(exc)
 
-    if _config_record(slug) is not None:
-        return True, ""
-    return False, _("No existe la configuracion '%(slug)s' ni en SQL ni como TOML.") % {"slug": slug}
+    return False, _(
+        "No existe la configuración SQL '%(slug)s'. Ejecuta "
+        "'py manage.py sync_scraping_configs %(slug)s' para importarla desde seeds TOML."
+    ) % {"slug": slug}
 
 
 def _config_exists(slug: str) -> bool:

@@ -4,11 +4,7 @@
 {% block title %}{% blocktrans with task_id=task.id %}Tarea {{ task_id }}{% endblocktrans %} - {% trans "Ciudades del Mundo" %}{% endblock %}
 
 {% block content %}
-{% if task.is_active %}
-<meta http-equiv="refresh" content="4">
-{% endif %}
-
-<section class="page-head compact">
+<section class="page-head compact" data-task-detail data-status-url="{% url 'ciudades_del_mundo:task_status' task.id %}" data-active="{% if task.is_active %}1{% else %}0{% endif %}" data-running-label="{% trans 'running' %}" data-queued-label="{% trans 'queued' %}" data-succeeded-label="{% trans 'succeeded' %}" data-failed-label="{% trans 'failed' %}" data-cancelled-label="{% trans 'cancelled' %}">
   <div>
     <p class="eyebrow">{% blocktrans with task_id=task.id %}Tarea {{ task_id }}{% endblocktrans %}</p>
     <h1>{{ task.label }}</h1>
@@ -16,7 +12,7 @@
   <div class="actions">
     <a class="button secondary" href="{% url 'ciudades_del_mundo:task_list' %}">{% trans "Historial" %}</a>
     {% if task.is_active %}
-    <form method="post" action="{% url 'ciudades_del_mundo:task_cancel' task.id %}">
+    <form method="post" action="{% url 'ciudades_del_mundo:task_cancel' task.id %}" data-task-cancel-form>
       {% csrf_token %}
       <button type="submit" class="danger">{% trans "Cancelar" %}</button>
     </form>
@@ -25,15 +21,15 @@
 </section>
 
 <section class="metrics">
-  <article class="metric"><span>{% trans "Estado" %}</span><strong class="status-text">{% trans task.status %}</strong></article>
-  <article class="metric"><span>{% trans "Codigo salida" %}</span><strong>{{ task.returncode|default:"-" }}</strong></article>
-  <article class="metric"><span>{% trans "Inicio" %}</span><strong class="small-strong">{{ task.started_at|default:task.created_at|date:"H:i:s" }}</strong></article>
+  <article class="metric"><span>{% trans "Estado" %}</span><strong class="status-text" data-task-status-text>{% trans task.status %}</strong></article>
+  <article class="metric"><span>{% trans "Codigo salida" %}</span><strong data-task-returncode>{{ task.returncode|default:"-" }}</strong></article>
+  <article class="metric"><span>{% trans "Inicio" %}</span><strong class="small-strong"><time data-local-datetime="{{ task.started_at|default:task.created_at|date:'U' }}" data-local-datetime-format="time">{{ task.started_at|default:task.created_at|date:"H:i:s" }}</time></strong></article>
 </section>
 
 <section class="panel task-output-panel">
   <h2>{% trans "Comando" %}</h2>
   <p><code>{{ task.command_display }}</code></p>
   <h2>{% trans "Salida" %}</h2>
-  <pre class="console task-console"><code>{% if task_output %}{{ task_output }}{% else %}{% trans "Sin salida todavia." %}{% endif %}</code></pre>
+  <pre class="console task-console" data-task-log><code data-task-log-output>{% if task_output %}{{ task_output }}{% else %}{% trans "Sin salida todavia." %}{% endif %}</code></pre>
 </section>
 {% endblock %}

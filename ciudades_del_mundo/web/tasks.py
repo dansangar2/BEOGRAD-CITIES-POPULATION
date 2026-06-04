@@ -16,13 +16,20 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from ciudades_del_mundo.models import WebTask
+from .task_progress import (
+    WEB_TASK_ID_ENV,
+    WEB_TASK_PROGRESS_PATH_ENV,
+    reset_task_progress,
+    task_progress_path,
+)
 
 
 TERMINAL_STATUSES = {WebTask.Status.SUCCEEDED, WebTask.Status.FAILED, WebTask.Status.CANCELLED}
-MAX_RUNNING_TASKS = 3
+MAX_RUNNING_TASKS = 1
 MAX_PERSISTED_TASKS = 300
 TASK_LOG_DIR_NAME = ".web_task_logs"
 OUTPUT_TAIL_LINES = 240
+OUTPUT_STATUS_TAIL_CHARS = 12000
 
 
 class TaskManager:
@@ -116,6 +123,22 @@ class TaskManager:
                 pass
         return task.output_text
 
+    def output_tail_text(self, task: WebTask, max_chars: int = OUTPUT_STATUS_TAIL_CHARS) -> str:
+        """Return a lightweight tail for live polling without rereading huge logs."""
+        max_chars = max(1000, int(max_chars or OUTPUT_STATUS_TAIL_CHARS))
+        log_path = self._resolve_log_path(task)
+        if log_path and log_path.exists():
+            try:
+                with log_path.open("rb") as handle:
+                    handle.seek(0, os.SEEK_END)
+                    size = handle.tell()
+                    handle.seek(max(0, size - max_chars * 4))
+                    chunk = handle.read()
+                return chunk.decode("utf-8", errors="replace")[-max_chars:]
+            except OSError:
+                pass
+        return task.output_text[-max_chars:]
+
     def _cancel_locked(self, task: WebTask) -> subprocess.Popen | None:
         task.cancel_requested = True
         self._append_output_locked(task, _("\n[CANCEL] Cancelación solicitada desde la interfaz.\n"))
@@ -176,13 +199,24 @@ class TaskManager:
             return
 
         manage_py = Path(settings.BASE_DIR) / "manage.py"
-        command = [sys.executable, str(manage_py), *(task.args or [])]
+        command = [sys.executable, "-u", str(manage_py), *(task.args or [])]
+        try:
+            progress_path = reset_task_progress(task_id)
+        except OSError:
+            progress_path = task_progress_path(task_id)
 
         try:
             process = subprocess.Popen(
                 command,
                 cwd=settings.BASE_DIR,
-                env={**os.environ, "CIUDADES_WEB_TASK_CHILD": "1"},
+                env={
+                    **os.environ,
+                    "CIUDADES_WEB_TASK_CHILD": "1",
+                    WEB_TASK_ID_ENV: task_id,
+                    WEB_TASK_PROGRESS_PATH_ENV: str(progress_path),
+                    "PYTHONUNBUFFERED": "1",
+                    "PYTHONIOENCODING": "utf-8",
+                },
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -215,18 +249,28 @@ class TaskManager:
             process.terminate()
 
         assert process.stdout is not None
+        # Important for SQLite: while the child command is importing/scraping, do
+        # not write the WebTask row on every log line. Those writes compete with
+        # the child process, which is also writing AdminArea/asset rows, and can
+        # make the management command fail with "database is locked". The live UI
+        # reads the log from the filesystem, so the database only needs a final
+        # status/output update when the subprocess finishes.
+        output_tail = list(task.output or [])[-OUTPUT_TAIL_LINES:]
+        log_task = task
+        close_old_connections()
+
         for line in process.stdout:
             with self._lock:
-                task = self.get(task_id)
-                if task:
-                    self._append_output_locked(task, line)
-                    task.save(update_fields=["output", "log_path", "updated_at"])
+                output_tail.append(line)
+                output_tail = output_tail[-OUTPUT_TAIL_LINES:]
+                self._append_log_file_locked(log_task, line)
 
         returncode = process.wait()
         close_old_connections()
         with self._lock:
             task = self.get(task_id)
             if task:
+                task.output = output_tail[-OUTPUT_TAIL_LINES:]
                 task.returncode = returncode
                 task.finished_at = timezone.now()
                 if task.cancel_requested:
@@ -235,7 +279,7 @@ class TaskManager:
                     task.status = WebTask.Status.SUCCEEDED
                 else:
                     task.status = WebTask.Status.FAILED
-                task.save(update_fields=["returncode", "finished_at", "status", "updated_at"])
+                task.save(update_fields=["returncode", "finished_at", "status", "output", "log_path", "updated_at"])
             self._processes.pop(task_id, None)
             task_ids_to_start = self._dispatch_queued_locked()
             self._trim_history_locked()

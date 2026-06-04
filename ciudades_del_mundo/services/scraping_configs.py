@@ -142,12 +142,17 @@ def upsert_scraping_config(slug: str, content: str, *, source_path: str = "") ->
     return obj
 
 
-def bundled_toml_config_paths() -> list[Path]:
+def bundled_toml_config_paths(slugs: list[str] | tuple[str, ...] | None = None) -> list[Path]:
     """Return the bundled subdivision TOML files that must exist in SQL."""
     root = Path(settings.BASE_DIR) / "ciudades_del_mundo" / "subdivisions"
     if not root.is_dir():
         return []
-    return sorted(path for path in root.glob("*.toml") if not path.name.startswith("_"))
+    allowed = set(slugs or [])
+    return sorted(
+        path
+        for path in root.glob("*.toml")
+        if not path.name.startswith("_") and (not allowed or path.stem in allowed)
+    )
 
 
 def scraping_config_bootstrap_status(*, imported_count: int = 0) -> ConfigBootstrapStatus:
@@ -212,7 +217,12 @@ def ensure_initial_scraping_configs(*, force: bool = False) -> ConfigBootstrapSt
         return scraping_config_bootstrap_status(imported_count=imported)
 
 
-def sync_scraping_configs_from_toml(*, force: bool = False, only_if_empty: bool = True) -> int:
+def sync_scraping_configs_from_toml(
+    *,
+    force: bool = False,
+    only_if_empty: bool = True,
+    slugs: list[str] | tuple[str, ...] | None = None,
+) -> int:
     """Import bundled TOML files into SQL.
 
     ``only_if_empty`` is kept for backwards compatibility. The import now also
@@ -220,11 +230,58 @@ def sync_scraping_configs_from_toml(*, force: bool = False, only_if_empty: bool 
     """
     if not scraping_config_table_exists():
         return 0
-    if only_if_empty and ScrapingConfig.objects.exists():
+    paths = bundled_toml_config_paths(slugs)
+    if only_if_empty and not slugs and ScrapingConfig.objects.exists():
         status_before = scraping_config_bootstrap_status()
         if status_before.ready:
             return 0
-    return ensure_initial_scraping_configs(force=force).imported_count
+    existing = set(ScrapingConfig.objects.filter(slug__in=[path.stem for path in paths]).values_list("slug", flat=True))
+    imported = 0
+    with transaction.atomic():
+        for path in paths:
+            slug = path.stem
+            if not force and slug in existing:
+                continue
+            try:
+                content = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            upsert_scraping_config(slug, content, source_path=str(path.relative_to(settings.BASE_DIR)))
+            imported += 1
+    return imported
+
+
+def export_scraping_configs_to_toml(
+    *,
+    force: bool = False,
+    slugs: list[str] | tuple[str, ...] | None = None,
+    output_dir: str | Path | None = None,
+) -> int:
+    """Export SQL scraping configs back to TOML seed files.
+
+    This is a temporary bridge for development/bootstrap. It must not become the
+    runtime source of truth once the SQL config workflow is finalized.
+    """
+    if not scraping_config_table_exists():
+        return 0
+    root = Path(output_dir) if output_dir else Path(settings.BASE_DIR) / "ciudades_del_mundo" / "subdivisions"
+    root.mkdir(parents=True, exist_ok=True)
+    records = ScrapingConfig.objects.order_by("slug")
+    if slugs:
+        records = records.filter(slug__in=slugs)
+    exported = 0
+    for record in records:
+        path = root / f"{record.slug}.toml"
+        content = record.content
+        if path.exists():
+            existing = path.read_text(encoding="utf-8")
+            if existing == content:
+                continue
+            if not force:
+                raise ValueError(f"{path} already exists and differs. Use --force to overwrite it.")
+        path.write_text(content, encoding="utf-8")
+        exported += 1
+    return exported
 
 
 def maybe_sync_scraping_configs_on_startup() -> None:

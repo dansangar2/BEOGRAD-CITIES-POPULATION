@@ -11,6 +11,10 @@
     (function () {
       try {
         var theme = window.localStorage.getItem("ciudades_del_mundo_theme") || "light";
+        if (theme === "8bits") {
+          theme = "light";
+          window.localStorage.setItem("ciudades_del_mundo_theme", "light");
+        }
         var effects = window.localStorage.getItem("ciudades_del_mundo_theme_effects") === "1";
         if (theme !== "light") {
           document.documentElement.setAttribute("data-theme", theme);
@@ -23,7 +27,7 @@
   </script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="{% static 'ciudades_del_mundo/app.css' %}?v=20260603-task-sort-rows">
+  <link rel="stylesheet" href="{% static 'ciudades_del_mundo/app.css' %}?v=20260604-db-lock-live-log">
 </head>
 <body data-running-label="{% trans 'En ejecución' %}" data-queued-label="{% trans 'En cola' %}" data-succeeded-label="{% trans 'Correcto' %}" data-failed-label="{% trans 'Error' %}" data-cancelled-label="{% trans 'Cancelado' %}" data-log-label="{% trans 'Ver registro' %}">
   <header class="topbar">
@@ -77,12 +81,11 @@
             </optgroup>
             <optgroup label="{% trans 'Complejos' %}">
               <option value="retro">{% trans "Retro" %}</option>
-              <option value="retro-blue">{% trans "Retro Azul" %}</option>
+              <option value="retro-blue">{% trans "Retro azul" %}</option>
               <option value="retro80">{% trans "Retro violeta" %}</option>
               <option value="retro80-green">{% trans "Retro verde" %}</option>
               <option value="retro80-cyan">{% trans "Retro azul celeste" %}</option>
               <option value="retro80-red">{% trans "Retro rojo" %}</option>
-              <option value="8bits">{% trans "8bits" %}</option>
               <option value="rainbow">{% trans "Arcoiris" %}</option>
               <option value="paper">{% trans "Papel" %}</option>
             </optgroup>
@@ -111,7 +114,7 @@
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="{% static 'ciudades_del_mundo/app.js' %}?v=20260603-task-sort-rows"></script>
+  <script src="{% static 'ciudades_del_mundo/app.js' %}?v=20260604-remove-normal-style-option"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

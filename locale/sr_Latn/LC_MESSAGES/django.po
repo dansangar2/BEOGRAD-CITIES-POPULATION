@@ -1508,3 +1508,16 @@ msgstr "Prvo pokretanje"
 
 msgid "{{ stored }} de {{ expected }} configuraciones cargadas. Faltan {{ missing }}."
 msgstr "Učitano je {{ stored }} od {{ expected }} konfiguracija. Preostalo {{ missing }}."
+
+msgid "Esta configuración ya está validada o populada. Modifica la configuración SQL antes de volver a validar."
+msgstr "Ova konfiguracija je već validirana ili popunjena. Izmeni SQL konfiguraciju pre ponovne validacije."
+
+msgid "Solo puedes popular una configuración Validada. Modifica la configuración SQL, valida y después popula."
+msgstr "Možeš popuniti samo validiranu konfiguraciju. Izmeni SQL konfiguraciju, validiraj je, pa je zatim popuni."
+
+msgid "No existe la configuración SQL '%(slug)s'. Ejecuta 'py manage.py sync_scraping_configs %(slug)s' si debe importarse desde seeds TOML."
+msgstr "SQL konfiguracija '%(slug)s' ne postoji. Pokreni 'py manage.py sync_scraping_configs %(slug)s' ako treba da se uveze iz TOML seed datoteka."
+
+msgid "No existe la configuración SQL '%(slug)s'. Ejecuta 'py manage.py sync_scraping_configs %(slug)s' para importarla desde seeds TOML."
+msgstr "SQL konfiguracija '%(slug)s' ne postoji. Pokreni 'py manage.py sync_scraping_configs %(slug)s' da je uvezeš iz TOML seed datoteka."
+

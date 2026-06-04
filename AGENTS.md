@@ -31,9 +31,11 @@ administrative geography data. It:
 - assigns capitals, most-populated cities and representatives
 - exports derived hierarchies to CSV and Excel
 
-The active scraping configuration is TOML-based. Do not add old-style Python
-country modules for ordinary CityPopulation scraping unless the user explicitly
-asks.
+The active scraping configuration is SQL-backed in `ScrapingConfig.content`
+using TOML text as the editable content format. Bundled `subdivisions/*.toml`
+files are temporary seeds/import-export artifacts, not the runtime source. Do
+not add old-style Python country modules for ordinary CityPopulation scraping
+unless the user explicitly asks.
 
 ## Architectural Direction
 
@@ -42,11 +44,11 @@ use cases, ports and infrastructure adapters separated so Django, HTTP scraping,
 persistence and export details do not leak into core business logic.
 
 Long-term flexibility is a priority. When adding behavior, first look for an
-existing extension point such as TOML config, recipe data, a service, a use case
-or a repository/port adapter before adding parallel code paths. Prefer small,
-reusable modules and configuration-driven changes that reduce the amount of
-future code needed to support new countries, historical recipes, exports or
-allocation rules.
+existing extension point such as SQL scraping config content, recipe data, a
+service, a use case or a repository/port adapter before adding parallel code
+paths. Prefer small, reusable modules and configuration-driven changes that
+reduce the amount of future code needed to support new countries, historical
+recipes, exports or allocation rules.
 
 ## Project Purpose And Scope
 
@@ -58,7 +60,7 @@ exports derived from that data.
 In practical terms, project-related work includes:
 
 - scraping or validating CityPopulation administrative data
-- editing `subdivisions/*.toml` country/territory configs
+- editing SQL `ScrapingConfig` country/territory configs or their temporary TOML seeds
 - editing historical or fictional subdivision recipes
 - changing Django models, migrations, repositories, services, commands, tests,
   templates or static files in this repo
@@ -104,6 +106,9 @@ Top-level:
 - `excels/`: generated CSV/XLSX exports.
 - `locale/`: Django gettext catalogs for the web UI (`django.po` source and
   compiled `django.mo` files).
+- `media/`: local media files served in development; country visual identity
+  images are cached under `media/visual_assets/<kind>/<country_code>/`, while
+  source subdivision assets use `media/visual_assets/<kind>/<AdminArea.id>/`.
 - `ciudades_del_mundo/`: Django project and app package.
 
 Django package:
@@ -129,7 +134,8 @@ Layered code:
 
 Data/config packages:
 
-- `subdivisions/*.toml`: active scraping configs.
+- `subdivisions/*.toml`: temporary seed/export files for SQL `ScrapingConfig`
+  rows; do not read them as runtime configs.
 - `source_population_indices.toml`: global source `AdminArea` population
   multipliers used by derived builds when a population year is provided.
 - `historical_divisions/*.py`: reusable historical recipe fragments.
@@ -172,6 +178,16 @@ Data/config packages:
 - compatibility property: `escanhos` returns direct or aggregated
   representatives
 
+`ScrapingConfig` in `ciudades_del_mundo/models.py`:
+
+- SQL source of truth for CityPopulation scraping configuration
+- primary key: `slug`
+- `content` stores the editable TOML text parsed by the domain config parser
+- cached metadata fields include `country_code`, `name`, `pages_count`,
+  `cities_count`, `has_representation`, `is_valid` and `validation_error`
+- `source_path` records the temporary seed/export TOML path when imported from
+  the bridge, but runtime loading does not read that path
+
 ## Important ID And Level Rules
 
 - `ScrapedAdminArea.id` is computed as `f"{country_code}_{code}"`.
@@ -184,8 +200,8 @@ Data/config packages:
 - Children below level 1 are prefixed with parent code unless already prefixed.
 - Duplicate `NuevoAdminArea.code` values within one `country_code` are rejected.
 - Legal levels are usually domain-specific; do not assume level 3 always means
-  municipality. Use TOML `LEGAL_SUBDIVISION` and recipe `MUNICIPAL_LEVEL` or
-  `ORIGINAL_MUNICIPAL_LEVEL`.
+  municipality. Use SQL config `LEGAL_SUBDIVISION` and recipe
+  `MUNICIPAL_LEVEL` or `ORIGINAL_MUNICIPAL_LEVEL`.
 
 ## City Merge Status
 
@@ -201,13 +217,24 @@ aliases like `none`, `source`, `unified`, `fuente`, `unificada`.
 
 ## Scraping Configs
 
-Active configs live in:
+Active configs live in SQL:
+
+```text
+ciudades_del_mundo.models.ScrapingConfig
+```
+
+The editable `ScrapingConfig.content` field stores TOML text. Temporary bundled
+seed/export files live in:
 
 ```text
 ciudades_del_mundo/subdivisions/<slug>.toml
 ```
 
-The loader is:
+Runtime code must not read those TOML files as a fallback. Use
+`py manage.py sync_scraping_configs` to import/export them while the temporary
+bridge exists.
+
+The SQL-only runtime loader is:
 
 ```text
 ciudades_del_mundo/infrastructure/scraping/python_config_repository.py
@@ -219,7 +246,7 @@ Typed config objects and parsers are in:
 ciudades_del_mundo/domain/scraping_config.py
 ```
 
-Important TOML fields:
+Important `ScrapingConfig.content` TOML fields:
 
 - `name`: optional display name.
 - `country_code`: optional override; defaults to slug.
@@ -244,7 +271,7 @@ Important TOML fields:
 
 Path normalization:
 
-- relative `path` values are prefixed with the TOML slug if not already
+- relative `path` values are prefixed with the SQL config slug if not already
   prefixed
 - absolute `http://` or `https://` paths are preserved
 - final URLs always end with `/`
@@ -465,21 +492,21 @@ Central American source defaults currently include `guatemala=2`,
 `honduras=2`, `nicaragua=2`, `elsalvador=3`, `costarica=3` and `belize=1`.
 Panama uses level `3` because CityPopulation rows at that level are
 corregimientos/townships.
-USA uses level `3` for derived municipal/source expansion and
-`subdivisions/usa.toml` sets `LEGAL_SUBDIVISION = 3`; level 2 rows are counties
-and should not be treated as cities for most-populated calculations. Some major
-USA level-3 city rows are parentless in CityPopulation, so the derived builder
-also includes parentless USA cities when their URL state/county context matches
-the selected source areas.
+USA uses level `3` for derived municipal/source expansion and the SQL config
+for `usa` sets `LEGAL_SUBDIVISION = 3`; level 2 rows are counties and should not
+be treated as cities for most-populated calculations. Some major USA level-3
+city rows are parentless in CityPopulation, so the derived builder also includes
+parentless USA cities when their URL state/county context matches the selected
+source areas.
 The Central America historical recipe uses Costa Rican level-2 cantons plus
 level-3 partial district exceptions; do not repeat districts already covered by
 selected full cantons.
 
-`subdivisions/panama.toml` defines configured city unifications for the main
+The SQL config for `panama` defines configured city unifications for the main
 Panamanian city districts visible in local `AdminArea` data: Panamá, San
-Miguelito, Arraiján, La Chorrera, Colón, David, Santiago, Penonomé,
-Changuinola and Chitré. The source townships are selected by numeric code
-because Panama has repeated township names across provinces/districts.
+Miguelito, Arraiján, La Chorrera, Colón, David, Santiago, Penonomé, Changuinola
+and Chitré. The source townships are selected by numeric code because Panama has
+repeated township names across provinces/districts.
 
 `new_subdivisions/nuevo_imperio_romano.py` defines the `nuevo_imperio_romano`
 derived country with `ROOT_NAME = "Nuevo Imperio Romano"`, two top-level
@@ -551,7 +578,7 @@ For scraped `AdminArea`:
 For derived `NuevoAdminArea`:
 
 - Capitals are resolved while building recipes.
-- Capital lookup can use legal subdivision levels from source TOML
+- Capital lookup can use legal subdivision levels from source SQL config
   `LEGAL_SUBDIVISION`.
 - `refresh_nuevo_admin_most_populated(country_id)` recalculates bottom-up from
   `municipios_originales` and child results.
@@ -634,6 +661,21 @@ py manage.py validate_subdivision_configs
 py manage.py validate_subdivision_configs spain morocco
 ```
 
+Temporary TOML/SQL config bridge:
+
+```powershell
+py manage.py sync_scraping_configs
+py manage.py sync_scraping_configs --force
+py manage.py sync_scraping_configs --to-toml --output-dir .tmp-config-export
+```
+
+`ScrapingConfig` SQL rows are the operational source of truth. The bundled
+`subdivisions/*.toml` files are temporary versioned seed files for first-run
+bootstrap and rebuilds from a clean clone. `PythonScrapingConfigRepository`
+reads SQL only; it does not fall back to TOML files. Keep this bridge explicit
+and remove TOML import/export before publication if SQL-only configuration
+becomes final.
+
 List scrape URLs without network fetch from the CLI only; the web UI no longer exposes a URLs action:
 
 ```powershell
@@ -646,6 +688,23 @@ Run scraping, network-dependent and DB-mutating:
 py manage.py scrape_subdivisions spain
 py manage.py scrape_subdivisions spain morocco portugal
 ```
+
+Seed or repair visual identity assets, network-dependent and file-generating:
+
+```powershell
+py manage.py ensure_visual_assets spain
+py manage.py ensure_visual_assets --all
+py manage.py ensure_visual_assets --country-subdivisions spain --levels 1,2
+py manage.py ensure_visual_assets --admin-area spain_cat
+py manage.py ensure_visual_assets --repair-local-only
+```
+
+`ensure_visual_assets` uses Wikidata/Commons first for country and subdivision
+flag/coat/seal images. CityPopulation image scanning is only a fallback for
+explicitly labelled images; do not treat generic `*_2_3.svg` language icons from
+CityPopulation as country flags. `scrape_subdivisions_with_assets` seeds country
+assets and, by default, AdminArea subdivision assets for levels 1 and 2; use
+`--skip-subdivision-assets` or `--subdivision-asset-levels` for expensive runs.
 
 Assign capitals on scraped rows, DB-mutating:
 
@@ -687,11 +746,15 @@ py manage.py compile_local_messages
 py manage.py compile_local_messages es en fr de ru
 ```
 
+`compile_local_messages` reads `.po` files with `utf-8-sig`, so it tolerates a
+UTF-8 BOM left by Windows editors or PowerShell before writing `.mo` files.
+
 ## Testing Map
 
 Existing tests:
 
-- `test_scraping_config.py`: TOML parsing, page expansion, real config loading.
+- `test_scraping_config.py`: TOML content parsing, page expansion and real SQL
+  config loading.
 - `test_scraping_admin.py`: admin HTML parser root/population/parent stack.
 - `test_application_pipeline.py`: scraping use case, dedupe, area overrides,
   persistence calls.
@@ -707,8 +770,10 @@ Existing tests:
 
 Testing guidance:
 
-- For TOML/config changes, run `py manage.py validate_subdivision_configs <slug>`
-  and a focused test if parsing logic changed.
+- For SQL config content changes, run
+  `py manage.py validate_subdivision_configs <slug>` and a focused test if
+  parsing logic changed. If you intentionally changed temporary TOML seeds, run
+  `py manage.py sync_scraping_configs <slug> --force` before validating SQL.
 - For scraper/parser logic, add or update HTML-string unit tests before running
   live network scraping.
 - For derived recipes, run the specific
@@ -722,10 +787,13 @@ Testing guidance:
 
 If the user asks to add or fix a country scraping config:
 
-- edit `ciudades_del_mundo/subdivisions/<slug>.toml`
+- edit the SQL `ScrapingConfig` row, preferably through `/configs/` or by
+  importing a temporary seed with `py manage.py sync_scraping_configs <slug>`
 - inspect `domain/scraping_config.py` only if schema behavior changes
 - validate with `validate_subdivision_configs <slug>`
 - use `scrape_subdivisions --list-pages <slug>` to verify URL expansion
+- if a seed TOML must stay in sync, export it explicitly with
+  `py manage.py sync_scraping_configs <slug> --to-toml --force`
 - do not run actual scraping unless asked
 
 If the user asks to fix a scraper:
@@ -751,7 +819,7 @@ If the user asks about capitals:
 
 If the user asks about seats/escanhos:
 
-- scraping config seats: TOML `[representation]`
+- scraping config seats: SQL config content `[representation]`
 - derived seats: recipe `REPRESENTATION` or `ESCANHOS`
 - logic lives in `services/nuevo_admin_representatives.py`
 
@@ -783,7 +851,7 @@ If the user asks about web UI:
   are intentionally translated by the contextual helper, not by generic gettext
   entries, so fake area names such as `Province` are not translated accidentally.
 - main sections:
-  `/configs/` for TOML scraping config editing and validate/populate
+  `/configs/` for SQL-backed scraping config editing and validate/populate
   tasks, `/recipes/` for derived recipe creation/editing/build/export tasks,
   `/derived/` for comparative `NuevoAdminArea` browsing, `/countries/` for the
   API-driven country browser, `/stats/` as its compatibility redirect,
@@ -856,9 +924,13 @@ If the user asks about web UI:
   population and the top 10 by area. Countries outside that colored set are kept
   in the table with no marker and are aggregated into the `Otros paises` segment
   inside each donut. Country detail
-  visual identity is hydrated in browser-side JavaScript from Wikidata/Wikimedia
-  using a server-provided country QID map where known; flag and coat thumbnails
-  open a local preview overlay, then can open the internal
+  visual identity uses persisted `ciudades_del_mundo_visual_asset` rows and
+  local files in `media/visual_assets/` first; browser-side Wikidata/Wikimedia
+  lookup remains a best-effort fallback using the server-provided country QID map
+  where known. Stored CityPopulation language icons such as wrong `*_2_3.svg`
+  flags are ignored in API payloads so the browser can fall back to Wikidata
+  instead of showing another country's flag. Flag and coat thumbnails open a
+  local preview overlay, then can open the internal
   `/identity/<kind>/<filename>/` heraldry placeholder page or the full image.
   The general panel stays hidden until that lookup and image load completes or
   fails.
@@ -921,11 +993,12 @@ If the user asks about web UI:
   entity lookups and config generation should not silently wait behind plain
   text.
 - `/configs/<slug>/` is a tabbed editor: Manual, Archivo, Scrapping and IA.
-  Manual builds TOML from page rows plus an optional dual-table city unification
-  selector based on already scraped `AdminArea` rows. Source entity lookups for
-  that selector must use the TOML `country_code` when it differs from the file
-  slug, so level and parent filters are populated from the real `AdminArea`
-  country. The available-entities table has filters for level, name and parent.
+  Manual builds the TOML text stored in `ScrapingConfig.content` from page rows
+  plus an optional dual-table city unification selector based on already scraped
+  `AdminArea` rows. Source entity lookups for that selector must use the stored
+  config `country_code` when it differs from the slug, so level and parent
+  filters are populated from the real `AdminArea` country. The
+  available-entities table has filters for level, name and parent.
   Level options are rendered in the initial HTML and refreshed by the dynamic
   endpoint; the initial table rows for the first level are also rendered into
   the page so the table is populated before the full entity payload finishes
@@ -935,16 +1008,16 @@ If the user asks about web UI:
   `Comunidad Autónoma/Ciudad Autónoma` and Mexico level 1 can appear as
   `Estado/Distrito Federal`; parent options are rebuilt from the selected
   level's direct parents, excluding level-0 root parents, so level 1 has no
-  parent filter options. Archivo edits raw
-  TOML with server-side validation before saving. Scrapping can generate a draft
-  TOML by discovering useful CityPopulation links for the country. IA is
+  parent filter options. Archivo edits raw `ScrapingConfig.content` TOML with
+  server-side validation before saving. Scrapping can generate a draft TOML by
+  discovering useful CityPopulation links for the country. IA is
   controlled by `settings.AI_CONFIG_ENABLED`, lets the user choose a provider
   login route, and must not store personal AI credentials. External AI generation
   remains a future integration point until a provider flow is configured.
 - web-launched tasks run `manage.py` subcommands in local subprocesses. A new
-  task with the same key cancels/replaces the active one. Saving a TOML config
-  or editable recipe from the UI also cancels/replaces the matching active
-  scrape/build task if there is one. `TaskManager` runs at most 3 subprocesses
+  task with the same key cancels/replaces the active one. Saving a SQL config
+  content row or editable recipe from the UI also cancels/replaces the matching
+  active scrape/build task if there is one. `TaskManager` runs at most 3 subprocesses
   at once; additional tasks remain `queued` and are dispatched FIFO when a
   running task finishes or is cancelled. `TaskManager` persists recent task
   history to `.web_tasks.json` and full per-task logs to `.web_task_logs/*.log`
@@ -992,7 +1065,8 @@ If the user asks about web UI:
 - Web task history is persisted locally in `.web_tasks.json`, but running
   subprocesses and queued workers are still process-local and cannot continue
   after a development server restart. The task side effects in `db.sqlite3`,
-  `subdivisions/*.toml`, `new_subdivisions/*.py` or `excels/` remain.
+  temporary `subdivisions/*.toml` seed exports, `new_subdivisions/*.py` or
+  `excels/` remain.
 - The web delete page performs confirmed bulk deletes for one source
   `AdminArea.country_code` or one derived `NuevoAdminArea.country_code`.
 - CityPopulation layouts can vary by page; prefer small parser tests with saved

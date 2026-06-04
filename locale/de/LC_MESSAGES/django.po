@@ -1520,3 +1520,16 @@ msgstr "Erster Start"
 
 msgid "{{ stored }} de {{ expected }} configuraciones cargadas. Faltan {{ missing }}."
 msgstr "{{ stored }} von {{ expected }} Konfigurationen geladen. {{ missing }} fehlen."
+
+msgid "Esta configuración ya está validada o populada. Modifica la configuración SQL antes de volver a validar."
+msgstr "Diese Konfiguration ist bereits validiert oder befüllt. Ändere die SQL-Konfiguration, bevor du erneut validierst."
+
+msgid "Solo puedes popular una configuración Validada. Modifica la configuración SQL, valida y después popula."
+msgstr "Du kannst nur eine validierte Konfiguration befüllen. Ändere die SQL-Konfiguration, validiere sie und befülle sie danach."
+
+msgid "No existe la configuración SQL '%(slug)s'. Ejecuta 'py manage.py sync_scraping_configs %(slug)s' si debe importarse desde seeds TOML."
+msgstr "Die SQL-Konfiguration '%(slug)s' existiert nicht. Führe 'py manage.py sync_scraping_configs %(slug)s' aus, wenn sie aus TOML-Seeds importiert werden soll."
+
+msgid "No existe la configuración SQL '%(slug)s'. Ejecuta 'py manage.py sync_scraping_configs %(slug)s' para importarla desde seeds TOML."
+msgstr "Die SQL-Konfiguration '%(slug)s' existiert nicht. Führe 'py manage.py sync_scraping_configs %(slug)s' aus, um sie aus TOML-Seeds zu importieren."
+

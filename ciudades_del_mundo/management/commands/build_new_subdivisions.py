@@ -118,7 +118,7 @@ def _source_country_for(country_id: str) -> str:
 
 
 def _legal_subdivision_level(country_code: str) -> int | None:
-    """Read and cache the source TOML legal subdivision level."""
+    """Read and cache the source SQL config legal subdivision level."""
     if country_code in LEGAL_SUBDIVISION_LEVELS:
         return LEGAL_SUBDIVISION_LEVELS[country_code]
 

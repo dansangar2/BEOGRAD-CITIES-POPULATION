@@ -15,7 +15,7 @@
       <tr data-client-row data-row-href="{% url 'ciudades_del_mundo:task_detail' task.id %}" data-label="{{ task.label }}" data-status="{{ task.status }}" data-started="{{ task.started_at|default:task.created_at|date:'U' }}" data-command="{{ task.command_display }}" class="clickable-row" tabindex="0">
         <td>{{ task.label }}</td>
         <td><span class="status {{ task.status }}">{% trans task.status %}</span></td>
-        <td>{{ task.started_at|default:task.created_at|date:"Y-m-d H:i:s" }}</td>
+        <td><time data-local-datetime="{{ task.started_at|default:task.created_at|date:'U' }}" data-local-datetime-format="datetime">{{ task.started_at|default:task.created_at|date:"Y-m-d H:i:s" }}</time></td>
         {% if not compact %}<td><code>{{ task.command_display }}</code></td>{% endif %}
       </tr>
       {% empty %}

@@ -1,14 +1,20 @@
-"""Validate subdivision TOML files before running expensive scrape jobs."""
+"""Validate SQL-backed subdivision configs before running expensive scrape jobs."""
 
 from __future__ import annotations
 
 from django.core.management.base import BaseCommand, CommandError
 
 from ciudades_del_mundo.infrastructure.scraping import PythonScrapingConfigRepository
+from ciudades_del_mundo.web.task_progress import write_config_progress
 
 
 class Command(BaseCommand):
-    help = "Validates subdivision scraping configs from TOML."
+    help = "Validates subdivision scraping configs stored in SQL."
+
+    def _write(self, message, *, style=None, stderr=False):
+        stream = self.stderr if stderr else self.stdout
+        stream.write(style(message) if style else message)
+        stream.flush()
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -21,22 +27,26 @@ class Command(BaseCommand):
         repository = PythonScrapingConfigRepository()
         countries = options["countries"] or repository.list_slugs()
         if not countries:
-            raise CommandError("No subdivision configs found.")
+            raise CommandError(
+                "No SQL subdivision configs found. Run 'py manage.py sync_scraping_configs' to import temporary TOML seeds."
+            )
 
         failed = []
         for slug in countries:
+            write_config_progress(slug, "validating")
             try:
                 config = repository.get(slug)
             except Exception as exc:
                 failed.append((slug, str(exc)))
-                self.stderr.write(self.style.ERROR(f"ERROR {slug}: {exc}"))
+                write_config_progress(slug, "failed", detail=str(exc))
+                self._write(f"ERROR {slug}: {exc}", style=self.style.ERROR, stderr=True)
                 continue
 
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f"OK {slug}: pages={len(config.pages)}, cities={len(config.cities)}, "
-                    f"representation={'yes' if config.representation else 'no'}"
-                )
+            write_config_progress(slug, "validated")
+            self._write(
+                f"OK {slug}: pages={len(config.pages)}, cities={len(config.cities)}, "
+                f"representation={'yes' if config.representation else 'no'}",
+                style=self.style.SUCCESS,
             )
 
         if failed:
