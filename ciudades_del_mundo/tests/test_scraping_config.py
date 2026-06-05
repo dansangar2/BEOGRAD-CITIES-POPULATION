@@ -34,6 +34,13 @@ class ScrapingConfigTests(TestCase):
         with self.assertRaisesRegex(ValueError, "no puede ser negativo"):
             parse_pages([{"source": "table", "path": "admin", "area_km2": "-1"}], slug="spain")
 
+    def test_parse_pages_accepts_auto_source(self):
+        pages = parse_pages([{"source": "auto", "path": "ceuta", "lowest_level": 1}], slug="spain")
+
+        self.assertEqual(pages[0].path, "spain/ceuta")
+        self.assertEqual(pages[0].html_format, DivisionSourceType.AUTO)
+        self.assertEqual(pages[0].lowest_level, 1)
+
     def test_representation_total_for_populations_supports_habitant_mode(self):
         config = RepresentationConfig.from_mapping(
             {"level": 2, "system": "dhondt", "habitant": 1000}

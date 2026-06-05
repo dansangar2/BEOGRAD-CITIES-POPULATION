@@ -5,8 +5,6 @@ from __future__ import annotations
 import re
 from dataclasses import replace
 
-from bs4 import BeautifulSoup
-
 from ciudades_del_mundo.domain import ScrapedAdminArea
 from ciudades_del_mundo.infrastructure.scraping.admin import CityPopulationAdminScraper
 from ciudades_del_mundo.infrastructure.scraping.base import BaseCityPopulationScraper
@@ -22,7 +20,7 @@ class CityPopulationStructuredTableScraper(BaseCityPopulationScraper):
         self._double_scraper = CityPopulationDoubleScraper(debug=debug)
 
     def scrape_html(self, html: str, url: str, country_code: str, level: int) -> list[ScrapedAdminArea]:
-        soup = BeautifulSoup(html, self._client.parser)
+        soup, profile = self._soup_and_profile(html)
         root = self._parse_root(soup=soup, country_code=country_code, level=level, url=url)
         return self._double_scraper.parse_hierarchical_tables(
             soup=soup,
@@ -31,6 +29,7 @@ class CityPopulationStructuredTableScraper(BaseCityPopulationScraper):
             level=level,
             root=root,
             first_table_offset=1,
+            profile=profile,
         )
 
     def _parse_root(

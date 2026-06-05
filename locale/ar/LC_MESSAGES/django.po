@@ -1512,8 +1512,8 @@ msgstr "تم تحميل {{ stored }} من {{ expected }} إعدادات. الم�
 msgid "Esta configuración ya está validada o populada. Modifica la configuración SQL antes de volver a validar."
 msgstr "تم التحقق من هذا الإعداد أو تعبئته بالفعل. عدّل إعداد SQL قبل التحقق مرة أخرى."
 
-msgid "Solo puedes popular una configuración Validada. Modifica la configuración SQL, valida y después popula."
-msgstr "يمكنك تعبئة إعداد تم التحقق منه فقط. عدّل إعداد SQL، ثم تحقق منه، ثم عبّئه."
+msgid "Solo puedes popular una configuración Validada o Populada. Modifica la configuración SQL, valida y después popula."
+msgstr "يمكنك تعبئة إعداد تم التحقق منه أو تمت تعبئته فقط. عدّل إعداد SQL، ثم تحقق منه، ثم عبّئه."
 
 msgid "No existe la configuración SQL '%(slug)s'. Ejecuta 'py manage.py sync_scraping_configs %(slug)s' si debe importarse desde seeds TOML."
 msgstr "إعداد SQL '%(slug)s' غير موجود. شغّل 'py manage.py sync_scraping_configs %(slug)s' إذا كان يجب استيراده من بذور TOML."
@@ -1521,3 +1521,29 @@ msgstr "إعداد SQL '%(slug)s' غير موجود. شغّل 'py manage.py sync
 msgid "No existe la configuración SQL '%(slug)s'. Ejecuta 'py manage.py sync_scraping_configs %(slug)s' para importarla desde seeds TOML."
 msgstr "إعداد SQL '%(slug)s' غير موجود. شغّل 'py manage.py sync_scraping_configs %(slug)s' لاستيراده من بذور TOML."
 
+
+# Added to keep all supported UI languages in sync.
+
+msgid "Popular no populados"
+msgstr "تعبئة غير المعبأة"
+
+msgid "Parado"
+msgstr "متوقف"
+
+msgid "Parar"
+msgstr "إيقاف"
+
+msgid "No hay configuraciones validadas sin popular."
+msgstr "لا توجد إعدادات مُتحقق منها وغير معبأة."
+
+msgid "Popular configuraciones no populadas (%(count)s)"
+msgstr "تعبئة الإعدادات غير المعبأة (%(count)s)"
+
+msgid "No hay una tarea activa para parar en esta configuración."
+msgstr "لا توجد مهمة نشطة لإيقافها لهذه الإعدادات."
+
+msgid "Parar tarea: %(slug)s"
+msgstr "إيقاف المهمة: %(slug)s"
+
+msgid "Parada solicitada para '%(label)s'."
+msgstr "تم طلب إيقاف '%(label)s'."

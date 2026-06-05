@@ -1524,8 +1524,8 @@ msgstr "{{ stored }} configuration(s) chargée(s) sur {{ expected }}. Il en manq
 msgid "Esta configuración ya está validada o populada. Modifica la configuración SQL antes de volver a validar."
 msgstr "Cette configuration est déjà validée ou peuplée. Modifiez la configuration SQL avant de la valider de nouveau."
 
-msgid "Solo puedes popular una configuración Validada. Modifica la configuración SQL, valida y después popula."
-msgstr "Vous ne pouvez peupler qu'une configuration validée. Modifiez la configuration SQL, validez-la, puis peuplez-la."
+msgid "Solo puedes popular una configuración Validada o Populada. Modifica la configuración SQL, valida y después popula."
+msgstr "Vous ne pouvez peupler qu'une configuration validée ou déjà peuplée. Modifiez la configuration SQL, validez-la, puis peuplez-la."
 
 msgid "No existe la configuración SQL '%(slug)s'. Ejecuta 'py manage.py sync_scraping_configs %(slug)s' si debe importarse desde seeds TOML."
 msgstr "La configuration SQL '%(slug)s' n'existe pas. Exécutez 'py manage.py sync_scraping_configs %(slug)s' si elle doit être importée depuis les seeds TOML."
@@ -1533,3 +1533,29 @@ msgstr "La configuration SQL '%(slug)s' n'existe pas. Exécutez 'py manage.py sy
 msgid "No existe la configuración SQL '%(slug)s'. Ejecuta 'py manage.py sync_scraping_configs %(slug)s' para importarla desde seeds TOML."
 msgstr "La configuration SQL '%(slug)s' n'existe pas. Exécutez 'py manage.py sync_scraping_configs %(slug)s' pour l'importer depuis les seeds TOML."
 
+
+# Added to keep all supported UI languages in sync.
+
+msgid "Popular no populados"
+msgstr "Peupler les non peuplées"
+
+msgid "Parado"
+msgstr "Arrêté"
+
+msgid "Parar"
+msgstr "Arrêter"
+
+msgid "No hay configuraciones validadas sin popular."
+msgstr "Aucune configuration validée non peuplée."
+
+msgid "Popular configuraciones no populadas (%(count)s)"
+msgstr "Peupler les configurations non peuplées (%(count)s)"
+
+msgid "No hay una tarea activa para parar en esta configuración."
+msgstr "Aucune tâche active à arrêter pour cette configuration."
+
+msgid "Parar tarea: %(slug)s"
+msgstr "Arrêter la tâche : %(slug)s"
+
+msgid "Parada solicitada para '%(label)s'."
+msgstr "Arrêt demandé pour '%(label)s'."

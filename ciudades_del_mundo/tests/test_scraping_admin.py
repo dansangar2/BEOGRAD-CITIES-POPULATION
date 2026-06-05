@@ -1,6 +1,14 @@
 import unittest
 
-from ciudades_del_mundo.infrastructure.scraping import CityPopulationAdminScraper
+from bs4 import BeautifulSoup
+
+from ciudades_del_mundo.infrastructure.scraping import (
+    CityPopulationAdminScraper,
+    CityPopulationAutoScraper,
+    CityPopulationPageType,
+    detect_citypopulation_page_profile,
+)
+from ciudades_del_mundo.infrastructure.scraping.table import CityPopulationStructuredTableScraper
 
 
 class CityPopulationAdminScraperTests(unittest.TestCase):
@@ -63,3 +71,75 @@ class CityPopulationAdminScraperTests(unittest.TestCase):
         self.assertEqual(alpha_city.area_km2, 3.0)
         self.assertEqual(alpha_city.density, 50.0)
 
+
+class CityPopulationStructuredTableScraperTests(unittest.TestCase):
+    CEUTA_SINGLE_TS_HTML = """
+    <html>
+      <body>
+        <header class="cpage">
+          <h1><span itemprop="name">Ceuta</span></h1>
+          <p itemprop="description">Autonomous City of Ceuta</p>
+        </header>
+        <table id="ts">
+          <thead>
+            <tr>
+              <th class="rname">Name</th>
+              <th class="rstatus">Status</th>
+              <th class="rpop" data-coldate="2025-01-01">2025</th>
+              <th class="sc"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="rname" id="i51001" data-area="19.0">
+                <span itemprop="name">Ceuta</span>
+              </td>
+              <td class="rstatus">Municipality</td>
+              <td class="rpop">83,567</td>
+              <td class="sc"><a href="ceuta/51001__ceuta/">Details</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </body>
+    </html>
+    """
+
+    def test_page_profile_detects_structured_single_ts_root_page(self):
+        soup = BeautifulSoup(self.CEUTA_SINGLE_TS_HTML, "html.parser")
+
+        profile = detect_citypopulation_page_profile(soup)
+
+        self.assertEqual(profile.page_type, CityPopulationPageType.STRUCTURED_TABLE)
+        self.assertTrue(profile.has_cpage_root)
+        self.assertTrue(profile.has_ts)
+        self.assertFalse(profile.has_tl)
+        self.assertTrue(profile.ts_uses_first_child_level)
+        self.assertEqual(profile.preferred_html_format, "table")
+
+    def test_single_ts_table_under_root_uses_first_child_level(self):
+        entities = CityPopulationStructuredTableScraper().scrape_html(
+            html=self.CEUTA_SINGLE_TS_HTML,
+            url="https://www.citypopulation.de/en/spain/ceuta/",
+            country_code="spain",
+            level=1,
+        )
+
+        self.assertEqual([entity.code for entity in entities], ["spain", "51001"])
+        root, municipality = entities
+        self.assertEqual(root.name, "Ceuta")
+        self.assertEqual(root.entity_type, "Autonomous City")
+        self.assertEqual(municipality.level, 2)
+        self.assertEqual(municipality.parent_code, "spain")
+        self.assertEqual(municipality.pop_latest, 83567)
+
+    def test_auto_scraper_delegates_single_ts_root_page_to_table_scraper(self):
+        entities = CityPopulationAutoScraper().scrape_html(
+            html=self.CEUTA_SINGLE_TS_HTML,
+            url="https://www.citypopulation.de/en/spain/ceuta/",
+            country_code="spain",
+            level=1,
+        )
+
+        self.assertEqual([entity.code for entity in entities], ["spain", "51001"])
+        self.assertEqual(entities[1].level, 2)
+        self.assertEqual(entities[1].parent_code, "spain")

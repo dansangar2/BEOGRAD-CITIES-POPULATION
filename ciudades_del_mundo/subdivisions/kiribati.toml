@@ -1,6 +1,0 @@
-LEGAL_SUBDIVISION = 2
-
-[[pages]]
-source = "cities"
-path = ["cities/gilbert", "cities/linephoenix"]
-lowest_level = 1

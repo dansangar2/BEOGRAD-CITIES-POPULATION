@@ -2,9 +2,19 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Protocol
 
 from ciudades_del_mundo.domain import ScrapedAdminArea, ScrapingPageConfig
+
+
+@dataclass(frozen=True)
+class ScrapedHtmlPage:
+    """Entities plus the raw HTML downloaded for one CityPopulation page."""
+
+    entities: list[ScrapedAdminArea]
+    html: str = ""
+    url: str = ""
 
 
 class ScrapingPageNotFoundError(RuntimeError):

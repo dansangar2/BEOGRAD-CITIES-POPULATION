@@ -9,18 +9,23 @@ from bs4 import BeautifulSoup
 
 from ciudades_del_mundo.domain import ScrapedAdminArea
 from ciudades_del_mundo.infrastructure.scraping.base import BaseCityPopulationScraper
+from ciudades_del_mundo.infrastructure.scraping.page_types import (
+    CityPopulationPageProfile,
+    detect_citypopulation_page_profile,
+)
 
 
 class CityPopulationDoubleScraper(BaseCityPopulationScraper):
     html_format = "double"
 
     def scrape_html(self, html: str, url: str, country_code: str, level: int) -> list[ScrapedAdminArea]:
-        soup = BeautifulSoup(html, self._client.parser)
+        soup, profile = self._soup_and_profile(html)
         return self.parse_hierarchical_tables(
             soup=soup,
             url=url,
             country_code=country_code,
             level=level,
+            profile=profile,
         )
 
     def parse_hierarchical_tables(
@@ -32,7 +37,9 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
         level: int,
         root: ScrapedAdminArea | None = None,
         first_table_offset: int | None = None,
+        profile: CityPopulationPageProfile | None = None,
     ) -> list[ScrapedAdminArea]:
+        profile = profile or detect_citypopulation_page_profile(soup)
         if root and root.parent_code is None and root.level > 0 and root.code != country_code:
             root = replace(root, parent_code=country_code)
 
@@ -40,7 +47,7 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
         parents_by_name: dict[str, ScrapedAdminArea] = {}
         tl_level = level + (first_table_offset if first_table_offset is not None else int(root is not None))
 
-        tl = soup.find("table", id="tl")
+        tl = soup.find("table", id="tl") if profile.has_tl else None
         if tl:
             for entity in self._parse_table(
                 table=tl,
@@ -57,13 +64,14 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
                 for key in self._parent_lookup_keys(entity.name):
                     parents_by_name.setdefault(key, entity)
 
-        ts = soup.find("table", id="ts")
+        ts = soup.find("table", id="ts") if profile.has_ts else None
         if ts:
-            ts_has_radm = bool(ts.find("th", class_=lambda value: value and "radm" in value.split()))
+            ts_has_radm = profile.ts_has_radm
+            ts_level = tl_level if profile.ts_uses_first_child_level else tl_level + 1
             for entity in self._parse_table(
                 table=ts,
                 country_code=country_code,
-                level=tl_level + 1,
+                level=ts_level,
                 base_url=url,
                 parser="ts",
                 parents_by_name=parents_by_name,

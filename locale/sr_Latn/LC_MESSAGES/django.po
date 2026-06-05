@@ -1512,8 +1512,8 @@ msgstr "Učitano je {{ stored }} od {{ expected }} konfiguracija. Preostalo {{ m
 msgid "Esta configuración ya está validada o populada. Modifica la configuración SQL antes de volver a validar."
 msgstr "Ova konfiguracija je već validirana ili popunjena. Izmeni SQL konfiguraciju pre ponovne validacije."
 
-msgid "Solo puedes popular una configuración Validada. Modifica la configuración SQL, valida y después popula."
-msgstr "Možeš popuniti samo validiranu konfiguraciju. Izmeni SQL konfiguraciju, validiraj je, pa je zatim popuni."
+msgid "Solo puedes popular una configuración Validada o Populada. Modifica la configuración SQL, valida y después popula."
+msgstr "Možeš popuniti samo validiranu ili već popunjenu konfiguraciju. Izmeni SQL konfiguraciju, validiraj je, pa je zatim popuni."
 
 msgid "No existe la configuración SQL '%(slug)s'. Ejecuta 'py manage.py sync_scraping_configs %(slug)s' si debe importarse desde seeds TOML."
 msgstr "SQL konfiguracija '%(slug)s' ne postoji. Pokreni 'py manage.py sync_scraping_configs %(slug)s' ako treba da se uveze iz TOML seed datoteka."
@@ -1521,3 +1521,29 @@ msgstr "SQL konfiguracija '%(slug)s' ne postoji. Pokreni 'py manage.py sync_scra
 msgid "No existe la configuración SQL '%(slug)s'. Ejecuta 'py manage.py sync_scraping_configs %(slug)s' para importarla desde seeds TOML."
 msgstr "SQL konfiguracija '%(slug)s' ne postoji. Pokreni 'py manage.py sync_scraping_configs %(slug)s' da je uvezeš iz TOML seed datoteka."
 
+
+# Added to keep all supported UI languages in sync.
+
+msgid "Popular no populados"
+msgstr "Popuni nepopunjene"
+
+msgid "Parado"
+msgstr "Zaustavljeno"
+
+msgid "Parar"
+msgstr "Zaustavi"
+
+msgid "No hay configuraciones validadas sin popular."
+msgstr "Nema validiranih nepopunjenih konfiguracija."
+
+msgid "Popular configuraciones no populadas (%(count)s)"
+msgstr "Popuni nepopunjene konfiguracije (%(count)s)"
+
+msgid "No hay una tarea activa para parar en esta configuración."
+msgstr "Nema aktivnog zadatka za zaustavljanje za ovu konfiguraciju."
+
+msgid "Parar tarea: %(slug)s"
+msgstr "Zaustavi zadatak: %(slug)s"
+
+msgid "Parada solicitada para '%(label)s'."
+msgstr "Zatraženo je zaustavljanje za '%(label)s'."

@@ -1,5 +1,11 @@
 db.sqlite3
+db.sqlite3-*
+excels/
 __pycache__/
 *.py[cod]
 .web_tasks.json
 .web_task_logs/
+media/
+ciudades_del_mundo/subdivisions
+ciudades_del_mundo/historical_divisions/
+ciudades_del_mundo/new_subdivisions/

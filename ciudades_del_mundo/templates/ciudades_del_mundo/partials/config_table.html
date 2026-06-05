@@ -32,13 +32,19 @@
         <td data-field="task">
           {% with status=config.task_display_status|default:"pending" %}
             {% if status == "validating" %}
-            <a class="status config-status-validating" href="{% url 'ciudades_del_mundo:task_detail' config.active_task.id %}" target="_blank" rel="noopener">{% trans "Validando" %}</a>
+            <a class="status config-status-validating config-status-loading" href="{% url 'ciudades_del_mundo:task_detail' config.active_task.id %}" target="_blank" rel="noopener" aria-label="{% trans 'Validando' %}">
+              <span class="config-status-label">{% trans "Validando" %}</span><span class="config-status-dots" aria-hidden="true"></span>
+            </a>
             {% elif status == "validated" %}
             <span class="status config-status-validated">{% trans "Validado" %}</span>
             {% elif status == "populating" %}
-            <a class="status config-status-populating" href="{% url 'ciudades_del_mundo:task_detail' config.active_task.id %}" target="_blank" rel="noopener">{% trans "Populando" %}</a>
+            <a class="status config-status-populating config-status-loading" href="{% url 'ciudades_del_mundo:task_detail' config.active_task.id %}" target="_blank" rel="noopener" aria-label="{% trans 'Populando' %}">
+              <span class="config-status-label">{% trans "Populando" %}</span><span class="config-status-dots" aria-hidden="true"></span>
+            </a>
             {% elif status == "populated" %}
             <span class="status config-status-populated">{% trans "Populado" %}</span>
+            {% elif status == "stopped" %}
+            <span class="status config-status-stopped">{% trans "Parado" %}</span>
             {% elif status == "failed" %}
             <span class="status config-status-failed">{% trans "Fallo" %}</span>
             {% elif status == "running" or status == "queued" %}
@@ -57,6 +63,10 @@
             <form method="post" action="{% url 'ciudades_del_mundo:start_config_task' config.slug 'scrape' %}" data-config-task-form data-config-action-form="scrape" data-action-label="{% trans 'Popular' %}" data-summary-url="{% url 'ciudades_del_mundo:config_summary' config.slug %}" {% if not config.can_scrape and config.task_display_status != "populating" %}hidden{% endif %}>
               {% csrf_token %}
               <button type="submit" data-config-action="scrape" {% if config.task_display_status == "populating" %}disabled{% endif %}>{% trans "Popular" %}</button>
+            </form>
+            <form method="post" action="{% url 'ciudades_del_mundo:start_config_task' config.slug 'stop' %}" data-config-task-form data-config-action-form="stop" data-action-label="{% trans 'Parar' %}" data-summary-url="{% url 'ciudades_del_mundo:config_summary' config.slug %}" {% if not config.can_stop %}hidden{% endif %}>
+              {% csrf_token %}
+              <button type="submit" class="secondary" data-config-action="stop">{% trans "Parar" %}</button>
             </form>
           </div>
           {% if config.error %}<small class="error-text">{{ config.error }}</small>{% endif %}

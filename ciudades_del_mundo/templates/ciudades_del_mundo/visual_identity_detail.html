@@ -7,30 +7,64 @@
 <section class="page-head compact">
   <div>
     <p class="eyebrow">{% trans "Identidad visual" %}</p>
-    <h1>{{ kind_label }}</h1>
+    <h1>{% if entity_label %}{{ entity_label }} · {% endif %}{{ kind_label }}</h1>
+    {% if active_translation.title %}<p class="muted">{{ active_translation.title }} · {{ active_language|upper }}</p>{% endif %}
   </div>
   <div class="actions">
-    <a class="button secondary" href="{{ commons_url }}" target="_blank" rel="noopener">{% trans "Ver en Commons" %}</a>
+    {% if commons_url %}<a class="button secondary" href="{{ commons_url }}" target="_blank" rel="noopener">{% trans "Ver en Commons" %}</a>{% endif %}
+    {% if wikidata_url %}<a class="button secondary" href="{{ wikidata_url }}" target="_blank" rel="noopener">{% trans "Ver en Wikidata" %}</a>{% endif %}
   </div>
 </section>
 
 <section class="layout-2 identity-detail-layout">
   <article class="panel identity-detail-image">
+    {% if image_url %}
     <a href="{{ image_url }}" target="_blank" rel="noopener">
-      <img src="{{ image_url }}" alt="{{ kind_label }}">
+      <img src="{{ image_url }}" alt="{{ kind_label }}{% if entity_label %} {{ entity_label }}{% endif %}">
     </a>
+    {% else %}
+    <p class="muted">{% trans "No hay imagen disponible para esta ficha." %}</p>
+    {% endif %}
   </article>
   <article class="panel">
     <h2>{% trans "Detalles heraldicos" %}</h2>
     <dl class="detail-list">
       <dt>{% trans "Tipo" %}</dt>
       <dd>{{ kind_label }}</dd>
-      <dt>{% trans "Archivo" %}</dt>
+      {% if entity_label %}
+      <dt>{% trans "Entidad" %}</dt>
+      <dd>{{ entity_label }}</dd>
+      {% endif %}
+      {% if filename %}
+      <dt>{% trans "Archivo Commons" %}</dt>
       <dd>{{ filename }}</dd>
-      <dt>{% trans "Descripcion" %}</dt>
-      <dd>{% trans "Ficha descriptiva pendiente. Este espacio queda reservado para blason, significado, colores oficiales, fecha de adopcion y fuente normativa." %}</dd>
+      {% endif %}
+      <dt>{{ description_label }}</dt>
+      <dd class="identity-description-text">
+        {% if description_text %}
+          {{ description_text }}
+        {% else %}
+          <span class="muted">{% trans "No hay una descripcion heraldica o vexilologica traducida para el idioma actual." %}</span>
+        {% endif %}
+      </dd>
+      {% if active_translation.source %}
+      <dt>{% trans "Fuente de esta descripcion" %}</dt>
+      <dd>{{ active_translation.source }}</dd>
+      {% endif %}
       <dt>{% trans "Fuente visual" %}</dt>
-      <dd><a href="{{ commons_url }}" target="_blank" rel="noopener">Wikimedia Commons</a></dd>
+      <dd>{% if commons_url %}<a href="{{ commons_url }}" target="_blank" rel="noopener">{{ source_label }}</a>{% else %}{{ source_label }}{% endif %}</dd>
+      {% if asset.source %}
+      <dt>{% trans "Origen metadata" %}</dt>
+      <dd>{{ asset.source }}</dd>
+      {% endif %}
+      {% if asset.license_name %}
+      <dt>{% trans "Licencia" %}</dt>
+      <dd>{{ asset.license_name }}</dd>
+      {% endif %}
+      {% if asset.author %}
+      <dt>{% trans "Autor" %}</dt>
+      <dd>{{ asset.author }}</dd>
+      {% endif %}
     </dl>
   </article>
 </section>

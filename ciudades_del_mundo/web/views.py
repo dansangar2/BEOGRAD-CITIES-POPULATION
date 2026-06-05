@@ -38,9 +38,10 @@ from ciudades_del_mundo.services.scraping_configs import (
     upsert_scraping_config,
 )
 from ciudades_del_mundo.services.visual_assets import (
-    ensure_missing_local_asset_files,
-    ensure_visual_assets_for_config_slug,
+    get_visual_asset_by_local_or_commons,
+    get_visual_asset_for_entity_kind,
     get_visual_assets_for_entity,
+    commons_file_url,
     visual_asset_tables_exist,
 )
 
@@ -558,6 +559,7 @@ def config_list(request):
         "config_table_url": reverse("ciudades_del_mundo:config_table"),
         "config_tasks_table_url": reverse("ciudades_del_mundo:config_tasks_table"),
         "config_validate_all_url": reverse("ciudades_del_mundo:start_all_config_task", kwargs={"action": "validate"}),
+        "config_scrape_unpopulated_url": reverse("ciudades_del_mundo:start_all_config_task", kwargs={"action": "scrape-unpopulated"}),
         "config_scrape_all_url": reverse("ciudades_del_mundo:start_all_config_task", kwargs={"action": "scrape"}),
         "config_bootstrap_url": reverse("ciudades_del_mundo:config_bootstrap"),
         "config_bootstrap_status": bootstrap_status.as_dict(),
@@ -571,10 +573,6 @@ def config_bootstrap(request):
         return JsonResponse({"ok": False, "error": _("Método no soportado.")}, status=405)
     try:
         status = ensure_initial_scraping_configs(force=False)
-        try:
-            ensure_missing_local_asset_files(limit=None)
-        except Exception:
-            pass
     except (OperationalError, ProgrammingError) as exc:
         return JsonResponse(
             {
@@ -727,6 +725,17 @@ def start_all_config_task(request, action):
         key = "validate-config:all"
         label = _("Validar configuraciones pendientes (%(count)s)") % {"count": len(eligible_slugs)}
         args = ["validate_subdivision_configs", *eligible_slugs]
+    elif action == "scrape-unpopulated":
+        eligible_slugs = _eligible_config_slugs_for_bulk("scrape-unpopulated")
+        if not eligible_slugs:
+            error = _("No hay configuraciones validadas sin popular.")
+            if wants_json:
+                return JsonResponse({"ok": False, "error": error}, status=400)
+            messages.info(request, error)
+            return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
+        key = "scrape:unpopulated"
+        label = _("Popular configuraciones no populadas (%(count)s)") % {"count": len(eligible_slugs)}
+        args = ["validate_and_scrape_configs", *eligible_slugs]
     elif action == "scrape":
         eligible_slugs = _eligible_config_slugs_for_bulk("scrape")
         if not eligible_slugs:
@@ -807,11 +816,36 @@ def start_config_task(request, slug, action):
         messages.error(request, error)
         return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
 
-    row = _config_summary_for_slug(slug)
-    current_status = _config_row_status(row)
+    row = _decorate_config_workflow_flags(_config_summary_for_slug(slug))
+    current_status = row.get("status_filter") or _config_row_status(row)
+
+    if action == "stop":
+        task = row.get("active_task")
+        if not task or not getattr(task, "is_active", False):
+            error = _("No hay una tarea activa para parar en esta configuración.")
+            if wants_json:
+                return JsonResponse({"ok": False, "error": error}, status=400)
+            messages.info(request, error)
+            return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
+        task = task_manager.cancel(task.id) or task
+        label = _("Parar tarea: %(slug)s") % {"slug": slug}
+        if wants_json:
+            return JsonResponse(
+                {
+                    "ok": True,
+                    "task_id": task.id,
+                    "label": label,
+                    "status": "stopped",
+                    "status_url": reverse("ciudades_del_mundo:task_status", kwargs={"task_id": task.id}),
+                    "summary_url": reverse("ciudades_del_mundo:config_summary", kwargs={"slug": slug}),
+                    "detail_url": reverse("ciudades_del_mundo:task_detail", kwargs={"task_id": task.id}),
+                }
+            )
+        messages.info(request, _("Parada solicitada para '%(label)s'.") % {"label": task.label})
+        return redirect("ciudades_del_mundo:task_detail", task_id=task.id)
 
     if action == "validate":
-        if not _can_validate_config_status(current_status):
+        if not row.get("can_validate"):
             error = _("Esta configuración ya está validada o populada. Modifica la configuración SQL antes de volver a validar.")
             if wants_json:
                 return JsonResponse({"ok": False, "error": error}, status=400)
@@ -821,15 +855,15 @@ def start_config_task(request, slug, action):
         label = _("Validar configuración: %(slug)s") % {"slug": slug}
         args = ["validate_subdivision_configs", slug]
     elif action == "scrape":
-        if not _can_scrape_config_status(current_status):
-            error = _("Solo puedes popular una configuración Validada. Modifica la configuración SQL, valida y después popula.")
+        if not row.get("can_scrape"):
+            error = _("Solo puedes popular una configuración Validada, Populada o Parada. Modifica la configuración SQL, valida y después popula.")
             if wants_json:
                 return JsonResponse({"ok": False, "error": error}, status=400)
             messages.info(request, error)
             return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
         key = f"scrape:{slug}"
         label = _("Popular datos: %(slug)s") % {"slug": slug}
-        args = ["scrape_subdivisions_with_assets", slug]
+        args = ["scrape_subdivisions_with_assets", slug, "--no-download-assets", "--page-workers=4"]
     else:
         error = _("Acción de configuración no soportada.")
         if wants_json:
@@ -866,6 +900,48 @@ def start_config_task(request, slug, action):
     return redirect("ciudades_del_mundo:task_detail", task_id=task.id)
 
 
+
+def _terminal_config_progress_status(task) -> str:
+    """Return per-config terminal status inferred from the owning task."""
+    if not task or getattr(task, "is_active", False):
+        return ""
+    key = str(getattr(task, "key", "") or "")
+    status = str(getattr(task, "status", "") or "")
+    if status == "succeeded":
+        if key.startswith("scrape:"):
+            return "populated"
+        if key.startswith("validate-config:"):
+            return "validated"
+    if status in {"stopped", "cancelled"}:
+        return "stopped"
+    if status == "failed":
+        return "failed"
+    return ""
+
+
+def _progress_status_after_terminal_task(current_status: str, terminal_status: str) -> str:
+    """Map stale progress-file statuses once the parent WebTask is terminal."""
+    current_status = str(current_status or "").strip().casefold()
+    terminal_status = str(terminal_status or "").strip().casefold()
+    active_statuses = {"validating", "populating", "running", "queued"}
+    if terminal_status == "stopped":
+        return "stopped" if current_status in active_statuses else current_status
+    if terminal_status == "failed":
+        return "failed" if current_status in active_statuses else current_status
+    if terminal_status in {"validated", "populated"}:
+        finishable = active_statuses | {"succeeded", "validated", "populated"}
+        return terminal_status if current_status in finishable else current_status
+    return current_status
+
+
+def _single_config_slug_from_task_key(task) -> str:
+    key = str(getattr(task, "key", "") or "")
+    for prefix in ("scrape:", "validate-config:"):
+        if key.startswith(prefix):
+            slug = key.split(":", 1)[1]
+            return "" if slug in {"all", "unpopulated"} else slug
+    return ""
+
 def task_status(request, task_id):
     """Return current state for a web-launched task."""
     task = task_manager.get(task_id)
@@ -874,23 +950,39 @@ def task_status(request, task_id):
             return JsonResponse({"ok": False, "error": _("No existe la tarea solicitada.")}, status=404)
         raise Http404(_("No existe la tarea solicitada."))
     config_progress = read_task_config_progress(task.id)
-    if not task.is_active and task.status in {"failed", "cancelled"}:
-        terminal_status = "failed"
+    terminal_status = _terminal_config_progress_status(task)
+    if terminal_status:
         for item in config_progress.values():
-            if isinstance(item, dict) and item.get("status") in {"validating", "populating", "running", "queued"}:
-                item["status"] = terminal_status
-    return JsonResponse(
-        {
-            "id": task.id,
-            "label": task.label,
-            "status": task.status,
-            "is_active": task.is_active,
-            "returncode": task.returncode,
-            "output": task_manager.output_tail_text(task),
-            "detail_url": reverse("ciudades_del_mundo:task_detail", kwargs={"task_id": task.id}),
-            "config_progress": config_progress,
-        }
-    )
+            if isinstance(item, dict):
+                next_status = _progress_status_after_terminal_task(str(item.get("status") or ""), terminal_status)
+                if next_status:
+                    item["status"] = next_status
+        slug = _single_config_slug_from_task_key(task)
+        if slug and not config_progress:
+            config_progress = {slug: {"status": terminal_status, "detail": ""}}
+    payload = {
+        "id": task.id,
+        "label": task.label,
+        "status": task.status,
+        "is_active": task.is_active,
+        "returncode": task.returncode,
+        "detail_url": reverse("ciudades_del_mundo:task_detail", kwargs={"task_id": task.id}),
+        "config_progress": config_progress,
+    }
+    if "since" in request.GET:
+        try:
+            offset = int(request.GET.get("since") or 0)
+        except (TypeError, ValueError):
+            offset = 0
+        delta, next_offset, reset = task_manager.output_since_text(task, offset)
+        payload.update({
+            "output_delta": delta,
+            "output_offset": next_offset,
+            "output_reset": reset,
+        })
+    else:
+        payload["output"] = task_manager.output_tail_text(task)
+    return JsonResponse(payload)
 
 
 def config_summary(request, slug):
@@ -902,6 +994,7 @@ def config_summary(request, slug):
     scrape_task = row.get("scrape_task")
     task_display_status = row.get("task_display_status") or _config_task_display_status(task)
     status_filter = _config_row_status({**row, "task_display_status": task_display_status})
+    workflow_row = _decorate_config_workflow_flags({**row, "task_display_status": task_display_status})
     return JsonResponse(
         {
             "slug": row["slug"],
@@ -919,8 +1012,9 @@ def config_summary(request, slug):
             "validate_task_is_active": validate_task.is_active if validate_task else False,
             "scrape_task_status": _config_task_display_status(scrape_task),
             "scrape_task_is_active": scrape_task.is_active if scrape_task else False,
-            "can_validate": _can_validate_config_status(status_filter),
-            "can_scrape": _can_scrape_config_status(status_filter),
+            "can_validate": bool(workflow_row.get("can_validate")),
+            "can_scrape": bool(workflow_row.get("can_scrape")),
+            "can_stop": bool(workflow_row.get("can_stop")),
             "error": row.get("error") or "",
         }
     )
@@ -1237,25 +1331,240 @@ def area_map_detail(request, source, area_id):
     return render(request, "ciudades_del_mundo/area_map_detail.html", context)
 
 
-def visual_identity_detail(request, kind, filename):
-    """Render a local placeholder detail page for a flag or coat image."""
+def visual_identity_entity_detail(request, kind, entity_type, entity_key):
+    """Render the Ficha page for one stored asset using a readable entity URL."""
     kind = (kind or "image").lower()
+    entity_type = str(entity_type or "").strip()
+    entity_key = str(entity_key or "").strip().strip("/")
+    asset = get_visual_asset_for_entity_kind(entity_type, entity_key, kind)
+    if not asset:
+        raise Http404(_("No se encontro la ficha solicitada."))
+    return _render_visual_identity_asset(request, asset, kind=kind)
+
+
+def visual_identity_detail(request, kind, filename):
+    """Render legacy Ficha URLs that still pass a Commons filename or local path."""
+    kind = (kind or "image").lower()
+    safe_filename = str(filename or "").strip().lstrip("/")
+    if not safe_filename:
+        raise Http404(_("No se encontro la imagen solicitada."))
+
+    asset = get_visual_asset_by_local_or_commons(safe_filename, kind=kind)
+    if asset:
+        return _render_visual_identity_asset(request, asset, kind=kind, legacy_target=safe_filename)
+
+    local_path = _identity_local_media_path(safe_filename)
+    if local_path:
+        asset = {
+            "kind": kind,
+            "entity_type": "",
+            "entity_key": "",
+            "entity_name": "",
+            "commons_filename": _identity_commons_filename_for_local_path(local_path),
+            "remote_url": "",
+            "local_path": local_path,
+            "local_url": _media_file_url(local_path),
+            "image_url": _media_file_url(local_path),
+            "translations": {},
+            "source": "local",
+            "source_url": "",
+            "wikidata_id": "",
+            "license_name": "",
+            "author": "",
+            "attribution": "",
+        }
+        return _render_visual_identity_asset(request, asset, kind=kind, legacy_target=safe_filename)
+
+    commons_filename = safe_filename.replace("_", " ") if "." in Path(safe_filename).name else safe_filename
+    asset = {
+        "kind": kind,
+        "entity_type": "",
+        "entity_key": "",
+        "entity_name": "",
+        "commons_filename": commons_filename,
+        "remote_url": commons_file_url(commons_filename, width=1400),
+        "local_path": "",
+        "local_url": "",
+        "image_url": commons_file_url(commons_filename, width=1400),
+        "translations": {},
+        "source": "wikimedia",
+        "source_url": "",
+        "wikidata_id": "",
+        "license_name": "",
+        "author": "",
+        "attribution": "",
+    }
+    return _render_visual_identity_asset(request, asset, kind=kind, legacy_target=safe_filename)
+
+
+def _render_visual_identity_asset(request, asset: dict, *, kind: str, legacy_target: str = ""):
     labels = {
         "flag": _("Bandera"),
         "coat": _("Escudo"),
+        "seal": _("Sello"),
+        "locator": _("Mapa localizador"),
     }
-    safe_filename = str(filename or "").strip()
-    if not safe_filename:
-        raise Http404(_("No se encontro la imagen solicitada."))
-    encoded_filename = quote(safe_filename.replace(" ", "_"), safe="/():,._-")
+    commons_filename = str(asset.get("commons_filename") or "")
+    remote_url = str(asset.get("remote_url") or "")
+    local_path = str(asset.get("local_path") or "")
+    image_url = remote_url or str(asset.get("image_url") or "") or str(asset.get("local_url") or "")
+    if not image_url and commons_filename:
+        image_url = commons_file_url(commons_filename, width=1400)
+    encoded_commons = quote((commons_filename or "").replace(" ", "_"), safe="/():,._-")
+    commons_url = f"https://commons.wikimedia.org/wiki/File:{encoded_commons}" if encoded_commons else str(asset.get("source_url") or "")
+
+    translations = _identity_translation_rows(asset.get("translations") or {})
+    active_language = normalize_language_code(get_language())
+    active_translation = _select_identity_translation(translations, active_language)
+    description_text = _identity_visual_description_text(active_translation, kind=kind)
+    entity_label = str(asset.get("entity_name") or asset.get("entity_key") or "")
+    display_filename = commons_filename or Path(local_path).name or Path(legacy_target).name
     context = {
         "kind": kind,
         "kind_label": labels.get(kind, _("Imagen")),
-        "filename": safe_filename,
-        "image_url": f"https://commons.wikimedia.org/wiki/Special:FilePath/{encoded_filename}?width=1400",
-        "commons_url": f"https://commons.wikimedia.org/wiki/File:{encoded_filename}",
+        "description_label": _identity_description_label(kind),
+        "asset": asset,
+        "entity_label": entity_label,
+        "filename": display_filename,
+        "local_path": local_path,
+        "image_url": image_url,
+        "commons_url": commons_url,
+        "wikidata_url": f"https://www.wikidata.org/wiki/{asset.get('wikidata_id')}" if asset.get("wikidata_id") else "",
+        "source_label": "Wikimedia Commons" if commons_filename or remote_url else _("Archivo local"),
+        "active_language": active_language,
+        "active_translation": active_translation,
+        "description_text": description_text,
+        "has_visual_description": bool(description_text),
     }
     return render(request, "ciudades_del_mundo/visual_identity_detail.html", context)
+
+
+def _identity_translation_rows(translations: dict) -> list[dict]:
+    if not isinstance(translations, dict):
+        return []
+    rows = []
+    for language, values in translations.items():
+        if not isinstance(values, dict):
+            continue
+        title = str(values.get("title") or "")
+        description = str(values.get("description") or "")
+        blazon = str(values.get("blazon") or "")
+        if not title and not description and not blazon:
+            continue
+        rows.append({
+            "language": str(language),
+            "title": title,
+            "description": description,
+            "blazon": blazon,
+            "source": values.get("source") or "",
+            "needs_review": bool(values.get("needs_review")),
+        })
+    preferred = ["es", "en", "fr", "de", "it", "pt", "ru", "sr", "sr_Latn", "ar"]
+    order = {language: index for index, language in enumerate(preferred)}
+    return sorted(rows, key=lambda row: (order.get(row["language"], 999), row["language"]))
+
+
+def _select_identity_translation(rows: list[dict], language_code: str | None) -> dict:
+    if not rows:
+        return {}
+    normalized = normalize_language_code(language_code or "")
+    candidates = [normalized, normalized.split("-", 1)[0], "es", "en"]
+    for candidate in candidates:
+        if not candidate:
+            continue
+        for row in rows:
+            if normalize_language_code(row.get("language") or "") == candidate:
+                return row
+    return rows[0]
+
+
+def _identity_visual_description_text(translation: dict, *, kind: str = "") -> str:
+    """Return the language-selected heraldic/flag explanation for the ficha.
+
+    Generic Wikidata entity descriptions (for example "province of Spain") are
+    useful metadata, but they are not the visual explanation requested on the
+    ficha.  Only show text that is clearly curated for the visual identity: a
+    blazon, configured/manual text, or test text.  This keeps the Description
+    field language-specific without pretending a generic Wikidata description is
+    a heraldic or vexillological explanation.
+    """
+    if not isinstance(translation, dict):
+        return ""
+    blazon = str(translation.get("blazon") or "").strip()
+    if blazon:
+        return blazon
+    description = str(translation.get("description") or "").strip()
+    if not description:
+        return ""
+    source = str(translation.get("source") or "").lower()
+    curated_sources = ("config", "manual", "curated", "test")
+    if source.startswith(curated_sources):
+        return description
+    if kind == "flag" and any(word in description.lower() for word in ("flag", "bandera", "drapeau", "flagge", "bandiera", "застав", "علم")):
+        return description
+    return ""
+
+
+def _identity_description_label(kind: str):
+    if kind == "flag":
+        return _("Descripcion de la bandera")
+    if kind in {"coat", "seal"}:
+        return _("Descripcion heraldica")
+    return _("Descripcion")
+
+
+def _identity_local_media_path(value: str) -> str:
+    """Return a safe MEDIA_ROOT-relative path if the identity target is local."""
+    relative_path = str(value or "").replace("\\", "/").strip().lstrip("/")
+    media_url = str(getattr(settings, "MEDIA_URL", "/media/") or "/media/")
+    media_prefix = media_url.strip("/") + "/"
+    if relative_path.startswith(media_prefix):
+        relative_path = relative_path[len(media_prefix):]
+    if not relative_path.startswith("visual_assets/"):
+        return ""
+    media_root = Path(getattr(settings, "MEDIA_ROOT", "") or "")
+    if not media_root:
+        return ""
+    absolute = (media_root / relative_path).resolve()
+    try:
+        absolute.relative_to(media_root.resolve())
+    except ValueError:
+        return ""
+    return relative_path if absolute.is_file() else ""
+
+
+def _media_file_url(relative_path: str) -> str:
+    media_url = str(getattr(settings, "MEDIA_URL", "/media/") or "/media/")
+    if not media_url.endswith("/"):
+        media_url += "/"
+    return urljoin(media_url, quote(str(relative_path or "").replace("\\", "/"), safe="/():,._-"))
+
+
+def _identity_commons_filename_for_local_path(local_path: str) -> str:
+    if not local_path:
+        return ""
+    try:
+        if not visual_asset_tables_exist():
+            return ""
+    except Exception:
+        return ""
+    normalized = str(local_path).replace("\\", "/")
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT commons_filename
+                  FROM ciudades_del_mundo_visual_asset
+                 WHERE REPLACE(local_path, '\\', '/') = %s
+                 ORDER BY updated_at DESC, id DESC
+                 LIMIT 1
+                """,
+                [normalized],
+            )
+            row = cursor.fetchone()
+    except (OperationalError, ProgrammingError):
+        return ""
+    return str(row[0] or "") if row else ""
 
 
 def stats_view(request):
@@ -1383,6 +1692,7 @@ def task_detail(request, task_id):
         {
             "task": task,
             "task_output": task_manager.output_text(task),
+            "task_output_offset": task_manager.output_offset(task),
         },
     )
 
@@ -1700,7 +2010,7 @@ def _admin_root_population_rows(
             ),
         }
         if include_visual_assets:
-            visual_assets = _visual_assets_payload("country", row["code"])
+            visual_assets = _visual_assets_payload("country", row["code"], include_fallbacks=False)
             item["visual_assets"] = visual_assets
             item["flag_asset"] = visual_assets.get("flag", {})
             item["seal_asset"] = visual_assets.get("seal", {})
@@ -1709,9 +2019,9 @@ def _admin_root_population_rows(
     return rows
 
 
-def _visual_assets_payload(entity_type: str, entity_key: str) -> dict:
+def _visual_assets_payload(entity_type: str, entity_key: str, *, include_fallbacks: bool = True) -> dict:
     try:
-        return get_visual_assets_for_entity(entity_type, str(entity_key or ""))
+        return get_visual_assets_for_entity(entity_type, str(entity_key or ""), include_fallbacks=include_fallbacks)
     except (OperationalError, ProgrammingError):
         return {}
     except Exception:
@@ -1745,7 +2055,7 @@ def _country_detail_payload(country_code: str, selected_level: int | None = None
     area_total = country_record["area_km2"] or 0
     rows = _country_table_rows(country_code, root, selected_level, population_total, area_total)
     subdivision_count = _visible_admin_areas().filter(country_code=country_code).count() - (1 if root else 0)
-    visual_assets = _visual_assets_payload("country", country_code)
+    visual_assets = _visual_assets_payload("country", country_code, include_fallbacks=False)
 
     return {
         "country": {
@@ -1784,16 +2094,85 @@ def _country_detail_payload(country_code: str, selected_level: int | None = None
 
 
 def _admin_area_detail_payload(area: AdminArea) -> dict:
+    children = _admin_area_browser_children(area)
+    return {
+        "area": _admin_area_identity_payload(area, children),
+        "children": _admin_area_child_rows(children, area.pop_latest, area.area_km2),
+    }
+
+
+def _admin_area_browser_children(area: AdminArea) -> list[AdminArea]:
     children = list(
         _visible_admin_areas()
         .filter(parent=area)
         .select_related("parent")
         .order_by("name")
     )
-    return {
-        "area": _admin_area_identity_payload(area, children),
-        "children": _admin_area_child_rows(children, area.pop_latest, area.area_km2),
+    extras = _same_name_root_children_with_descendants(area, {child.id for child in children})
+    if not extras:
+        return _collapse_same_name_flat_children(children)
+
+    return _collapse_same_name_flat_children([*children, *extras])
+
+
+def _collapse_same_name_flat_children(children: list[AdminArea]) -> list[AdminArea]:
+    if not children:
+        return children
+
+    child_ids = [child.id for child in children]
+    children_with_descendants = set(
+        _visible_admin_areas()
+        .filter(parent_id__in=child_ids)
+        .values_list("parent_id", flat=True)
+    )
+    names_with_descendants = {
+        _area_name_key(child.name)
+        for child in children
+        if child.id in children_with_descendants
     }
+    collapsed = [
+        child
+        for child in children
+        if _area_name_key(child.name) not in names_with_descendants or child.id in children_with_descendants
+    ]
+    return sorted(collapsed, key=lambda child: (_area_name_key(child.name), child.level, child.id))
+
+
+def _same_name_root_children_with_descendants(area: AdminArea, existing_ids: set[str]) -> list[AdminArea]:
+    root = _area_country_root(area)
+    if not root or area.parent_id != root.id:
+        return []
+
+    candidates = list(
+        _visible_admin_areas()
+        .filter(country_code=area.country_code, parent=root, level__gt=area.level)
+        .exclude(id__in=existing_ids)
+        .select_related("parent")
+        .order_by("name", "level")
+    )
+    if not candidates:
+        return []
+
+    candidate_ids = [candidate.id for candidate in candidates]
+    candidates_with_descendants = set(
+        _visible_admin_areas()
+        .filter(parent_id__in=candidate_ids)
+        .values_list("parent_id", flat=True)
+    )
+    area_name_key = _area_name_key(area.name)
+    return [
+        candidate
+        for candidate in candidates
+        if candidate.id in candidates_with_descendants and _area_name_key(candidate.name) == area_name_key
+    ]
+
+
+def _area_name_key(value: str) -> str:
+    return re.sub(r"\s+", " ", str(value or "").strip()).casefold()
+
+
+def _admin_area_browser_child_count(area: AdminArea) -> int:
+    return len(_admin_area_browser_children(area))
 
 
 def _admin_area_identity_payload(area: AdminArea, children: list[AdminArea] | None = None) -> dict:
@@ -1812,7 +2191,7 @@ def _admin_area_identity_payload(area: AdminArea, children: list[AdminArea] | No
         "area_km2": _number_or_none(area.area_km2),
         "density": _number_or_none(area.density) or _density(area.pop_latest, area.area_km2),
         "capital": _capital_names_for_area(area),
-        "subdivision_count": len(children) if children is not None else _visible_admin_areas().filter(parent=area).count(),
+        "subdivision_count": len(children) if children is not None else _admin_area_browser_child_count(area),
         "type_summary": [],
         "wikidata_query": _area_wikidata_query(area, country_root),
         "wikidata_id": "",
@@ -1837,7 +2216,7 @@ def _admin_area_child_rows(children: list[AdminArea], population_total, area_tot
             "density": _number_or_none(child.density) or _density(child.pop_latest, child.area_km2),
             "population_percent": _ratio_percent(child.pop_latest, population_total),
             "area_percent": _ratio_percent(child.area_km2, area_total),
-            "child_count": _visible_admin_areas().filter(parent=child).count(),
+            "child_count": _admin_area_browser_child_count(child),
             "detail_url": _admin_area_detail_url(child),
         }
         for child in children
@@ -2248,19 +2627,14 @@ def _first_order_card(area: AdminArea, population_total, area_total, *, include_
         "density": _number_or_none(area.density) or _density(area.pop_latest, area.area_km2),
         "population_percent": _ratio_percent(population, population_total),
         "area_percent": _ratio_percent(area_km2, area_total),
-        "child_count": _visible_admin_areas().filter(parent=area).count(),
+        "child_count": _admin_area_browser_child_count(area),
         "detail_url": _admin_area_detail_url(area),
         "children": _second_order_share_rows(area) if include_children else [],
     }
 
 
 def _second_order_share_rows(area: AdminArea) -> list[dict]:
-    children = (
-        area.children.exclude(city_merge_status=AdminArea.CityMergeStatus.SOURCE)
-        .exclude(city_merge_status=HIDDEN_CITY_MERGE_STATUS)
-        .select_related("parent")
-        .order_by("name")
-    )
+    children = _admin_area_browser_children(area)
     return [
         {
             "name": _display_name(child.name, child.name, country_code=child.country_code),
@@ -2922,9 +3296,11 @@ def _config_row_status(row: dict) -> str:
     if row.get("error"):
         return "failed"
     status = str(row.get("task_display_status") or "").strip().casefold()
-    if status in {"validating", "validated", "populating", "populated"}:
+    if status in {"validating", "validated", "populating", "populated", "stopped"}:
         return status
-    if status in {"failed", "cancelled", "invalid"}:
+    if status == "cancelled":
+        return "stopped"
+    if status in {"failed", "invalid"}:
         return "failed"
     if status in {"running", "queued"}:
         return status
@@ -2940,19 +3316,34 @@ def _can_validate_config_status(status: str) -> bool:
         "populating",
         "running",
         "queued",
+        "stopped",
     }
 
 
 def _can_scrape_config_status(status: str) -> bool:
-    """Population is only available immediately after a successful validation."""
-    return str(status or "pending").strip().casefold() == "validated"
+    """Population is available after validation and can be re-run after success."""
+    return str(status or "pending").strip().casefold() in {"validated", "populated", "stopped"}
+
+
+def _config_task_key_for_row(row: dict) -> str:
+    task = row.get("active_task") or row.get("scrape_task") or row.get("validate_task")
+    return str(getattr(task, "key", "") or "")
 
 
 def _decorate_config_workflow_flags(row: dict) -> dict:
     status = _config_row_status(row)
     row["status_filter"] = status
-    row["can_validate"] = _can_validate_config_status(status)
-    row["can_scrape"] = _can_scrape_config_status(status)
+    if status == "stopped":
+        task_key = _config_task_key_for_row(row)
+        row["can_validate"] = task_key.startswith("validate-config:")
+        row["can_scrape"] = task_key.startswith("scrape:")
+    else:
+        row["can_validate"] = _can_validate_config_status(status)
+        row["can_scrape"] = _can_scrape_config_status(status)
+    task = row.get("active_task")
+    row["can_stop"] = status in {"validating", "populating", "running", "queued"} and bool(
+        task and getattr(task, "is_active", False)
+    )
     return row
 
 
@@ -2965,6 +3356,12 @@ def _eligible_config_slugs_for_bulk(action: str) -> list[str]:
         return [str(row["slug"]) for row in rows if row.get("can_validate")]
     if action == "scrape":
         return [str(row["slug"]) for row in rows if row.get("can_scrape")]
+    if action == "scrape-unpopulated":
+        return [
+            str(row["slug"])
+            for row in rows
+            if row.get("can_scrape") and str(row.get("status_filter") or "") != "populated"
+        ]
     return []
 
 
@@ -3015,6 +3412,7 @@ def _latest_bulk_config_progress(slug: str, *, record: ScrapingConfig | None = N
     """Return the latest bulk task/progress affecting a config row, if any."""
     candidates = [
         task_manager.latest_for_key("scrape:all"),
+        task_manager.latest_for_key("scrape:unpopulated"),
         task_manager.latest_for_key("validate-config:all"),
     ]
     if record is not None:
@@ -3033,8 +3431,9 @@ def _latest_bulk_config_progress(slug: str, *, record: ScrapingConfig | None = N
             continue
         status = str(item.get("status") or "")
         if status:
-            if not task.is_active and task.status in {"failed", "cancelled"} and status in {"validating", "populating", "running", "queued"}:
-                status = "failed"
+            terminal_status = _terminal_config_progress_status(task)
+            if terminal_status and not getattr(task, "is_active", False):
+                status = _progress_status_after_terminal_task(status, terminal_status)
             return task, status
     return None, ""
 
@@ -3055,7 +3454,9 @@ def _config_task_display_status(task) -> str:
             return "populating"
         if key.startswith("validate-config:"):
             return "validating"
-    if status in {"failed", "cancelled"}:
+    if status in {"stopped", "cancelled"}:
+        return "stopped"
+    if status == "failed":
         return "failed"
     return status or "pending"
 

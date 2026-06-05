@@ -1,6 +1,0 @@
-LEGAL_SUBDIVISION = 1
-
-[[pages]]
-source = "table"
-path = ["admin"]
-lowest_level = 0

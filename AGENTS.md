@@ -32,10 +32,10 @@ administrative geography data. It:
 - exports derived hierarchies to CSV and Excel
 
 The active scraping configuration is SQL-backed in `ScrapingConfig.content`
-using TOML text as the editable content format. Bundled `subdivisions/*.toml`
-files are temporary seeds/import-export artifacts, not the runtime source. Do
-not add old-style Python country modules for ordinary CityPopulation scraping
-unless the user explicitly asks.
+using TOML text as the editable content format. Local git-ignored
+`subdivisions/*.toml` files are temporary seed/import-export artifacts, not the
+runtime source. Do not add old-style Python country modules for ordinary
+CityPopulation scraping unless the user explicitly asks.
 
 ## Architectural Direction
 
@@ -78,7 +78,9 @@ project's scope is enough.
 - Read this file first, then `README.md` only if more context is needed.
 - Check `git status --short` before editing. The tree may contain user changes.
 - Keep changes scoped. Do not refactor unrelated code while doing data/config
-  work.
+  work. Do not modify already working UI/UX, table sizes, card proportions,
+  spacing, layout, routes or behavior unless the user explicitly asks for that
+  concrete change.
 - For every code/config change, review whether `AGENTS.md` needs an update and
   add the relevant new context before finishing.
 - Always translate new user-facing text added to the project. Wrap template
@@ -87,7 +89,7 @@ project's scope is enough.
 - For every new feature, add or update user/developer documentation in the
   appropriate place before finishing.
 - Avoid touching generated or local artifacts unless the task requires it:
-  `__pycache__/`, `.idea/`, `db.sqlite3`, `excels/`.
+  `__pycache__/`, `.idea/`, `db.sqlite3`, `db.sqlite3-*`, `excels/`.
 - Do not run network scraping unless the user asks or the task clearly requires
   fresh CityPopulation data.
 - Prefer `rg` and `rg --files` for search if available. In this Windows shell it
@@ -102,13 +104,18 @@ Top-level:
 - `manage.py`: Django command entry point.
 - `README.md`: human project overview and common commands.
 - `AGENTS.md`: this agent context.
-- `db.sqlite3`: local SQLite database. Treat as data, not source.
-- `excels/`: generated CSV/XLSX exports.
+- `db.sqlite3` and `db.sqlite3-*`: local SQLite database and sidecar files.
+  Treat as data, not source.
+- `excels/`: git-ignored generated CSV/XLSX exports; do not commit exports.
 - `locale/`: Django gettext catalogs for the web UI (`django.po` source and
   compiled `django.mo` files).
-- `media/`: local media files served in development; country visual identity
-  images are cached under `media/visual_assets/<kind>/<country_code>/`, while
-  source subdivision assets use `media/visual_assets/<kind>/<AdminArea.id>/`.
+- `media/`: git-ignored local media files served in development. Visual identity
+  should not download Commons/Wikimedia files during normal scraping; persist
+  `commons_filename`, `remote_url`, QID and translations in SQL, and let the UI
+  render Wikimedia `Special:FilePath` URLs directly. Legacy local paths under
+  `media/visual_assets/<kind>/...` are read only as compatibility fallbacks or
+  explicit `--repair-local-only` maintenance output, never as the preferred
+  display source.
 - `ciudades_del_mundo/`: Django project and app package.
 
 Django package:
@@ -134,12 +141,14 @@ Layered code:
 
 Data/config packages:
 
-- `subdivisions/*.toml`: temporary seed/export files for SQL `ScrapingConfig`
-  rows; do not read them as runtime configs.
+- `subdivisions/*.toml`: git-ignored temporary seed/export files for SQL
+  `ScrapingConfig` rows; do not read them as runtime configs and do not commit
+  exported copies.
 - `source_population_indices.toml`: global source `AdminArea` population
   multipliers used by derived builds when a population year is provided.
-- `historical_divisions/*.py`: reusable historical recipe fragments.
-- `new_subdivisions/*.py`: derived hierarchy recipes.
+- `historical_divisions/*.py`: git-ignored local reusable historical recipe
+  fragments.
+- `new_subdivisions/*.py`: git-ignored local derived hierarchy recipes.
 - `format_html/*.txt`: sample or reference HTML formats.
 
 ## Main Models
@@ -223,16 +232,16 @@ Active configs live in SQL:
 ciudades_del_mundo.models.ScrapingConfig
 ```
 
-The editable `ScrapingConfig.content` field stores TOML text. Temporary bundled
+The editable `ScrapingConfig.content` field stores TOML text. Temporary local
 seed/export files live in:
 
 ```text
 ciudades_del_mundo/subdivisions/<slug>.toml
 ```
 
-Runtime code must not read those TOML files as a fallback. Use
-`py manage.py sync_scraping_configs` to import/export them while the temporary
-bridge exists.
+Runtime code must not read those TOML files as a fallback. They are git-ignored
+local import/export artifacts used only by `py manage.py sync_scraping_configs`
+while the temporary bridge exists.
 
 The SQL-only runtime loader is:
 
@@ -261,7 +270,8 @@ Important `ScrapingConfig.content` TOML fields:
 
 `[[pages]]` fields:
 
-- `source`: one of `admin`, `table`, `double`, `cities`, `infosection`.
+- `source`: one of `admin`, `auto`, `table`, `double`, `cities`,
+  `infosection`.
 - `path`: string or array; prefer array even for one path.
 - `lowest_level`: first level parsed on that page; legacy alias `level`.
 - `area_km2`: optional area override for every row from that page; legacy
@@ -319,20 +329,37 @@ ciudades_del_mundo/application/scrape_admin_areas.py
 
 1. For each configured page, select scraper by `page.html_format`.
 2. Build URL with `build_page_url`.
-3. Scrape HTML into `ScrapedAdminArea` rows.
-4. Apply page-level `area_km2` and `area_overrides`.
-5. Deduplicate by `(country_code, code)`, keeping first appearance.
-6. Normalize synthetic country parent codes when a page root uses a different
+3. Scrape HTML into `ScrapedAdminArea` rows. When `page_workers > 1`,
+   download independent CityPopulation pages concurrently but parse, emit
+   completion events, seed assets and write SQL in the configured page order so
+   extracted data and side effects stay equivalent to the sequential pipeline.
+4. When enabled by the command, reuse that same downloaded HTML to seed
+   CityPopulation visual assets for the root country and configured
+   subdivision levels without fetching the page a second time. If the page
+   exposes CityPopulation `data-wd` QIDs, asset seeding uses those exact links;
+   otherwise it builds one Wikidata SPARQL country index from the root country
+   QID (`?item wdt:P17 wd:<country_qid>`) and matches rows by normalized label
+   and parent label before falling back to per-entity Wikidata search.
+5. Apply page-level `area_km2` and `area_overrides`.
+6. Deduplicate by `(country_code, code)`, keeping first appearance.
+7. Normalize synthetic country parent codes when a page root uses a different
    code than `country_code`.
-7. Infer missing parent codes from URL path slugs where unique.
-8. Apply `entity_merges`.
-9. Apply configured `cities`.
-10. In a transaction, optionally reset country rows, save all incoming rows,
+8. Infer missing parent codes from URL path slugs where unique.
+9. Apply `entity_merges`.
+10. Apply configured `cities`.
+11. In a transaction, optionally reset country rows, save all incoming rows,
     delete missing rows, refresh most-populated assignments, and assign
     representatives when configured.
 
 Scraper implementations:
 
+- `auto`: `CityPopulationAutoScraper`
+  - detects the CityPopulation HTML structure with
+    `detect_citypopulation_page_profile`
+  - delegates to the existing `admin`, `table`, `double` or `infosection`
+    scraper without changing SQL persistence behavior
+  - use for new configs when CityPopulation page shape is uncertain; keep
+    explicit source types when they are already known and tested
 - `admin`: `CityPopulationAdminScraper`
   - reads `table#tl`
   - uses nested `tbody.adminN` sections
@@ -376,16 +403,18 @@ can modify or delete many `AdminArea` rows in `db.sqlite3`.
 
 ## Derived Hierarchy Recipes
 
-Derived recipes live in:
+Derived recipes live in local git-ignored Python modules:
 
 ```text
 ciudades_del_mundo/new_subdivisions/*.py
 ciudades_del_mundo/historical_divisions/*.py
 ```
 
-The build command imports both packages and loads modules that define
-`DIVISIONS`. Historical modules can also be directly buildable if they expose
-`DIVISIONS`.
+The build command imports both packages when present and loads modules that
+define `DIVISIONS`. Historical modules can also be directly buildable if they
+expose `DIVISIONS`. If one of these local packages is absent, the command skips
+it; building a specific derived country still requires a local recipe module
+that exposes `DIVISIONS`.
 
 Common module globals:
 
@@ -669,17 +698,17 @@ py manage.py sync_scraping_configs --force
 py manage.py sync_scraping_configs --to-toml --output-dir .tmp-config-export
 ```
 
-`ScrapingConfig` SQL rows are the operational source of truth. The bundled
-`subdivisions/*.toml` files are temporary versioned seed files for first-run
-bootstrap and rebuilds from a clean clone. `PythonScrapingConfigRepository`
-reads SQL only; it does not fall back to TOML files. Keep this bridge explicit
-and remove TOML import/export before publication if SQL-only configuration
-becomes final.
+`ScrapingConfig` SQL rows are the operational source of truth. Local
+git-ignored `subdivisions/*.toml` files are temporary seed/export files for
+manual import/export only. `PythonScrapingConfigRepository` reads SQL only; it
+does not fall back to TOML files. Keep this bridge explicit and remove TOML
+import/export before publication if SQL-only configuration becomes final.
 
 List scrape URLs without network fetch from the CLI only; the web UI no longer exposes a URLs action:
 
 ```powershell
 py manage.py scrape_subdivisions --list-pages spain
+py manage.py scrape_subdivisions --seed-assets-from-pages spain
 ```
 
 Run scraping, network-dependent and DB-mutating:
@@ -687,24 +716,115 @@ Run scraping, network-dependent and DB-mutating:
 ```powershell
 py manage.py scrape_subdivisions spain
 py manage.py scrape_subdivisions spain morocco portugal
+py manage.py scrape_subdivisions_with_assets spain --page-workers=4
+py manage.py scrape_subdivisions_with_assets spain --page-workers=1  # sequential compatibility mode
 ```
 
-Seed or repair visual identity assets, network-dependent and file-generating:
+`--page-workers` defaults to `4` for management commands and can be overridden
+with `CIUDADES_SCRAPE_PAGE_WORKERS`. Keep the default web action at
+`--page-workers=4`; use `1` only when reproducing the old one-page-at-a-time
+behavior. Do not parallelize database writes or asset persistence unless tests
+prove row order, `delete_missing`, progress logs and visual asset results remain
+unchanged.
+
+Seed visual identity metadata, network-dependent but URL-only by default:
 
 ```powershell
 py manage.py ensure_visual_assets spain
 py manage.py ensure_visual_assets --all
 py manage.py ensure_visual_assets --country-subdivisions spain --levels 1,2
 py manage.py ensure_visual_assets --admin-area spain_cat
-py manage.py ensure_visual_assets --repair-local-only
+py manage.py ensure_visual_assets --repair-local-only  # explicit legacy local-file repair only
+py manage.py ensure_visual_assets spain --no-citypopulation-fetch
+py manage.py ensure_visual_assets spain --download  # opt-in; avoid during normal scraping
 ```
 
 `ensure_visual_assets` uses Wikidata/Commons first for country and subdivision
 flag/coat/seal images. CityPopulation image scanning is only a fallback for
-explicitly labelled images; do not treat generic `*_2_3.svg` language icons from
-CityPopulation as country flags. `scrape_subdivisions_with_assets` seeds country
-assets and, by default, AdminArea subdivision assets for levels 1 and 2; use
-`--skip-subdivision-assets` or `--subdivision-asset-levels` for expensive runs.
+explicitly labelled or clearly named images; do not treat generic `*_2_3.svg`
+language icons from CityPopulation as country flags.
+Wikidata image claim parsing must skip `novalue` or malformed claims, prefer
+usable preferred/normal claims before deprecated ones, and accept Commons
+`Special:FilePath` URLs as filenames; do not regress it to first-claim-only
+parsing.
+Do not cache Commons SVG/PNG files during normal `Popular` or
+`scrape_subdivisions_with_assets` runs. The default flow stores URLs and
+metadata only; `--download`/`--download-assets` are explicit maintenance opt-ins
+and should be avoided because they can trigger Wikimedia 429s. If legacy local
+repair is used, validate file magic against the extension and never save
+rasterized PNG bytes as `.svg`.
+For root country assets, prefer an explicit TOML/SQL `wikidata_id` before any
+network search; this avoids one request per page and prevents translated-name
+misses such as `España`. If no configured QID exists, prefer Wikidata search by
+country name over CityPopulation page `data-wd` because some page-level QIDs can
+point to a non-country entity; subdivision `data-wd` values may still be used as
+exact entity matches. Country TOML seeds may also declare `[visual_assets.flag]`
+or `[visual_assets.coat]` with `commons_filename`/`remote_url` for explicit
+seeding/import flows, but `/countries/` must not render TOML or local-folder
+visual fallbacks when the SQL asset row does not exist.
+`scrape_subdivisions_with_assets` now seeds
+CityPopulation assets from the already-downloaded scraping page, by default for
+the country/root plus all scraped AdminArea subdivision levels. Missing kinds are
+resolved server-side through Wikidata/Commons during that scrape-time asset
+seeding, storing remote URLs and translations instead of downloading files.
+Scrape-time seeding prefers CityPopulation
+`data-wd` QIDs when present, then one Wikidata SPARQL country query using
+`P17`, `P31`, `P131`, `P41`, `P94` and `P158`; matched QIDs are persisted in
+`ciudades_del_mundo_visual_asset.wikidata_id` for the corresponding country or
+`AdminArea.id`. Use `--skip-subdivision-assets` or `--subdivision-asset-levels`
+to tune page asset seeding, and use `ensure_visual_assets` only for explicit
+Wikidata/Commons metadata discovery. Local-file repair/download is legacy and
+opt-in only.
+For a full country visual-identity run, the target coverage is every
+CityPopulation-backed entity stored as `AdminArea`: root country, autonomous
+communities/regions, provinces, municipalities, localities and other scraped
+levels present in the SQL config. Do not treat the default levels 1 and 2 as the
+complete requirement when the user asks for all flags/coats; pass or implement
+all required `--subdivision-asset-levels` and keep the resolver able to fall
+back from page-associated assets to Wikidata/Commons per persisted entity.
+If logs show `CityPopulation sin candidatos asociados` on locality pages, the
+page scan alone is insufficient; continue with QID/index/per-entity resolution
+instead of marking those entities permanently missing. HTTP 429 responses from
+Wikidata/Commons mean the scraper is still doing too much network I/O; reduce
+requests with page QIDs, one country SPARQL index and `wbgetentities` batches.
+They are not proof that an asset has no candidate.
+Spain has special locality depth rules in
+`ciudades_del_mundo/subdivisions/spain.toml`: province locality pages use
+`lowest_level = 3`, uniprovincial communities use `lowest_level = 2`, and
+Ceuta/Melilla locality pages also use `lowest_level = 2` so their localities are
+not pushed one level too deep. Do not merge those Spain blocks back into a single
+locality block. CityPopulation pages such as `spain/ceuta/` and
+`spain/melilla/` expose a synthetic root named like `Ceuta (Autonomous City)` and
+only one `table#ts`; the scraper must treat that `ts` table as the first child
+level and the post-processor must normalize parenthetical root suffixes before
+attaching children to the real `CEU`/`MEL` root.
+`/countries/` and identity panels should prefer `commons_filename`/`remote_url`
+over local files. Country cards and the country detail panel in `/countries/`
+must render only SQL-registered country visual assets; if a flag, coat or seal
+has no usable SQL asset row, the browser shows the built-in placeholder icon and
+must not hydrate it from Wikidata, TOML seeds, CityPopulation, Commons search or
+local media folders. Use
+`get_visual_assets_for_entity(..., include_fallbacks=False)` for SQL-only
+country asset payloads. The frontend for `/countries/` must consume only
+`image_url`, `remote_url` or `local_url` values supplied by that payload; do not
+construct ad-hoc Commons `Special:FilePath` URLs from `commons_filename` in that
+page. Missing flag and shield placeholders should occupy the same visual box as
+a real country image so card/detail layout does not jump; use CSS-drawn flag
+and shield placeholders colored from the active theme variables, not emoji
+glyphs. The readable Ficha route is
+`/identity/<kind>/entity/<entity_type>/<entity_key>/` (for example
+`/identity/flag/entity/country/spain/`), and legacy
+`/identity/<kind>/<visual_assets...>/` paths must resolve the stored asset when
+possible. Clicking visual identity images in detail panels must open the
+existing image preview popup first; do not bypass it by navigating directly to
+the Ficha. Country-card flags in `/countries/` are passive media inside the
+card and must not open the preview popup. The popup's `Ficha` action may open
+the readable identity page in a new window/tab. The Ficha must show only one
+description: the active Django language (`LANGUAGE_CODE`) selected from stored
+translations. Do not render a "Descripciones multiidioma" table. The
+Description field is reserved for curated heraldic/vexillological explanations
+(blazon, symbolism, colors, adoption/context), not generic Wikidata entity
+descriptions.
 
 Assign capitals on scraped rows, DB-mutating:
 
@@ -767,6 +887,8 @@ Existing tests:
 - `test_nuevo_admin_excel_export.py`: export row ordering.
 - `test_dashboard.py`: dashboard summary metrics, dynamic root-country
   population JSON and country display labels.
+- `test_visual_assets.py`: CityPopulation page-HTML visual asset seeding and
+  persisted asset metadata.
 
 Testing guidance:
 
@@ -804,7 +926,8 @@ If the user asks to fix a scraper:
 
 If the user asks to build or change an empire/country derived hierarchy:
 
-- edit a module under `new_subdivisions/` or `historical_divisions/`
+- edit or create a local git-ignored module under `new_subdivisions/` or
+  `historical_divisions/`
 - check source country and municipal level
 - watch for duplicate hierarchical codes
 - prefer explicit `code` values
@@ -857,9 +980,11 @@ If the user asks about web UI:
   API-driven country browser, `/stats/` as its compatibility redirect,
   `/delete/` for confirmed data deletion and `/tasks/` for
   in-memory task output/history; `/map/<source>/<id>/` shows a map and visual
-  identity lookup for one `AdminArea` or `NuevoAdminArea`, and
-  `/identity/<kind>/<filename>/` shows the internal placeholder detail page for
-  resolved flag/coat images
+  identity lookup for one `AdminArea` or `NuevoAdminArea`;
+  `/identity/<kind>/entity/<entity_type>/<entity_key>/` shows the readable
+  internal detail page with Wikimedia image URL plus stored translations, while
+  `/identity/<kind>/<filename>/` remains a legacy resolver for Commons filenames
+  and local `visual_assets/...` paths
 - large tables in `/areas/` and `/derived/<id>/` are loaded asynchronously from
   partial endpoints (`/areas/table/`, `/derived/<id>/table/`), with advanced
   filters and Select2-enhanced selects. Keep non-JS/native-select fallback
@@ -890,6 +1015,14 @@ If the user asks about web UI:
   First-order comparison rows are shown as a compact client-sortable table below
   the two donuts; its header is sticky inside the table scroll area and the table
   should avoid horizontal scroll on desktop by keeping numeric columns narrow.
+  On `/`, every dashboard/detail table except the country detail section titled
+  `Tabla de datos` must avoid horizontal scroll: color/numeric columns stay
+  intrinsic-width and nowrap; only name/type columns may wrap, and desktop views
+  should prefer wrapping over clipping. `Datos generales del pais`, `Tabla de
+  datos` and `Subdivisiones de primer orden` must use equal-width columns on
+  desktop. Compact share-table sort headers keep the full label and place the active
+  sort arrow immediately to the right of the label; the arrow must never wrap
+  below the text.
   Share summary tables also remain client-sortable with sticky headers.
   First-order share cards show each area's direct children at the next level with
   mini pie percentages when the country has fewer than 150 rows at that next
@@ -902,14 +1035,20 @@ If the user asks about web UI:
   identity on the left and its direct-child table on the right recursively until
   the area has no visible children. Direct-child panel titles are generated from
   the pluralized child entity types, joined with `y` when multiple types are
-  present. Those child tables are row-clickable, compact, and act as the legend
+  present. Country-card flags are not independently clickable; clicks on the
+  flag slot behave like clicks on the surrounding country card. Those child
+  tables are row-clickable, compact, and act as the legend
   for direct-child population/area donut charts; they include a text search and
   sort buttons on every data column, with `Tipo` kept as a compact standalone
   sortable column. If an area has no children, do not show the direct-child title;
   show a centered `Sin datos` empty state instead. Omit the area donut when no
-  child has area data. `/stats/` redirects to `/countries/` for compatibility and
-  `/stats/data/` still returns the older statistics chart payload for
-  compatibility. Frontend chart rendering is
+  child has area data. For mixed CityPopulation hierarchies where a first-level
+  area has a same-name direct country child at a deeper level with real
+  descendants, the recursive browser should prefer that deeper row over a flat
+  same-name child with no descendants so rows such as Ceuta/Melilla remain
+  drillable without duplicating shares. `/stats/` redirects to `/countries/` for
+  compatibility and `/stats/data/` still returns the older statistics chart
+  payload for compatibility. Frontend chart rendering is
   centralized in `ciudades_del_mundo/static/ciudades_del_mundo/app.js`
   as `window.CiudadesCharts`, using `[data-chart-widget]` containers for reusable
   bar and donut charts; dashboard donut items dispatch
@@ -924,16 +1063,15 @@ If the user asks about web UI:
   population and the top 10 by area. Countries outside that colored set are kept
   in the table with no marker and are aggregated into the `Otros paises` segment
   inside each donut. Country detail
-  visual identity uses persisted `ciudades_del_mundo_visual_asset` rows and
-  local files in `media/visual_assets/` first; browser-side Wikidata/Wikimedia
-  lookup remains a best-effort fallback using the server-provided country QID map
-  where known. Stored CityPopulation language icons such as wrong `*_2_3.svg`
-  flags are ignored in API payloads so the browser can fall back to Wikidata
-  instead of showing another country's flag. Flag and coat thumbnails open a
-  local preview overlay, then can open the internal
-  `/identity/<kind>/<filename>/` heraldry placeholder page or the full image.
-  The general panel stays hidden until that lookup and image load completes or
-  fails.
+  visual identity uses persisted `ciudades_del_mundo_visual_asset` rows with
+  Wikimedia/Commons URLs as the normal display source. The browser must not run
+  ad-hoc Wikidata searches, but it may render stored remote URLs directly.
+  Stored CityPopulation language icons such as wrong `*_2_3.svg` flags are
+  ignored in API payloads so the browser shows the placeholder instead of
+  another country's flag. Flag and coat thumbnails, plus the `Ficha` action,
+  open a new window on the readable internal route
+  `/identity/<kind>/entity/<entity_type>/<entity_key>/`. The page shows a
+  single language-selected description; do not show all translation rows.
 - The base web layout has a client-side style selector next to the language
   selector. The language picker is custom markup with CSS-drawn flag spans
   because native selects and emoji fonts may not render flags consistently. The
@@ -968,8 +1106,28 @@ If the user asks about web UI:
   toasts in the top-right corner, enter from the right, poll
   `/tasks/<id>/status/`, disable the clicked button immediately, refresh the
   config row from `/configs/<slug>/summary/` when finished, and refresh visible
-  task tables. Task tables on `/configs/` and `/tasks/` also poll periodically
-  so queued/running/completed states update without a manual reload. Local
+  task tables. A config can be populated when its workflow status is `validated`
+  or `populated`; this allows re-running population on already populated SQL
+  configs and means `Popular todo` should include both states. `Popular no
+  populados` launches only eligible rows whose config status is not `populated`.
+  Active per-config validation/population rows show `Parar` next to
+  `Validar`/`Popular`; it posts to `/configs/<slug>/task/stop/`, cancels the
+  active web task and renders the config workflow state as `stopped` (`Parado`
+  in the UI). If a queued/running web task is found after a server restart or
+  local power-off, recover it as terminal status `stopped`, not `failed`; rows
+  stopped during scraping must show the populate/resume action so the user can
+  continue by launching the same single-config scrape again. Task
+  tables on `/configs/` and `/tasks/` also poll periodically so
+  queued/running/completed states update without a manual reload. The
+  `validating` and `populating` config status badges are links to the active
+  task detail but must not show underline on hover; they render `Validando` or
+  `Populando` with a JS-driven fixed-width animated three-dot suffix so the pill
+  border does not resize during the animation; do not use CSS keyframes that
+  restart on every row re-render. Do not remove row refreshes entirely to
+  protect that animation: while a populate task is active, refresh the config row
+  from `/configs/<slug>/summary/` at the end of the three-dot cycle or an
+  equivalent low-frequency cadence so the badge can become `Populado` and the
+  `Popular` button can re-enable without waiting for a full page reload. Local
   pagination click handlers must be bound only to the pagination controls, never
   delegated broadly enough that ordinary table/button clicks can change pages.
   Dynamic client-paginated tables can opt into column sorting with
@@ -989,7 +1147,7 @@ If the user asks about web UI:
   `prefers-reduced-motion`.
 - All visible web data loads should show the shared circular
   `.loading-spinner`: async tables, API charts, country/detail panels, maps,
-  Wikidata visual identity lookups, country-card flag hydration, config source
+  Wikidata visual identity lookups, country-card flag rendering, config source
   entity lookups and config generation should not silently wait behind plain
   text.
 - `/configs/<slug>/` is a tabbed editor: Manual, Archivo, Scrapping and IA.
@@ -1017,16 +1175,25 @@ If the user asks about web UI:
 - web-launched tasks run `manage.py` subcommands in local subprocesses. A new
   task with the same key cancels/replaces the active one. Saving a SQL config
   content row or editable recipe from the UI also cancels/replaces the matching
-  active scrape/build task if there is one. `TaskManager` runs at most 3 subprocesses
+  active scrape/build task if there is one. Web-launched populate tasks use
+  `scrape_subdivisions_with_assets --no-download-assets --page-workers=4` so
+  independent CityPopulation HTML downloads overlap while the child command still
+  emits page-complete events in config order. `TaskManager` runs at most 1 subprocess
   at once; additional tasks remain `queued` and are dispatched FIFO when a
   running task finishes or is cancelled. `TaskManager` persists recent task
   history to `.web_tasks.json` and full per-task logs to `.web_task_logs/*.log`
-  in the repo root; both are git-ignored. `/tasks/` loads its task table
-  dynamically from `/tasks/table/` with a visible spinner and client-side
+  in the repo root; both are git-ignored. `/tasks/<id>/` renders the complete
+  stored log on initial load and then polls `/tasks/<id>/status/?since=<offset>`
+  for appended log fragments, so the detail page keeps the full console without
+  sending the whole log every second. `/tasks/` loads its task table dynamically
+  from `/tasks/table/` with a visible spinner and client-side
   pagination/sorting. Dynamic task-table rows are clickable through
   `data-row-href`; do not add a separate `Abrir` action button in those tables.
   Active or queued tasks loaded after a server restart are marked
   failed/interrupted because their subprocess/queue worker cannot be reattached.
+  Local tasks can continue after the browser closes, but cannot continue when
+  the PC or Django process is powered off; use an always-on machine or external
+  worker if true offline/background execution is required.
 - country dashboard/API chart and table data should use
   `_visible_admin_areas()` so rows with `AdminArea.city_merge_status == 3` stay
   hidden from `/api/countries/`, `/api/countries/<country_code>/`, `/stats/`
@@ -1053,6 +1220,10 @@ If the user asks about web UI:
 - The local project may contain files with Spanish text. Do not "fix" encoding
   or mojibake-looking terminal output unless the task is specifically about
   encoding.
+- When fixing encoding, verify source bytes with an explicit UTF-8 read because
+  PowerShell `Get-Content` can display UTF-8 files as mojibake. Avoid writing
+  non-ASCII text through PowerShell here-strings unless you use ASCII
+  `\uXXXX` escapes or another UTF-8-safe path.
 
 ## Known Risk Areas
 
@@ -1065,7 +1236,8 @@ If the user asks about web UI:
 - Web task history is persisted locally in `.web_tasks.json`, but running
   subprocesses and queued workers are still process-local and cannot continue
   after a development server restart. The task side effects in `db.sqlite3`,
-  temporary `subdivisions/*.toml` seed exports, `new_subdivisions/*.py` or
+  git-ignored temporary `subdivisions/*.toml` seed exports,
+  git-ignored local `historical_divisions/*.py` and `new_subdivisions/*.py` or
   `excels/` remain.
 - The web delete page performs confirmed bulk deletes for one source
   `AdminArea.country_code` or one derived `NuevoAdminArea.country_code`.

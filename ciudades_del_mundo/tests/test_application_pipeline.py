@@ -1,5 +1,6 @@
 from decimal import Decimal
 import unittest
+from unittest.mock import patch
 
 from ciudades_del_mundo.application.scrape_admin_areas import ScrapeAdminAreas
 from ciudades_del_mundo.domain import AdminAreaSummary, ScrapedAdminArea, ScrapingJobConfig, ScrapingPageConfig
@@ -37,6 +38,17 @@ class FakeScraper:
                 pop_latest=999,
             ),
         ]
+
+
+class FakeHtmlScraper(FakeScraper):
+    def scrape_page(self, base_url, country_code, page):
+        from ciudades_del_mundo.ports import ScrapedHtmlPage
+
+        return ScrapedHtmlPage(
+            entities=self.scrape(base_url, country_code, page),
+            html="<html>page</html>",
+            url="https://example.test/en/fake/admin/",
+        )
 
 
 class FakeRepository:
@@ -121,6 +133,27 @@ class ScrapeAdminAreasTests(unittest.TestCase):
         self.assertEqual(len(repository.most_populated_assignments), 1)
         self.assertEqual(repository.most_populated_assignments[0].most_populated_id, "fake_child")
 
+    def test_run_exposes_downloaded_html_on_page_complete_when_scraper_supports_it(self):
+        repository = FakeRepository()
+        completes = []
+        use_case = ScrapeAdminAreas(
+            repository=repository,
+            scrapers=[FakeHtmlScraper()],
+            on_page_complete=completes.append,
+        )
+        config = ScrapingJobConfig(
+            slug="fake",
+            country_code="fake",
+            base_url="https://example.test/en/",
+            legal_subdivision_level=1,
+            pages=[ScrapingPageConfig(path="fake/admin", html_format="table", lowest_level=0)],
+        )
+
+        use_case.run(config)
+
+        self.assertEqual(completes[0].html, "<html>page</html>")
+        self.assertEqual([entity.name for entity in completes[0].entities], ["Testland", "Child", "Duplicate Child"])
+
     def test_unknown_scraper_fails_before_persistence(self):
         repository = FakeRepository()
         use_case = ScrapeAdminAreas(repository=repository, scrapers=[])
@@ -136,3 +169,124 @@ class ScrapeAdminAreasTests(unittest.TestCase):
 
         self.assertEqual(repository.saved_entities, [])
 
+
+class PrefetchHtmlScraper:
+    html_format = "table"
+
+    def scrape_html(self, html, url, country_code, level):
+        code = url.rstrip("/").split("/")[-1]
+        return [
+            ScrapedAdminArea(
+                code=code,
+                name=html,
+                level=level,
+                country_code=country_code,
+                pop_latest=1,
+            )
+        ]
+
+
+class PrefetchPipelineTests(unittest.TestCase):
+    def test_page_prefetch_downloads_once_per_url_and_completes_in_config_order(self):
+        repository = FakeRepository()
+        starts = []
+        completes = []
+        config = ScrapingJobConfig(
+            slug="fake",
+            country_code="fake",
+            base_url="https://example.test/en/",
+            pages=[
+                ScrapingPageConfig(path="fake/a", html_format="table", lowest_level=1),
+                ScrapingPageConfig(path="fake/b", html_format="table", lowest_level=2),
+                ScrapingPageConfig(path="fake/a", html_format="table", lowest_level=3),
+            ],
+        )
+
+        def fake_fetch(url):
+            return f"html:{url}"
+
+        with patch(
+            "ciudades_del_mundo.application.scrape_admin_areas._fetch_citypopulation_html",
+            side_effect=fake_fetch,
+        ) as fetch:
+            use_case = ScrapeAdminAreas(
+                repository=repository,
+                scrapers=[PrefetchHtmlScraper()],
+                on_page_start=starts.append,
+                on_page_complete=completes.append,
+                page_workers=3,
+            )
+            use_case.run(config)
+
+        fetched_urls = [call.args[0] for call in fetch.call_args_list]
+        self.assertEqual(
+            fetched_urls,
+            [
+                "https://example.test/en/fake/a/",
+                "https://example.test/en/fake/b/",
+            ],
+        )
+        self.assertEqual([event.url for event in starts], [
+            "https://example.test/en/fake/a/",
+            "https://example.test/en/fake/b/",
+            "https://example.test/en/fake/a/",
+        ])
+        self.assertEqual([event.url for event in completes], [
+            "https://example.test/en/fake/a/",
+            "https://example.test/en/fake/b/",
+            "https://example.test/en/fake/a/",
+        ])
+        self.assertEqual([entity.level for entity in repository.saved_entities], [1, 2])
+        self.assertEqual(repository.saved_entities[0].name, "html:https://example.test/en/fake/a/")
+
+
+
+class SpanishSyntheticRootScraper:
+    html_format = "table"
+
+    def scrape(self, base_url, country_code, page):
+        return [
+            ScrapedAdminArea(code="spain", name="Spain", level=0, country_code="spain", pop_latest=1),
+            ScrapedAdminArea(code="51", name="Ceuta", level=1, country_code="spain", parent_code="spain", pop_latest=1),
+            ScrapedAdminArea(
+                code="spain",
+                name="Ceuta (Autonomous City)",
+                level=1,
+                country_code="spain",
+                parent_code=None,
+                pop_latest=1,
+                url="https://www.citypopulation.de/en/spain/ceuta/",
+            ),
+            ScrapedAdminArea(
+                code="51001",
+                name="Ceuta",
+                level=2,
+                country_code="spain",
+                parent_code="spain",
+                pop_latest=1,
+                url="https://www.citypopulation.de/en/spain/ceuta/ceuta/51001__ceuta/",
+            ),
+        ]
+
+
+class SpanishSyntheticRootTests(unittest.TestCase):
+    def test_autonomous_city_synthetic_root_children_attach_to_real_root(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[SpanishSyntheticRootScraper()])
+        config = ScrapingJobConfig(
+            slug="spain",
+            country_code="spain",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[ScrapingPageConfig(path="spain/ceuta", html_format="table", lowest_level=1)],
+        )
+
+        result = use_case.run(config)
+
+        self.assertEqual(result.found, 3)
+        municipality = next(entity for entity in repository.saved_entities if entity.code == "51001")
+        self.assertEqual(municipality.parent_code, "51")
+        self.assertEqual(municipality.level, 2)
+        self.assertEqual(
+            [entity.name for entity in repository.saved_entities if entity.code == "spain"],
+            ["Spain"],
+        )

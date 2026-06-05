@@ -32,8 +32,6 @@ from ciudades_del_mundo.services.source_population_indices import (
     SourcePopulationIndexConfigError,
     load_source_population_index_registry,
 )
-import ciudades_del_mundo.historical_divisions as subdivisions_pkg
-import ciudades_del_mundo.new_subdivisions as new_subdivisions_pkg
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +101,17 @@ def _load_config_package(package):
             if province_statuses is not None:
                 PROVINCE_STATUSES[mod_name] = province_statuses
                 break
+
+
+def _load_optional_config_package(package_name: str):
+    """Load local recipe packages when present; they are git-ignored by design."""
+    try:
+        package = importlib.import_module(package_name)
+    except ModuleNotFoundError as exc:
+        if exc.name == package_name:
+            return
+        raise
+    _load_config_package(package)
 
 
 def _source_country_for(country_id: str) -> str:
@@ -327,8 +336,8 @@ def _sorted_recipes(recipes):
     return sorted(recipes, key=_recipe_sort_key)
 
 
-_load_config_package(subdivisions_pkg)
-_load_config_package(new_subdivisions_pkg)
+_load_optional_config_package("ciudades_del_mundo.historical_divisions")
+_load_optional_config_package("ciudades_del_mundo.new_subdivisions")
 
 
 # ---------------------------------------------------------------------------

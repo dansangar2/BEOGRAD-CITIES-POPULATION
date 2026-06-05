@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import re
 
-from bs4 import BeautifulSoup
-
 from ciudades_del_mundo.domain import ScrapedAdminArea
 from ciudades_del_mundo.infrastructure.scraping.base import BaseCityPopulationScraper
 
@@ -16,8 +14,8 @@ class CityPopulationAdminScraper(BaseCityPopulationScraper):
     html_format = "admin"
 
     def scrape_html(self, html: str, url: str, country_code: str, level: int) -> list[ScrapedAdminArea]:
-        soup = BeautifulSoup(html, self._client.parser)
-        table = soup.find("table", id="tl")
+        soup, profile = self._soup_and_profile(html)
+        table = soup.find("table", id="tl") if profile.has_tl else None
         root = self._parse_root(soup, country_code=country_code, level=level, url=url)
 
         entities = [root] if root else []

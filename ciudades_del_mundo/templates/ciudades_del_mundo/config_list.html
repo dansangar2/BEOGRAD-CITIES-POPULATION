@@ -35,14 +35,14 @@
     min-width: 620px;
   }
 
-  /* La tabla SQL se compacta para dejar mÃ¡s anchura a Tareas recientes. */
+  /* La tabla SQL se compacta para dejar más anchura a Tareas recientes. */
   .configs-page-grid .config-col-slug { width: 126px; }
   .configs-page-grid .config-col-country { width: 136px; }
   .configs-page-grid .config-col-pages { width: 64px; }
   .configs-page-grid .config-col-cities { width: 100px; }
   .configs-page-grid .config-col-rows { width: 62px; }
   .configs-page-grid .config-col-task { width: 106px; }
-  .configs-page-grid .config-col-actions { width: 128px; }
+  .configs-page-grid .config-col-actions { width: 176px; }
 
   /* Tareas recientes gana espacio para que fecha, estado y nombre no queden cortados. */
   .configs-page-grid .task-col-label { width: 320px; }
@@ -100,6 +100,26 @@
   .configs-page-grid .config-table .status {
     min-height: 22px;
     padding-inline: 7px;
+    border: 1px solid transparent;
+    box-sizing: border-box;
+    text-decoration: none;
+  }
+
+  .configs-page-grid .config-table a.status:hover,
+  .configs-page-grid .config-table a.status:focus,
+  .configs-page-grid .config-table a.status:focus-visible {
+    text-decoration: none;
+  }
+
+  .configs-page-grid .config-table .status.config-status-loading {
+    white-space: nowrap;
+  }
+
+  .configs-page-grid .config-table .config-status-dots {
+    display: inline-block;
+    width: 1.6ch;
+    margin-left: 0.1ch;
+    text-align: left;
   }
 
   .configs-page-grid .config-table .error-text {
@@ -176,6 +196,12 @@
     border-color: #8b5cf6;
   }
 
+  .configs-page-grid .config-table .status.config-status-stopped {
+    background: #f1f5f9;
+    color: #475569;
+    border-color: #94a3b8;
+  }
+
   .configs-page-grid .config-table .status.config-status-running,
   .configs-page-grid .config-table .status.config-status-queued {
     background: #e0f2fe;
@@ -193,29 +219,33 @@
 <section class="page-head compact">
   <div>
     <p class="eyebrow">{% trans "Scraping CityPopulation" %}</p>
-    <h1>{% trans "Configuraciones paÃ­ses" %}</h1>
+    <h1>{% trans "Configuraciones países" %}</h1>
   </div>
   <div class="configs-page-actions">
     <form method="post" action="{{ config_validate_all_url }}" data-config-task-form data-action-label="{% trans 'Validar todo' %}">
       {% csrf_token %}
       <button type="submit" class="quiet" data-config-action="validate-all">{% trans "Validar todo" %}</button>
     </form>
+    <form method="post" action="{{ config_scrape_unpopulated_url }}" data-config-task-form data-action-label="{% trans 'Popular no populados' %}">
+      {% csrf_token %}
+      <button type="submit" class="quiet" data-config-action="scrape-unpopulated">{% trans "Popular no populados" %}</button>
+    </form>
     <form method="post" action="{{ config_scrape_all_url }}" data-config-task-form data-action-label="{% trans 'Popular todo' %}">
       {% csrf_token %}
       <button type="submit" data-config-action="scrape-all">{% trans "Popular todo" %}</button>
     </form>
-    <a class="button secondary" href="{% url 'ciudades_del_mundo:config_new' %}">{% trans "Nueva configuraciÃ³n" %}</a>
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:config_new' %}">{% trans "Nueva configuración" %}</a>
   </div>
 </section>
 
 {% if not config_bootstrap_status.ready %}
-<div class="startup-config-overlay" data-config-bootstrap data-bootstrap-url="{{ config_bootstrap_url }}" data-ready="0" data-loading-label="{% trans 'Cargando configuraciÃ³n inicial desde los TOML...' %}" data-done-label="{% trans 'ConfiguraciÃ³n inicial cargada. Continuando...' %}" data-error-label="{% trans 'No se pudo cargar la configuraciÃ³n inicial.' %}">
+<div class="startup-config-overlay" data-config-bootstrap data-bootstrap-url="{{ config_bootstrap_url }}" data-ready="0" data-loading-label="{% trans 'Cargando configuración inicial desde los TOML...' %}" data-done-label="{% trans 'Configuración inicial cargada. Continuando...' %}" data-error-label="{% trans 'No se pudo cargar la configuración inicial.' %}">
   <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
   <div class="startup-config-dialog" role="alertdialog" aria-modal="true" aria-labelledby="startup-config-title" aria-describedby="startup-config-description">
     <span class="loading-spinner startup-config-spinner" aria-hidden="true"></span>
     <p class="eyebrow">{% trans "Primer arranque" %}</p>
-    <h2 id="startup-config-title">{% trans "Cargando configuraciÃ³n inicial" %}</h2>
-    <p id="startup-config-description" data-bootstrap-message>{% trans "La tabla de configuraciones estÃ¡ incompleta. Estoy importando todos los TOML a la base de datos antes de continuar." %}</p>
+    <h2 id="startup-config-title">{% trans "Cargando configuración inicial" %}</h2>
+    <p id="startup-config-description" data-bootstrap-message>{% trans "La tabla de configuraciones está incompleta. Estoy importando todos los TOML a la base de datos antes de continuar." %}</p>
     <p class="muted" data-bootstrap-progress>
       {% blocktrans with stored=config_bootstrap_status.stored_count expected=config_bootstrap_status.expected_count missing=config_bootstrap_status.missing_count %}{{ stored }} de {{ expected }} configuraciones cargadas. Faltan {{ missing }}.{% endblocktrans %}
     </p>
@@ -224,11 +254,11 @@
 {% endif %}
 
 <div class="configs-page-grid">
-  <section class="panel config-list-panel" data-config-table data-empty-label="{% trans 'No hay datos' %}" data-pending-label="{% trans 'Por Validar' %}" data-running-label="{% trans 'En ejecuciÃ³n' %}" data-queued-label="{% trans 'En cola' %}" data-succeeded-label="{% trans 'Correcto' %}" data-failed-label="{% trans 'Fallo' %}" data-cancelled-label="{% trans 'Fallo' %}" data-started-label="{% trans 'Tarea lanzada' %}" data-finished-label="{% trans 'Tarea finalizada' %}" data-updating-label="{% trans 'Actualizando tabla' %}" data-log-label="{% trans 'Ver registro' %}" data-validating-label="{% trans 'Validando' %}" data-validated-label="{% trans 'Validado' %}" data-populating-label="{% trans 'Populando' %}" data-populated-label="{% trans 'Populado' %}" data-invalid-label="{% trans 'Fallo' %}">
+  <section class="panel config-list-panel" data-config-table data-empty-label="{% trans 'No hay datos' %}" data-pending-label="{% trans 'Por Validar' %}" data-running-label="{% trans 'En ejecución' %}" data-queued-label="{% trans 'En cola' %}" data-succeeded-label="{% trans 'Correcto' %}" data-failed-label="{% trans 'Fallo' %}" data-cancelled-label="{% trans 'Parado' %}" data-stopped-label="{% trans 'Parado' %}" data-started-label="{% trans 'Tarea lanzada' %}" data-finished-label="{% trans 'Tarea finalizada' %}" data-updating-label="{% trans 'Actualizando tabla' %}" data-log-label="{% trans 'Ver registro' %}" data-validating-label="{% trans 'Validando' %}" data-validated-label="{% trans 'Validado' %}" data-populating-label="{% trans 'Populando' %}" data-populated-label="{% trans 'Populado' %}" data-invalid-label="{% trans 'Fallo' %}">
     <form class="filters advanced-filters async-table-form config-table-filter-form" method="get" data-dynamic-filter="1" data-client-side-filter="1" data-target="#config-table-panel" data-url="{{ config_table_url }}" data-defer-bootstrap="{% if not config_bootstrap_status.ready %}1{% else %}0{% endif %}" data-loading="{% trans 'Cargando tabla...' %}" data-error="{% trans 'La tabla no se pudo cargar. Reintenta en unos segundos.' %}">
       <label>
-        {% trans "PaÃ­s o cÃ³digo" %}
-        <input type="search" name="q" autocomplete="off" placeholder="{% trans 'Buscar paÃ­s o cÃ³digo' %}">
+        {% trans "País o código" %}
+        <input type="search" name="q" autocomplete="off" placeholder="{% trans 'Buscar país o código' %}">
       </label>
       <label>
         {% trans "Estado" %}
@@ -240,6 +270,7 @@
           <option value="failed">{% trans "Fallo" %}</option>
           <option value="populating">{% trans "Populando" %}</option>
           <option value="populated">{% trans "Populado" %}</option>
+          <option value="stopped">{% trans "Parado" %}</option>
         </select>
       </label>
       <label>
@@ -268,7 +299,7 @@
         <select name="status" data-dynamic-filter-control>
           <option value="">{% trans "Todos" %}</option>
           <option value="queued">{% trans "En cola" %}</option>
-          <option value="running">{% trans "En ejecuciÃ³n" %}</option>
+          <option value="running">{% trans "En ejecución" %}</option>
           <option value="succeeded">{% trans "Correcto" %}</option>
           <option value="failed">{% trans "Error" %}</option>
           <option value="cancelled">{% trans "Cancelado" %}</option>

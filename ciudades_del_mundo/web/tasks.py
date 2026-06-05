@@ -139,6 +139,38 @@ class TaskManager:
                 pass
         return task.output_text[-max_chars:]
 
+    def output_offset(self, task: WebTask) -> int:
+        """Return the current persisted log offset used by incremental polling."""
+        log_path = self._resolve_log_path(task)
+        if log_path and log_path.exists():
+            try:
+                return int(log_path.stat().st_size)
+            except OSError:
+                pass
+        return len(task.output_text)
+
+    def output_since_text(self, task: WebTask, offset: int) -> tuple[str, int, bool]:
+        """Return log content appended after offset plus the new offset."""
+        offset = max(0, int(offset or 0))
+        log_path = self._resolve_log_path(task)
+        if log_path and log_path.exists():
+            try:
+                size = int(log_path.stat().st_size)
+                reset = offset > size
+                if reset:
+                    offset = 0
+                with log_path.open("rb") as handle:
+                    handle.seek(offset)
+                    chunk = handle.read()
+                return chunk.decode("utf-8", errors="replace"), size, reset
+            except OSError:
+                pass
+        text = task.output_text
+        reset = offset > len(text)
+        if reset:
+            offset = 0
+        return text[offset:], len(text), reset
+
     def _cancel_locked(self, task: WebTask) -> subprocess.Popen | None:
         task.cancel_requested = True
         self._append_output_locked(task, _("\n[CANCEL] Cancelación solicitada desde la interfaz.\n"))

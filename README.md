@@ -25,12 +25,14 @@ Abre `http://127.0.0.1:8000/` para el panel principal o
 El sistema de scraping ya no depende de modulos Python por pais. La
 configuracion activa vive en la tabla SQL `ScrapingConfig`; su campo `content`
 mantiene el mismo formato TOML para que siga siendo editable y versionable como
-texto. Los ficheros de `ciudades_del_mundo/subdivisions/*.toml` son solo seeds
-temporales para bootstrap/import-export.
+texto dentro de SQL. Los ficheros locales de
+`ciudades_del_mundo/subdivisions/*.toml` son solo seeds temporales para
+bootstrap/import-export, estan ignorados por Git y deben desaparecer cuando se
+retire el puente TOML/SQL.
 
 Cada configuracion SQL describe:
 
-- que scrapers usar (`admin`, `table`, `double`, `cities`, `infosection`)
+- que scrapers usar (`admin`, `auto`, `table`, `double`, `cities`, `infosection`)
 - que rutas scrapear
 - desde que nivel arrancar cada parser
 - reglas opcionales de normalizacion de ciudades
@@ -118,7 +120,7 @@ communes = []
 
 - `pages` agrupa paginas por parser y nivel.
 - `path` siempre es un array, aunque solo haya una ruta.
-- `source` selecciona el scraper.
+- `source` selecciona el scraper; `auto` detecta la estructura HTML real de la pagina CityPopulation y delega en `admin`, `table`, `double` o `infosection`.
 - `area_km2` permite indicar un tamano personalizado para la entidad raiz scrapeada en esa pagina.
 - `area_overrides` permite indicar tamanos personalizados por `id`, `code` o `name` de entidad scrapeada.
 - En `[[cities]]`, `keep_communes = false` agrega las comunas o distritos usados para calcular la ciudad pero no los conserva como filas hijas.
@@ -138,16 +140,33 @@ py manage.py validate_subdivision_configs spain morocco
 
 ```powershell
 py manage.py sync_scraping_configs
+py manage.py sync_scraping_configs spain --force
 py manage.py sync_scraping_configs --force
 py manage.py sync_scraping_configs --to-toml --output-dir .tmp-config-export
 ```
 
+Para reinstanciar solo la configuración inicial de España desde el TOML semilla:
+
+```powershell
+py manage.py migrate
+py manage.py sync_scraping_configs spain --force
+py manage.py validate_subdivision_configs spain
+py manage.py scrape_subdivisions --list-pages spain
+py manage.py scrape_subdivisions_with_assets spain
+```
+
+`spain.toml` separa las localidades por profundidad: provincias con
+`lowest_level = 3`, comunidades uniprovinciales con `lowest_level = 2`, y
+Ceuta/Melilla con `lowest_level = 2`. Esto evita que las localidades de Ceuta
+y Melilla se importen un nivel demasiado profundo o dependan de una raíz
+sintética `spain_spain`.
+
 El runtime usa SQL como unica fuente operativa. Los TOML de `subdivisions/`
-quedan como semillas temporales versionadas para poder reconstruir la tabla
-`ScrapingConfig` tras clonar el proyecto o crear una BBDD limpia. El repositorio
-de scraping no hace fallback a esos ficheros: usa `sync_scraping_configs` o el
-bootstrap web para importarlos. Este puente debe retirarse antes de publicar si
-el proyecto deja de necesitar seeds TOML.
+quedan como semillas temporales locales para importar/exportar filas
+`ScrapingConfig`, pero no se versionan. El repositorio de scraping no hace
+fallback a esos ficheros: usa `sync_scraping_configs` o el bootstrap web para
+importarlos cuando existan en local. Este puente debe retirarse antes de
+publicar si el proyecto deja de necesitar seeds TOML.
 
 ### Ver las URLs que se van a scrapear
 
@@ -160,7 +179,18 @@ py manage.py scrape_subdivisions --list-pages spain
 ```powershell
 py manage.py scrape_subdivisions spain
 py manage.py scrape_subdivisions spain morocco portugal
+py manage.py scrape_subdivisions --seed-assets-from-pages spain
+py manage.py scrape_subdivisions_with_assets spain --page-workers=4
+py manage.py scrape_subdivisions_with_assets spain --page-workers=1  # modo secuencial exacto
 ```
+
+El scraping descarga paginas CityPopulation independientes en paralelo con
+`--page-workers` (por defecto `4`, configurable con
+`CIUDADES_SCRAPE_PAGE_WORKERS`). El parseo, los eventos `FOUND`, la siembra de
+assets y la escritura SQL se mantienen en el orden de la configuracion, por lo
+que no cambia la funcionalidad ni los datos extraidos; solo se solapa la espera
+de red. Usa `--page-workers=1` si quieres reproducir el comportamiento
+secuencial antiguo.
 
 ### Reparar banderas y escudos
 
@@ -169,16 +199,51 @@ py manage.py ensure_visual_assets spain
 py manage.py ensure_visual_assets --all
 py manage.py ensure_visual_assets --country-subdivisions spain --levels 1,2
 py manage.py ensure_visual_assets --admin-area spain_cat
+py manage.py ensure_visual_assets spain --no-citypopulation-fetch
 ```
 
-El comando usa Wikidata/Commons como fuente principal para banderas y escudos.
-Tambien guarda sellos cuando Wikidata los expone. CityPopulation queda solo como
-respaldo para imagenes explicitamente etiquetadas, porque sus paginas incluyen
-iconos de idioma que no son la bandera del pais. Los ficheros descargados se
-cachean en `media/visual_assets/` y se sirven en local con `MEDIA_URL=/media/`.
-`scrape_subdivisions_with_assets` busca assets del pais y de subdivisiones
-`AdminArea` de niveles 1 y 2 por defecto; usa `--skip-subdivision-assets` o
-`--subdivision-asset-levels` para ajustar ese coste.
+El comando manual usa Wikidata/Commons como fuente principal para banderas y
+escudos. Para paises raiz, primero respeta el `wikidata_id` configurado en
+TOML/SQL y los `[visual_assets.flag]`/`[visual_assets.coat]` declarados como
+`commons_filename` o `remote_url`; despues hace busqueda Wikidata si falta el
+QID. Tambien guarda sellos cuando Wikidata los expone. CityPopulation queda
+solo como respaldo para imagenes explicitamente etiquetadas o con nombre de
+archivo claro, porque sus paginas incluyen iconos de idioma que no son la
+bandera del pais. Los ficheros
+no se descargan por defecto: se guarda `commons_filename`, `remote_url`, QID y
+traducciones/descripciones en SQL, y la UI usa directamente URLs de Wikimedia
+Commons (`Special:FilePath`). La ficha selecciona la traduccion del idioma activo
+y solo muestra texto heraldico/vexilologico curado. `media/visual_assets/` queda solo como fallback
+legacy o para reparaciones locales explicitas.
+`scrape_subdivisions_with_assets` reutiliza el HTML ya descargado por el
+scraping para registrar assets de CityPopulation del pais y de subdivisiones
+`AdminArea` de todos los niveles scrapeados por defecto. Si falta bandera,
+escudo o sello, los resuelve en ese momento contra Wikidata/Commons en servidor,
+guardando URL remota y traducciones, sin descargar los ficheros ni hacer que el
+navegador busque nada. Primero usa los QID `data-wd` que vengan en la
+pagina de CityPopulation; despues crea un indice SPARQL por QID de pais con
+`P17`, `P31`, `P131`, `P41`, `P94` y `P158`, y vincula los resultados a cada
+`AdminArea.id` persistiendo el QID en `ciudades_del_mundo_visual_asset`.
+Usa `--skip-subdivision-assets` o `--subdivision-asset-levels` para ajustar ese
+coste. Las descargas locales solo existen como opt-in (`--download` o
+`--download-assets`) y no deben usarse en el flujo normal porque aumentan mucho
+los 429 de Wikimedia.
+Para una cobertura completa de un pais, los assets esperados abarcan todas las
+entidades `AdminArea` que vengan de CityPopulation: pais, comunidades o regiones,
+provincias, municipios, localidades y cualquier otro nivel scrapeado en la
+configuracion. Si una pagina de localidades no asocia candidatos de
+CityPopulation, el proceso debe continuar con Wikidata/Commons por QID, indice o
+busqueda por entidad persistida. Los errores HTTP 429 se deben tratar como
+reintentables, reutilizando cache y pausas; en SVG, si Commons limita el original,
+el descargador puede caer a una miniatura PNG. No son ausencia definitiva de
+bandera o escudo.
+Si `/countries/` no muestra un asset nacional, revisa primero que la fila SQL
+tenga `commons_filename`, `remote_url` o un `local_path` usable. La tarjeta y el
+panel de pais no buscan banderas fuera de la BBDD: no hidratan desde Wikidata, no
+usan seeds TOML y no escanean carpetas locales si no hay fila SQL. Cuando falta
+el asset registrado, muestran el placeholder de bandera o de escudo/sello.
+`ensure_visual_assets` queda para busqueda explicita en Wikidata/Commons y
+`--repair-local-only` para reparacion legacy de ficheros locales.
 
 ### Asignar capitales
 
@@ -228,6 +293,14 @@ Cada bloque de nivel incluye `Lx_ranking_poblacion_pais`, que ordena las areas
 por poblacion dentro de todo el pais para ese mismo nivel. La hoja Excel genera
 una sola tabla principal de rutas raiz-hoja, sin tablas auxiliares a la derecha.
 
+
+### Reglas de preservacion UI
+
+No modifiques tamaños de recuadro, proporciones, anchuras de tablas, espaciados,
+layouts o comportamientos ya existentes salvo que la peticion indique de forma
+concreta ese cambio. Las correcciones deben ser quirurgicas y conservar lo que ya
+funcionaba.
+
 ## Interfaz web local
 
 Arranca el servidor con:
@@ -254,20 +327,36 @@ tabla filtrable/ordenable por nivel y graficas de primer orden de poblacion y
 terreno. La tabla de datos esta paginada en el navegador, permite elegir filas
 por pagina, indica la columna activa de ordenacion con flechas y al cambiar de
 nivel actualiza solo la tabla. Tambien incluye porcentaje de poblacion y terreno
-respecto al pais. Las secciones de roscas muestran las graficas arriba y las
-listas/leyendas filtrables debajo. Las tarjetas de
+respecto al pais. En la portada, la unica tabla que conserva scroll lateral es
+`Tabla de datos`; las demas tablas compactas deben encajar en escritorio con
+columnas numericas estrechas y sin salto de linea, dejando que solo nombre y
+tipo puedan partir linea antes de recortar texto. `Datos generales del pais`,
+`Tabla de datos` y `Subdivisiones de primer orden` ocupan el mismo ancho en
+escritorio. En tablas compactas se mantiene el label completo y la flecha de ordenacion
+debe aparecer siempre a la derecha del texto, sin saltar debajo del label. Las secciones de roscas
+muestran las graficas arriba y las listas/leyendas filtrables debajo. Las tarjetas de
 porcentaje por subdivision de primer orden muestran minipizzas con el reparto
 interno de sus subdivisiones directas del siguiente nivel cuando ese nivel no
 alcanza 150 filas en el pais; no se filtran por nombre de tipo de entidad. Los
-datos generales usan primero bandera y escudo persistidos en SQL o en
-`media/visual_assets/`; si faltan, intentan completar la identidad visual desde
-Wikidata/Wikimedia cuando hay identificador disponible. Bandera y escudo abren
-una vista previa local y desde ahi la ficha de Commons o la imagen completa.
+datos generales usan bandera y escudo persistidos en SQL, mostrando primero la
+URL remota de Wikimedia/Commons y dejando `media/visual_assets/` solo como
+fallback legacy. Cualquier bandera, escudo, sello o imagen de identidad visual
+debe abrir primero el recuadro emergente de previsualizacion; no debe navegar
+directamente a la ficha. Desde ese recuadro, el boton `Ficha` abre en ventana
+nueva la ficha interna legible
+`/identity/<tipo>/entity/<entity_type>/<entity_key>/`, por ejemplo
+`/identity/flag/entity/country/spain/`. Las rutas antiguas con
+`visual_assets/...` siguen resolviendo el asset guardado cuando existe.
 En `/countries/`, al seleccionar un pais se muestran dos recuadros: la ficha
-basica y las subdivisiones directas de primer nivel. Al abrir una subdivision,
-el navegador agrega otra ficha con su bandera/escudo y sus hijos directos; se
-puede seguir bajando con `/api/admin-areas/<area_id>/` hasta llegar a entidades
-sin hijos.
+basica y las subdivisiones directas de primer nivel. La bandera y el
+escudo/sello del pais salen solo del payload SQL de `/api/countries/`; si falta
+la fila `ciudades_del_mundo_visual_asset`, el navegador muestra el placeholder
+de bandera o escudo sin buscar en Wikidata, Wikimedia, TOML ni carpetas locales.
+Los placeholders mantienen un recuadro cuadrado como una imagen real y se
+dibujan por CSS con colores del tema activo, no con emoji. Al abrir una
+subdivision, el navegador agrega otra ficha con su bandera/escudo y sus hijos
+directos; se puede seguir bajando con `/api/admin-areas/<area_id>/` hasta llegar
+a entidades sin hijos.
 Las traducciones de nombres administrativos de Espana que no son simples cadenas
 de interfaz viven en `ciudades_del_mundo/web/spain_translations.py` para mantener
 juntas las equivalencias de CCAA, provincias, ciudades y tipos de entidad por
@@ -285,16 +374,32 @@ Secciones principales:
 - `/configs/`: lista filas SQL `ScrapingConfig` con tablas dinamicas cargadas
   desde `/configs/table/` y `/configs/tasks/table/`; las filas se descargan una
   vez y la paginacion cambia de pagina en cliente. Permite validar y lanzar
-  scraping. El boton `Validar` de una configuracion queda desactivado mientras
-  esa validacion sigue activa. El editor guarda `ScrapingConfig.content` y
-  valida sintaxis/esquema antes de escribir.
+  scraping. Una configuracion `Populada` puede volver a lanzarse con `Popular`
+  sin revalidar, y las acciones masivas de poblado incluyen configuraciones
+  `Validadas` y `Populadas`. `Popular no populados` lanza solo las filas
+  elegibles que todavia no estan `Populadas`. Las filas con validacion o
+  poblado activo muestran `Parar` junto a `Validar`/`Popular`; al cancelar la
+  tarea la fila pasa a `Parado`. Si el servidor local se reinicia o el ordenador
+  se apaga con una tarea en cola/ejecucion, esa tarea se recupera como `Parado`
+  en vez de `Fallo`; una fila parada durante el poblado vuelve a mostrar la
+  accion de popular/continuar para reanudarla. Durante una tarea de poblado, la
+  etiqueta `Populando` mantiene ancho estable con tres puntos animados por JS,
+  sin keyframes CSS que se reinicien al refrescar la fila, y la fila se refresca
+  con una cadencia baja para que el estado pase a `Populado` y el boton
+  `Popular` se reactive al terminar. Las tareas lanzadas desde la web usan
+  `scrape_subdivisions_with_assets --page-workers=4` para solapar la descarga
+  de HTML de CityPopulation sin cambiar el orden de parseo/escritura. El
+  boton `Validar` de una configuracion queda desactivado mientras esa validacion
+  sigue activa. El editor guarda `ScrapingConfig.content` y valida
+  sintaxis/esquema antes de escribir.
 - `/recipes/`: lista recetas de `new_subdivisions` e `historical_divisions`.
   Permite crear recetas nuevas con un formulario JSON, editar recetas nuevas en
   Python y lanzar `build_new_subdivisions`, CSV o Excel.
 - `/derived/`: muestra paises `NuevoAdminArea` creados y una tabla comparativa
   por pais con porcentajes respecto al pais y al padre.
 - `/countries/`: navegador de paises en tarjetas de 10 columnas, con bandera
-  persistida/local cuando existe, terreno y poblacion desde `/api/countries/`;
+  registrada en SQL o placeholder local cuando no hay asset registrado, terreno
+  y poblacion desde `/api/countries/`;
   al hacer clic carga la ficha basica del pais y sus subdivisiones directas desde
   `/api/countries/<country_code>/`, y cada subdivision se abre recursivamente con
   `/api/admin-areas/<area_id>/`.
@@ -306,9 +411,13 @@ Secciones principales:
   Las filas son clicables y abren el detalle de la tarea.
 - `/map/<origen>/<id>/`: ficha de mapa e identidad visual para un `AdminArea`
   (`origen=admin`) o `NuevoAdminArea` (`origen=derived`).
-- `/identity/<tipo>/<archivo>/`: ficha interna placeholder para bandera o
-  escudo resuelto desde Wikimedia; queda preparada para detallar heráldica,
-  colores oficiales, fecha de adopcion y fuente normativa.
+- `/identity/<tipo>/entity/<entity_type>/<entity_key>/`: ficha interna legible
+  para bandera, escudo o sello persistido; muestra la imagen de Wikimedia y una
+  sola descripcion en el idioma activo de la aplicacion. La descripcion debe ser
+  heraldica/vexilologica o explicativa del simbolo; no se muestra una tabla de
+  "Descripciones multiidioma" ni descripciones genericas de entidad.
+- `/identity/<tipo>/<archivo>/`: ruta legacy para nombres Commons o rutas locales
+  `visual_assets/...`; intenta resolver la fila SQL para mostrar la misma ficha.
 
 La interfaz tiene selector de idioma en la barra superior. Los idiomas
 disponibles son:
@@ -346,13 +455,17 @@ complejos o especiales, como movimiento de colores en `Arcoiris`, barridos en
 Las tareas web se gestionan en `ciudades_del_mundo/web/tasks.py`. Cada accion
 lanza un subproceso `manage.py`, guarda estado/salida reciente en
 `.web_tasks.json` y escribe el log completo en `.web_task_logs/*.log` en la raiz
-del proyecto. Esos ficheros locales estan ignorados por git. Como maximo se
-ejecutan 3 subprocesses a la vez; el resto queda en estado `queued` y se
+del proyecto. `/tasks/<id>/` carga el log completo al abrirse y, mientras la
+tarea sigue activa, solo solicita el nuevo fragmento por offset para no
+ralentizar la pagina. Esos ficheros locales estan ignorados por git. Como maximo
+se ejecuta 1 subproceso a la vez; el resto queda en estado `queued` y se
 despacha por orden cuando termina o se cancela una tarea en ejecucion. Si se
 lanza otra tarea con la misma clave operativa, o si se guarda una
 configuracion/receta mientras su tarea equivalente sigue activa, la tarea
 anterior se cancela y se reemplaza. Al reiniciar el servidor se conserva el
 historial reciente; cualquier tarea activa o en cola se marca como interrumpida.
+Las tareas pueden continuar si se cierra el navegador, pero no si se apaga el PC
+o el proceso Django que las lanzo.
 
 Las API y graficas del navegador de paises usan solo filas `AdminArea` visibles:
 se excluyen las filas con `city_merge_status = 3` para que no aparezcan en
@@ -379,9 +492,9 @@ CDN estan disponibles; si no cargan, los selects nativos siguen funcionando.
 La ficha de mapa usa Leaflet con teselas de OpenStreetMap y geocodificacion
 client-side por nombre mediante Nominatim, ya que la base de datos no guarda
 geometria ni coordenadas. La bandera y escudo usan primero assets persistidos o
-locales; si faltan, el navegador intenta resolverlos desde Wikidata/Wikimedia
-Commons. Tambien se consultan etiquetas traducidas, pais, region superior y
-capitales de Wikidata. La pagina muestra ademas las capitales y la ciudad mayor
+locales. Las fichas de pais no hacen busqueda Wikidata/Wikimedia en tiempo de
+render; las imagenes faltantes se deben resolver previamente con scraping o
+`ensure_visual_assets`. La pagina muestra ademas las capitales y la ciudad mayor
 registradas en la base local cuando existen.
 
 Para reducir errores `database is locked` durante tareas de poblacion, SQLite
@@ -412,8 +525,8 @@ db.sqlite3
 ## Paquetes de configuracion
 
 - `subdivisions`
-  Seeds TOML temporales para crear/exportar filas `ScrapingConfig`; no son la
-  fuente operativa del runtime.
+  Seeds TOML temporales locales para crear/exportar filas `ScrapingConfig`; no
+  son la fuente operativa del runtime y no se versionan.
 - `historical_divisions`
   Recetas Python para subdivisiones historicas.
 - `new_subdivisions`

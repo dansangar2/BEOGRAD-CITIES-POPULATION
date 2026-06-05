@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import time
 
 from django.core.management import BaseCommand, CommandError, call_command
@@ -7,15 +8,13 @@ from django.db import OperationalError, close_old_connections
 
 from ciudades_del_mundo.infrastructure.scraping import PythonScrapingConfigRepository
 from ciudades_del_mundo.services.visual_assets import (
-    ensure_visual_assets_for_config_slug,
-    ensure_visual_assets_for_country_admin_areas,
     visual_asset_tables_exist,
 )
 from ciudades_del_mundo.web.task_progress import write_config_progress
 
 
 class Command(BaseCommand):
-    help = "Ejecuta scrape_subdivisions y enriquece BBDD con bandera/escudo/sello locales/remotos."
+    help = "Ejecuta scrape_subdivisions y reutiliza sus paginas para registrar bandera/escudo/sello."
 
     def _write(self, message):
         self.stdout.write(message)
@@ -24,24 +23,44 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("slug", help="Slug de la configuración/pais a popular.")
         parser.add_argument(
+            "--page-workers",
+            type=int,
+            default=_default_page_workers(),
+            help=(
+                "Número de páginas CityPopulation que se descargan en paralelo durante el scrapeo. "
+                "Usa 1 para modo secuencial exacto. Por defecto: %(default)s."
+            ),
+        )
+        parser.add_argument(
             "--skip-assets",
             action="store_true",
-            help="No buscar ni descargar bandera/escudo después del scraping.",
+            help="No registrar ni descargar bandera/escudo durante el scraping.",
         )
         parser.add_argument(
             "--no-download-assets",
             action="store_true",
-            help="Guardar solo URL/metadatos sin descargar ficheros a media/.",
+            help="Guardar solo URL/metadatos sin descargar ficheros a media/ (comportamiento por defecto).",
+        )
+        parser.add_argument(
+            "--download-assets",
+            action="store_true",
+            help="Descargar los ficheros de Commons durante el scraping. Más lento y puede provocar 429.",
         )
         parser.add_argument(
             "--skip-subdivision-assets",
             action="store_true",
-            help="No buscar bandera/escudo/sello para subdivisiones AdminArea.",
+            help="No registrar bandera/escudo/sello para subdivisiones AdminArea.",
         )
         parser.add_argument(
             "--subdivision-asset-levels",
-            default="1,2",
-            help="Niveles de AdminArea para buscar assets, separados por coma. Por defecto: 1,2.",
+            default="",
+            help="Niveles de AdminArea para registrar assets desde paginas scrapeadas, separados por coma. Por defecto: todos los niveles scrapeados.",
+        )
+        parser.add_argument(
+            "--max-individual-wikidata-lookups",
+            type=int,
+            default=0,
+            help="Fallbacks individuales de Wikidata por página. Por defecto 0 para evitar 429.",
         )
 
     def _run_with_sqlite_retry(self, callback, *, attempts: int = 8):
@@ -63,36 +82,42 @@ class Command(BaseCommand):
         slug = options["slug"]
         write_config_progress(slug, "populating")
         try:
-            country_code = PythonScrapingConfigRepository().get(slug).country_code
-            self._run_with_sqlite_retry(lambda: call_command("scrape_subdivisions", slug))
-
             if options.get("skip_assets"):
+                self._run_with_sqlite_retry(
+                    lambda: call_command(
+                        "scrape_subdivisions",
+                        slug,
+                        page_workers=max(1, int(options.get("page_workers") or 1)),
+                    )
+                )
                 self._write("[assets] omitido por --skip-assets")
                 write_config_progress(slug, "populated")
                 return
             if not visual_asset_tables_exist():
                 raise CommandError("La tabla de assets visuales no existe. Ejecuta migraciones.")
 
-            result = self._run_with_sqlite_retry(
-                lambda: ensure_visual_assets_for_config_slug(slug, download_missing=not options.get("no_download_assets"))
-            )
-            self._write(result.as_log_line(slug))
-            if not options.get("skip_subdivision_assets"):
-                subdivision_result = self._run_with_sqlite_retry(
-                    lambda: ensure_visual_assets_for_country_admin_areas(
-                        country_code,
-                        download_missing=not options.get("no_download_assets"),
-                        levels=_parse_levels(options.get("subdivision_asset_levels") or ""),
-                    )
+            PythonScrapingConfigRepository().get(slug)
+            self._run_with_sqlite_retry(
+                lambda: call_command(
+                    "scrape_subdivisions",
+                    slug,
+                    seed_assets_from_pages=True,
+                    no_download_assets=not bool(options.get("download_assets")) or bool(options.get("no_download_assets")),
+                    skip_subdivision_assets=bool(options.get("skip_subdivision_assets")),
+                    asset_subdivision_levels=options.get("subdivision_asset_levels") or "",
+                    max_individual_wikidata_lookups=int(options.get("max_individual_wikidata_lookups") or 0),
+                    page_workers=max(1, int(options.get("page_workers") or 1)),
                 )
-                self._write(subdivision_result.as_log_line(f"admin_areas:{country_code}"))
+            )
         except Exception as exc:
             write_config_progress(slug, "failed", detail=str(exc))
             raise
         write_config_progress(slug, "populated")
 
 
-def _parse_levels(value: str) -> tuple[int, ...] | None:
-    if not value.strip():
-        return None
-    return tuple(int(item.strip()) for item in value.split(",") if item.strip())
+def _default_page_workers() -> int:
+    raw = os.environ.get("CIUDADES_SCRAPE_PAGE_WORKERS", "4")
+    try:
+        return max(1, int(raw))
+    except (TypeError, ValueError):
+        return 4

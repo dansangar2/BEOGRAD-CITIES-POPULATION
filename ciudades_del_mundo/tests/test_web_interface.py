@@ -1,5 +1,7 @@
 import ast
+import json
 from pathlib import Path
+import re
 from tempfile import TemporaryDirectory
 import unittest
 
@@ -9,11 +11,15 @@ from django.utils import translation
 
 from ciudades_del_mundo.models import AdminArea
 from ciudades_del_mundo.services.scraping_configs import upsert_scraping_config
+from ciudades_del_mundo.web.task_progress import task_progress_path
 from ciudades_del_mundo.web.tasks import ManagedTask, TaskManager, task_manager
 from ciudades_del_mundo.web.views import (
     _area_capital_display_names,
     _area_related_places,
+    _eligible_config_slugs_for_bulk,
+    _latest_bulk_config_progress,
     _render_recipe_from_form,
+    _can_scrape_config_status,
     _validate_config_text,
     _validate_recipe_text,
 )
@@ -120,6 +126,45 @@ lowest_level = 0
             self.assertEqual(translation.gettext("Panel"), "Übersicht")
         with translation.override("ru"):
             self.assertEqual(translation.gettext("Panel"), "Панель")
+            self.assertEqual(translation.gettext("Buscar pais"), "\u041d\u0430\u0439\u0442\u0438 \u0441\u0442\u0440\u0430\u043d\u0443")
+
+    def test_user_facing_text_sources_are_not_mojibake(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        expected_by_path = {
+            "ciudades_del_mundo/templates/ciudades_del_mundo/config_list.html": [
+                "Configuraciones pa\u00edses",
+                "Nueva configuraci\u00f3n",
+                "En ejecuci\u00f3n",
+                "Pa\u00eds o c\u00f3digo",
+            ],
+            "ciudades_del_mundo/management/commands/ensure_visual_assets.py": [
+                "pa\u00edses",
+                "configuraci\u00f3n",
+                "L\u00edmite",
+                "im\u00e1genes",
+                "p\u00e1ginas",
+            ],
+            "ciudades_del_mundo/services/visual_assets.py": [
+                "respuesta vac\u00eda al descargar la imagen",
+            ],
+            "locale/ru/LC_MESSAGES/django.po": [
+                "\u041d\u0430\u0439\u0442\u0438 \u0441\u0442\u0440\u0430\u043d\u0443",
+                "\u0421\u0442\u0440\u043e\u043a \u043d\u0430 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435",
+                "\u0421\u0442\u0438\u043b\u044c",
+                "\u0421\u0432\u0435\u0442\u043b\u044b\u0439",
+                "\u0422\u0451\u043c\u043d\u044b\u0439",
+                "\u0420\u0435\u0442\u0440\u043e 80",
+                "\u041f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u0434\u0430\u043d\u043d\u044b\u0435",
+            ],
+        }
+        mojibake_markers = ("\u00c3", "\u00c2", "\ufffd")
+
+        for relative_path, expected_strings in expected_by_path.items():
+            with self.subTest(path=relative_path):
+                text = (repo_root / relative_path).read_text(encoding="utf-8-sig")
+                self.assertFalse(any(marker in text for marker in mojibake_markers))
+                for expected in expected_strings:
+                    self.assertIn(expected, text)
 
     def test_task_manager_persists_and_loads_task_history(self):
         with TemporaryDirectory() as tmpdir:
@@ -231,7 +276,188 @@ lowest_level = 0
         self.assertEqual(manager.started_workers, [first.id])
 
 
+class TaskManagerDatabaseTests(TestCase):
+    def test_task_status_maps_finished_scrape_progress_to_populated(self):
+        slug = "zzstatusdone"
+        original_recovery_done = task_manager._recovery_done
+        try:
+            task_manager._recovery_done = True
+            now = timezone.now()
+            task = ManagedTask.objects.create(
+                id="scrape-done-status",
+                key=f"scrape:{slug}",
+                label="Popular status",
+                args=["scrape_subdivisions_with_assets", slug],
+                status=ManagedTask.Status.SUCCEEDED,
+                returncode=0,
+                created_at=now,
+                started_at=now,
+                finished_at=now,
+                updated_at=now,
+            )
+            path = task_progress_path(task.id)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                json.dumps({"task_id": task.id, "configs": {slug: {"status": "populating"}}}),
+                encoding="utf-8",
+            )
+
+            response = self.client.get(f"/tasks/{task.id}/status/")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["config_progress"][slug]["status"], "populated")
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
+    def test_task_status_synthesizes_finished_scrape_progress_when_file_is_missing(self):
+        slug = "zzstatusmissing"
+        original_recovery_done = task_manager._recovery_done
+        try:
+            task_manager._recovery_done = True
+            now = timezone.now()
+            task = ManagedTask.objects.create(
+                id="scrape-done-missing",
+                key=f"scrape:{slug}",
+                label="Popular status missing",
+                args=["scrape_subdivisions_with_assets", slug],
+                status=ManagedTask.Status.SUCCEEDED,
+                returncode=0,
+                created_at=now,
+                started_at=now,
+                finished_at=now,
+                updated_at=now,
+            )
+            progress_path = task_progress_path(task.id)
+            if progress_path.exists():
+                progress_path.unlink()
+
+            response = self.client.get(f"/tasks/{task.id}/status/")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["config_progress"][slug]["status"], "populated")
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
+    def test_bulk_config_summary_maps_finished_scrape_progress_to_populated(self):
+        slug = "zzbulkdone"
+        original_recovery_done = task_manager._recovery_done
+        upsert_scraping_config(
+            slug,
+            """
+name = "Bulk Done Test"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        try:
+            task_manager._recovery_done = True
+            now = timezone.now()
+            task = ManagedTask.objects.create(
+                id="scrape-all-done-status",
+                key="scrape:all",
+                label="Popular todas",
+                args=["validate_and_scrape_configs"],
+                status=ManagedTask.Status.SUCCEEDED,
+                returncode=0,
+                created_at=now,
+                started_at=now,
+                finished_at=now,
+                updated_at=now,
+            )
+            path = task_progress_path(task.id)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                json.dumps({"task_id": task.id, "configs": {slug: {"status": "populating"}}}),
+                encoding="utf-8",
+            )
+
+            bulk_task, status = _latest_bulk_config_progress(slug)
+            response = self.client.get(f"/configs/{slug}/summary/")
+
+            self.assertEqual(bulk_task, task)
+            self.assertEqual(status, "populated")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["task_status"], "populated")
+            self.assertEqual(response.json()["status_filter"], "populated")
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
+    def test_output_since_text_reads_incremental_log_from_offset(self):
+        with TemporaryDirectory() as tmpdir:
+            log_path = Path(tmpdir) / "task.log"
+            log_path.write_text("line 0\nline 1\n", encoding="utf-8", newline="")
+            task = ManagedTask.objects.create(
+                id="task-incremental-log",
+                key="validate:incremental-log",
+                label="Validar log incremental",
+                args=["validate_subdivision_configs", "log"],
+                status=ManagedTask.Status.RUNNING,
+                created_at=timezone.now(),
+                started_at=timezone.now(),
+                log_path=str(log_path),
+            )
+            manager = TaskManager(history_path=Path(tmpdir) / "tasks.json")
+            initial_offset = manager.output_offset(task)
+
+            with log_path.open("a", encoding="utf-8", newline="") as handle:
+                handle.write("line 2\n")
+
+            delta, next_offset, reset = manager.output_since_text(task, initial_offset)
+
+        self.assertFalse(reset)
+        self.assertEqual(delta, "line 2\n")
+        self.assertGreater(next_offset, initial_offset)
+
+
 class ConfigSourceEntitiesViewTests(TestCase):
+    def test_populated_config_can_be_scraped_again(self):
+        slug = "zztestrepopulate"
+        original_recovery_done = task_manager._recovery_done
+        upsert_scraping_config(
+            slug,
+            """
+name = "Repopulate Test"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        try:
+            task_manager._recovery_done = True
+            now = timezone.now()
+            ManagedTask.objects.create(
+                id="scrape-finished",
+                key=f"scrape:{slug}",
+                label="Popular test",
+                args=["scrape_subdivisions_with_assets", slug],
+                status=ManagedTask.Status.SUCCEEDED,
+                returncode=0,
+                created_at=now,
+                started_at=now,
+                finished_at=now,
+                updated_at=now,
+            )
+
+            response = self.client.get(f"/configs/table/?q={slug}")
+
+            self.assertEqual(response.status_code, 200)
+            html = response.content.decode("utf-8")
+            self.assertTrue(_can_scrape_config_status("populated"))
+            self.assertIn(f"/configs/{slug}/task/scrape/", html)
+            self.assertIn('data-config-action="scrape"', html)
+            scrape_form = re.search(r'<form[^>]*data-config-action-form="scrape"[^>]*>', html)
+            self.assertIsNotNone(scrape_form)
+            self.assertNotIn("hidden", scrape_form.group(0))
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
     def test_config_table_disables_validate_button_while_validation_is_active(self):
         slug = "zztestvalidate"
         original_recovery_done = task_manager._recovery_done
@@ -266,7 +492,190 @@ lowest_level = 0
             self.assertEqual(response.status_code, 200)
             html = response.content.decode("utf-8")
             self.assertIn(f"/configs/{slug}/task/validate/", html)
+            self.assertIn("config-status-validating config-status-loading", html)
+            self.assertIn('class="config-status-dots" aria-hidden="true"', html)
             self.assertIn('data-config-action="validate" disabled', html)
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
+    def test_config_table_uses_loading_badge_for_active_population(self):
+        slug = "zztestpopulateactive"
+        original_recovery_done = task_manager._recovery_done
+        upsert_scraping_config(
+            slug,
+            """
+name = "Populate Active Test"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        try:
+            task_manager._recovery_done = True
+            now = timezone.now()
+            ManagedTask.objects.create(
+                id="scrape-active",
+                key=f"scrape:{slug}",
+                label="Popular test",
+                args=["scrape_subdivisions_with_assets", slug],
+                status=ManagedTask.Status.RUNNING,
+                created_at=now,
+                started_at=now,
+                updated_at=now,
+            )
+
+            response = self.client.get(f"/configs/table/?q={slug}")
+
+            self.assertEqual(response.status_code, 200)
+            html = response.content.decode("utf-8")
+            self.assertIn(f"/configs/{slug}/task/scrape/", html)
+            self.assertIn("config-status-populating config-status-loading", html)
+            self.assertIn('<span class="config-status-label">Populando</span>', html)
+            self.assertIn('class="config-status-dots" aria-hidden="true"', html)
+            self.assertNotIn("\u2026Populando", html)
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
+    def test_config_table_shows_stop_button_while_population_is_active(self):
+        slug = "zzteststopbutton"
+        original_recovery_done = task_manager._recovery_done
+        upsert_scraping_config(
+            slug,
+            """
+name = "Stop Button Test"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        try:
+            task_manager._recovery_done = True
+            now = timezone.now()
+            ManagedTask.objects.create(
+                id="scrape-stop-active",
+                key=f"scrape:{slug}",
+                label="Popular test",
+                args=["scrape_subdivisions_with_assets", slug],
+                status=ManagedTask.Status.QUEUED,
+                created_at=now,
+                updated_at=now,
+            )
+
+            response = self.client.get(f"/configs/table/?q={slug}")
+
+            self.assertEqual(response.status_code, 200)
+            html = response.content.decode("utf-8")
+            self.assertIn(f"/configs/{slug}/task/stop/", html)
+            self.assertIn('data-config-action-form="stop"', html)
+            self.assertIn('data-config-action="stop"', html)
+            self.assertIn(">Parar<", html)
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
+    def test_stop_config_task_marks_config_as_stopped(self):
+        slug = "zzteststopstate"
+        original_recovery_done = task_manager._recovery_done
+        upsert_scraping_config(
+            slug,
+            """
+name = "Stop State Test"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        try:
+            task_manager._recovery_done = True
+            now = timezone.now()
+            task = ManagedTask.objects.create(
+                id="scrape-stop-state",
+                key=f"scrape:{slug}",
+                label="Popular test",
+                args=["scrape_subdivisions_with_assets", slug],
+                status=ManagedTask.Status.QUEUED,
+                created_at=now,
+                updated_at=now,
+            )
+
+            response = self.client.post(
+                f"/configs/{slug}/task/stop/",
+                HTTP_ACCEPT="application/json",
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["status"], "stopped")
+            task.refresh_from_db()
+            self.assertEqual(task.status, ManagedTask.Status.CANCELLED)
+
+            summary = self.client.get(f"/configs/{slug}/summary/").json()
+            self.assertEqual(summary["task_status"], "stopped")
+            self.assertEqual(summary["status_filter"], "stopped")
+            self.assertTrue(summary["can_scrape"])
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
+    def test_bulk_scrape_unpopulated_excludes_already_populated_configs(self):
+        validated_slug = "zztestvalidatedonly"
+        populated_slug = "zztestpopulatedskip"
+        original_recovery_done = task_manager._recovery_done
+        for slug, name in (
+            (validated_slug, "Validated Only"),
+            (populated_slug, "Populated Skip"),
+        ):
+            upsert_scraping_config(
+                slug,
+                f"""
+name = "{name}"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+            )
+        try:
+            task_manager._recovery_done = True
+            now = timezone.now()
+            ManagedTask.objects.create(
+                id="validate-unpopulated-only",
+                key=f"validate-config:{validated_slug}",
+                label="Validar test",
+                args=["validate_subdivision_configs", validated_slug],
+                status=ManagedTask.Status.SUCCEEDED,
+                returncode=0,
+                created_at=now,
+                started_at=now,
+                finished_at=now,
+                updated_at=now,
+            )
+            ManagedTask.objects.create(
+                id="scrape-populated-skip",
+                key=f"scrape:{populated_slug}",
+                label="Popular test",
+                args=["scrape_subdivisions_with_assets", populated_slug],
+                status=ManagedTask.Status.SUCCEEDED,
+                returncode=0,
+                created_at=now,
+                started_at=now,
+                finished_at=now,
+                updated_at=now,
+            )
+
+            eligible = _eligible_config_slugs_for_bulk("scrape-unpopulated")
+
+            self.assertIn(validated_slug, eligible)
+            self.assertNotIn(populated_slug, eligible)
         finally:
             task_manager._recovery_done = original_recovery_done
 

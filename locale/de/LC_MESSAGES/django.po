@@ -1524,8 +1524,8 @@ msgstr "{{ stored }} von {{ expected }} Konfigurationen geladen. {{ missing }} f
 msgid "Esta configuración ya está validada o populada. Modifica la configuración SQL antes de volver a validar."
 msgstr "Diese Konfiguration ist bereits validiert oder befüllt. Ändere die SQL-Konfiguration, bevor du erneut validierst."
 
-msgid "Solo puedes popular una configuración Validada. Modifica la configuración SQL, valida y después popula."
-msgstr "Du kannst nur eine validierte Konfiguration befüllen. Ändere die SQL-Konfiguration, validiere sie und befülle sie danach."
+msgid "Solo puedes popular una configuración Validada o Populada. Modifica la configuración SQL, valida y después popula."
+msgstr "Du kannst nur eine validierte oder bereits befüllte Konfiguration befüllen. Ändere die SQL-Konfiguration, validiere sie und befülle sie danach."
 
 msgid "No existe la configuración SQL '%(slug)s'. Ejecuta 'py manage.py sync_scraping_configs %(slug)s' si debe importarse desde seeds TOML."
 msgstr "Die SQL-Konfiguration '%(slug)s' existiert nicht. Führe 'py manage.py sync_scraping_configs %(slug)s' aus, wenn sie aus TOML-Seeds importiert werden soll."
@@ -1533,3 +1533,29 @@ msgstr "Die SQL-Konfiguration '%(slug)s' existiert nicht. Führe 'py manage.py s
 msgid "No existe la configuración SQL '%(slug)s'. Ejecuta 'py manage.py sync_scraping_configs %(slug)s' para importarla desde seeds TOML."
 msgstr "Die SQL-Konfiguration '%(slug)s' existiert nicht. Führe 'py manage.py sync_scraping_configs %(slug)s' aus, um sie aus TOML-Seeds zu importieren."
 
+
+# Added to keep all supported UI languages in sync.
+
+msgid "Popular no populados"
+msgstr "Nicht befüllte befüllen"
+
+msgid "Parado"
+msgstr "Angehalten"
+
+msgid "Parar"
+msgstr "Stoppen"
+
+msgid "No hay configuraciones validadas sin popular."
+msgstr "Es gibt keine validierten, nicht befüllten Konfigurationen."
+
+msgid "Popular configuraciones no populadas (%(count)s)"
+msgstr "Nicht befüllte Konfigurationen befüllen (%(count)s)"
+
+msgid "No hay una tarea activa para parar en esta configuración."
+msgstr "Es gibt keine aktive Aufgabe, die für diese Konfiguration gestoppt werden kann."
+
+msgid "Parar tarea: %(slug)s"
+msgstr "Aufgabe stoppen: %(slug)s"
+
+msgid "Parada solicitada para '%(label)s'."
+msgstr "Stopp für '%(label)s' angefordert."

@@ -1518,8 +1518,8 @@ msgstr "{{ stored }} de {{ expected }} configuraciones cargadas. Faltan {{ missi
 msgid "Esta configuración ya está validada o populada. Modifica la configuración SQL antes de volver a validar."
 msgstr "Esta configuración ya está validada o populada. Modifica la configuración SQL antes de volver a validar."
 
-msgid "Solo puedes popular una configuración Validada. Modifica la configuración SQL, valida y después popula."
-msgstr "Solo puedes popular una configuración Validada. Modifica la configuración SQL, valida y después popula."
+msgid "Solo puedes popular una configuración Validada o Populada. Modifica la configuración SQL, valida y después popula."
+msgstr "Solo puedes popular una configuración Validada o Populada. Modifica la configuración SQL, valida y después popula."
 
 msgid "No existe la configuración SQL '%(slug)s'. Ejecuta 'py manage.py sync_scraping_configs %(slug)s' si debe importarse desde seeds TOML."
 msgstr "No existe la configuración SQL '%(slug)s'. Ejecuta 'py manage.py sync_scraping_configs %(slug)s' si debe importarse desde seeds TOML."
@@ -1527,3 +1527,29 @@ msgstr "No existe la configuración SQL '%(slug)s'. Ejecuta 'py manage.py sync_s
 msgid "No existe la configuración SQL '%(slug)s'. Ejecuta 'py manage.py sync_scraping_configs %(slug)s' para importarla desde seeds TOML."
 msgstr "No existe la configuración SQL '%(slug)s'. Ejecuta 'py manage.py sync_scraping_configs %(slug)s' para importarla desde seeds TOML."
 
+
+# Added to keep all supported UI languages in sync.
+
+msgid "Popular no populados"
+msgstr "Popular no populados"
+
+msgid "Parado"
+msgstr "Parado"
+
+msgid "Parar"
+msgstr "Parar"
+
+msgid "No hay configuraciones validadas sin popular."
+msgstr "No hay configuraciones validadas sin popular."
+
+msgid "Popular configuraciones no populadas (%(count)s)"
+msgstr "Popular configuraciones no populadas (%(count)s)"
+
+msgid "No hay una tarea activa para parar en esta configuración."
+msgstr "No hay una tarea activa para parar en esta configuración."
+
+msgid "Parar tarea: %(slug)s"
+msgstr "Parar tarea: %(slug)s"
+
+msgid "Parada solicitada para '%(label)s'."
+msgstr "Parada solicitada para '%(label)s'."

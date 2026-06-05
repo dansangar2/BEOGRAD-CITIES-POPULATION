@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from django.core.management import BaseCommand, call_command
 
 from ciudades_del_mundo.infrastructure.scraping import PythonScrapingConfigRepository
@@ -22,6 +24,15 @@ class Command(BaseCommand):
             help="Slugs a popular. Si no se indican, se procesan todas las configuraciones.",
         )
         parser.add_argument(
+            "--page-workers",
+            type=int,
+            default=_default_page_workers(),
+            help=(
+                "Número de páginas CityPopulation que se descargan en paralelo al popular. "
+                "Usa 1 para modo secuencial exacto. Por defecto: %(default)s."
+            ),
+        )
+        parser.add_argument(
             "--skip-assets",
             action="store_true",
             help="No buscar ni descargar bandera/escudo después del scraping.",
@@ -29,7 +40,12 @@ class Command(BaseCommand):
         parser.add_argument(
             "--no-download-assets",
             action="store_true",
-            help="Guardar solo URL/metadatos sin descargar ficheros a media/.",
+            help="Guardar solo URL/metadatos sin descargar ficheros a media/ (comportamiento por defecto).",
+        )
+        parser.add_argument(
+            "--download-assets",
+            action="store_true",
+            help="Descargar ficheros de Commons durante el scraping. Más lento y puede provocar 429.",
         )
 
     def handle(self, *args, **options):
@@ -44,8 +60,11 @@ class Command(BaseCommand):
         scrape_options = {}
         if options.get("skip_assets"):
             scrape_options["skip_assets"] = True
-        if options.get("no_download_assets"):
+        if options.get("no_download_assets") or not options.get("download_assets"):
             scrape_options["no_download_assets"] = True
+        if options.get("download_assets"):
+            scrape_options["download_assets"] = True
+        scrape_options["page_workers"] = max(1, int(options.get("page_workers") or 1))
 
         for index, slug in enumerate(slugs, start=1):
             self._write(f"[popular] ({index}/{len(slugs)}) {slug}")
@@ -58,3 +77,11 @@ class Command(BaseCommand):
             write_config_progress(slug, "populated")
 
         self._write(f"[popular] Completadas {len(slugs)} configuración(es).", style=self.style.SUCCESS)
+
+
+def _default_page_workers() -> int:
+    raw = os.environ.get("CIUDADES_SCRAPE_PAGE_WORKERS", "4")
+    try:
+        return max(1, int(raw))
+    except (TypeError, ValueError):
+        return 4

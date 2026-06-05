@@ -41,6 +41,11 @@ urlpatterns = [
     path("derived/<slug:country_id>/", views.nuevo_area_detail, name="nuevo_area_detail"),
     path("derived/<slug:country_id>/table/", views.nuevo_area_table, name="nuevo_area_table"),
     path("map/<slug:source>/<path:area_id>/", views.area_map_detail, name="area_map_detail"),
+    path(
+        "identity/<slug:kind>/entity/<slug:entity_type>/<path:entity_key>/",
+        views.visual_identity_entity_detail,
+        name="visual_identity_entity_detail",
+    ),
     path("identity/<slug:kind>/<path:filename>/", views.visual_identity_detail, name="visual_identity_detail"),
     path("countries/", views.stats_view, name="countries"),
     path("stats/", RedirectView.as_view(pattern_name="ciudades_del_mundo:countries", permanent=False), name="stats"),

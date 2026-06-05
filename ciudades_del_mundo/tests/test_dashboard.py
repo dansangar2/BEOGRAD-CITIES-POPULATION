@@ -7,6 +7,7 @@ from django.test import TestCase, override_settings
 from django.utils import timezone, translation
 
 from ciudades_del_mundo.models import AdminArea, NuevoAdminArea
+from ciudades_del_mundo.services.scraping_configs import upsert_scraping_config
 
 
 class DashboardViewTests(TestCase):
@@ -22,6 +23,7 @@ class DashboardViewTests(TestCase):
         local_exists: bool = False,
         remote_url: str = "",
         commons_filename: str = "",
+        source: str = "test",
         status: str = "downloaded",
     ) -> int:
         now = timezone.now()
@@ -35,7 +37,7 @@ class DashboardViewTests(TestCase):
                      attribution, source_url, created_at, updated_at)
                 VALUES
                     (%s, %s, %s, %s, %s, '', %s, %s, %s,
-                     %s, 'test', %s, '', '', '', '', '', %s, %s)
+                     %s, %s, %s, '', '', '', '', '', %s, %s)
                 """,
                 [
                     entity_type,
@@ -47,6 +49,7 @@ class DashboardViewTests(TestCase):
                     remote_url,
                     local_path,
                     local_exists,
+                    source,
                     status,
                     now,
                     now,
@@ -437,6 +440,88 @@ class DashboardViewTests(TestCase):
             ],
         )
 
+    def test_api_admin_area_detail_uses_same_name_root_child_with_descendants_for_mixed_levels(self):
+        root = AdminArea.objects.create(
+            id="aa_root",
+            country_code="aa",
+            code="aa",
+            name="AA Country",
+            level=0,
+            area_km2=100,
+            pop_latest=1000,
+        )
+        ceuta = AdminArea.objects.create(
+            id="aa_ceuta",
+            country_code="aa",
+            code="CEU",
+            name="Ceuta",
+            level=1,
+            entity_type="Autonomous City",
+            parent=root,
+            area_km2=10,
+            pop_latest=100,
+        )
+        AdminArea.objects.create(
+            id="aa_ceuta_flat",
+            country_code="aa",
+            code="51",
+            name="Ceuta",
+            level=2,
+            entity_type="Autonomous City",
+            parent=ceuta,
+            area_km2=10,
+            pop_latest=100,
+        )
+        municipality = AdminArea.objects.create(
+            id="aa_ceuta_municipality",
+            country_code="aa",
+            code="51001",
+            name="Ceuta",
+            level=3,
+            entity_type="Municipality",
+            parent=root,
+            area_km2=10,
+            pop_latest=100,
+        )
+        AdminArea.objects.create(
+            id="aa_ceuta_seat",
+            country_code="aa",
+            code="510010001",
+            name="Ceuta seat",
+            level=4,
+            entity_type="Locality",
+            parent=municipality,
+            area_km2=4,
+            pop_latest=40,
+        )
+
+        country_response = self.client.get("/api/countries/aa/")
+
+        self.assertEqual(country_response.status_code, 200)
+        card = country_response.json()["first_order"]["cards"][0]
+        self.assertEqual(card["child_count"], 1)
+        self.assertEqual(
+            card["children"],
+            [
+                {
+                    "name": "Ceuta",
+                    "entity_type": "Municipio",
+                    "population": 100,
+                    "area_km2": 10.0,
+                    "population_percent": 100.0,
+                    "area_percent": 100.0,
+                }
+            ],
+        )
+
+        detail_response = self.client.get("/api/admin-areas/aa_ceuta/")
+
+        self.assertEqual(detail_response.status_code, 200)
+        detail = detail_response.json()
+        self.assertEqual(detail["area"]["subdivision_count"], 1)
+        self.assertEqual([row["id"] for row in detail["children"]], ["aa_ceuta_municipality"])
+        self.assertEqual(detail["children"][0]["child_count"], 1)
+
     def test_dashboard_country_detail_adds_second_order_shares_by_level(self):
         root = AdminArea.objects.create(
             id="aa_root",
@@ -618,6 +703,14 @@ class DashboardViewTests(TestCase):
                 kind="flag",
                 local_path="visual_assets\\flag\\aa\\Flag.svg",
                 local_exists=True,
+                source="local",
+            )
+            self._insert_visual_asset(
+                entity_key="aa",
+                kind="coat",
+                local_path="visual_assets\\coat\\aa\\Coat.svg",
+                local_exists=True,
+                source="local",
             )
 
             response = self.client.get("/api/countries/")
@@ -632,6 +725,80 @@ class DashboardViewTests(TestCase):
             detail = self.client.get("/api/countries/aa/").json()["country"]
             self.assertEqual(detail["flag_asset"]["local_url"], "/media/visual_assets/flag/aa/Flag.svg")
             self.assertEqual(detail["coat_asset"]["local_url"], "/media/visual_assets/coat/aa/Coat.svg")
+
+    def test_api_country_summary_ignores_unregistered_local_visual_asset_folders(self):
+        AdminArea.objects.create(
+            id="aa_root",
+            country_code="aa",
+            code="root",
+            name="AA Country",
+            level=0,
+            area_km2=12,
+            pop_latest=300,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir, override_settings(MEDIA_ROOT=Path(tmpdir), MEDIA_URL="/media/"):
+            flag_path = Path(tmpdir) / "visual_assets" / "flag" / "aa" / "Flag.svg"
+            flag_path.parent.mkdir(parents=True, exist_ok=True)
+            flag_path.write_text("<svg></svg>", encoding="utf-8")
+            coat_path = Path(tmpdir) / "visual_assets" / "coat" / "aa" / "Coat.svg"
+            coat_path.parent.mkdir(parents=True, exist_ok=True)
+            coat_path.write_text("<svg></svg>", encoding="utf-8")
+
+            response = self.client.get("/api/countries/")
+
+            self.assertEqual(response.status_code, 200)
+            country = response.json()["countries"][0]
+            self.assertEqual(country["visual_assets"], {})
+            self.assertEqual(country["flag_asset"], {})
+            self.assertEqual(country["coat_asset"], {})
+
+            detail = self.client.get("/api/countries/aa/").json()["country"]
+            self.assertEqual(detail["visual_assets"], {})
+            self.assertEqual(detail["flag_asset"], {})
+            self.assertEqual(detail["coat_asset"], {})
+
+    def test_api_country_summary_ignores_config_visual_asset_fallbacks_without_sql_asset_row(self):
+        AdminArea.objects.create(
+            id="aa_root",
+            country_code="aa",
+            code="root",
+            name="AA Country",
+            level=0,
+            area_km2=12,
+            pop_latest=300,
+        )
+        upsert_scraping_config(
+            "aa",
+            """
+name = "AA Country"
+country_code = "aa"
+
+[visual_assets.flag]
+commons_filename = "Flag_of_AA.svg"
+
+[visual_assets.coat]
+remote_url = "https://commons.wikimedia.org/wiki/Special:FilePath/Coat_of_AA.svg"
+
+[[pages]]
+source = "infosection"
+path = ["aa/"]
+lowest_level = 0
+""",
+        )
+
+        response = self.client.get("/api/countries/")
+
+        self.assertEqual(response.status_code, 200)
+        country = response.json()["countries"][0]
+        self.assertEqual(country["visual_assets"], {})
+        self.assertEqual(country["flag_asset"], {})
+        self.assertEqual(country["coat_asset"], {})
+
+        detail = self.client.get("/api/countries/aa/").json()["country"]
+        self.assertEqual(detail["visual_assets"], {})
+        self.assertEqual(detail["flag_asset"], {})
+        self.assertEqual(detail["coat_asset"], {})
 
     def test_api_country_summary_ignores_wrong_citypopulation_language_flag(self):
         AdminArea.objects.create(
@@ -664,6 +831,92 @@ class DashboardViewTests(TestCase):
             self.assertEqual(flag["image_url"], "")
             self.assertEqual(flag["remote_url"], "")
 
+    def test_api_country_summary_uses_remote_asset_as_display_image(self):
+        AdminArea.objects.create(
+            id="aa_root",
+            country_code="aa",
+            code="root",
+            name="AA Country",
+            level=0,
+            area_km2=12,
+            pop_latest=300,
+        )
+        self._insert_visual_asset(
+            entity_key="aa",
+            kind="flag",
+            remote_url="https://commons.wikimedia.org/wiki/Special:FilePath/Flag.svg?width=1600",
+            commons_filename="Flag.svg",
+            local_path="",
+            local_exists=False,
+            status="found",
+        )
+
+        response = self.client.get("/api/countries/")
+
+        self.assertEqual(response.status_code, 200)
+        flag = response.json()["countries"][0]["flag_asset"]
+        self.assertEqual(flag["remote_url"], "https://commons.wikimedia.org/wiki/Special:FilePath/Flag.svg?width=1600")
+        self.assertEqual(flag["local_url"], "")
+        self.assertEqual(flag["image_url"], "https://commons.wikimedia.org/wiki/Special:FilePath/Flag.svg?width=1600")
+
+    def test_visual_identity_detail_renders_entity_ficha_with_translations(self):
+        asset_id = self._insert_visual_asset(
+            entity_key="aa",
+            kind="flag",
+            entity_name="AA Country",
+            remote_url="https://commons.wikimedia.org/wiki/Special:FilePath/Flag_of_AA.svg?width=500",
+            commons_filename="Flag of AA.svg",
+            status="found",
+        )
+        self._insert_visual_asset_translation(
+            asset_id=asset_id,
+            language="es",
+            title="Bandera de AA",
+            description="Descripcion guardada en español",
+        )
+        self._insert_visual_asset_translation(
+            asset_id=asset_id,
+            language="en",
+            title="Flag of AA",
+            description="Stored English description",
+        )
+
+        response = self.client.get("/identity/flag/entity/country/aa/")
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8")
+        self.assertIn("Ficha", html)
+        self.assertIn("AA Country", html)
+        self.assertIn("Descripcion guardada en español", html)
+        self.assertIn("Stored English description", html)
+        self.assertIn("https://commons.wikimedia.org/wiki/Special:FilePath/Flag_of_AA.svg?width=500", html)
+        self.assertIn("Ver en Commons", html)
+
+    def test_visual_identity_legacy_local_path_resolves_saved_asset(self):
+        relative_path = "visual_assets/flag/aa/aa_aa_flag.svg"
+        asset_id = self._insert_visual_asset(
+            entity_key="aa",
+            kind="flag",
+            local_path=relative_path,
+            local_exists=True,
+            commons_filename="Flag of AA.svg",
+            remote_url="https://commons.wikimedia.org/wiki/Special:FilePath/Flag_of_AA.svg?width=500",
+            status="found",
+        )
+        self._insert_visual_asset_translation(
+            asset_id=asset_id,
+            language="es",
+            description="Descripcion heredada del asset",
+        )
+
+        response = self.client.get(f"/identity/flag/{relative_path}/")
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8")
+        self.assertIn("Descripcion heredada del asset", html)
+        self.assertIn("https://commons.wikimedia.org/wiki/Special:FilePath/Flag_of_AA.svg?width=500", html)
+        self.assertIn("Ver en Commons", html)
+
     def test_api_admin_area_detail_exposes_local_visual_assets(self):
         root = AdminArea.objects.create(
             id="aa_root",
@@ -687,7 +940,7 @@ class DashboardViewTests(TestCase):
         )
 
         with tempfile.TemporaryDirectory() as tmpdir, override_settings(MEDIA_ROOT=Path(tmpdir), MEDIA_URL="/media/"):
-            coat_path = Path(tmpdir) / "visual_assets" / "coat" / "aa_region" / "Coat.svg"
+            coat_path = Path(tmpdir) / "visual_assets" / "coat" / "aa" / "aa_region" / "Coat.svg"
             coat_path.parent.mkdir(parents=True, exist_ok=True)
             coat_path.write_text("<svg></svg>", encoding="utf-8")
 
@@ -696,7 +949,7 @@ class DashboardViewTests(TestCase):
             self.assertEqual(response.status_code, 200)
             area = response.json()["area"]
             self.assertEqual(area["coat_asset"]["source"], "local")
-            self.assertEqual(area["coat_asset"]["local_url"], "/media/visual_assets/coat/aa_region/Coat.svg")
+            self.assertEqual(area["coat_asset"]["local_url"], "/media/visual_assets/coat/aa/aa_region/Coat.svg")
 
     def test_api_admin_area_detail_uses_seal_as_coat_fallback_and_returns_metadata(self):
         root = AdminArea.objects.create(
@@ -721,7 +974,7 @@ class DashboardViewTests(TestCase):
         )
 
         with tempfile.TemporaryDirectory() as tmpdir, override_settings(MEDIA_ROOT=Path(tmpdir), MEDIA_URL="/media/"):
-            seal_path = Path(tmpdir) / "visual_assets" / "seal" / "aa_region" / "Seal.svg"
+            seal_path = Path(tmpdir) / "visual_assets" / "seal" / "aa" / "aa_region" / "Seal.svg"
             seal_path.parent.mkdir(parents=True, exist_ok=True)
             seal_path.write_text("<svg></svg>", encoding="utf-8")
             asset_id = self._insert_visual_asset(
@@ -730,7 +983,7 @@ class DashboardViewTests(TestCase):
                 entity_name="Region",
                 country_code="aa",
                 kind="seal",
-                local_path="visual_assets\\seal\\aa_region\\Seal.svg",
+                local_path="visual_assets\\seal\\aa\\aa_region\\Seal.svg",
                 local_exists=True,
             )
             self._insert_visual_asset_translation(
@@ -744,8 +997,8 @@ class DashboardViewTests(TestCase):
 
             self.assertEqual(response.status_code, 200)
             area = response.json()["area"]
-            self.assertEqual(area["seal_asset"]["local_url"], "/media/visual_assets/seal/aa_region/Seal.svg")
-            self.assertEqual(area["coat_asset"]["local_url"], "/media/visual_assets/seal/aa_region/Seal.svg")
+            self.assertEqual(area["seal_asset"]["local_url"], "/media/visual_assets/seal/aa/aa_region/Seal.svg")
+            self.assertEqual(area["coat_asset"]["local_url"], "/media/visual_assets/seal/aa/aa_region/Seal.svg")
             self.assertEqual(area["seal_asset"]["translations"]["es"]["description"], "Stored seal description")
             self.assertEqual(area["seal_asset"]["translations"]["es"]["blazon"], "Stored heraldic description")
 

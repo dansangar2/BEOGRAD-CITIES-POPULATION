@@ -1512,8 +1512,8 @@ msgstr "Учитано је {{ stored }} од {{ expected }} конфигура�
 msgid "Esta configuración ya está validada o populada. Modifica la configuración SQL antes de volver a validar."
 msgstr "Ова конфигурација је већ валидирана или попуњена. Измени SQL конфигурацију пре поновне валидације."
 
-msgid "Solo puedes popular una configuración Validada. Modifica la configuración SQL, valida y después popula."
-msgstr "Можеш попунити само валидирану конфигурацију. Измени SQL конфигурацију, валидирај је, па је затим попуни."
+msgid "Solo puedes popular una configuración Validada o Populada. Modifica la configuración SQL, valida y después popula."
+msgstr "Можеш попунити само валидирану или већ попуњену конфигурацију. Измени SQL конфигурацију, валидирај је, па је затим попуни."
 
 msgid "No existe la configuración SQL '%(slug)s'. Ejecuta 'py manage.py sync_scraping_configs %(slug)s' si debe importarse desde seeds TOML."
 msgstr "SQL конфигурација '%(slug)s' не постоји. Покрени 'py manage.py sync_scraping_configs %(slug)s' ако треба да се увезе из TOML seed датотека."
@@ -1521,3 +1521,29 @@ msgstr "SQL конфигурација '%(slug)s' не постоји. Покр�
 msgid "No existe la configuración SQL '%(slug)s'. Ejecuta 'py manage.py sync_scraping_configs %(slug)s' para importarla desde seeds TOML."
 msgstr "SQL конфигурација '%(slug)s' не постоји. Покрени 'py manage.py sync_scraping_configs %(slug)s' да је увезеш из TOML seed датотека."
 
+
+# Added to keep all supported UI languages in sync.
+
+msgid "Popular no populados"
+msgstr "Попуни непопуњене"
+
+msgid "Parado"
+msgstr "Заустављено"
+
+msgid "Parar"
+msgstr "Заустави"
+
+msgid "No hay configuraciones validadas sin popular."
+msgstr "Нема валидираних непопуњених конфигурација."
+
+msgid "Popular configuraciones no populadas (%(count)s)"
+msgstr "Попуни непопуњене конфигурације (%(count)s)"
+
+msgid "No hay una tarea activa para parar en esta configuración."
+msgstr "Нема активног задатка за заустављање за ову конфигурацију."
+
+msgid "Parar tarea: %(slug)s"
+msgstr "Заустави задатак: %(slug)s"
+
+msgid "Parada solicitada para '%(label)s'."
+msgstr "Затражено је заустављање за '%(label)s'."

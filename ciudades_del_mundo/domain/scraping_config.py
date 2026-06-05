@@ -13,6 +13,7 @@ class DivisionSourceType(StrEnum):
     """Supported scraper implementations for CityPopulation page layouts."""
 
     ADMIN = "admin"
+    AUTO = "auto"
     TABLE = "table"
     DOUBLE = "double"
     CITIES = "cities"

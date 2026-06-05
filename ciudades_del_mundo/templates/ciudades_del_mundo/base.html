@@ -27,7 +27,7 @@
   </script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="{% static 'ciudades_del_mundo/app.css' %}?v=20260604-db-lock-live-log">
+  <link rel="stylesheet" href="{% static 'ciudades_del_mundo/app.css' %}?v=20260606-country-placeholder-shapes">
 </head>
 <body data-running-label="{% trans 'En ejecución' %}" data-queued-label="{% trans 'En cola' %}" data-succeeded-label="{% trans 'Correcto' %}" data-failed-label="{% trans 'Error' %}" data-cancelled-label="{% trans 'Cancelado' %}" data-log-label="{% trans 'Ver registro' %}">
   <header class="topbar">
@@ -114,7 +114,7 @@
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="{% static 'ciudades_del_mundo/app.js' %}?v=20260604-remove-normal-style-option"></script>
+  <script src="{% static 'ciudades_del_mundo/app.js' %}?v=20260606-countries-sql-assets"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

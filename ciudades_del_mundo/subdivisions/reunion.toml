@@ -1,7 +1,0 @@
-name = "Reunion"
-LEGAL_SUBDIVISION = 2
-
-[[pages]]
-source = "table"
-path = ["https://www.citypopulation.de/en/france/cities/reunion/"]
-lowest_level = 0

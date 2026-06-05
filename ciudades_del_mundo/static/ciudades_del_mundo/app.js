@@ -1,7 +1,7 @@
 (function () {
   var THEME_STORAGE_KEY = "ciudades_del_mundo_theme";
   var THEME_EFFECTS_STORAGE_KEY = "ciudades_del_mundo_theme_effects";
-  var STATS_COUNTRY_CACHE_KEY = "ciudades_del_mundo_stats_country_payload";
+  var STATS_COUNTRY_CACHE_KEY = "ciudades_del_mundo_stats_country_payload_sql_only_assets_v2";
 
   function applyTheme(theme) {
     var selected = theme || "light";
@@ -57,6 +57,23 @@
         window.localStorage.setItem(THEME_STORAGE_KEY, value);
       } catch (error) {}
     });
+  }
+
+
+  function renderSortButtonLabel(button, label, active, direction) {
+    var text = label || button.dataset.sort || "";
+    button.textContent = "";
+    var labelSpan = document.createElement("span");
+    labelSpan.className = "table-sort-label";
+    labelSpan.textContent = text;
+    button.appendChild(labelSpan);
+    if (active) {
+      var arrowSpan = document.createElement("span");
+      arrowSpan.className = "table-sort-arrow";
+      arrowSpan.setAttribute("aria-hidden", "true");
+      arrowSpan.textContent = direction > 0 ? "↑" : "↓";
+      button.appendChild(arrowSpan);
+    }
   }
 
   function initSelect2(root) {
@@ -511,7 +528,20 @@
     if (returncode) {
       returncode.textContent = data.returncode === null || data.returncode === undefined ? "-" : String(data.returncode);
     }
-    if (code && typeof data.output === "string") {
+    if (code && typeof data.output_delta === "string") {
+      var stickToDeltaBottom = shouldStickTaskLogToBottom(logBox);
+      if (data.output_reset) {
+        code.textContent = data.output_delta || "Sin salida todavia.";
+      } else if (data.output_delta) {
+        code.textContent += data.output_delta;
+      }
+      if (panel && data.output_offset !== undefined && data.output_offset !== null) {
+        panel.dataset.logOffset = String(data.output_offset);
+      }
+      if (stickToDeltaBottom && logBox) {
+        logBox.scrollTop = logBox.scrollHeight;
+      }
+    } else if (code && typeof data.output === "string") {
       var nextOutput = data.output || "Sin salida todavia.";
       var stickToBottom = shouldStickTaskLogToBottom(logBox);
       if (code.textContent !== nextOutput) {
@@ -527,6 +557,19 @@
     if (panel) {
       panel.dataset.active = data.is_active ? "1" : "0";
     }
+  }
+
+  function taskDetailStatusUrl(panel, statusUrl) {
+    var url;
+    try {
+      url = new URL(statusUrl, window.location.href);
+    } catch (error) {
+      return statusUrl;
+    }
+    if (panel && panel.dataset.logOffset !== undefined) {
+      url.searchParams.set("since", panel.dataset.logOffset || "0");
+    }
+    return url.toString();
   }
 
   function initTaskDetailLog(root) {
@@ -546,7 +589,7 @@
       if (stopped || !document.body.contains(panel)) {
         return;
       }
-      fetch(statusUrl, { headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" } })
+      fetch(taskDetailStatusUrl(panel, statusUrl), { headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" } })
         .then(parseJsonResponse)
         .then(function (data) {
           updateTaskDetailFromPayload(panel, data);
@@ -865,13 +908,64 @@
       encodeURIComponent(filename).replace(/%20/g, "_");
   }
 
+  function encodeIdentityPath(value) {
+    return String(value || "")
+      .replace(/^\/+/, "")
+      .split("/")
+      .map(function (part) { return encodeURIComponent(part); })
+      .join("/");
+  }
+
   function visualIdentityDetailUrl(kind, filename) {
-    return "/identity/" + encodeURIComponent(kind || "image") + "/" + encodeURIComponent(filename) + "/";
+    return "/identity/" + encodeURIComponent(kind || "image") + "/" + encodeIdentityPath(filename) + "/";
+  }
+
+  function visualIdentityEntityUrl(kind, entityType, entityKey) {
+    if (!entityType || !entityKey) {
+      return "";
+    }
+    return "/identity/" + encodeURIComponent(kind || "image") +
+      "/entity/" + encodeURIComponent(entityType) + "/" + encodeIdentityPath(entityKey) + "/";
+  }
+
+  function assetIdentityDetailUrl(asset, kind) {
+    if (!asset) {
+      return "";
+    }
+    var entityUrl = visualIdentityEntityUrl(
+      kind || asset.kind || "image",
+      asset.entity_type || "",
+      asset.entity_key || ""
+    );
+    if (entityUrl) {
+      return entityUrl;
+    }
+    var target = asset.commons_filename || asset.local_path || "";
+    if (target) {
+      return visualIdentityDetailUrl(kind || asset.kind || "image", target);
+    }
+    return asset.source_url || assetImageUrl(asset, 1600) || "";
+  }
+
+  function openAssetDetailNewWindow(asset, kind, fallbackUrl) {
+    var url = assetIdentityDetailUrl(asset, kind) || fallbackUrl || assetImageUrl(asset, 1600);
+    if (url) {
+      window.open(url, "_blank", "noopener");
+    }
   }
 
   function assetImageUrl(asset, width) {
     if (!asset) {
       return "";
+    }
+    if (asset.commons_filename) {
+      return commonsFileUrl(asset.commons_filename, width || 360);
+    }
+    if (asset.remote_url) {
+      return asset.remote_url;
+    }
+    if (asset.image_url && !/^\/media\//.test(String(asset.image_url))) {
+      return asset.image_url;
     }
     if (asset.local_url) {
       return asset.local_url;
@@ -879,35 +973,96 @@
     if (asset.image_url) {
       return asset.image_url;
     }
-    if (asset.remote_url) {
-      return asset.remote_url;
-    }
-    if (asset.commons_filename) {
-      return commonsFileUrl(asset.commons_filename, width || 360);
-    }
     return "";
+  }
+
+  function storedVisualAssetImageUrl(asset) {
+    if (!asset) {
+      return "";
+    }
+    return asset.image_url || asset.remote_url || asset.local_url || "";
+  }
+
+  function openStoredAssetPreview(asset, fallbackLabel, kind) {
+    var previewSrc = storedVisualAssetImageUrl(asset);
+    if (!previewSrc) {
+      return;
+    }
+    openImagePreview({
+      filename: asset.commons_filename || asset.local_path || "",
+      label: fallbackLabel || asset.entity_name || asset.commons_filename || asset.local_path || kind || "image",
+      kind: kind || asset.kind || "image",
+      previewSrc: previewSrc,
+      fullSrc: asset.remote_url || asset.image_url || previewSrc,
+      detailUrl: assetIdentityDetailUrl(asset, kind || asset.kind || "image") || previewSrc
+    }, fallbackLabel, kind);
+  }
+
+  function ensureVisualPlaceholder(container, kind) {
+    if (!container) {
+      return null;
+    }
+    var placeholder = container.querySelector(".visual-placeholder") || container.querySelector(".muted");
+    if (!placeholder) {
+      placeholder = document.createElement("span");
+      container.appendChild(placeholder);
+    }
+    placeholder.className = "visual-placeholder visual-placeholder-" + (kind || "flag");
+    placeholder.setAttribute("aria-hidden", "true");
+    placeholder.hidden = false;
+    return placeholder;
+  }
+
+  function hideBrokenVisualImage(image) {
+    if (!image) {
+      return;
+    }
+    image.hidden = true;
+    image.removeAttribute("src");
+    image.onclick = null;
   }
 
   function openAssetPreview(asset, fallbackLabel, kind) {
     if (!asset) {
       return;
     }
-    if (asset.commons_filename) {
-      openImagePreview(asset.commons_filename, fallbackLabel || asset.commons_filename, kind);
+    var previewSrc = assetImageUrl(asset, 900);
+    var fullSrc = assetImageUrl(asset, 1600) || previewSrc;
+    if (!previewSrc && asset.source_url) {
+      previewSrc = asset.source_url;
+      fullSrc = asset.source_url;
+    }
+    if (!previewSrc) {
       return;
     }
-    var url = assetImageUrl(asset, 1600);
-    if (url) {
-      window.open(url, "_blank", "noopener");
-    }
+    openImagePreview({
+      filename: asset.commons_filename || asset.local_path || "",
+      label: fallbackLabel || asset.entity_name || asset.commons_filename || asset.local_path || kind || "image",
+      kind: kind || asset.kind || "image",
+      previewSrc: previewSrc,
+      fullSrc: fullSrc,
+      detailUrl: assetIdentityDetailUrl(asset, kind || asset.kind || "image") || fullSrc
+    }, fallbackLabel, kind);
   }
 
-  function openImagePreview(filename, label, kind) {
-    if (!filename) {
+  function openImagePreview(options, label, kind) {
+    if (!options) {
       return;
     }
-    var fullSrc = commonsFileUrl(filename, 1600);
-    var detailUrl = visualIdentityDetailUrl(kind, filename);
+    if (typeof options === "string") {
+      options = {
+        filename: options,
+        label: label,
+        kind: kind
+      };
+    }
+    var filename = options.filename || "";
+    var previewSrc = options.previewSrc || (filename ? commonsFileUrl(filename, 900) : "");
+    var fullSrc = options.fullSrc || (filename ? commonsFileUrl(filename, 1600) : previewSrc);
+    var detailUrl = options.detailUrl || (filename ? visualIdentityDetailUrl(options.kind || "image", filename) : "");
+    if (!previewSrc) {
+      return;
+    }
     var overlay = document.createElement("div");
     overlay.className = "image-preview-overlay";
     overlay.tabIndex = -1;
@@ -920,7 +1075,7 @@
     var header = document.createElement("div");
     header.className = "image-preview-header";
     var title = document.createElement("strong");
-    title.textContent = label || filename;
+    title.textContent = options.label || filename || options.kind || "image";
     var closeButton = document.createElement("button");
     closeButton.type = "button";
     closeButton.className = "secondary";
@@ -930,8 +1085,8 @@
     header.appendChild(closeButton);
 
     var image = document.createElement("img");
-    image.src = commonsFileUrl(filename, 900);
-    image.alt = label || filename;
+    image.src = previewSrc;
+    image.alt = options.label || filename || options.kind || "";
     image.loading = "eager";
 
     var actions = document.createElement("div");
@@ -957,13 +1112,11 @@
       }
     }
 
-    var imageClicks = 0;
     image.addEventListener("click", function () {
-      imageClicks += 1;
-      window.open(imageClicks === 1 ? detailUrl : fullSrc, "_blank", "noopener");
+      window.open(detailUrl || fullSrc, "_blank", "noopener");
     });
     pageButton.addEventListener("click", function () {
-      window.open(detailUrl, "_blank", "noopener");
+      window.open(detailUrl || fullSrc, "_blank", "noopener");
     });
     fullButton.addEventListener("click", function () {
       window.open(fullSrc, "_blank", "noopener");
@@ -1759,10 +1912,10 @@
     var columns = [
       ["color", ""],
       ["label", container.dataset.countryLabel || "Pais"],
-      ["population", container.dataset.populationLabel || "Poblacion"],
-      ["population_percent", "%"],
-      ["area", container.dataset.areaLabel || "Terreno"],
-      ["area_percent", "%"]
+      ["population", "POB"],
+      ["population_percent", "% POB"],
+      ["area", "KM2"],
+      ["area_percent", "% KM2"]
     ];
     columns.forEach(function (column) {
       var th = document.createElement("th");
@@ -1807,10 +1960,7 @@
         button.classList.toggle("is-sorted", active);
         button.classList.toggle("is-desc", active && sortDirection < 0);
         button.classList.toggle("is-asc", active && sortDirection > 0);
-        button.textContent = column ? column[1] : button.dataset.sort;
-        if (active) {
-          button.textContent += sortDirection > 0 ? " \u2191" : " \u2193";
-        }
+        renderSortButtonLabel(button, column ? column[1] : button.dataset.sort, active, sortDirection);
       });
     }
 
@@ -2077,7 +2227,7 @@
       loading.remove();
       content.hidden = false;
     }
-    Promise.resolve(hydrateCountryIdentity(panel, country)).then(reveal).catch(reveal);
+    Promise.resolve(renderStoredCountryIdentity(panel, country)).then(reveal).catch(reveal);
   }
 
   function renderCountryTablePanel(panel, data, labels, baseUrl, target) {
@@ -2206,10 +2356,7 @@
         var column = columns.filter(function (item) {
           return item[0] === button.dataset.sort;
         })[0];
-        button.textContent = column ? column[1] : button.dataset.sort;
-        if (active) {
-          button.textContent += sortDirection > 0 ? " \u2191" : " \u2193";
-        }
+        renderSortButtonLabel(button, column ? column[1] : button.dataset.sort, active, sortDirection);
       });
     }
 
@@ -2393,9 +2540,9 @@
       ["color", ""],
       ["name", labels.nameLabel],
       ["entity_type", labels.entityTypeLabel],
-      ["population", compact ? "POB" : labels.populationLabel],
+      ["population", "POB"],
       ["population_percent", "% POB"],
-      ["area_km2", compact ? "KM2" : labels.areaLabel],
+      ["area_km2", "KM2"],
       ["area_percent", "% KM2"]
     ];
     columns.forEach(function (column) {
@@ -2446,10 +2593,7 @@
         button.classList.toggle("is-sorted", active);
         button.classList.toggle("is-desc", active && sortDirection < 0);
         button.classList.toggle("is-asc", active && sortDirection > 0);
-        button.textContent = column ? column[1] : button.dataset.sort;
-        if (active) {
-          button.textContent += sortDirection > 0 ? " \u2191" : " \u2193";
-        }
+        renderSortButtonLabel(button, column ? column[1] : button.dataset.sort, active, sortDirection);
       });
     }
 
@@ -2618,10 +2762,7 @@
         button.classList.toggle("is-sorted", active);
         button.classList.toggle("is-desc", active && sortDirection < 0);
         button.classList.toggle("is-asc", active && sortDirection > 0);
-        button.textContent = column ? column[1] : button.dataset.sort;
-        if (active) {
-          button.textContent += sortDirection > 0 ? " \u2191" : " \u2193";
-        }
+        renderSortButtonLabel(button, column ? column[1] : button.dataset.sort, active, sortDirection);
       });
     }
 
@@ -2896,137 +3037,76 @@
     });
   }
 
-  function hydrateCountryIdentity(panel, country) {
+  function renderStoredCountryIdentity(panel, country) {
     var visualAssets = (country && country.visual_assets) || {};
     var storedCoat = (country && country.coat_asset) || visualAssets.coat || (country && country.seal_asset) || visualAssets.seal;
-    var storedCoatKind = ((country && country.coat_asset) || visualAssets.coat) ? "coat" : "seal";
-    var hasStoredAssets = !!(
-      assetImageUrl((country && country.flag_asset) || visualAssets.flag, 220) ||
-      assetImageUrl(storedCoat, 220)
-    );
-    if (!country || (!hasStoredAssets && !country.wikidata_query && !country.wikidata_id)) {
+    var storedCoatKind = ((country && country.coat_asset) || visualAssets.coat)
+      ? "coat"
+      : (((country && country.seal_asset) || visualAssets.seal) ? "seal" : "coat");
+    if (!country) {
       return Promise.resolve();
     }
-    var languages = wikidataLanguages();
     var flagSlot = panel.querySelector("[data-country-flag]");
     var coatSlot = panel.querySelector("[data-country-coat]");
-    var official = panel.querySelector("[data-country-official]");
-    var officialLanguage = panel.querySelector("[data-country-official-language]");
-    var capital = panel.querySelector("[data-country-capital]");
     var imagePromises = [];
-    var shownKinds = {};
+
+    function showAssetPlaceholder(slot, kind) {
+      if (!slot) {
+        return;
+      }
+      var image = slot.querySelector("img");
+      hideBrokenVisualImage(image);
+      ensureVisualPlaceholder(slot, kind);
+    }
 
     function showAsset(slot, asset, kind) {
-      var url = assetImageUrl(asset, 220);
+      var url = storedVisualAssetImageUrl(asset);
       if (!slot || !url) {
+        showAssetPlaceholder(slot, kind);
         return false;
       }
       var image = slot.querySelector("img");
-      var empty = slot.querySelector(".muted");
+      var empty = slot.querySelector(".muted, .visual-placeholder");
+      if (image) {
+        image.hidden = false;
+        image.style.visibility = "hidden";
+      }
       var loaded = new Promise(function (resolve) {
-        image.onload = resolve;
-        image.onerror = resolve;
+        image.onload = function () {
+          image.hidden = false;
+          image.style.visibility = "";
+          if (empty) {
+            empty.hidden = true;
+          }
+          resolve();
+        };
+        image.onerror = function () {
+          image.style.visibility = "";
+          showAssetPlaceholder(slot, kind);
+          resolve();
+        };
       });
       imagePromises.push(loaded);
-      image.dataset.fullSrc = assetImageUrl(asset, 1200) || url;
+      image.dataset.fullSrc = asset.remote_url || asset.image_url || url;
       image.src = url;
-      image.hidden = false;
       image.onclick = function () {
-        openAssetPreview(asset, image.alt || asset.commons_filename || kind, kind);
+        openStoredAssetPreview(asset, (country && country.name) || kind, kind);
       };
-      if (asset.status) {
-        image.title = asset.source ? (asset.source + " · " + asset.status) : asset.status;
-      }
-      if (empty) {
-        empty.hidden = true;
-      }
-      shownKinds[kind] = true;
+      image.style.cursor = "pointer";
+      image.title = "Ver imagen" + (asset.status ? " · " + (asset.source ? (asset.source + " · " + asset.status) : asset.status) : "");
       return true;
-    }
-
-    function showImage(slot, filename, kind) {
-      if (!slot || !filename || shownKinds[kind]) {
-        return;
-      }
-      showAsset(slot, {
-        commons_filename: filename,
-        remote_url: commonsFileUrl(filename, 1200),
-        image_url: commonsFileUrl(filename, 220),
-        source: "wikidata",
-        status: "remote"
-      }, kind);
     }
 
     showAsset(flagSlot, country.flag_asset || visualAssets.flag, "flag");
     showAsset(coatSlot, storedCoat, storedCoatKind);
 
-    function waitForIdentityImages() {
-      return Promise.all(imagePromises).then(function () {
-        return true;
-      });
-    }
-
-    if (!country.wikidata_query && !country.wikidata_id) {
-      return waitForIdentityImages();
-    }
-
-    var entityPromise = country.wikidata_id ? Promise.resolve(country.wikidata_id) : searchWikidataEntity(country.wikidata_query, languages);
-    return entityPromise
-      .then(function (id) {
-        return fetchWikidataEntities([id], "claims|labels", languages).then(function (entities) {
-          var entity = entities[id];
-          var claims = entity && entity.claims ? entity.claims : {};
-          var officialNames = claimTextValues(claims, "P1448", languages);
-          if (official && officialNames.length) {
-            official.textContent = officialNames[0];
-          } else if (official && labelForEntity(entity, languages)) {
-            official.textContent = labelForEntity(entity, languages);
-          }
-
-          var flagClaim = claims.P41 && claims.P41[0];
-          var flagValue = flagClaim && flagClaim.mainsnak && flagClaim.mainsnak.datavalue && flagClaim.mainsnak.datavalue.value;
-          showImage(flagSlot, flagValue, "flag");
-
-          var coatClaim = claims.P94 && claims.P94[0];
-          var coatValue = coatClaim && coatClaim.mainsnak && coatClaim.mainsnak.datavalue && coatClaim.mainsnak.datavalue.value;
-          showImage(coatSlot, coatValue, "coat");
-
-          var capitalIds = claimEntityIds(claims, "P36");
-          var languageIds = claimEntityIds(claims, "P37");
-          var targetIds = capitalIds.concat(languageIds);
-          if (!targetIds.length) {
-            return waitForIdentityImages();
-          }
-          return fetchWikidataEntities(targetIds, "labels", languages).then(function (capitalEntities) {
-            var names = capitalIds.map(function (capitalId) {
-              return labelForEntity(capitalEntities[capitalId], languages);
-            }).filter(Boolean);
-            if (capital && names.length) {
-              capital.textContent = uniqueValues(names)[0];
-            }
-            var languageNames = languageIds.map(function (languageId) {
-              return labelForEntity(capitalEntities[languageId], languages);
-            }).filter(Boolean);
-            if (officialLanguage && languageNames.length) {
-              officialLanguage.textContent = uniqueValues(languageNames).join(", ");
-            }
-            return waitForIdentityImages();
-          });
-        });
-      })
-      .catch(function () {
-        return waitForIdentityImages();
-      });
-  }
-
-  function flagFilenameFromEntity(entity) {
-    var claims = entity && entity.claims ? entity.claims : {};
-    var flagClaim = claims.P41 && claims.P41[0];
-    return flagClaim && flagClaim.mainsnak && flagClaim.mainsnak.datavalue && flagClaim.mainsnak.datavalue.value;
+    return Promise.all(imagePromises).then(function () {
+      return true;
+    });
   }
 
   function showStatsFlagAsset(slot, asset, label) {
-    var url = assetImageUrl(asset, 180);
+    var url = storedVisualAssetImageUrl(asset);
     if (!slot || !url) {
       return false;
     }
@@ -3034,82 +3114,27 @@
     var image = document.createElement("img");
     image.alt = label || "";
     image.loading = "lazy";
+    image.hidden = false;
+    image.style.visibility = "hidden";
+    image.onload = function () {
+      image.hidden = false;
+      image.style.visibility = "";
+    };
+    image.onerror = function () {
+      image.style.visibility = "";
+      showStatsFlagPlaceholder(slot);
+    };
     image.src = url;
-    if (asset && asset.status) {
-      image.title = asset.source ? (asset.source + " - " + asset.status) : asset.status;
-    }
     slot.appendChild(image);
     return true;
   }
 
-  function statsCountryFlagSlot(container, country) {
-    if (!container || !country) {
-      return null;
-    }
-    if (country.code) {
-      return container.querySelector("[data-stats-country-code='" + country.code + "']");
-    }
-    if (country.wikidata_id) {
-      return container.querySelector("[data-stats-country-flag='" + country.wikidata_id + "']");
-    }
-    return null;
-  }
-
-  function hydrateStatsCountryFlags(container, countries) {
-    var cardsById = {};
-    (countries || []).forEach(function (country) {
-      var visualAssets = (country && country.visual_assets) || {};
-      var storedFlag = (country && country.flag_asset) || visualAssets.flag;
-      if (showStatsFlagAsset(
-        statsCountryFlagSlot(container, country),
-        storedFlag,
-        country.label || country.code
-      )) {
-        return;
-      }
-      if (!country.wikidata_id) {
-        return;
-      }
-      cardsById[country.wikidata_id] = container.querySelector("[data-stats-country-flag='" + country.wikidata_id + "']");
-    });
-    var ids = Object.keys(cardsById);
-    if (!ids.length) {
+  function showStatsFlagPlaceholder(slot) {
+    if (!slot) {
       return;
     }
-    var languages = wikidataLanguages();
-    for (var index = 0; index < ids.length; index += 50) {
-      (function (batchIds) {
-        fetchWikidataEntities(batchIds, "claims", languages)
-          .then(function (entities) {
-            batchIds.forEach(function (id) {
-              var slot = cardsById[id];
-              var filename = flagFilenameFromEntity(entities[id]);
-              if (!slot) {
-                return;
-              }
-              slot.innerHTML = "";
-              if (!filename) {
-                slot.textContent = "\u2691";
-                return;
-              }
-              var image = document.createElement("img");
-              image.alt = "";
-              image.loading = "lazy";
-              image.src = commonsFileUrl(filename, 180);
-              slot.appendChild(image);
-            });
-          })
-          .catch(function () {
-            batchIds.forEach(function (id) {
-              var slot = cardsById[id];
-              if (slot) {
-                slot.innerHTML = "";
-                slot.textContent = "\u2691";
-              }
-            });
-          });
-      })(ids.slice(index, index + 50));
-    }
+    slot.innerHTML = "";
+    ensureVisualPlaceholder(slot, "flag");
   }
 
   function renderStatsCountryGrid(container, payload) {
@@ -3130,18 +3155,12 @@
       var flag = document.createElement("span");
       flag.className = "stats-country-flag";
       flag.dataset.statsCountryCode = country.code || "";
-      flag.dataset.statsCountryFlag = country.wikidata_id || "";
       var visualAssets = country.visual_assets || {};
       var storedFlag = country.flag_asset || visualAssets.flag;
       if (showStatsFlagAsset(flag, storedFlag, country.label || country.code)) {
         flag.dataset.statsCountryStored = "1";
-      } else if (country.wikidata_id) {
-        var flagSpinner = document.createElement("span");
-        flagSpinner.className = "loading-spinner";
-        flagSpinner.setAttribute("aria-hidden", "true");
-        flag.appendChild(flagSpinner);
       } else {
-        flag.textContent = "\u2691";
+        showStatsFlagPlaceholder(flag);
       }
       var name = document.createElement("strong");
       name.textContent = country.label || country.code;
@@ -3165,7 +3184,6 @@
       grid.appendChild(card);
     });
     container.appendChild(grid);
-    hydrateStatsCountryFlags(container, countries);
   }
 
   function statsChildRowsFromCountry(data) {
@@ -3428,10 +3446,7 @@
         button.classList.toggle("is-sorted", active);
         button.classList.toggle("is-desc", active && sortDirection < 0);
         button.classList.toggle("is-asc", active && sortDirection > 0);
-        button.textContent = column ? column[1] : button.dataset.sort;
-        if (active) {
-          button.textContent += sortDirection > 0 ? " \u2191" : " \u2193";
-        }
+        renderSortButtonLabel(button, column ? column[1] : button.dataset.sort, active, sortDirection);
       });
     }
 
@@ -3696,11 +3711,24 @@
     if (!ids.length) {
       return Promise.resolve({});
     }
-    var url = "https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&origin=*&ids=" +
-      encodeURIComponent(ids.join("|")) + "&props=" + encodeURIComponent(props) +
-      "&languages=" + encodeURIComponent(languages.join("|"));
-    return fetchJson(url).then(function (data) {
-      return data.entities || {};
+    var chunks = [];
+    for (var start = 0; start < ids.length; start += 50) {
+      chunks.push(ids.slice(start, start + 50));
+    }
+    return Promise.all(chunks.map(function (chunk) {
+      var url = "https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&origin=*&ids=" +
+        encodeURIComponent(chunk.join("|")) + "&props=" + encodeURIComponent(props) +
+        "&languages=" + encodeURIComponent((languages || ["en"]).join("|"));
+      return fetchJson(url).then(function (data) {
+        return data.entities || {};
+      });
+    })).then(function (items) {
+      return items.reduce(function (merged, entities) {
+        Object.keys(entities || {}).forEach(function (id) {
+          merged[id] = entities[id];
+        });
+        return merged;
+      }, {});
     });
   }
 
@@ -3793,6 +3821,11 @@
 
   function renderImageSlots(claims, slots, status, noImagesMessage) {
     var shown = false;
+    var slotKinds = {
+      P41: "flag",
+      P94: "coat",
+      P242: "locator"
+    };
     Object.keys(slots).forEach(function (property) {
       var slot = slots[property];
       var claim = claims[property] && claims[property][0];
@@ -3800,9 +3833,41 @@
       if (!slot || !value) {
         return;
       }
+      var kind = slotKinds[property] || "image";
+      var placeholder = ensureVisualPlaceholder(slot, kind);
       var image = slot.querySelector("img");
+      if (!image) {
+        image = document.createElement("img");
+        slot.appendChild(image);
+      }
+      image.hidden = false;
+      image.style.visibility = "hidden";
+      image.onload = function () {
+        image.hidden = false;
+        image.style.visibility = "";
+        if (placeholder) {
+          placeholder.hidden = true;
+        }
+      };
+      image.onerror = function () {
+        image.style.visibility = "";
+        hideBrokenVisualImage(image);
+        ensureVisualPlaceholder(slot, kind);
+      };
       image.src = commonsFileUrl(value, 420);
       image.alt = value;
+      image.onclick = function () {
+        openImagePreview({
+          filename: value,
+          label: value,
+          kind: kind,
+          previewSrc: commonsFileUrl(value, 900),
+          fullSrc: commonsFileUrl(value, 1600),
+          detailUrl: visualIdentityDetailUrl(kind, value)
+        }, value, kind);
+      };
+      image.style.cursor = "pointer";
+      image.title = "Ver imagen";
       slot.hidden = false;
       shown = true;
     });
@@ -3997,7 +4062,7 @@
           button.classList.toggle("is-sorted", active);
           button.classList.toggle("is-asc", active && sortDirection > 0);
           button.classList.toggle("is-desc", active && sortDirection < 0);
-          button.textContent = buttonLabel(button) + (active ? (sortDirection > 0 ? " \u2191" : " \u2193") : "");
+          renderSortButtonLabel(button, buttonLabel(button), active, sortDirection);
         });
       }
 
@@ -4041,6 +4106,7 @@
         draw();
       });
       draw();
+      scheduleActiveConfigRowRefresh(container);
     });
   }
 
@@ -4065,6 +4131,9 @@
     }
     if (key === "populated") {
       return container.dataset.populatedLabel || "Populado";
+    }
+    if (key === "stopped") {
+      return container.dataset.stoppedLabel || "Parado";
     }
     if (key === "invalid") {
       return container.dataset.invalidLabel || "Fallo";
@@ -4095,7 +4164,10 @@
     if (key === "none" || !key) {
       key = "pending";
     }
-    if (["invalid", "cancelled"].indexOf(key) !== -1) {
+    if (key === "cancelled") {
+      key = "stopped";
+    }
+    if (key === "invalid") {
       key = "failed";
     }
     return "config-status-" + key;
@@ -4106,8 +4178,14 @@
     if (["succeeded", "validated", "populated"].indexOf(key) !== -1) {
       return "\u2713";
     }
-    if (["failed", "invalid", "cancelled"].indexOf(key) !== -1) {
+    if (key === "cancelled") {
+      return "\u23f8";
+    }
+    if (["failed", "invalid"].indexOf(key) !== -1) {
       return "\u00d7";
+    }
+    if (key === "stopped") {
+      return "\u23f8";
     }
 
     if (key === "queued") {
@@ -4128,12 +4206,33 @@
     return icon;
   }
 
+  function isConfigLoadingStatus(status) {
+    return ["validating", "populating", "running", "queued"].indexOf(configTaskKey(status)) !== -1;
+  }
+
+  function appendConfigLoadingLabel(parent, label) {
+    var text = document.createElement("span");
+    text.className = "config-status-label";
+    text.textContent = label || "";
+    parent.appendChild(text);
+
+    var dots = document.createElement("span");
+    dots.className = "config-status-dots";
+    dots.setAttribute("aria-hidden", "true");
+    parent.appendChild(dots);
+    setConfigLoadingDotsText(dots);
+    ensureConfigLoadingDots(parent);
+  }
+
   function normalizeConfigStatus(status) {
     var key = configTaskKey(status);
     if (!key || key === "none") {
       return "pending";
     }
-    if (["invalid", "cancelled"].indexOf(key) !== -1) {
+    if (key === "cancelled") {
+      return "stopped";
+    }
+    if (key === "invalid") {
       return "failed";
     }
     return key;
@@ -4145,11 +4244,88 @@
   var CONFIG_TOAST_AFTER_INTERACTION_VISIBLE_MS = 4000;
   var CONFIG_TOAST_SELECTION_RECHECK_MS = 1200;
   var CONFIG_TASK_POLL_MS = 450;
+  var CONFIG_ACTIVE_ROW_REFRESH_MS = 1500;
+  var CONFIG_LOADING_DOTS_STEP_MS = 600;
+  var CONFIG_LOADING_DOTS_CYCLE = ["", ".", "..", "..."];
   var CONFIG_TOAST_ENTER_MS = 540;
   var CONFIG_TOAST_EXIT_MS = 580;
   var CONFIG_TOAST_REPLENISH_DELAY_MS = 280;
   var configToastVisible = [];
   var configToastQueue = [];
+  var configLoadingDotsIndex = 0;
+  var configLoadingDotsTimer = null;
+
+  function configLoadingDotsText() {
+    return CONFIG_LOADING_DOTS_CYCLE[configLoadingDotsIndex] || "";
+  }
+
+  function setConfigLoadingDotsText(dot) {
+    if (!dot) {
+      return;
+    }
+    dot.textContent = configLoadingDotsText();
+  }
+
+  function updateConfigLoadingDots(root) {
+    Array.prototype.slice.call((root || document).querySelectorAll(".config-status-dots")).forEach(setConfigLoadingDotsText);
+  }
+
+  function ensureConfigLoadingDots(root) {
+    updateConfigLoadingDots(root || document);
+    if (configLoadingDotsTimer) {
+      return;
+    }
+    configLoadingDotsTimer = window.setInterval(function () {
+      var dots = document.querySelectorAll(".config-status-dots");
+      if (!dots.length) {
+        window.clearInterval(configLoadingDotsTimer);
+        configLoadingDotsTimer = null;
+        return;
+      }
+      configLoadingDotsIndex = (configLoadingDotsIndex + 1) % CONFIG_LOADING_DOTS_CYCLE.length;
+      updateConfigLoadingDots(document);
+    }, CONFIG_LOADING_DOTS_STEP_MS);
+  }
+
+  function maybeKeepConfigLoadingCell(taskCell, status, detailUrl, isActive) {
+    if (!taskCell || !isConfigLoadingStatus(status)) {
+      return false;
+    }
+    var node = taskCell.firstElementChild;
+    if (!node || !node.classList || !node.classList.contains("config-status-loading")) {
+      return false;
+    }
+    if (normalizeConfigStatus(taskCell.dataset.renderedStatus || "") !== status) {
+      return false;
+    }
+    var expectedDetailUrl = detailUrl || "";
+    var currentDetailUrl = taskCell.dataset.renderedDetailUrl || "";
+    if (currentDetailUrl !== expectedDetailUrl) {
+      return false;
+    }
+    var currentActive = taskCell.dataset.renderedActive === "1";
+    if (currentActive !== Boolean(isActive)) {
+      return false;
+    }
+    setConfigLoadingDotsText(node.querySelector(".config-status-dots"));
+    ensureConfigLoadingDots(taskCell);
+    return true;
+  }
+
+  function rememberConfigTaskCell(taskCell, status, detailUrl, isActive) {
+    if (!taskCell) {
+      return;
+    }
+    taskCell.dataset.renderedStatus = status || "";
+    taskCell.dataset.renderedDetailUrl = detailUrl || "";
+    taskCell.dataset.renderedActive = isActive ? "1" : "0";
+  }
+
+  function initConfigLoadingDots(root) {
+    if ((root || document).querySelector(".config-status-dots")) {
+      ensureConfigLoadingDots(root || document);
+    }
+  }
 
   function ensureConfigToastStack() {
     var stack = document.querySelector(".config-toast-stack");
@@ -4516,8 +4692,61 @@
         }
         if (tableContainer) {
           tableContainer.dispatchEvent(new CustomEvent("config-table-row-updated"));
+          scheduleActiveConfigRowRefresh(tableContainer);
+        } else {
+          scheduleActiveConfigRowRefresh(row.closest("[data-config-table]"));
         }
       });
+  }
+
+  function configRowIsLoading(row) {
+    return Boolean(row && ["validating", "populating", "running", "queued"].indexOf(
+      normalizeConfigStatus(row.dataset.task || row.dataset.status || "")
+    ) !== -1);
+  }
+
+  function configRowSummaryUrl(row) {
+    if (!row) {
+      return "";
+    }
+    var source = row.querySelector("[data-summary-url]");
+    return source ? (source.dataset.summaryUrl || "") : "";
+  }
+
+  function activeConfigRows(container) {
+    return Array.prototype.slice.call((container || document).querySelectorAll("[data-config-row]")).filter(configRowIsLoading);
+  }
+
+  function scheduleActiveConfigRowRefresh(container) {
+    container = container || document.querySelector("[data-config-table]");
+    if (!container || activeConfigRows(container).length < 1) {
+      return;
+    }
+    if (container._configActiveRowRefreshTimer) {
+      return;
+    }
+    container._configActiveRowRefreshTimer = window.setTimeout(function () {
+      container._configActiveRowRefreshTimer = null;
+      refreshActiveConfigRows(container);
+    }, CONFIG_ACTIVE_ROW_REFRESH_MS);
+  }
+
+  function refreshActiveConfigRows(container) {
+    container = container || document.querySelector("[data-config-table]");
+    if (!container) {
+      return Promise.resolve();
+    }
+    var refreshes = activeConfigRows(container).map(function (row) {
+      return updateConfigRow(configRowSummaryUrl(row), container);
+    });
+    if (!refreshes.length) {
+      return Promise.resolve();
+    }
+    return Promise.all(refreshes).finally(function () {
+      if (activeConfigRows(container).length) {
+        scheduleActiveConfigRowRefresh(container);
+      }
+    });
   }
 
   function renderConfigTaskCell(taskCell, status, detailUrl, container, isActive) {
@@ -4525,6 +4754,10 @@
       return;
     }
     status = normalizeConfigStatus(status || "pending");
+    detailUrl = detailUrl || "";
+    if (maybeKeepConfigLoadingCell(taskCell, status, detailUrl, isActive)) {
+      return;
+    }
     taskCell.innerHTML = "";
     var cssClass = configTaskClass(status);
     var label = configTaskLabel(container || taskCell, status);
@@ -4536,20 +4769,31 @@
       node = document.createElement("span");
     }
     node.className = "status " + cssClass;
-    if (["validated", "populated"].indexOf(status) === -1) {
+    if (isConfigLoadingStatus(status)) {
+      node.classList.add("config-status-loading");
+      node.setAttribute("aria-label", label);
+      appendConfigLoadingLabel(node, label);
+    } else if (["validated", "populated"].indexOf(status) === -1) {
       appendStatusIcon(node, status);
+      node.appendChild(document.createTextNode(label));
+    } else {
+      node.appendChild(document.createTextNode(label));
     }
-    node.appendChild(document.createTextNode(label));
     taskCell.appendChild(node);
+    rememberConfigTaskCell(taskCell, status, detailUrl, isActive);
+    if (isConfigLoadingStatus(status)) {
+      ensureConfigLoadingDots(taskCell);
+    }
   }
 
   function canValidateConfigStatus(status) {
     var key = normalizeConfigStatus(status || "pending");
-    return ["validated", "populated", "validating", "populating", "running", "queued"].indexOf(key) === -1;
+    return ["validated", "populated", "validating", "populating", "running", "queued", "stopped"].indexOf(key) === -1;
   }
 
   function canScrapeConfigStatus(status) {
-    return normalizeConfigStatus(status || "pending") === "validated";
+    var key = normalizeConfigStatus(status || "pending");
+    return ["validated", "populated", "stopped"].indexOf(key) !== -1;
   }
 
   function updateConfigActionButtons(row, status, data) {
@@ -4559,18 +4803,24 @@
     var key = normalizeConfigStatus(status || row.dataset.status || row.dataset.task || "pending");
     var validateForm = row.querySelector('[data-config-action-form="validate"]');
     var scrapeForm = row.querySelector('[data-config-action-form="scrape"]');
+    var stopForm = row.querySelector('[data-config-action-form="stop"]');
     var validateButton = row.querySelector('[data-config-action="validate"]');
     var scrapeButton = row.querySelector('[data-config-action="scrape"]');
+    var stopButton = row.querySelector('[data-config-action="stop"]');
     var showValidate = ["pending", "failed"].indexOf(key) !== -1;
     var showValidateBusy = key === "validating";
-    var showScrape = key === "validated";
+    var showScrape = ["validated", "populated", "stopped"].indexOf(key) !== -1;
     var showScrapeBusy = key === "populating";
+    var showStop = ["validating", "populating", "running", "queued"].indexOf(key) !== -1;
 
     if (data && Object.prototype.hasOwnProperty.call(data, "can_validate") && Boolean(data.can_validate)) {
       showValidate = true;
     }
     if (data && Object.prototype.hasOwnProperty.call(data, "can_scrape") && Boolean(data.can_scrape)) {
       showScrape = true;
+    }
+    if (data && Object.prototype.hasOwnProperty.call(data, "can_stop")) {
+      showStop = Boolean(data.can_stop);
     }
 
     if (validateButton) {
@@ -4588,12 +4838,24 @@
       } else {
         scrapeButton.removeAttribute("disabled");
       }
+      if (key === "stopped") {
+        scrapeButton.textContent = scrapeButton.dataset.resumeLabel || "Continuar";
+      } else if (scrapeButton.dataset.defaultLabel) {
+        scrapeButton.textContent = scrapeButton.dataset.defaultLabel;
+      }
     }
     if (validateForm) {
       validateForm.hidden = !(showValidate || showValidateBusy);
     }
     if (scrapeForm) {
       scrapeForm.hidden = !(showScrape || showScrapeBusy);
+    }
+    if (stopButton) {
+      stopButton.disabled = false;
+      stopButton.removeAttribute("disabled");
+    }
+    if (stopForm) {
+      stopForm.hidden = !showStop;
     }
   }
 
@@ -4641,6 +4903,7 @@
     }
     if (changed && tableContainer && tableContainer.dispatchEvent) {
       tableContainer.dispatchEvent(new CustomEvent("config-table-row-updated"));
+      scheduleActiveConfigRowRefresh(tableContainer);
     }
   }
 
@@ -4730,7 +4993,19 @@
         }
         var actionRow = form.closest("[data-config-row]");
         if (actionRow) {
-          updateConfigActionButtons(actionRow, form.dataset.configActionForm === "scrape" ? "populating" : "validating");
+          var actionKind = form.dataset.configActionForm || "";
+          var pendingStatus = actionKind === "scrape" ? "populating" : (actionKind === "stop" ? "stopped" : "validating");
+          actionRow.dataset.task = pendingStatus;
+          actionRow.dataset.status = pendingStatus;
+          renderConfigTaskCell(
+            actionRow.querySelector('[data-field="task"]'),
+            pendingStatus,
+            "",
+            tableContainer || actionRow,
+            pendingStatus !== "stopped"
+          );
+          updateConfigActionButtons(actionRow, pendingStatus);
+          scheduleActiveConfigRowRefresh(tableContainer || actionRow.closest("[data-config-table]"));
         } else if (button) {
           button.disabled = true;
         }
@@ -5453,6 +5728,7 @@
     initConfigBootstrap(document);
     initAsyncTables(document);
     initConfigTables(document);
+    initConfigLoadingDots(document);
     initConfigTaskActions(document);
     initConfigEditor(document);
     initDataCharts(document);
