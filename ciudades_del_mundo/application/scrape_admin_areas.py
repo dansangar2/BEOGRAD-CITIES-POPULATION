@@ -35,7 +35,17 @@ class ScrapePageProgress:
     html_format: str
     lowest_level: int
     url: str
+    index: int = 0
     found: int | None = None
+    html: str = ""
+    entities: tuple[ScrapedAdminArea, ...] = ()
+
+
+@dataclass(frozen=True)
+class CachedScrapePage:
+    """Previously completed page payload reused by resumable scraping."""
+
+    found: int
     html: str = ""
     entities: tuple[ScrapedAdminArea, ...] = ()
 
@@ -50,6 +60,9 @@ class ScrapeAdminAreas:
         unit_of_work: UnitOfWork | None = None,
         on_page_start: Callable[[ScrapePageProgress], None] | None = None,
         on_page_complete: Callable[[ScrapePageProgress], None] | None = None,
+        cached_page_loader: Callable[[ScrapePageProgress], CachedScrapePage | None] | None = None,
+        on_cached_page: Callable[[ScrapePageProgress], None] | None = None,
+        entity_enricher: Callable[[ScrapingJobConfig, list[ScrapedAdminArea]], list[ScrapedAdminArea]] | None = None,
         page_workers: int = 1,
     ):
         self.repository = repository
@@ -57,6 +70,9 @@ class ScrapeAdminAreas:
         self.unit_of_work = unit_of_work
         self.on_page_start = on_page_start
         self.on_page_complete = on_page_complete
+        self.cached_page_loader = cached_page_loader
+        self.on_cached_page = on_cached_page
+        self.entity_enricher = entity_enricher
         self.page_workers = max(1, int(page_workers or 1))
 
     def run(self, config: ScrapingJobConfig) -> ScrapeResult:
@@ -64,6 +80,8 @@ class ScrapeAdminAreas:
         entities = self._scrape_pages(config)
         entities = _rewrite_synthetic_page_roots(config.country_code, entities)
         entities = self._post_process_entities(config, entities)
+        if self.entity_enricher:
+            entities = self.entity_enricher(config, entities)
 
         with self._transaction():
             if config.reset_before_import:
@@ -98,8 +116,13 @@ class ScrapeAdminAreas:
             return self._scrape_pages_prefetched(config)
 
         entities = []
-        for page in config.pages:
-            progress = self._page_progress(config, page)
+        for index, page in enumerate(config.pages):
+            progress = self._page_progress(config, page, index)
+            cached = self._cached_page(progress)
+            if cached:
+                self._notify_cached_page(progress, cached)
+                entities.extend(cached.entities)
+                continue
             if self.on_page_start:
                 self.on_page_start(progress)
             page_entities, page_html, page_url = self._scrape_single_page(config, page, progress.url)
@@ -109,6 +132,7 @@ class ScrapeAdminAreas:
                     html_format=progress.html_format,
                     lowest_level=progress.lowest_level,
                     url=page_url,
+                    index=progress.index,
                 )
             page_entities = _apply_page_area_overrides(page_entities, page.area_km2, page.area_overrides)
             self._notify_page_complete(progress, len(page_entities), page_html, page_entities)
@@ -125,18 +149,30 @@ class ScrapeAdminAreas:
         independent CityPopulation pages is overlapped.
         """
         entities: list[ScrapedAdminArea] = []
-        page_progress = [self._page_progress(config, page) for page in config.pages]
-        for progress in page_progress:
+        page_progress = [self._page_progress(config, page, index) for index, page in enumerate(config.pages)]
+        cached_by_index: dict[int, CachedScrapePage] = {}
+        for index, progress in enumerate(page_progress):
+            cached = self._cached_page(progress)
+            if cached:
+                cached_by_index[index] = cached
+                self._notify_cached_page(progress, cached)
+                continue
             if self.on_page_start:
                 self.on_page_start(progress)
 
         futures_by_url: dict[str, Future[str]] = {}
         with ThreadPoolExecutor(max_workers=min(self.page_workers, len(config.pages))) as executor:
-            for progress in page_progress:
+            for index, progress in enumerate(page_progress):
+                if index in cached_by_index:
+                    continue
                 if progress.url not in futures_by_url:
                     futures_by_url[progress.url] = executor.submit(_fetch_citypopulation_html, progress.url)
 
-            for page, progress in zip(config.pages, page_progress, strict=True):
+            for index, (page, progress) in enumerate(zip(config.pages, page_progress, strict=True)):
+                cached = cached_by_index.get(index)
+                if cached:
+                    entities.extend(cached.entities)
+                    continue
                 scraper = self._scraper_for(page.html_format)
                 scrape_html = getattr(scraper, "scrape_html", None)
                 if not callable(scrape_html):
@@ -164,12 +200,21 @@ class ScrapeAdminAreas:
                 return False
         return True
 
-    def _page_progress(self, config: ScrapingJobConfig, page) -> ScrapePageProgress:
+    def _cached_page(self, progress: ScrapePageProgress) -> CachedScrapePage | None:
+        if not self.cached_page_loader:
+            return None
+        cached = self.cached_page_loader(progress)
+        if not cached or not cached.entities:
+            return None
+        return cached
+
+    def _page_progress(self, config: ScrapingJobConfig, page, index: int) -> ScrapePageProgress:
         return ScrapePageProgress(
             path=page.path,
             html_format=page.html_format,
             lowest_level=page.lowest_level,
             url=_page_url(config.base_url, page.path),
+            index=index,
         )
 
     def _scrape_single_page(
@@ -209,9 +254,26 @@ class ScrapeAdminAreas:
                 html_format=progress.html_format,
                 lowest_level=progress.lowest_level,
                 url=progress.url,
+                index=progress.index,
                 found=found,
                 html=html,
                 entities=tuple(entities),
+            )
+        )
+
+    def _notify_cached_page(self, progress: ScrapePageProgress, cached: CachedScrapePage) -> None:
+        if not self.on_cached_page:
+            return
+        self.on_cached_page(
+            ScrapePageProgress(
+                path=progress.path,
+                html_format=progress.html_format,
+                lowest_level=progress.lowest_level,
+                url=progress.url,
+                index=progress.index,
+                found=cached.found,
+                html=cached.html,
+                entities=cached.entities,
             )
         )
 

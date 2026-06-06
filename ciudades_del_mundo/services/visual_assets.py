@@ -1788,6 +1788,29 @@ def _upsert_translation(
     _execute(sql, [asset_id, language, title, description, blazon, source, bool(needs_review), now, now])
 
 
+def upsert_visual_asset_translation(
+    asset_id: int,
+    language: str,
+    *,
+    title: str = "",
+    description: str = "",
+    blazon: str = "",
+    source: str = "",
+    needs_review: bool = True,
+) -> None:
+    """Persist one visual identity translation/description row."""
+
+    _upsert_translation(
+        asset_id,
+        language,
+        title=title,
+        description=description,
+        blazon=blazon,
+        source=source,
+        needs_review=needs_review,
+    )
+
+
 def _download_asset(
     asset_id: int,
     kind: str,

@@ -1547,3 +1547,12 @@ msgstr "Zaustavi zadatak: %(slug)s"
 
 msgid "Parada solicitada para '%(label)s'."
 msgstr "Zatraženo je zaustavljanje za '%(label)s'."
+
+msgid "Reanudar"
+msgstr "Nastavi"
+
+msgid "Reanudar datos: %(slug)s"
+msgstr "Nastavi podatke: %(slug)s"
+
+msgid "Solo puedes reanudar una configuraci?n parada durante el scraping."
+msgstr "Mo?ete nastaviti samo konfiguraciju zaustavljenu tokom skrejpinga."

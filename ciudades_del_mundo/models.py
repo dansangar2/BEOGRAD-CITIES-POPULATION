@@ -32,6 +32,7 @@ class AdminArea(models.Model):
 
     # NUEVO
     entity_type      = models.CharField(max_length=80, null=True, blank=True)
+    raw_entity_type  = models.CharField(max_length=80, blank=True, default="")
     #        ↑ ej.: "Autonomous Community", "Province", "Municipality", ...
 
     parent           = models.ForeignKey(
@@ -352,3 +353,77 @@ class ScrapingConfig(models.Model):
 
     def __str__(self):
         return f"{self.slug} ({self.country_code})"
+
+
+class DynamicTranslation(models.Model):
+    """Runtime translation for dynamic geography text, not static UI labels."""
+
+    subject_type = models.CharField(max_length=40)
+    subject_key = models.CharField(max_length=255)
+    country_code = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    field = models.CharField(max_length=40)
+    source_text = models.TextField(blank=True, default="")
+    source_language = models.CharField(max_length=20, blank=True, default="")
+    language = models.CharField(max_length=20, db_index=True)
+    text = models.TextField()
+    source = models.CharField(max_length=80, blank=True, default="")
+    model = models.CharField(max_length=120, blank=True, default="")
+    prompt_version = models.CharField(max_length=80, blank=True, default="")
+    input_hash = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    needs_review = models.BooleanField(default=True, db_index=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["subject_type", "country_code", "subject_key", "field", "language"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["subject_type", "subject_key", "country_code", "field", "language"],
+                name="dyn_translation_subject_field_lang_uniq",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["subject_type", "subject_key"], name="dyn_translation_subject_idx"),
+            models.Index(fields=["country_code", "language"], name="dyn_tr_country_lang_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.subject_type}:{self.subject_key}:{self.field}:{self.language}"
+
+
+class EntityTypeInference(models.Model):
+    """Persisted AI/manual rule for completing scraped entity type labels."""
+
+    country_code = models.CharField(max_length=64, db_index=True)
+    raw_entity_type = models.CharField(max_length=80)
+    level = models.IntegerField(null=True, blank=True, db_index=True)
+    context_key = models.CharField(max_length=120, blank=True, default="")
+    canonical_entity_type = models.CharField(max_length=80)
+    source_language = models.CharField(max_length=20, blank=True, default="")
+    confidence = models.CharField(max_length=20, blank=True, default="")
+    reason = models.TextField(blank=True, default="")
+    source = models.CharField(max_length=80, blank=True, default="")
+    model = models.CharField(max_length=120, blank=True, default="")
+    prompt_version = models.CharField(max_length=80, blank=True, default="")
+    input_hash = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    needs_review = models.BooleanField(default=True, db_index=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["country_code", "level", "raw_entity_type", "context_key"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["country_code", "level", "raw_entity_type", "context_key"],
+                name="entity_type_inference_context_uniq",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["country_code", "raw_entity_type"], name="entity_type_inf_raw_idx"),
+            models.Index(fields=["country_code", "canonical_entity_type"], name="entity_type_inf_canon_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.country_code} L{self.level}: {self.raw_entity_type} -> {self.canonical_entity_type}"

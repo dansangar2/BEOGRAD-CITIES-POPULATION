@@ -1553,3 +1553,12 @@ msgstr "Parar tarea: %(slug)s"
 
 msgid "Parada solicitada para '%(label)s'."
 msgstr "Parada solicitada para '%(label)s'."
+
+msgid "Reanudar"
+msgstr "Reanudar"
+
+msgid "Reanudar datos: %(slug)s"
+msgstr "Reanudar datos: %(slug)s"
+
+msgid "Solo puedes reanudar una configuraci?n parada durante el scraping."
+msgstr "Solo puedes reanudar una configuraci?n parada durante el scraping."

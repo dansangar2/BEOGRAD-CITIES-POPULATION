@@ -1547,3 +1547,12 @@ msgstr "Ferma attività: %(slug)s"
 
 msgid "Parada solicitada para '%(label)s'."
 msgstr "Arresto richiesto per '%(label)s'."
+
+msgid "Reanudar"
+msgstr "Riprendi"
+
+msgid "Reanudar datos: %(slug)s"
+msgstr "Riprendi dati: %(slug)s"
+
+msgid "Solo puedes reanudar una configuraci?n parada durante el scraping."
+msgstr "Puoi riprendere solo una configurazione interrotta durante lo scraping."

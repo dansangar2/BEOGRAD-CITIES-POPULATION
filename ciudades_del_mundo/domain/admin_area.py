@@ -21,6 +21,7 @@ class ScrapedAdminArea:
     level: int
     country_code: str
     entity_type: str | None = None
+    raw_entity_type: str | None = None
     parent_code: str | None = None
     area_km2: Decimal | float | None = None
     density: Decimal | float | None = None

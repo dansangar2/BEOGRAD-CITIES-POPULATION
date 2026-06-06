@@ -63,6 +63,33 @@ class Command(BaseCommand):
             help="Fallbacks individuales de Wikidata por página. Por defecto 0 para evitar 429.",
         )
 
+        parser.add_argument(
+            "--resume",
+            action="store_true",
+            help="Continuar desde paginas ya completadas por una tarea web parada.",
+        )
+        parser.add_argument(
+            "--ai-enrich",
+            action="store_true",
+            help="Activar enriquecimiento IA de textos dinamicos al terminar el scrapeo.",
+        )
+        parser.add_argument(
+            "--ai-languages",
+            default="es,en,fr,de,it,ru,sr,sr-latn,ar",
+            help="Idiomas separados por coma para --ai-enrich.",
+        )
+        parser.add_argument(
+            "--ai-translate-area-names",
+            action="store_true",
+            help="Traducir tambien nombres de AdminArea existentes.",
+        )
+        parser.add_argument(
+            "--ai-limit",
+            type=int,
+            default=100,
+            help="Limite de textos/assets procesados por IA.",
+        )
+
     def _run_with_sqlite_retry(self, callback, *, attempts: int = 8):
         delay = 1.0
         for attempt in range(1, attempts + 1):
@@ -88,6 +115,11 @@ class Command(BaseCommand):
                         "scrape_subdivisions",
                         slug,
                         page_workers=max(1, int(options.get("page_workers") or 1)),
+                        resume=bool(options.get("resume")),
+                        ai_enrich=bool(options.get("ai_enrich")),
+                        ai_languages=options.get("ai_languages") or "",
+                        ai_translate_area_names=bool(options.get("ai_translate_area_names")),
+                        ai_limit=max(1, int(options.get("ai_limit") or 1)),
                     )
                 )
                 self._write("[assets] omitido por --skip-assets")
@@ -107,6 +139,11 @@ class Command(BaseCommand):
                     asset_subdivision_levels=options.get("subdivision_asset_levels") or "",
                     max_individual_wikidata_lookups=int(options.get("max_individual_wikidata_lookups") or 0),
                     page_workers=max(1, int(options.get("page_workers") or 1)),
+                    resume=bool(options.get("resume")),
+                    ai_enrich=bool(options.get("ai_enrich")),
+                    ai_languages=options.get("ai_languages") or "",
+                    ai_translate_area_names=bool(options.get("ai_translate_area_names")),
+                    ai_limit=max(1, int(options.get("ai_limit") or 1)),
                 )
             )
         except Exception as exc:

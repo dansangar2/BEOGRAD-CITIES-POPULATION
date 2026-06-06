@@ -160,8 +160,11 @@ Data/config packages:
 - unique pair: `country_code + code`
 - levels: `0..5`, where `0` is country/root
 - hierarchy: `parent` self-FK
-- important fields: `entity_type`, `area_km2`, `density`, `pop_latest`,
-  `pop_latest_date`, `last_census_year`, `url`, `representatives`
+- important fields: `entity_type`, `raw_entity_type`, `area_km2`, `density`,
+  `pop_latest`, `pop_latest_date`, `last_census_year`, `url`,
+  `representatives`
+- `raw_entity_type` preserves the scraped/incomplete label when AI or stored
+  inference normalizes `entity_type` to a canonical internal singular label
 - capital relation: `capitals` ManyToMany to `AdminArea`
 - most-populated relation: `most_populate_city` FK to `AdminArea`
 - merge status: `city_merge_status`
@@ -196,6 +199,26 @@ Data/config packages:
   `cities_count`, `has_representation`, `is_valid` and `validation_error`
 - `source_path` records the temporary seed/export TOML path when imported from
   the bridge, but runtime loading does not read that path
+
+`DynamicTranslation` in `ciudades_del_mundo/models.py`:
+
+- SQL-backed runtime translation for dynamic geography labels, not static UI
+  strings
+- subject shape: `subject_type`, `subject_key`, `country_code`, `field`,
+  `language`
+- common subjects: `country`, `admin_area`, `nuevo_admin_area`, `entity_type`
+- common fields: `name`, `singular`, `plural`
+- the UI uses only rows with `is_active=True` and `needs_review=False` before
+  falling back to country-specific legacy dictionaries and gettext
+
+`EntityTypeInference` in `ciudades_del_mundo/models.py`:
+
+- persisted AI/manual rule for completing scraped `AdminArea.entity_type`
+  values such as `Prov`
+- keyed by `country_code`, `level`, `raw_entity_type` and optional
+  `context_key`
+- reviewed active rows are applied on future scrapes without calling AI
+  (`raw_entity_type` keeps the original scraped value)
 
 ## Important ID And Level Rules
 
@@ -333,6 +356,10 @@ ciudades_del_mundo/application/scrape_admin_areas.py
    download independent CityPopulation pages concurrently but parse, emit
    completion events, seed assets and write SQL in the configured page order so
    extracted data and side effects stay equivalent to the sequential pipeline.
+   In `--resume` mode, pages already recorded in `.web_scrape_resume/` are
+   loaded as cached `ScrapedAdminArea` rows and only missing pages are fetched.
+   The final SQL save still runs once with the full cached+fresh entity set, so
+   `delete_missing` never sees a partial country scrape.
 4. When enabled by the command, reuse that same downloaded HTML to seed
    CityPopulation visual assets for the root country and configured
    subdivision levels without fetching the page a second time. If the page
@@ -347,7 +374,11 @@ ciudades_del_mundo/application/scrape_admin_areas.py
 8. Infer missing parent codes from URL path slugs where unique.
 9. Apply `entity_merges`.
 10. Apply configured `cities`.
-11. In a transaction, optionally reset country rows, save all incoming rows,
+11. Apply stored reviewed `EntityTypeInference` rules, and if `--ai-enrich` is
+    enabled, ask the configured AI provider to complete still-incomplete
+    entity types. AI-generated rules are persisted and applied only when they
+    are active and do not require review.
+12. In a transaction, optionally reset country rows, save all incoming rows,
     delete missing rows, refresh most-populated assignments, and assign
     representatives when configured.
 
@@ -717,6 +748,8 @@ Run scraping, network-dependent and DB-mutating:
 py manage.py scrape_subdivisions spain
 py manage.py scrape_subdivisions spain morocco portugal
 py manage.py scrape_subdivisions_with_assets spain --page-workers=4
+py manage.py scrape_subdivisions_with_assets spain --resume --page-workers=4
+py manage.py scrape_subdivisions_with_assets spain --ai-enrich --page-workers=4
 py manage.py scrape_subdivisions_with_assets spain --page-workers=1  # sequential compatibility mode
 ```
 
@@ -726,6 +759,31 @@ with `CIUDADES_SCRAPE_PAGE_WORKERS`. Keep the default web action at
 behavior. Do not parallelize database writes or asset persistence unless tests
 prove row order, `delete_missing`, progress logs and visual asset results remain
 unchanged.
+`--resume` reuses local per-page checkpoints from `.web_scrape_resume/` for a
+stopped web scraping task and only fetches missing configured pages. Normal
+non-resume scraping clears any previous checkpoint at start; successful runs
+clear the checkpoint at the end. The checkpoint is keyed by SQL
+`ScrapingConfig.content_hash` so editing the config invalidates stale cached
+pages. Keep `.web_scrape_resume/` git-ignored.
+
+AI text enrichment, network/API-dependent and DB-mutating:
+
+```powershell
+$env:CIUDADES_AI_API_KEY = "..."
+$env:CIUDADES_AI_MODEL = "..."
+py manage.py enrich_ai_texts spain --infer-entity-types --translate-names --translate-entity-types --describe-assets
+py manage.py enrich_ai_texts spain --translate-area-names --limit 50
+```
+
+`--ai-enrich` on `scrape_subdivisions` or `scrape_subdivisions_with_assets`
+uses the same provider after scraping. The provider is configured with
+`CIUDADES_AI_API_KEY`, `CIUDADES_AI_MODEL`, optional `CIUDADES_AI_BASE_URL` and
+optional `CIUDADES_AI_TIMEOUT`. Do not enable AI enrichment by default in web
+flows until the user explicitly asks; it can add cost, network latency and
+review work. Dynamic geography text belongs in `DynamicTranslation`, not
+gettext catalogs. Gettext remains for static UI strings. Flag/coat/seal AI text
+belongs in `VisualAssetTranslation.description`/`blazon` with source/model
+metadata.
 
 Seed visual identity metadata, network-dependent but URL-only by default:
 
@@ -809,9 +867,12 @@ country asset payloads. The frontend for `/countries/` must consume only
 `image_url`, `remote_url` or `local_url` values supplied by that payload; do not
 construct ad-hoc Commons `Special:FilePath` URLs from `commons_filename` in that
 page. Missing flag and shield placeholders should occupy the same visual box as
-a real country image so card/detail layout does not jump; use CSS-drawn flag
-and shield placeholders colored from the active theme variables, not emoji
-glyphs. The readable Ficha route is
+a real country image so card/detail layout does not jump; the square media slot
+must define the size, not the presence of an `img` or placeholder. In country
+cards, `.stats-country-flag` must use a fixed width and height from
+`--country-flag-box-size`; do not use `min(100%, ...)` or text-dependent sizing.
+Use CSS-drawn flag and shield placeholders colored from the active theme
+variables, not emoji glyphs. The readable Ficha route is
 `/identity/<kind>/entity/<entity_type>/<entity_key>/` (for example
 `/identity/flag/entity/country/spain/`), and legacy
 `/identity/<kind>/<visual_assets...>/` paths must resolve the stored asset when
@@ -889,6 +950,8 @@ Existing tests:
   population JSON and country display labels.
 - `test_visual_assets.py`: CityPopulation page-HTML visual asset seeding and
   persisted asset metadata.
+- `test_ai_text_enrichment.py`: SQL dynamic translations, entity type
+  inference and AI-generated visual asset descriptions.
 
 Testing guidance:
 
@@ -966,6 +1029,9 @@ If the user asks about web UI:
   `sr`, `sr-latn` and `ar`. The Serbian Latin gettext directory is
   `locale/sr_Latn/LC_MESSAGES/`.
 - translation compiler: `ciudades_del_mundo/management/commands/compile_local_messages.py`
+- dynamic geography labels (country names, `AdminArea` names and entity type
+  singular/plural labels) should come from `DynamicTranslation` when present
+  and reviewed; gettext catalogs are for static UI text only
 - Spain-specific display-name translations for geography labels live in
   `ciudades_del_mundo/web/spain_translations.py`; it maps local/admin source
   names and CityPopulation entity types for Spain across the supported UI
@@ -1028,7 +1094,8 @@ If the user asks about web UI:
   mini pie percentages when the country has fewer than 150 rows at that next
   level; do not filter those child rows by entity-type name.
   `/countries/` is now an API-driven country card browser with a 10-column
-  desktop grid, flag, area and population per country; clicking a card loads the
+  desktop grid, a fixed maximum square flag slot, area and population per
+  country; clicking a card loads the
   basic country panel plus a direct-child subdivision panel from
   `/api/countries/<country_code>/`. Each direct subdivision row can open another
   card below using `/api/admin-areas/<area_id>/`, showing that area's visual
@@ -1115,8 +1182,10 @@ If the user asks about web UI:
   active web task and renders the config workflow state as `stopped` (`Parado`
   in the UI). If a queued/running web task is found after a server restart or
   local power-off, recover it as terminal status `stopped`, not `failed`; rows
-  stopped during scraping must show the populate/resume action so the user can
-  continue by launching the same single-config scrape again. Task
+  stopped during scraping must show `Reanudar`, not `Popular`; it posts to
+  `/configs/<slug>/task/resume/` and launches
+  `scrape_subdivisions_with_assets --no-download-assets --page-workers=4 --resume`
+  for that single config, reusing completed page checkpoints. Task
   tables on `/configs/` and `/tasks/` also poll periodically so
   queued/running/completed states update without a manual reload. The
   `validating` and `populating` config status badges are links to the active
@@ -1181,9 +1250,12 @@ If the user asks about web UI:
   emits page-complete events in config order. `TaskManager` runs at most 1 subprocess
   at once; additional tasks remain `queued` and are dispatched FIFO when a
   running task finishes or is cancelled. `TaskManager` persists recent task
-  history to `.web_tasks.json` and full per-task logs to `.web_task_logs/*.log`
-  in the repo root; both are git-ignored. `/tasks/<id>/` renders the complete
-  stored log on initial load and then polls `/tasks/<id>/status/?since=<offset>`
+  history to `.web_tasks.json`, full per-task logs to `.web_task_logs/*.log`
+  and task-progress sidecars to `.web_task_progress/*.json` in the repo root;
+  these are git-ignored. Stopped scraping tasks may also leave
+  `.web_scrape_resume/*.json` checkpoints until a resumed or fresh successful
+  scrape clears them. `/tasks/<id>/` renders the complete stored log on initial
+  load and then polls `/tasks/<id>/status/?since=<offset>`
   for appended log fragments, so the detail page keeps the full console without
   sending the whole log every second. `/tasks/` loads its task table dynamically
   from `/tasks/table/` with a visible spinner and client-side
@@ -1236,6 +1308,7 @@ If the user asks about web UI:
 - Web task history is persisted locally in `.web_tasks.json`, but running
   subprocesses and queued workers are still process-local and cannot continue
   after a development server restart. The task side effects in `db.sqlite3`,
+  git-ignored `.web_scrape_resume/*.json` page checkpoints,
   git-ignored temporary `subdivisions/*.toml` seed exports,
   git-ignored local `historical_divisions/*.py` and `new_subdivisions/*.py` or
   `excels/` remain.

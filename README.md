@@ -181,6 +181,8 @@ py manage.py scrape_subdivisions spain
 py manage.py scrape_subdivisions spain morocco portugal
 py manage.py scrape_subdivisions --seed-assets-from-pages spain
 py manage.py scrape_subdivisions_with_assets spain --page-workers=4
+py manage.py scrape_subdivisions_with_assets spain --resume --page-workers=4
+py manage.py scrape_subdivisions_with_assets spain --ai-enrich --page-workers=4
 py manage.py scrape_subdivisions_with_assets spain --page-workers=1  # modo secuencial exacto
 ```
 
@@ -191,6 +193,36 @@ assets y la escritura SQL se mantienen en el orden de la configuracion, por lo
 que no cambia la funcionalidad ni los datos extraidos; solo se solapa la espera
 de red. Usa `--page-workers=1` si quieres reproducir el comportamiento
 secuencial antiguo.
+
+`--resume` reutiliza checkpoints locales de paginas completadas por una tarea
+web parada y solo descarga las paginas pendientes. Los checkpoints viven en
+`.web_scrape_resume/`, estan ignorados por Git, se invalidan cuando cambia el
+contenido SQL de la configuracion y se eliminan al terminar correctamente.
+
+### Enriquecer textos dinamicos con IA
+
+```powershell
+$env:CIUDADES_AI_API_KEY = "..."
+$env:CIUDADES_AI_MODEL = "..."
+py manage.py enrich_ai_texts spain --infer-entity-types --translate-names --translate-entity-types --describe-assets
+py manage.py enrich_ai_texts spain --translate-area-names --limit 50
+```
+
+`CIUDADES_AI_BASE_URL` es opcional y por defecto apunta a un endpoint
+compatible con `/v1/chat/completions`; `CIUDADES_AI_TIMEOUT` controla el timeout
+en segundos. El enriquecimiento tambien puede activarse al scrapear con
+`--ai-enrich`. En ese modo el scraper primero aplica inferencias revisadas ya
+guardadas y, si encuentra tipos incompletos como `Prov`, pide a la IA una forma
+canonica en singular ingles (`Province`, `Municipality`, etc.) usando pais,
+nivel y ejemplos de entidades. El texto original queda en
+`AdminArea.raw_entity_type` y la forma canonica en `AdminArea.entity_type`.
+
+Las traducciones dinamicas se guardan en `DynamicTranslation` y tienen prioridad
+en la UI cuando estan activas y no requieren revision. Gettext queda para textos
+estaticos de interfaz. Las descripciones de banderas, escudos y sellos se
+guardan en `VisualAssetTranslation.description` y `blazon`; el proveedor recibe
+la URL de imagen cuando existe, pero el resultado sigue marcado con metadatos de
+origen/modelo para poder revisarlo.
 
 ### Reparar banderas y escudos
 
@@ -381,8 +413,9 @@ Secciones principales:
   poblado activo muestran `Parar` junto a `Validar`/`Popular`; al cancelar la
   tarea la fila pasa a `Parado`. Si el servidor local se reinicia o el ordenador
   se apaga con una tarea en cola/ejecucion, esa tarea se recupera como `Parado`
-  en vez de `Fallo`; una fila parada durante el poblado vuelve a mostrar la
-  accion de popular/continuar para reanudarla. Durante una tarea de poblado, la
+  en vez de `Fallo`; una fila parada durante el poblado muestra `Reanudar`, que
+  lanza `scrape_subdivisions_with_assets --resume` para continuar desde las
+  paginas completadas antes de la parada. Durante una tarea de poblado, la
   etiqueta `Populando` mantiene ancho estable con tres puntos animados por JS,
   sin keyframes CSS que se reinicien al refrescar la fila, y la fila se refresca
   con una cadencia baja para que el estado pase a `Populado` y el boton
@@ -397,9 +430,9 @@ Secciones principales:
   Python y lanzar `build_new_subdivisions`, CSV o Excel.
 - `/derived/`: muestra paises `NuevoAdminArea` creados y una tabla comparativa
   por pais con porcentajes respecto al pais y al padre.
-- `/countries/`: navegador de paises en tarjetas de 10 columnas, con bandera
-  registrada en SQL o placeholder local cuando no hay asset registrado, terreno
-  y poblacion desde `/api/countries/`;
+- `/countries/`: navegador de paises en tarjetas de 10 columnas, con slot
+  cuadrado fijo para bandera registrada en SQL o placeholder local cuando no hay
+  asset registrado, terreno y poblacion desde `/api/countries/`;
   al hacer clic carga la ficha basica del pais y sus subdivisiones directas desde
   `/api/countries/<country_code>/`, y cada subdivision se abre recursivamente con
   `/api/admin-areas/<area_id>/`.
@@ -454,8 +487,11 @@ complejos o especiales, como movimiento de colores en `Arcoiris`, barridos en
 
 Las tareas web se gestionan en `ciudades_del_mundo/web/tasks.py`. Cada accion
 lanza un subproceso `manage.py`, guarda estado/salida reciente en
-`.web_tasks.json` y escribe el log completo en `.web_task_logs/*.log` en la raiz
-del proyecto. `/tasks/<id>/` carga el log completo al abrirse y, mientras la
+`.web_tasks.json`, escribe el log completo en `.web_task_logs/*.log` y usa
+`.web_task_progress/*.json` para progreso por tarea en la raiz del proyecto.
+Las tareas de scraping guardan checkpoints de reanudacion en
+`.web_scrape_resume/` mientras no terminan correctamente. `/tasks/<id>/` carga
+el log completo al abrirse y, mientras la
 tarea sigue activa, solo solicita el nuevo fragmento por offset para no
 ralentizar la pagina. Esos ficheros locales estan ignorados por git. Como maximo
 se ejecuta 1 subproceso a la vez; el resto queda en estado `queued` y se

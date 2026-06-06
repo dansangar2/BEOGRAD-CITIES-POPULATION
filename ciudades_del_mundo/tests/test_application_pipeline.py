@@ -2,7 +2,7 @@ from decimal import Decimal
 import unittest
 from unittest.mock import patch
 
-from ciudades_del_mundo.application.scrape_admin_areas import ScrapeAdminAreas
+from ciudades_del_mundo.application.scrape_admin_areas import CachedScrapePage, ScrapeAdminAreas
 from ciudades_del_mundo.domain import AdminAreaSummary, ScrapedAdminArea, ScrapingJobConfig, ScrapingPageConfig
 
 
@@ -168,6 +168,42 @@ class ScrapeAdminAreasTests(unittest.TestCase):
             use_case.run(config)
 
         self.assertEqual(repository.saved_entities, [])
+
+    def test_run_reuses_cached_page_without_scraping_it_again(self):
+        repository = FakeRepository()
+        starts = []
+        cached_events = []
+        cached_root = ScrapedAdminArea(
+            code="fake",
+            name="Cached Testland",
+            level=0,
+            country_code="fake",
+            pop_latest=100,
+        )
+        use_case = ScrapeAdminAreas(
+            repository=repository,
+            scrapers=[],
+            on_page_start=starts.append,
+            cached_page_loader=lambda page: CachedScrapePage(
+                found=1,
+                html="<html>cached</html>",
+                entities=(cached_root,),
+            ),
+            on_cached_page=cached_events.append,
+        )
+        config = ScrapingJobConfig(
+            slug="fake",
+            country_code="fake",
+            base_url="https://example.test/en/",
+            pages=[ScrapingPageConfig(path="fake/admin", html_format="missing", lowest_level=0)],
+        )
+
+        result = use_case.run(config)
+
+        self.assertEqual(result.found, 1)
+        self.assertEqual(starts, [])
+        self.assertEqual(cached_events[0].html, "<html>cached</html>")
+        self.assertEqual([entity.name for entity in repository.saved_entities], ["Cached Testland"])
 
 
 class PrefetchHtmlScraper:

@@ -8,7 +8,7 @@ import time
 from django.core.management.base import BaseCommand, CommandError
 from django.db import OperationalError, close_old_connections
 
-from ciudades_del_mundo.application import ScrapeAdminAreas
+from ciudades_del_mundo.application import CachedScrapePage, ScrapeAdminAreas
 from ciudades_del_mundo.infrastructure.django.admin_area_repository import DjangoAdminAreaRepository, DjangoUnitOfWork
 from ciudades_del_mundo.infrastructure.scraping import (
     CityPopulationAdminScraper,
@@ -20,6 +20,17 @@ from ciudades_del_mundo.infrastructure.scraping import (
     PythonScrapingConfigRepository,
 )
 from ciudades_del_mundo.infrastructure.scraping.urls import build_page_url
+from ciudades_del_mundo.models import ScrapingConfig
+from ciudades_del_mundo.services.ai_text_enrichment import (
+    DEFAULT_AI_LANGUAGES,
+    AiTextEnrichmentService,
+    apply_stored_entity_type_inferences,
+)
+from ciudades_del_mundo.services.ai_text_provider import (
+    AiProviderConfigurationError,
+    OpenAICompatibleJsonProvider,
+)
+from ciudades_del_mundo.services.scrape_resume import ScrapeResumeStore
 from ciudades_del_mundo.services.visual_assets import (
     seed_visual_assets_from_scraped_page,
     visual_asset_tables_exist,
@@ -84,6 +95,32 @@ class Command(BaseCommand):
                 "page data-wd and one country SPARQL batch are used instead."
             ),
         )
+        parser.add_argument(
+            "--resume",
+            action="store_true",
+            help="Reuse completed page checkpoints from a stopped web scraping task.",
+        )
+        parser.add_argument(
+            "--ai-enrich",
+            action="store_true",
+            help="Infer incomplete entity types and generate missing dynamic AI text after scraping.",
+        )
+        parser.add_argument(
+            "--ai-languages",
+            default=",".join(DEFAULT_AI_LANGUAGES),
+            help="Comma-separated dynamic text languages used with --ai-enrich.",
+        )
+        parser.add_argument(
+            "--ai-translate-area-names",
+            action="store_true",
+            help="Also translate individual AdminArea names. Off by default to avoid large AI jobs.",
+        )
+        parser.add_argument(
+            "--ai-limit",
+            type=int,
+            default=100,
+            help="Maximum existing text/assets processed by post-scrape AI enrichment.",
+        )
 
     def handle(self, *args, **options):
         countries = options["countries"]
@@ -107,6 +144,11 @@ class Command(BaseCommand):
                     )
                 continue
 
+            ai_service = self._ai_service(options) if options.get("ai_enrich") else None
+            resume_store = _resume_store_for_config(config)
+            if not options.get("resume"):
+                resume_store.clear()
+
             use_case = ScrapeAdminAreas(
                 repository=DjangoAdminAreaRepository(),
                 unit_of_work=DjangoUnitOfWork(),
@@ -124,10 +166,25 @@ class Command(BaseCommand):
                 on_page_complete=lambda page, current_config=config: self._on_page_complete(
                     page,
                     current_config,
+                    resume_store=resume_store,
                     seed_assets=seed_assets,
                     download_assets=bool(options.get("download_assets")) and not bool(options.get("no_download_assets")),
                     subdivision_levels=subdivision_levels,
                     max_individual_wikidata_lookups=int(options.get("max_individual_wikidata_lookups") or 0),
+                ),
+                cached_page_loader=(
+                    (lambda page, store=resume_store: _cached_page_from_store(store, page))
+                    if options.get("resume")
+                    else None
+                ),
+                on_cached_page=self._on_cached_page,
+                entity_enricher=(
+                    ai_service.normalize_scraped_entities
+                    if ai_service
+                    else lambda current_config, entities: apply_stored_entity_type_inferences(
+                        current_config.country_code,
+                        entities,
+                    )
                 ),
                 page_workers=max(1, int(options.get("page_workers") or 1)),
             )
@@ -142,12 +199,28 @@ class Command(BaseCommand):
                 f"updated={result.updated}, deleted={result.deleted}",
                 style=self.style.SUCCESS,
             )
+            if ai_service:
+                stats = ai_service.translate_dynamic_texts(
+                    country_code=config.country_code,
+                    include_country=True,
+                    include_admin_area_names=bool(options.get("ai_translate_area_names")),
+                    include_entity_types=True,
+                    limit=max(1, int(options.get("ai_limit") or 1)),
+                )
+                if seed_assets:
+                    stats += ai_service.describe_missing_visual_assets(
+                        country_code=config.country_code,
+                        limit=max(1, int(options.get("ai_limit") or 1)),
+                    )
+                self._write(stats.as_log_line(f"[ai] {config.slug}:"))
+            resume_store.clear()
 
     def _on_page_complete(
         self,
         page,
         config,
         *,
+        resume_store: ScrapeResumeStore,
         seed_assets: bool,
         download_assets: bool,
         subdivision_levels: tuple[int, ...] | None,
@@ -155,6 +228,7 @@ class Command(BaseCommand):
     ) -> None:
         self._write(f"FOUND {page.found} entities: {page.url}")
         if not seed_assets:
+            resume_store.save_page(page)
             return
         result = seed_visual_assets_from_scraped_page(
             country_code=config.country_code,
@@ -169,6 +243,10 @@ class Command(BaseCommand):
         )
         if result.found or result.downloaded or result.missing or result.errors:
             self._write(result.as_log_line(f"{config.slug}:page-assets"))
+        resume_store.save_page(page)
+
+    def _on_cached_page(self, page) -> None:
+        self._write(f"RESUME {page.found} cached entities: {page.url}")
 
     def _run_with_sqlite_retry(self, callback, *, attempts: int = 8):
         delay = 1.0
@@ -203,6 +281,16 @@ class Command(BaseCommand):
                 raise CommandError(f"No SQL scraping config found for slug '{country}'.") from exc
         return configs
 
+    def _ai_service(self, options) -> AiTextEnrichmentService:
+        try:
+            provider = OpenAICompatibleJsonProvider.from_env()
+        except AiProviderConfigurationError as exc:
+            raise CommandError(str(exc)) from exc
+        return AiTextEnrichmentService(
+            provider,
+            languages=_parse_ai_languages(options.get("ai_languages") or ""),
+        )
+
 
 def _parse_levels(value: str) -> tuple[int, ...] | None:
     if not value.strip():
@@ -216,3 +304,28 @@ def _default_page_workers() -> int:
         return max(1, int(raw))
     except (TypeError, ValueError):
         return 4
+
+
+def _parse_ai_languages(value: str) -> tuple[str, ...]:
+    languages = tuple(item.strip() for item in str(value or "").split(",") if item.strip())
+    return languages or DEFAULT_AI_LANGUAGES
+
+
+def _resume_store_for_config(config) -> ScrapeResumeStore:
+    record = ScrapingConfig.objects.filter(slug=config.slug).only("content_hash", "country_code").first()
+    return ScrapeResumeStore(
+        slug=config.slug,
+        country_code=getattr(record, "country_code", "") or config.country_code,
+        content_hash=getattr(record, "content_hash", "") or "",
+    )
+
+
+def _cached_page_from_store(store: ScrapeResumeStore, page) -> CachedScrapePage | None:
+    snapshot = store.load_page(page)
+    if not snapshot:
+        return None
+    return CachedScrapePage(
+        found=snapshot.found,
+        html=snapshot.html,
+        entities=snapshot.entities,
+    )

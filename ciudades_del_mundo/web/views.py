@@ -37,6 +37,11 @@ from ciudades_del_mundo.services.scraping_configs import (
     scraping_config_table_exists,
     upsert_scraping_config,
 )
+from ciudades_del_mundo.services.dynamic_translations import (
+    dynamic_area_name,
+    dynamic_country_name,
+    dynamic_entity_type_label,
+)
 from ciudades_del_mundo.services.visual_assets import (
     get_visual_asset_by_local_or_commons,
     get_visual_asset_for_entity_kind,
@@ -864,6 +869,16 @@ def start_config_task(request, slug, action):
         key = f"scrape:{slug}"
         label = _("Popular datos: %(slug)s") % {"slug": slug}
         args = ["scrape_subdivisions_with_assets", slug, "--no-download-assets", "--page-workers=4"]
+    elif action == "resume":
+        if not row.get("can_resume"):
+            error = _("Solo puedes reanudar una configuraciÃ³n parada durante el scraping.")
+            if wants_json:
+                return JsonResponse({"ok": False, "error": error}, status=400)
+            messages.info(request, error)
+            return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
+        key = f"scrape:{slug}"
+        label = _("Reanudar datos: %(slug)s") % {"slug": slug}
+        args = ["scrape_subdivisions_with_assets", slug, "--no-download-assets", "--page-workers=4", "--resume"]
     else:
         error = _("Acción de configuración no soportada.")
         if wants_json:
@@ -1014,6 +1029,7 @@ def config_summary(request, slug):
             "scrape_task_is_active": scrape_task.is_active if scrape_task else False,
             "can_validate": bool(workflow_row.get("can_validate")),
             "can_scrape": bool(workflow_row.get("can_scrape")),
+            "can_resume": bool(workflow_row.get("can_resume")),
             "can_stop": bool(workflow_row.get("can_stop")),
             "error": row.get("error") or "",
         }
@@ -1858,6 +1874,13 @@ def _area_search_query(area) -> str:
 
 
 def _area_display_name(area) -> str:
+    dynamic = dynamic_area_name(area, get_language())
+    if dynamic:
+        return dynamic
+    if getattr(area, "level", None) == 0:
+        country_dynamic = dynamic_country_name(getattr(area, "country_code", ""), get_language())
+        if country_dynamic:
+            return country_dynamic
     return _display_name(
         getattr(area, "name", ""),
         getattr(area, "name", ""),
@@ -2182,11 +2205,11 @@ def _admin_area_identity_payload(area: AdminArea, children: list[AdminArea] | No
         "id": area.id,
         "code": area.code,
         "country_code": area.country_code,
-        "name": _display_name(area.name, area.name, country_code=area.country_code),
-        "official_name": _display_name(area.name, area.name, country_code=area.country_code),
+        "name": _area_display_name(area),
+        "official_name": _area_display_name(area),
         "entity_type": _entity_type_label(area.entity_type, country_code=area.country_code),
         "level": area.level,
-        "parent": _display_name(area.parent.name, area.parent.name, country_code=area.country_code) if area.parent else "",
+        "parent": _area_display_name(area.parent) if area.parent else "",
         "population": int(area.pop_latest or 0) if area.pop_latest is not None else None,
         "area_km2": _number_or_none(area.area_km2),
         "density": _number_or_none(area.density) or _density(area.pop_latest, area.area_km2),
@@ -2208,7 +2231,7 @@ def _admin_area_child_rows(children: list[AdminArea], population_total, area_tot
     return [
         {
             "id": child.id,
-            "name": _display_name(child.name, child.name, country_code=child.country_code),
+            "name": _area_display_name(child),
             "entity_type": _entity_type_label(child.entity_type, country_code=child.country_code),
             "level": child.level,
             "area_km2": _number_or_none(child.area_km2),
@@ -2298,13 +2321,13 @@ def _country_table_rows(
         rows = rows.exclude(id=root.id)
     return [
         {
-            "name": _display_name(row.name, row.name, country_code=country_code),
+            "name": _area_display_name(row),
             "area_km2": _number_or_none(row.area_km2),
             "population": int(row.pop_latest or 0) if row.pop_latest is not None else None,
             "density": _number_or_none(row.density) or _density(row.pop_latest, row.area_km2),
             "population_percent": _ratio_percent(row.pop_latest, population_total),
             "area_percent": _ratio_percent(row.area_km2, area_total),
-            "parent": _display_name(row.parent.name, row.parent.name, country_code=country_code) if row.parent else "",
+            "parent": _area_display_name(row.parent) if row.parent else "",
             "entity_type": _entity_type_label(row.entity_type, country_code=country_code),
         }
         for row in rows
@@ -2331,7 +2354,7 @@ def _capital_names_for_area(area: AdminArea | None) -> list[str]:
     if not area:
         return []
     return [
-        _display_name(capital.name, capital.name, country_code=area.country_code)
+        _area_display_name(capital)
         for capital in area.capitals.all().order_by("name")
     ]
 
@@ -2582,7 +2605,7 @@ def _donut_payload(areas: list[AdminArea], value_field: str, total) -> dict:
         items.append(
             {
                 "key": area.id,
-                "label": _display_name(area.name, area.name, country_code=area.country_code),
+                "label": _area_display_name(area),
                 "value": _number_or_none(value),
             }
         )
@@ -2619,7 +2642,7 @@ def _first_order_card(area: AdminArea, population_total, area_total, *, include_
     area_km2 = _number_or_none(area.area_km2) or 0
     return {
         "id": area.id,
-        "name": _display_name(area.name, area.name, country_code=area.country_code),
+        "name": _area_display_name(area),
         "entity_type": _entity_type_label(area.entity_type, country_code=area.country_code),
         "level": area.level,
         "population": population,
@@ -2637,7 +2660,7 @@ def _second_order_share_rows(area: AdminArea) -> list[dict]:
     children = _admin_area_browser_children(area)
     return [
         {
-            "name": _display_name(child.name, child.name, country_code=child.country_code),
+            "name": _area_display_name(child),
             "entity_type": _entity_type_label(child.entity_type, country_code=child.country_code),
             "population": int(child.pop_latest or 0) if child.pop_latest is not None else None,
             "area_km2": _number_or_none(child.area_km2),
@@ -2738,6 +2761,11 @@ def _area_country_display_name(area) -> str:
 def _display_name(name, fallback, *, country_code: str | None = None) -> str:
     fallback_value = str(fallback or "").strip()
     language = normalize_language_code(get_language())
+    country_key = str(country_code or "").strip().lower()
+    if country_key and (not str(name or "").strip() or fallback_value.lower() == country_key):
+        dynamic = dynamic_country_name(country_key, language)
+        if dynamic:
+            return dynamic
     if language == "es":
         mapped = COUNTRY_NAME_ES_BY_CODE.get(fallback_value.lower())
         if mapped:
@@ -2760,6 +2788,9 @@ def _entity_type_label(entity_type: str | None, *, country_code: str | None = No
     if not value:
         return ""
     language = normalize_language_code(get_language())
+    dynamic = dynamic_entity_type_label(value, language, country_code=country_code)
+    if dynamic:
+        return dynamic
     if str(country_code or "").lower() == "spain":
         return spain_entity_type(value, language)
     return _(value)
@@ -2940,13 +2971,13 @@ def _source_entities_for_config(slug: str, *, level: str | int | None = None) ->
         rows.append(
             {
                 "id": area.id,
-                "name": _display_name(area.name, area.name, country_code=area.country_code),
+                "name": _area_display_name(area),
                 "raw_name": area.name,
                 "level": area.level,
                 "entity_type": entity_type,
                 "raw_entity_type": area.entity_type,
                 "entity_type_filter": entity_type_filter,
-                "parent": _display_name(parent.name, parent.name, country_code=area.country_code) if parent else "",
+                "parent": _area_display_name(parent) if parent else "",
                 "parent_key": parent.id if parent else "",
                 "parent_level": parent.level if parent else None,
                 "raw_parent": parent.name if parent else "",
@@ -3337,9 +3368,11 @@ def _decorate_config_workflow_flags(row: dict) -> dict:
         task_key = _config_task_key_for_row(row)
         row["can_validate"] = task_key.startswith("validate-config:")
         row["can_scrape"] = task_key.startswith("scrape:")
+        row["can_resume"] = task_key.startswith("scrape:")
     else:
         row["can_validate"] = _can_validate_config_status(status)
         row["can_scrape"] = _can_scrape_config_status(status)
+        row["can_resume"] = False
     task = row.get("active_task")
     row["can_stop"] = status in {"validating", "populating", "running", "queued"} and bool(
         task and getattr(task, "is_active", False)

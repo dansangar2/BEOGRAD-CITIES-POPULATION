@@ -4,6 +4,7 @@ from pathlib import Path
 import re
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from django.test import TestCase
 from django.utils import timezone
@@ -621,6 +622,96 @@ lowest_level = 0
             self.assertEqual(summary["task_status"], "stopped")
             self.assertEqual(summary["status_filter"], "stopped")
             self.assertTrue(summary["can_scrape"])
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
+    def test_stopped_scrape_row_shows_resume_button(self):
+        slug = "zztestresumebutton"
+        original_recovery_done = task_manager._recovery_done
+        upsert_scraping_config(
+            slug,
+            """
+name = "Resume Button Test"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        try:
+            task_manager._recovery_done = True
+            now = timezone.now()
+            ManagedTask.objects.create(
+                id="scrape-resume-cancelled",
+                key=f"scrape:{slug}",
+                label="Popular test",
+                args=["scrape_subdivisions_with_assets", slug],
+                status=ManagedTask.Status.CANCELLED,
+                created_at=now,
+                started_at=now,
+                finished_at=now,
+                updated_at=now,
+            )
+
+            response = self.client.get(f"/configs/table/?q={slug}")
+
+            self.assertEqual(response.status_code, 200)
+            html = response.content.decode("utf-8")
+            self.assertIn(f"/configs/{slug}/task/resume/", html)
+            self.assertIn('data-config-action-form="resume"', html)
+            self.assertIn('data-config-action="resume"', html)
+            self.assertIn(">Reanudar<", html)
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
+    def test_resume_config_task_starts_scrape_with_resume_flag(self):
+        slug = "zztestresumeaction"
+        original_recovery_done = task_manager._recovery_done
+        upsert_scraping_config(
+            slug,
+            """
+name = "Resume Action Test"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        try:
+            task_manager._recovery_done = True
+            now = timezone.now()
+            ManagedTask.objects.create(
+                id="scrape-resume-source",
+                key=f"scrape:{slug}",
+                label="Popular test",
+                args=["scrape_subdivisions_with_assets", slug],
+                status=ManagedTask.Status.CANCELLED,
+                created_at=now,
+                started_at=now,
+                finished_at=now,
+                updated_at=now,
+            )
+
+            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+                start.return_value = _Object(
+                    id="resume-started",
+                    status=ManagedTask.Status.QUEUED,
+                )
+                response = self.client.post(
+                    f"/configs/{slug}/task/resume/",
+                    HTTP_ACCEPT="application/json",
+                    HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                )
+
+            self.assertEqual(response.status_code, 200)
+            kwargs = start.call_args.kwargs
+            self.assertEqual(kwargs["key"], f"scrape:{slug}")
+            self.assertIn("--resume", kwargs["args"])
+            self.assertEqual(response.json()["label"], f"Reanudar datos: {slug}")
         finally:
             task_manager._recovery_done = original_recovery_done
 

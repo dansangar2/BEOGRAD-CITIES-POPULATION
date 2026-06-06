@@ -4666,6 +4666,7 @@
         var normalizedStatus = normalizeConfigStatus(data.status_filter || data.task_status || "pending");
         row.dataset.task = normalizedStatus;
         row.dataset.status = normalizedStatus;
+        row.dataset.canResume = data.can_resume ? "1" : "0";
         var fields = {
           country: data.country_label,
           pages: data.pages,
@@ -4803,24 +4804,36 @@
     var key = normalizeConfigStatus(status || row.dataset.status || row.dataset.task || "pending");
     var validateForm = row.querySelector('[data-config-action-form="validate"]');
     var scrapeForm = row.querySelector('[data-config-action-form="scrape"]');
+    var resumeForm = row.querySelector('[data-config-action-form="resume"]');
     var stopForm = row.querySelector('[data-config-action-form="stop"]');
     var validateButton = row.querySelector('[data-config-action="validate"]');
     var scrapeButton = row.querySelector('[data-config-action="scrape"]');
+    var resumeButton = row.querySelector('[data-config-action="resume"]');
     var stopButton = row.querySelector('[data-config-action="stop"]');
     var showValidate = ["pending", "failed"].indexOf(key) !== -1;
     var showValidateBusy = key === "validating";
     var showScrape = ["validated", "populated", "stopped"].indexOf(key) !== -1;
     var showScrapeBusy = key === "populating";
+    var canResume = row.dataset.canResume === "1";
+    var showResume = key === "stopped" && canResume;
     var showStop = ["validating", "populating", "running", "queued"].indexOf(key) !== -1;
 
-    if (data && Object.prototype.hasOwnProperty.call(data, "can_validate") && Boolean(data.can_validate)) {
-      showValidate = true;
+    if (data && Object.prototype.hasOwnProperty.call(data, "can_validate")) {
+      showValidate = Boolean(data.can_validate);
     }
-    if (data && Object.prototype.hasOwnProperty.call(data, "can_scrape") && Boolean(data.can_scrape)) {
-      showScrape = true;
+    if (data && Object.prototype.hasOwnProperty.call(data, "can_resume")) {
+      canResume = Boolean(data.can_resume);
+      row.dataset.canResume = canResume ? "1" : "0";
+      showResume = key === "stopped" && canResume;
+    }
+    if (data && Object.prototype.hasOwnProperty.call(data, "can_scrape")) {
+      showScrape = Boolean(data.can_scrape);
     }
     if (data && Object.prototype.hasOwnProperty.call(data, "can_stop")) {
       showStop = Boolean(data.can_stop);
+    }
+    if (showResume) {
+      showScrape = false;
     }
 
     if (validateButton) {
@@ -4838,17 +4851,22 @@
       } else {
         scrapeButton.removeAttribute("disabled");
       }
-      if (key === "stopped") {
-        scrapeButton.textContent = scrapeButton.dataset.resumeLabel || "Continuar";
-      } else if (scrapeButton.dataset.defaultLabel) {
+      if (scrapeButton.dataset.defaultLabel) {
         scrapeButton.textContent = scrapeButton.dataset.defaultLabel;
       }
+    }
+    if (resumeButton) {
+      resumeButton.disabled = false;
+      resumeButton.removeAttribute("disabled");
     }
     if (validateForm) {
       validateForm.hidden = !(showValidate || showValidateBusy);
     }
     if (scrapeForm) {
       scrapeForm.hidden = !(showScrape || showScrapeBusy);
+    }
+    if (resumeForm) {
+      resumeForm.hidden = !showResume;
     }
     if (stopButton) {
       stopButton.disabled = false;
@@ -4994,7 +5012,7 @@
         var actionRow = form.closest("[data-config-row]");
         if (actionRow) {
           var actionKind = form.dataset.configActionForm || "";
-          var pendingStatus = actionKind === "scrape" ? "populating" : (actionKind === "stop" ? "stopped" : "validating");
+          var pendingStatus = (actionKind === "scrape" || actionKind === "resume") ? "populating" : (actionKind === "stop" ? "stopped" : "validating");
           actionRow.dataset.task = pendingStatus;
           actionRow.dataset.status = pendingStatus;
           renderConfigTaskCell(
