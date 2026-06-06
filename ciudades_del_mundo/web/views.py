@@ -733,7 +733,7 @@ def start_all_config_task(request, action):
     elif action == "scrape-unpopulated":
         eligible_slugs = _eligible_config_slugs_for_bulk("scrape-unpopulated")
         if not eligible_slugs:
-            error = _("No hay configuraciones validadas sin popular.")
+            error = _("No hay configuraciones disponibles para popular.")
             if wants_json:
                 return JsonResponse({"ok": False, "error": error}, status=400)
             messages.info(request, error)
@@ -744,13 +744,13 @@ def start_all_config_task(request, action):
     elif action == "scrape":
         eligible_slugs = _eligible_config_slugs_for_bulk("scrape")
         if not eligible_slugs:
-            error = _("No hay configuraciones validadas pendientes de popular.")
+            error = _("No hay configuraciones disponibles para popular.")
             if wants_json:
                 return JsonResponse({"ok": False, "error": error}, status=400)
             messages.info(request, error)
             return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
         key = "scrape:all"
-        label = _("Popular configuraciones validadas (%(count)s)") % {"count": len(eligible_slugs)}
+        label = _("Popular configuraciones disponibles (%(count)s)") % {"count": len(eligible_slugs)}
         args = ["validate_and_scrape_configs", *eligible_slugs]
     else:
         error = _("Acción de configuración no soportada.")
@@ -835,12 +835,13 @@ def start_config_task(request, slug, action):
         task = task_manager.cancel(task.id) or task
         label = _("Parar tarea: %(slug)s") % {"slug": slug}
         if wants_json:
+            next_row = _decorate_config_workflow_flags(_config_summary_for_slug(slug))
             return JsonResponse(
                 {
                     "ok": True,
                     "task_id": task.id,
                     "label": label,
-                    "status": "stopped",
+                    "status": next_row.get("status_filter") or next_row.get("task_display_status") or "pending",
                     "status_url": reverse("ciudades_del_mundo:task_status", kwargs={"task_id": task.id}),
                     "summary_url": reverse("ciudades_del_mundo:config_summary", kwargs={"slug": slug}),
                     "detail_url": reverse("ciudades_del_mundo:task_detail", kwargs={"task_id": task.id}),
@@ -861,24 +862,29 @@ def start_config_task(request, slug, action):
         args = ["validate_subdivision_configs", slug]
     elif action == "scrape":
         if not row.get("can_scrape"):
-            error = _("Solo puedes popular una configuración Validada, Populada o Parada. Modifica la configuración SQL, valida y después popula.")
+            error = _("Solo puedes popular una configuración Por validar, Validada o en Fallo. Si ya está Populada, primero limpia sus datos.")
             if wants_json:
                 return JsonResponse({"ok": False, "error": error}, status=400)
             messages.info(request, error)
             return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
         key = f"scrape:{slug}"
         label = _("Popular datos: %(slug)s") % {"slug": slug}
-        args = ["scrape_subdivisions_with_assets", slug, "--no-download-assets", "--page-workers=4"]
-    elif action == "resume":
-        if not row.get("can_resume"):
-            error = _("Solo puedes reanudar una configuraciÃ³n parada durante el scraping.")
+        if current_status == "validated":
+            args = ["scrape_subdivisions_with_assets", slug, "--no-download-assets", "--page-workers=4"]
+        else:
+            args = ["validate_and_scrape_configs", slug, "--no-download-assets", "--page-workers=4"]
+    elif action == "clear":
+        if not row.get("can_clear"):
+            error = _("No hay datos")
+            if current_status in ACTIVE_CONFIG_OPERATION_STATUSES:
+                error = _("No puedes limpiar mientras hay una operación activa en esta configuración.")
             if wants_json:
                 return JsonResponse({"ok": False, "error": error}, status=400)
             messages.info(request, error)
             return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
-        key = f"scrape:{slug}"
-        label = _("Reanudar datos: %(slug)s") % {"slug": slug}
-        args = ["scrape_subdivisions_with_assets", slug, "--no-download-assets", "--page-workers=4", "--resume"]
+        key = f"clear-config:{slug}"
+        label = f"{_('Limpiar')}: {slug}"
+        args = ["clear_config_data", row.get("country_code") or slug]
     else:
         error = _("Acción de configuración no soportada.")
         if wants_json:
@@ -927,8 +933,10 @@ def _terminal_config_progress_status(task) -> str:
             return "populated"
         if key.startswith("validate-config:"):
             return "validated"
-    if status in {"stopped", "cancelled"}:
-        return "stopped"
+        if key.startswith("clear-config:"):
+            return "pending"
+    if status == "cancelled":
+        return "cancelled"
     if status == "failed":
         return "failed"
     return ""
@@ -938,20 +946,26 @@ def _progress_status_after_terminal_task(current_status: str, terminal_status: s
     """Map stale progress-file statuses once the parent WebTask is terminal."""
     current_status = str(current_status or "").strip().casefold()
     terminal_status = str(terminal_status or "").strip().casefold()
-    active_statuses = {"validating", "populating", "running", "queued"}
-    if terminal_status == "stopped":
-        return "stopped" if current_status in active_statuses else current_status
+    active_statuses = {"validating", "populating", "clearing", "running", "queued"}
+    if terminal_status == "cancelled":
+        if current_status == "populating":
+            return "validated"
+        if current_status in {"validating", "clearing", "running", "queued", ""}:
+            return "pending"
+        return current_status
     if terminal_status == "failed":
         return "failed" if current_status in active_statuses else current_status
     if terminal_status in {"validated", "populated"}:
         finishable = active_statuses | {"succeeded", "validated", "populated"}
         return terminal_status if current_status in finishable else current_status
+    if terminal_status == "pending":
+        return "pending" if current_status in active_statuses | {"pending"} else current_status
     return current_status
 
 
 def _single_config_slug_from_task_key(task) -> str:
     key = str(getattr(task, "key", "") or "")
-    for prefix in ("scrape:", "validate-config:"):
+    for prefix in ("scrape:", "validate-config:", "clear-config:"):
         if key.startswith(prefix):
             slug = key.split(":", 1)[1]
             return "" if slug in {"all", "unpopulated"} else slug
@@ -967,14 +981,19 @@ def task_status(request, task_id):
     config_progress = read_task_config_progress(task.id)
     terminal_status = _terminal_config_progress_status(task)
     if terminal_status:
+        slug = _single_config_slug_from_task_key(task)
+        summary_status = ""
+        if terminal_status == "cancelled" and slug:
+            summary_status = str(_config_summary_for_slug(slug).get("task_display_status") or "")
         for item in config_progress.values():
             if isinstance(item, dict):
-                next_status = _progress_status_after_terminal_task(str(item.get("status") or ""), terminal_status)
+                next_status = summary_status or _progress_status_after_terminal_task(
+                    str(item.get("status") or ""), terminal_status
+                )
                 if next_status:
                     item["status"] = next_status
-        slug = _single_config_slug_from_task_key(task)
         if slug and not config_progress:
-            config_progress = {slug: {"status": terminal_status, "detail": ""}}
+            config_progress = {slug: {"status": summary_status or terminal_status, "detail": ""}}
     payload = {
         "id": task.id,
         "label": task.label,
@@ -1007,6 +1026,7 @@ def config_summary(request, slug):
     task = row.get("active_task")
     validate_task = row.get("validate_task")
     scrape_task = row.get("scrape_task")
+    clear_task = row.get("clear_task")
     task_display_status = row.get("task_display_status") or _config_task_display_status(task)
     status_filter = _config_row_status({**row, "task_display_status": task_display_status})
     workflow_row = _decorate_config_workflow_flags({**row, "task_display_status": task_display_status})
@@ -1027,8 +1047,11 @@ def config_summary(request, slug):
             "validate_task_is_active": validate_task.is_active if validate_task else False,
             "scrape_task_status": _config_task_display_status(scrape_task),
             "scrape_task_is_active": scrape_task.is_active if scrape_task else False,
+            "clear_task_status": _config_task_display_status(clear_task),
+            "clear_task_is_active": clear_task.is_active if clear_task else False,
             "can_validate": bool(workflow_row.get("can_validate")),
             "can_scrape": bool(workflow_row.get("can_scrape")),
+            "can_clear": bool(workflow_row.get("can_clear")),
             "can_resume": bool(workflow_row.get("can_resume")),
             "can_stop": bool(workflow_row.get("can_stop")),
             "error": row.get("error") or "",
@@ -2121,8 +2144,42 @@ def _admin_area_detail_payload(area: AdminArea) -> dict:
     return {
         "area": _admin_area_identity_payload(area, children),
         "children": _admin_area_child_rows(children, area.pop_latest, area.area_km2),
+        "child_groups": _admin_area_child_groups(area, children),
     }
 
+
+
+def _admin_area_child_groups(area: AdminArea, children: list[AdminArea]) -> list[dict]:
+    """Return direct browser children split by level for the country detail UI.
+
+    Some CityPopulation pages attach lower-level rows to a higher-level parent
+    because the source table does not expose the skipped administrative level.
+    In that case the detail drawer should show one panel per child level rather
+    than mixing, for example, communes and urban places in the same table.
+    """
+    if not children:
+        return []
+
+    grouped: dict[int, list[AdminArea]] = {}
+    for child in children:
+        grouped.setdefault(child.level, []).append(child)
+
+    return [
+        {
+            "level": level,
+            "label": _admin_area_child_group_label(area.country_code, level),
+            "children": _admin_area_child_rows(rows, area.pop_latest, area.area_km2),
+        }
+        for level, rows in sorted(grouped.items())
+    ]
+
+
+def _admin_area_child_group_label(country_code: str, level: int) -> str:
+    types = _level_entity_types(country_code, level)
+    base = _("Nivel %(level)s") % {"level": level}
+    if types:
+        return f"{base} · {', '.join(types[:3])}"
+    return base
 
 def _admin_area_browser_children(area: AdminArea) -> list[AdminArea]:
     children = list(
@@ -2321,6 +2378,12 @@ def _country_table_rows(
         rows = rows.exclude(id=root.id)
     return [
         {
+            "id": row.id,
+            "level": row.level,
+            "detail_url": _admin_area_detail_url(row),
+            "parent_id": row.parent_id or "",
+            "parent_level": row.parent.level if row.parent else None,
+            "parent_detail_url": _admin_area_detail_url(row.parent) if row.parent else "",
             "name": _area_display_name(row),
             "area_km2": _number_or_none(row.area_km2),
             "population": int(row.pop_latest or 0) if row.pop_latest is not None else None,
@@ -3327,10 +3390,8 @@ def _config_row_status(row: dict) -> str:
     if row.get("error"):
         return "failed"
     status = str(row.get("task_display_status") or "").strip().casefold()
-    if status in {"validating", "validated", "populating", "populated", "stopped"}:
+    if status in {"validating", "validated", "populating", "populated", "clearing"}:
         return status
-    if status == "cancelled":
-        return "stopped"
     if status in {"failed", "invalid"}:
         return "failed"
     if status in {"running", "queued"}:
@@ -3339,42 +3400,52 @@ def _config_row_status(row: dict) -> str:
 
 
 def _can_validate_config_status(status: str) -> bool:
-    """Validation is only available until a config becomes validated/populated."""
-    return str(status or "pending").strip().casefold() not in {
-        "validated",
-        "populated",
-        "validating",
-        "populating",
-        "running",
-        "queued",
-        "stopped",
-    }
+    """Validation is available from pending/failed states only."""
+    return str(status or "pending").strip().casefold() in {"pending", "failed"}
 
 
 def _can_scrape_config_status(status: str) -> bool:
-    """Population is available after validation and can be re-run after success."""
-    return str(status or "pending").strip().casefold() in {"validated", "populated", "stopped"}
+    """Population is available from pending/failed states and from validated state."""
+    return str(status or "pending").strip().casefold() in {"pending", "failed", "validated"}
+
+
+def _can_validate_config_row(row: dict, status: str) -> bool:
+    """Return whether the row can run validation in its current workflow state."""
+    return _can_validate_config_status(status)
+
+
+def _can_scrape_config_row(row: dict, status: str) -> bool:
+    """Return whether the row can run population in its current workflow state."""
+    return _can_scrape_config_status(status)
+
+
+ACTIVE_CONFIG_OPERATION_STATUSES = {"validating", "populating", "clearing", "running", "queued"}
+
+
+def _can_clear_config_row(row: dict, status: str) -> bool:
+    """Clearing is available when data exists and no config operation is active."""
+    if str(status or "").strip().casefold() in ACTIVE_CONFIG_OPERATION_STATUSES:
+        return False
+    try:
+        return int(row.get("rows") or 0) > 0
+    except (TypeError, ValueError):
+        return False
 
 
 def _config_task_key_for_row(row: dict) -> str:
-    task = row.get("active_task") or row.get("scrape_task") or row.get("validate_task")
+    task = row.get("active_task") or row.get("clear_task") or row.get("scrape_task") or row.get("validate_task")
     return str(getattr(task, "key", "") or "")
 
 
 def _decorate_config_workflow_flags(row: dict) -> dict:
     status = _config_row_status(row)
     row["status_filter"] = status
-    if status == "stopped":
-        task_key = _config_task_key_for_row(row)
-        row["can_validate"] = task_key.startswith("validate-config:")
-        row["can_scrape"] = task_key.startswith("scrape:")
-        row["can_resume"] = task_key.startswith("scrape:")
-    else:
-        row["can_validate"] = _can_validate_config_status(status)
-        row["can_scrape"] = _can_scrape_config_status(status)
-        row["can_resume"] = False
+    row["can_validate"] = _can_validate_config_row(row, status)
+    row["can_scrape"] = _can_scrape_config_row(row, status)
+    row["can_resume"] = False
+    row["can_clear"] = _can_clear_config_row(row, status)
     task = row.get("active_task")
-    row["can_stop"] = status in {"validating", "populating", "running", "queued"} and bool(
+    row["can_stop"] = status in ACTIVE_CONFIG_OPERATION_STATUSES and bool(
         task and getattr(task, "is_active", False)
     )
     return row
@@ -3416,7 +3487,13 @@ def _config_summary_for_slug(
     raw_name = slug
     validate_task = task_manager.latest_for_key(f"validate-config:{slug}")
     scrape_task = task_manager.latest_for_key(f"scrape:{slug}")
-    active_task = _latest_config_task(slug, validate_task=validate_task, scrape_task=scrape_task)
+    clear_task = task_manager.latest_for_key(f"clear-config:{slug}")
+    active_task = _latest_config_task(
+        slug,
+        validate_task=validate_task,
+        scrape_task=scrape_task,
+        clear_task=clear_task,
+    )
     bulk_task, bulk_status = _latest_bulk_config_progress(slug)
     if bulk_task and (not active_task or bulk_task.created_at > active_task.created_at):
         active_task = bulk_task
@@ -3433,10 +3510,12 @@ def _config_summary_for_slug(
         "pages": 0,
         "cities": 0,
         "rows": row_counts.get(country_code, 0),
+        "is_valid": False,
         "active_task": active_task,
         "task_display_status": task_display_status,
         "validate_task": validate_task,
         "scrape_task": scrape_task,
+        "clear_task": clear_task,
         "error": error,
     }
 
@@ -3482,13 +3561,17 @@ def _config_task_display_status(task) -> str:
             return "populated"
         if key.startswith("validate-config:"):
             return "validated"
+        if key.startswith("clear-config:"):
+            return "pending"
     if status in {"running", "queued"}:
         if key.startswith("scrape:"):
             return "populating"
         if key.startswith("validate-config:"):
             return "validating"
-    if status in {"stopped", "cancelled"}:
-        return "stopped"
+        if key.startswith("clear-config:"):
+            return "clearing"
+    if status == "cancelled":
+        return "pending"
     if status == "failed":
         return "failed"
     return status or "pending"
@@ -3510,6 +3593,154 @@ def _config_task_if_current(task, record: ScrapingConfig):
     return task
 
 
+def _task_is_ignored(task, ignored_task) -> bool:
+    return bool(task and ignored_task and getattr(task, "id", None) == getattr(ignored_task, "id", None))
+
+
+def _latest_terminal_config_task(*tasks, ignored_task=None):
+    terminal = [
+        task
+        for task in tasks
+        if task
+        and not _task_is_ignored(task, ignored_task)
+        and str(getattr(task, "status", "") or "") in {"succeeded", "failed"}
+    ]
+    if not terminal:
+        return None
+    return max(terminal, key=lambda task: task.created_at)
+
+
+def _stable_config_status(
+    record: ScrapingConfig | None,
+    *,
+    rows: int,
+    validate_task=None,
+    scrape_task=None,
+    clear_task=None,
+    ignored_task=None,
+) -> str:
+    """Return the durable state after ignoring a cancelled/current active task."""
+    if record and record.validation_error and not record.is_valid:
+        return "failed"
+
+    latest_terminal = _latest_terminal_config_task(
+        validate_task,
+        scrape_task,
+        clear_task,
+        ignored_task=ignored_task,
+    )
+    if not latest_terminal:
+        return "pending"
+
+    key = str(getattr(latest_terminal, "key", "") or "")
+    status = str(getattr(latest_terminal, "status", "") or "")
+    if status == "failed":
+        return "failed"
+    if key.startswith("scrape:"):
+        return "populated" if rows > 0 else "pending"
+    if key.startswith("validate-config:"):
+        return "validated"
+    if key.startswith("clear-config:"):
+        return "pending"
+    return "pending"
+
+
+def _task_progress_status_for_slug(task, slug: str) -> str:
+    if not task or not slug:
+        return ""
+    progress = read_task_config_progress(getattr(task, "id", ""))
+    item = progress.get(slug) if isinstance(progress, dict) else None
+    if not isinstance(item, dict):
+        return ""
+    return str(item.get("status") or "").strip().casefold()
+
+
+def _task_runs_direct_scrape(task) -> bool:
+    args = list(getattr(task, "args", None) or [])
+    return bool(args and str(args[0]) == "scrape_subdivisions_with_assets")
+
+
+def _cancelled_config_status(
+    slug: str,
+    record: ScrapingConfig | None,
+    *,
+    rows: int,
+    validate_task=None,
+    scrape_task=None,
+    clear_task=None,
+    task=None,
+) -> str:
+    """Map a cancelled task back to the workflow state it should reveal."""
+    stable = _stable_config_status(
+        record,
+        rows=rows,
+        validate_task=validate_task,
+        scrape_task=scrape_task,
+        clear_task=clear_task,
+        ignored_task=task,
+    )
+    key = str(getattr(task, "key", "") or "")
+    if key.startswith("scrape:"):
+        progress_status = _task_progress_status_for_slug(task, slug)
+        if progress_status == "populating" or _task_runs_direct_scrape(task):
+            return "validated"
+    return stable
+
+
+def _config_task_display_status_for_row(
+    slug: str,
+    record: ScrapingConfig | None,
+    *,
+    rows: int,
+    active_task=None,
+    validate_task=None,
+    scrape_task=None,
+    clear_task=None,
+) -> str:
+    """Return the row state following the explicit config lifecycle."""
+    if active_task:
+        task_status = str(getattr(active_task, "status", "") or "")
+        display_status = _config_task_display_status(active_task)
+        if task_status in {"running", "queued"}:
+            if str(getattr(active_task, "key", "") or "").startswith("scrape:"):
+                progress_status = _task_progress_status_for_slug(active_task, slug)
+                if progress_status in {"validating", "populating"}:
+                    return progress_status
+                stable_before_scrape = _stable_config_status(
+                    record,
+                    rows=rows,
+                    validate_task=validate_task,
+                    scrape_task=scrape_task,
+                    clear_task=clear_task,
+                    ignored_task=active_task,
+                )
+                if not _task_runs_direct_scrape(active_task) and stable_before_scrape != "validated":
+                    return "validating"
+            return display_status
+        if task_status == "cancelled":
+            return _cancelled_config_status(
+                slug,
+                record,
+                rows=rows,
+                validate_task=validate_task,
+                scrape_task=scrape_task,
+                clear_task=clear_task,
+                task=active_task,
+            )
+        if task_status == "failed":
+            return "failed"
+        if task_status == "succeeded":
+            return display_status
+
+    return _stable_config_status(
+        record,
+        rows=rows,
+        validate_task=validate_task,
+        scrape_task=scrape_task,
+        clear_task=clear_task,
+    )
+
+
 def _config_summary_from_record(record: ScrapingConfig, *, row_counts: dict[str, int] | None = None) -> dict:
     row_counts = row_counts or _config_row_counts()
     slug = record.slug
@@ -3517,15 +3748,28 @@ def _config_summary_from_record(record: ScrapingConfig, *, row_counts: dict[str,
     raw_name = record.name or slug
     validate_task = _config_task_if_current(task_manager.latest_for_key(f"validate-config:{slug}"), record)
     scrape_task = _config_task_if_current(task_manager.latest_for_key(f"scrape:{slug}"), record)
-    active_task = _latest_config_task(slug, validate_task=validate_task, scrape_task=scrape_task)
+    clear_task = _config_task_if_current(task_manager.latest_for_key(f"clear-config:{slug}"), record)
+    active_task = _latest_config_task(
+        slug,
+        validate_task=validate_task,
+        scrape_task=scrape_task,
+        clear_task=clear_task,
+    )
+    rows = row_counts.get(country_code, 0)
     bulk_task, bulk_status = _latest_bulk_config_progress(slug, record=record)
     if bulk_task and (not active_task or bulk_task.created_at > active_task.created_at):
         active_task = bulk_task
         task_display_status = bulk_status
     else:
-        task_display_status = _config_task_display_status(active_task)
-    if record.validation_error and not record.is_valid:
-        task_display_status = "failed"
+        task_display_status = _config_task_display_status_for_row(
+            slug,
+            record,
+            rows=rows,
+            active_task=active_task,
+            validate_task=validate_task,
+            scrape_task=scrape_task,
+            clear_task=clear_task,
+        )
     return {
         "slug": slug,
         "name": raw_name,
@@ -3533,11 +3777,13 @@ def _config_summary_from_record(record: ScrapingConfig, *, row_counts: dict[str,
         "country_label": _display_name(raw_name, country_code, country_code=country_code),
         "pages": record.pages_count,
         "cities": record.cities_count,
-        "rows": row_counts.get(country_code, 0),
+        "rows": rows,
+        "is_valid": bool(record.is_valid),
         "active_task": active_task,
         "task_display_status": task_display_status,
         "validate_task": validate_task,
         "scrape_task": scrape_task,
+        "clear_task": clear_task,
         "error": record.validation_error if not record.is_valid else "",
     }
 
@@ -3549,8 +3795,8 @@ def _config_row_counts() -> dict[str, int]:
     }
 
 
-def _latest_config_task(slug: str, *, validate_task=None, scrape_task=None):
-    tasks = [task for task in (validate_task, scrape_task) if task]
+def _latest_config_task(slug: str, *, validate_task=None, scrape_task=None, clear_task=None):
+    tasks = [task for task in (validate_task, scrape_task, clear_task) if task]
     if not tasks:
         return None
     return max(tasks, key=lambda task: task.created_at)

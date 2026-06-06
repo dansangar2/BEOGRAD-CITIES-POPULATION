@@ -407,6 +407,82 @@
     updateClientSortButtons(target);
   }
 
+  function isRowNavigationInteractiveTarget(event) {
+    return Boolean(event.target && event.target.closest && event.target.closest("a, button, input, select, textarea, label"));
+  }
+
+  function navigationUrl(value) {
+    return typeof value === "function" ? value() : value;
+  }
+
+  function openNavigationUrl(url, newTab) {
+    url = String(url || "");
+    if (!url) {
+      return;
+    }
+    if (newTab) {
+      window.open(url, "_blank", "noopener");
+      return;
+    }
+    window.location.href = url;
+  }
+
+  function bindMiddleClickNavigation(element, urlGetter, shouldIgnore) {
+    var lastOpenAt = 0;
+
+    function ignored(event) {
+      return typeof shouldIgnore === "function" && shouldIgnore(event);
+    }
+
+    function targetUrl() {
+      return navigationUrl(urlGetter);
+    }
+
+    function hasTarget() {
+      return Boolean(targetUrl());
+    }
+
+    function reserveMiddleClick(event) {
+      if (!event || event.button !== 1 || ignored(event) || !hasTarget()) {
+        return;
+      }
+      event.preventDefault();
+    }
+
+    function openFromMiddleClick(event) {
+      var now;
+      var url;
+      if (!event || event.button !== 1 || ignored(event)) {
+        return;
+      }
+      url = targetUrl();
+      if (!url) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      now = Date.now();
+      if (now - lastOpenAt < 500) {
+        return;
+      }
+      lastOpenAt = now;
+      openNavigationUrl(url, true);
+    }
+
+    if (!element || element.__middleClickNavigationBound) {
+      return;
+    }
+    element.__middleClickNavigationBound = true;
+    element.addEventListener("mousedown", reserveMiddleClick);
+    element.addEventListener("mouseup", openFromMiddleClick);
+    element.addEventListener("auxclick", openFromMiddleClick);
+  }
+
+  function openRowNavigation(row, newTab) {
+    var href = row && row.dataset ? row.dataset.rowHref || "" : "";
+    openNavigationUrl(href, newTab);
+  }
+
   function initClickableRows(target) {
     target.querySelectorAll("[data-row-href]").forEach(function (row) {
       if (row.dataset.rowClickBound === "1") {
@@ -414,20 +490,23 @@
       }
       row.dataset.rowClickBound = "1";
       row.addEventListener("click", function (event) {
-        if (event.target.closest("a, button, input, select, textarea, label")) {
+        if (isRowNavigationInteractiveTarget(event)) {
           return;
         }
-        window.location.href = row.dataset.rowHref;
+        openRowNavigation(row, event.ctrlKey || event.metaKey);
       });
+      bindMiddleClickNavigation(row, function () {
+        return row.dataset.rowHref || "";
+      }, isRowNavigationInteractiveTarget);
       row.addEventListener("keydown", function (event) {
-        if (event.target.closest("a, button, input, select, textarea, label")) {
+        if (isRowNavigationInteractiveTarget(event)) {
           return;
         }
         if (event.key !== "Enter" && event.key !== " ") {
           return;
         }
         event.preventDefault();
-        window.location.href = row.dataset.rowHref;
+        openRowNavigation(row, false);
       });
     });
   }
@@ -1091,12 +1170,17 @@
 
     var actions = document.createElement("div");
     actions.className = "image-preview-actions";
-    var pageButton = document.createElement("button");
-    pageButton.type = "button";
-    pageButton.className = "secondary";
+    var pageButton = document.createElement("a");
+    pageButton.className = "button secondary";
+    pageButton.href = detailUrl || fullSrc;
+    pageButton.target = "_blank";
+    pageButton.rel = "noopener";
     pageButton.textContent = "Ficha";
-    var fullButton = document.createElement("button");
-    fullButton.type = "button";
+    var fullButton = document.createElement("a");
+    fullButton.className = "button";
+    fullButton.href = fullSrc;
+    fullButton.target = "_blank";
+    fullButton.rel = "noopener";
     fullButton.textContent = "Imagen completa";
     actions.appendChild(pageButton);
     actions.appendChild(fullButton);
@@ -1113,13 +1197,10 @@
     }
 
     image.addEventListener("click", function () {
-      window.open(detailUrl || fullSrc, "_blank", "noopener");
+      openNavigationUrl(detailUrl || fullSrc, true);
     });
-    pageButton.addEventListener("click", function () {
-      window.open(detailUrl || fullSrc, "_blank", "noopener");
-    });
-    fullButton.addEventListener("click", function () {
-      window.open(fullSrc, "_blank", "noopener");
+    bindMiddleClickNavigation(image, function () {
+      return detailUrl || fullSrc || "";
     });
     closeButton.addEventListener("click", closePreview);
     overlay.addEventListener("click", function (event) {
@@ -1497,6 +1578,9 @@
       path.dataset.value = segment.value;
       if (segment.detailUrl) {
         path.classList.add("is-clickable");
+        bindMiddleClickNavigation(path, function () {
+          return segment.detailUrl || "";
+        });
       }
 
       var tooltipLabel = segment.label + " - " + formatNumber(segment.value) + " (" + formatPercent(segment.value, total) + ")";
@@ -1554,6 +1638,9 @@
               url: item.detailUrl
             }
           }));
+        });
+        bindMiddleClickNavigation(row, function () {
+          return item.detailUrl || "";
         });
         row.addEventListener("keydown", function (event) {
           if (event.key === "Enter" || event.key === " ") {
@@ -1707,6 +1794,9 @@
               url: item.detailUrl
             }
           }));
+        });
+        bindMiddleClickNavigation(row, function () {
+          return item.detailUrl || "";
         });
         row.addEventListener("keydown", function (event) {
           if (event.key === "Enter" || event.key === " ") {
@@ -1977,6 +2067,9 @@
             }
           }));
         });
+        bindMiddleClickNavigation(row, function () {
+          return entry.detailUrl || "";
+        });
         row.addEventListener("keydown", function (event) {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
@@ -2230,7 +2323,37 @@
     Promise.resolve(renderStoredCountryIdentity(panel, country)).then(reveal).catch(reveal);
   }
 
-  function renderCountryTablePanel(panel, data, labels, baseUrl, target) {
+  function hasSkippedParentLevel(row) {
+    var level = Number(row && row.level);
+    var parentLevel = Number(row && row.parent_level);
+    return Boolean(
+      row &&
+      row.parent_detail_url &&
+      Number.isFinite(level) &&
+      Number.isFinite(parentLevel) &&
+      level > parentLevel + 1
+    );
+  }
+
+  function openCountryTableRowDetail(row, labels, target, areaStack) {
+    if (!row || !row.detail_url || !areaStack) {
+      return;
+    }
+    trimStatsAreaStack(areaStack, 0);
+    if (hasSkippedParentLevel(row)) {
+      loadStatsAreaDetail(areaStack, row.parent_detail_url, labels, target, 0)
+        .then(function (payload) {
+          if (!payload) {
+            return null;
+          }
+          return loadStatsAreaDetail(areaStack, row.detail_url, labels, target, 1);
+        });
+      return;
+    }
+    loadStatsAreaDetail(areaStack, row.detail_url, labels, target, 0);
+  }
+
+  function renderCountryTablePanel(panel, data, labels, baseUrl, target, areaStack) {
     var heading = document.createElement("h2");
     heading.textContent = labels.tableTitle;
     panel.appendChild(heading);
@@ -2396,6 +2519,29 @@
       }
       visible.forEach(function (row) {
         var tr = document.createElement("tr");
+        if (row.detail_url && areaStack) {
+          tr.classList.add("is-clickable");
+          tr.tabIndex = 0;
+          tr.addEventListener("click", function (event) {
+            if (isRowNavigationInteractiveTarget(event)) {
+              return;
+            }
+            openCountryTableRowDetail(row, labels, target, areaStack);
+          });
+          bindMiddleClickNavigation(tr, function () {
+            return row.detail_url || "";
+          }, isRowNavigationInteractiveTarget);
+          tr.addEventListener("keydown", function (event) {
+            if (isRowNavigationInteractiveTarget(event)) {
+              return;
+            }
+            if (event.key !== "Enter" && event.key !== " ") {
+              return;
+            }
+            event.preventDefault();
+            openCountryTableRowDetail(row, labels, target, areaStack);
+          });
+        }
         [
           row.name,
           row.entity_type || "-",
@@ -2475,7 +2621,7 @@
     fetchJson(relativeUrlFrom(finalUrl.toString()))
       .then(function (data) {
         panel.innerHTML = "";
-        renderCountryTablePanel(panel, data, labels, url, target);
+        renderCountryTablePanel(panel, data, labels, url, target, target ? target.querySelector(".country-area-stack") : null);
         scrollToCountryTable(target);
       })
       .catch(function () {
@@ -2974,14 +3120,18 @@
     var charts = document.createElement("article");
     charts.className = "panel country-detail-panel";
 
+    var areaStack = document.createElement("div");
+    areaStack.className = "stats-area-stack country-area-stack";
+
     renderCountryGeneralPanel(general, data, labels);
-    renderCountryTablePanel(table, data, labels, baseUrl, target);
+    renderCountryTablePanel(table, data, labels, baseUrl, target, areaStack);
     renderCountryChartsPanel(charts, data, labels);
 
     grid.appendChild(general);
     grid.appendChild(table);
     grid.appendChild(charts);
     target.appendChild(grid);
+    target.appendChild(areaStack);
     renderCountryShareCards(target, data, labels);
   }
 
@@ -3092,6 +3242,9 @@
       image.onclick = function () {
         openStoredAssetPreview(asset, (country && country.name) || kind, kind);
       };
+      bindMiddleClickNavigation(image, function () {
+        return assetIdentityDetailUrl(asset, kind) || image.dataset.fullSrc || url || "";
+      });
       image.style.cursor = "pointer";
       image.title = "Ver imagen" + (asset.status ? " · " + (asset.source ? (asset.source + " · " + asset.status) : asset.status) : "");
       return true;
@@ -3180,6 +3333,9 @@
         if (target && card.dataset.detailUrl) {
           loadStatsCountryDetail(target, card.dataset.detailUrl, container);
         }
+      });
+      bindMiddleClickNavigation(card, function () {
+        return card.dataset.detailUrl || "";
       });
       grid.appendChild(card);
     });
@@ -3487,6 +3643,9 @@
           row.addEventListener("click", function () {
             openHandler(item);
           });
+          bindMiddleClickNavigation(row, function () {
+            return item.detail_url || "";
+          });
           row.addEventListener("keydown", function (event) {
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();
@@ -3567,24 +3726,29 @@
     var basicPanel = document.createElement("article");
     basicPanel.className = "panel stats-area-basic-panel";
     basicPanel.dataset.loading = source.dataset.loading || "";
-    var childrenPanel = document.createElement("article");
-    childrenPanel.className = "panel stats-country-first-level-panel";
+    var childGroups = Array.isArray(payload.child_groups) && payload.child_groups.length
+      ? payload.child_groups
+      : [{ label: null, children: payload.children || [] }];
 
     renderCountryGeneralPanel(basicPanel, { country: area }, Object.assign({}, labels, {
       generalTitle: area.name || labels.generalTitle
     }));
 
-    renderStatsChildrenPanel(childrenPanel, null, payload.children || [], labels, function (item) {
-      loadStatsAreaDetail(stack, item.detail_url, labels, source, depth);
-    });
     grid.appendChild(basicPanel);
-    grid.appendChild(childrenPanel);
+    childGroups.forEach(function (group) {
+      var childrenPanel = document.createElement("article");
+      childrenPanel.className = "panel stats-country-first-level-panel";
+      renderStatsChildrenPanel(childrenPanel, group.label || null, group.children || [], labels, function (item) {
+        loadStatsAreaDetail(stack, item.detail_url, labels, source, depth);
+      });
+      grid.appendChild(childrenPanel);
+    });
     panel.appendChild(grid);
   }
 
   function loadStatsAreaDetail(stack, url, labels, source, depth) {
     if (!stack || !url) {
-      return;
+      return Promise.resolve(null);
     }
     trimStatsAreaStack(stack, depth);
     var panel = document.createElement("div");
@@ -3595,13 +3759,15 @@
     setLoading(loadingPanel, source.dataset.loading || "Cargando pais...");
     panel.appendChild(loadingPanel);
     stack.appendChild(panel);
-    fetchJson(url)
+    return fetchJson(url)
       .then(function (payload) {
         renderStatsAreaPanel(panel, payload, labels, stack, depth + 1, source);
         panel.scrollIntoView({ behavior: "smooth", block: "start" });
+        return payload;
       })
       .catch(function () {
         setError(loadingPanel, source.dataset.error || "No se pudo cargar el pais.");
+        return null;
       });
   }
 
@@ -3866,6 +4032,9 @@
           detailUrl: visualIdentityDetailUrl(kind, value)
         }, value, kind);
       };
+      bindMiddleClickNavigation(image, function () {
+        return visualIdentityDetailUrl(kind, value) || commonsFileUrl(value, 1600);
+      });
       image.style.cursor = "pointer";
       image.title = "Ver imagen";
       slot.hidden = false;
@@ -4129,11 +4298,11 @@
     if (key === "populating") {
       return container.dataset.populatingLabel || "Populando";
     }
+    if (key === "clearing") {
+      return container.dataset.clearingLabel || "Limpiando";
+    }
     if (key === "populated") {
       return container.dataset.populatedLabel || "Populado";
-    }
-    if (key === "stopped") {
-      return container.dataset.stoppedLabel || "Parado";
     }
     if (key === "invalid") {
       return container.dataset.invalidLabel || "Fallo";
@@ -4151,7 +4320,7 @@
       return container.dataset.failedLabel || "Fallo";
     }
     if (key === "cancelled") {
-      return container.dataset.cancelledLabel || status;
+      return container.dataset.cancelledLabel || "Cancelado";
     }
     if (key === "viewtasklog") {
       return container.dataset.logLabel || "Ver registro";
@@ -4163,9 +4332,6 @@
     var key = configTaskKey(status);
     if (key === "none" || !key) {
       key = "pending";
-    }
-    if (key === "cancelled") {
-      key = "stopped";
     }
     if (key === "invalid") {
       key = "failed";
@@ -4179,35 +4345,22 @@
       return "\u2713";
     }
     if (key === "cancelled") {
-      return "\u23f8";
+      return "\u00d7";
     }
     if (["failed", "invalid"].indexOf(key) !== -1) {
       return "\u00d7";
     }
-    if (key === "stopped") {
-      return "\u23f8";
-    }
-
     if (key === "queued") {
       return "\u25cc";
     }
-    if (["running", "validating", "populating"].indexOf(key) !== -1) {
+    if (["running", "validating", "populating", "clearing"].indexOf(key) !== -1) {
       return "\u2026";
     }
     return "i";
   }
 
-  function appendStatusIcon(parent, status) {
-    var icon = document.createElement("span");
-    icon.className = "status-icon";
-    icon.setAttribute("aria-hidden", "true");
-    icon.textContent = configTaskIcon(status);
-    parent.appendChild(icon);
-    return icon;
-  }
-
   function isConfigLoadingStatus(status) {
-    return ["validating", "populating", "running", "queued"].indexOf(configTaskKey(status)) !== -1;
+    return ["validating", "populating", "clearing", "running", "queued"].indexOf(configTaskKey(status)) !== -1;
   }
 
   function appendConfigLoadingLabel(parent, label) {
@@ -4230,7 +4383,7 @@
       return "pending";
     }
     if (key === "cancelled") {
-      return "stopped";
+      return "pending";
     }
     if (key === "invalid") {
       return "failed";
@@ -4666,7 +4819,10 @@
         var normalizedStatus = normalizeConfigStatus(data.status_filter || data.task_status || "pending");
         row.dataset.task = normalizedStatus;
         row.dataset.status = normalizedStatus;
+        row.dataset.canValidate = data.can_validate ? "1" : "0";
+        row.dataset.canScrape = data.can_scrape ? "1" : "0";
         row.dataset.canResume = data.can_resume ? "1" : "0";
+        row.dataset.canClear = data.can_clear ? "1" : "0";
         var fields = {
           country: data.country_label,
           pages: data.pages,
@@ -4701,7 +4857,7 @@
   }
 
   function configRowIsLoading(row) {
-    return Boolean(row && ["validating", "populating", "running", "queued"].indexOf(
+    return Boolean(row && ["validating", "populating", "clearing", "running", "queued"].indexOf(
       normalizeConfigStatus(row.dataset.task || row.dataset.status || "")
     ) !== -1);
   }
@@ -4763,9 +4919,11 @@
     var cssClass = configTaskClass(status);
     var label = configTaskLabel(container || taskCell, status);
     var node;
-    if (detailUrl && isActive) {
+    if (detailUrl && (isActive || status === "failed")) {
       node = document.createElement("a");
       node.href = detailUrl;
+      node.target = "_blank";
+      node.rel = "noopener";
     } else {
       node = document.createElement("span");
     }
@@ -4774,9 +4932,6 @@
       node.classList.add("config-status-loading");
       node.setAttribute("aria-label", label);
       appendConfigLoadingLabel(node, label);
-    } else if (["validated", "populated"].indexOf(status) === -1) {
-      appendStatusIcon(node, status);
-      node.appendChild(document.createTextNode(label));
     } else {
       node.appendChild(document.createTextNode(label));
     }
@@ -4789,12 +4944,19 @@
 
   function canValidateConfigStatus(status) {
     var key = normalizeConfigStatus(status || "pending");
-    return ["validated", "populated", "validating", "populating", "running", "queued", "stopped"].indexOf(key) === -1;
+    return ["validated", "populated", "validating", "populating", "clearing", "running", "queued"].indexOf(key) === -1;
   }
 
   function canScrapeConfigStatus(status) {
     var key = normalizeConfigStatus(status || "pending");
-    return ["validated", "populated", "stopped"].indexOf(key) !== -1;
+    return ["pending", "failed", "validated"].indexOf(key) !== -1;
+  }
+
+  function configRowDatasetFlag(row, name) {
+    if (!row || !row.dataset || !Object.prototype.hasOwnProperty.call(row.dataset, name)) {
+      return null;
+    }
+    return row.dataset[name] === "1";
   }
 
   function updateConfigActionButtons(row, status, data) {
@@ -4804,69 +4966,73 @@
     var key = normalizeConfigStatus(status || row.dataset.status || row.dataset.task || "pending");
     var validateForm = row.querySelector('[data-config-action-form="validate"]');
     var scrapeForm = row.querySelector('[data-config-action-form="scrape"]');
-    var resumeForm = row.querySelector('[data-config-action-form="resume"]');
+    var clearForm = row.querySelector('[data-config-action-form="clear"]');
     var stopForm = row.querySelector('[data-config-action-form="stop"]');
     var validateButton = row.querySelector('[data-config-action="validate"]');
     var scrapeButton = row.querySelector('[data-config-action="scrape"]');
-    var resumeButton = row.querySelector('[data-config-action="resume"]');
+    var clearButton = row.querySelector('[data-config-action="clear"]');
     var stopButton = row.querySelector('[data-config-action="stop"]');
-    var showValidate = ["pending", "failed"].indexOf(key) !== -1;
-    var showValidateBusy = key === "validating";
-    var showScrape = ["validated", "populated", "stopped"].indexOf(key) !== -1;
-    var showScrapeBusy = key === "populating";
-    var canResume = row.dataset.canResume === "1";
-    var showResume = key === "stopped" && canResume;
-    var showStop = ["validating", "populating", "running", "queued"].indexOf(key) !== -1;
+    var datasetCanValidate = configRowDatasetFlag(row, "canValidate");
+    var datasetCanScrape = configRowDatasetFlag(row, "canScrape");
+    var activeOperation = ["validating", "populating", "clearing", "running", "queued"].indexOf(key) !== -1;
+    var clearBlockedByStatus = activeOperation;
+    var showValidate = datasetCanValidate === null ? canValidateConfigStatus(key) : datasetCanValidate;
+    var showScrape = datasetCanScrape === null ? canScrapeConfigStatus(key) : datasetCanScrape;
+    var showClear = row.dataset.canClear === "1";
+    var showClearBusy = false;
+    var showStop = activeOperation;
 
     if (data && Object.prototype.hasOwnProperty.call(data, "can_validate")) {
       showValidate = Boolean(data.can_validate);
+      row.dataset.canValidate = showValidate ? "1" : "0";
     }
     if (data && Object.prototype.hasOwnProperty.call(data, "can_resume")) {
-      canResume = Boolean(data.can_resume);
-      row.dataset.canResume = canResume ? "1" : "0";
-      showResume = key === "stopped" && canResume;
+      row.dataset.canResume = data.can_resume ? "1" : "0";
     }
     if (data && Object.prototype.hasOwnProperty.call(data, "can_scrape")) {
       showScrape = Boolean(data.can_scrape);
+      row.dataset.canScrape = showScrape ? "1" : "0";
+    }
+    if (data && Object.prototype.hasOwnProperty.call(data, "can_clear")) {
+      showClear = Boolean(data.can_clear) && !clearBlockedByStatus;
+      row.dataset.canClear = data.can_clear ? "1" : "0";
     }
     if (data && Object.prototype.hasOwnProperty.call(data, "can_stop")) {
       showStop = Boolean(data.can_stop);
     }
-    if (showResume) {
+    if (activeOperation) {
+      showValidate = false;
       showScrape = false;
+      showClear = false;
+      showStop = true;
     }
-
     if (validateButton) {
-      validateButton.disabled = showValidateBusy;
-      if (showValidateBusy) {
-        validateButton.setAttribute("disabled", "disabled");
-      } else {
-        validateButton.removeAttribute("disabled");
-      }
+      validateButton.disabled = false;
+      validateButton.removeAttribute("disabled");
     }
     if (scrapeButton) {
-      scrapeButton.disabled = showScrapeBusy;
-      if (showScrapeBusy) {
-        scrapeButton.setAttribute("disabled", "disabled");
-      } else {
-        scrapeButton.removeAttribute("disabled");
-      }
+      scrapeButton.disabled = false;
+      scrapeButton.removeAttribute("disabled");
       if (scrapeButton.dataset.defaultLabel) {
         scrapeButton.textContent = scrapeButton.dataset.defaultLabel;
       }
     }
-    if (resumeButton) {
-      resumeButton.disabled = false;
-      resumeButton.removeAttribute("disabled");
+    if (clearButton) {
+      clearButton.disabled = showClearBusy;
+      if (showClearBusy) {
+        clearButton.setAttribute("disabled", "disabled");
+      } else {
+        clearButton.removeAttribute("disabled");
+      }
     }
     if (validateForm) {
-      validateForm.hidden = !(showValidate || showValidateBusy);
+      validateForm.hidden = !showValidate;
     }
     if (scrapeForm) {
-      scrapeForm.hidden = !(showScrape || showScrapeBusy);
+      scrapeForm.hidden = !showScrape;
     }
-    if (resumeForm) {
-      resumeForm.hidden = !showResume;
+    if (clearForm) {
+      clearForm.hidden = !showClear;
     }
     if (stopButton) {
       stopButton.disabled = false;
@@ -4908,7 +5074,7 @@
         status,
         detailUrl || "",
         tableContainer,
-        ["validating", "populating", "running", "queued"].indexOf(normalizeConfigStatus(status)) !== -1
+        ["validating", "populating", "clearing", "running", "queued"].indexOf(normalizeConfigStatus(status)) !== -1
       );
       updateConfigActionButtons(row, status);
       changed = true;
@@ -5012,7 +5178,10 @@
         var actionRow = form.closest("[data-config-row]");
         if (actionRow) {
           var actionKind = form.dataset.configActionForm || "";
-          var pendingStatus = (actionKind === "scrape" || actionKind === "resume") ? "populating" : (actionKind === "stop" ? "stopped" : "validating");
+          var currentRowStatus = normalizeConfigStatus(actionRow.dataset.status || actionRow.dataset.task || "pending");
+          var pendingStatus = actionKind === "scrape"
+            ? (currentRowStatus === "validated" ? "populating" : "validating")
+            : (actionKind === "clear" ? "clearing" : (actionKind === "stop" ? currentRowStatus : "validating"));
           actionRow.dataset.task = pendingStatus;
           actionRow.dataset.status = pendingStatus;
           renderConfigTaskCell(
@@ -5020,7 +5189,7 @@
             pendingStatus,
             "",
             tableContainer || actionRow,
-            pendingStatus !== "stopped"
+            ["validating", "populating", "clearing", "running", "queued"].indexOf(pendingStatus) !== -1
           );
           updateConfigActionButtons(actionRow, pendingStatus);
           scheduleActiveConfigRowRefresh(tableContainer || actionRow.closest("[data-config-table]"));

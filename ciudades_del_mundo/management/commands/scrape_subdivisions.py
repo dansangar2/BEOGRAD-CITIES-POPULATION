@@ -6,7 +6,9 @@ import os
 import time
 
 from django.core.management.base import BaseCommand, CommandError
-from django.db import OperationalError, close_old_connections
+from django.db import OperationalError, close_old_connections, connection
+from django.db.migrations.executor import MigrationExecutor
+from django.db.utils import ProgrammingError
 
 from ciudades_del_mundo.application import CachedScrapePage, ScrapeAdminAreas
 from ciudades_del_mundo.infrastructure.django.admin_area_repository import DjangoAdminAreaRepository, DjangoUnitOfWork
@@ -19,8 +21,9 @@ from ciudades_del_mundo.infrastructure.scraping import (
     CityPopulationStructuredTableScraper,
     PythonScrapingConfigRepository,
 )
+from ciudades_del_mundo.infrastructure.scraping.city_population_client import CityPopulationHtmlFetcher
 from ciudades_del_mundo.infrastructure.scraping.urls import build_page_url
-from ciudades_del_mundo.models import ScrapingConfig
+from ciudades_del_mundo.models import AdminArea, ScrapingConfig
 from ciudades_del_mundo.services.ai_text_enrichment import (
     DEFAULT_AI_LANGUAGES,
     AiTextEnrichmentService,
@@ -31,6 +34,7 @@ from ciudades_del_mundo.services.ai_text_provider import (
     OpenAICompatibleJsonProvider,
 )
 from ciudades_del_mundo.services.scrape_resume import ScrapeResumeStore
+from ciudades_del_mundo.services.scraping_config_extensions import attach_runtime_config_extensions
 from ciudades_del_mundo.services.visual_assets import (
     seed_visual_assets_from_scraped_page,
     visual_asset_tables_exist,
@@ -126,7 +130,10 @@ class Command(BaseCommand):
         countries = options["countries"]
         config_repository = PythonScrapingConfigRepository()
         configs = self._get_configs(config_repository, countries)
+        attach_runtime_config_extensions(configs)
         seed_assets = bool(options.get("seed_assets_from_pages"))
+        if not options["list_pages"]:
+            _ensure_scraping_schema_ready()
         if seed_assets and not visual_asset_tables_exist():
             raise CommandError("La tabla de assets visuales no existe. Ejecuta 'py manage.py migrate'.")
         subdivision_levels = (
@@ -187,6 +194,7 @@ class Command(BaseCommand):
                     )
                 ),
                 page_workers=max(1, int(options.get("page_workers") or 1)),
+                html_fetcher=CityPopulationHtmlFetcher(debug=options["debug"]),
             )
 
             try:
@@ -290,6 +298,58 @@ class Command(BaseCommand):
             provider,
             languages=_parse_ai_languages(options.get("ai_languages") or ""),
         )
+
+
+def _ensure_scraping_schema_ready() -> None:
+    """Fail before network scraping when the local DB schema is behind models."""
+    table_name = AdminArea._meta.db_table
+    required_columns = {"raw_entity_type"}
+    try:
+        pending = _pending_migration_labels()
+        with connection.cursor() as cursor:
+            table_names = set(connection.introspection.table_names(cursor))
+            if table_name not in table_names:
+                raise CommandError(
+                    "La tabla de AdminArea no existe. Ejecuta 'py manage.py migrate' antes de scrapear."
+                )
+            column_names = {
+                column.name
+                for column in connection.introspection.get_table_description(cursor, table_name)
+            }
+    except CommandError:
+        raise
+    except (OperationalError, ProgrammingError) as exc:
+        raise CommandError(
+            "No se pudo comprobar el esquema local antes de scrapear. "
+            "Ejecuta 'py manage.py migrate' y vuelve a lanzar el comando."
+        ) from exc
+
+    missing_columns = sorted(required_columns - column_names)
+    if not pending and not missing_columns:
+        return
+
+    details = []
+    if missing_columns:
+        details.append("faltan columnas en AdminArea: " + ", ".join(missing_columns))
+    if pending:
+        details.append("migraciones pendientes: " + ", ".join(pending[:5]))
+        if len(pending) > 5:
+            details.append(f"{len(pending) - 5} migraciones mas pendientes")
+    raise CommandError(
+        "La base de datos local no esta migrada para el scraper. "
+        "Ejecuta 'py manage.py migrate' y vuelve a lanzar el scrapeo. "
+        f"Detalle: {'; '.join(details)}."
+    )
+
+
+def _pending_migration_labels() -> list[str]:
+    executor = MigrationExecutor(connection)
+    targets = executor.loader.graph.leaf_nodes()
+    return [
+        f"{migration.app_label}.{migration.name}"
+        for migration, backwards in executor.migration_plan(targets)
+        if not backwards
+    ]
 
 
 def _parse_levels(value: str) -> tuple[int, ...] | None:

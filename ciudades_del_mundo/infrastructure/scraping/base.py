@@ -29,7 +29,11 @@ class BaseCityPopulationScraper:
     def scrape_page(self, base_url: str, country_code: str, page: ScrapingPageConfig) -> ScrapedHtmlPage:
         url = build_page_url(base_url, page.path)
         html = self._client.get(url)
-        entities = self.scrape_html(html=html, url=url, country_code=country_code, level=page.lowest_level)
+        scrape_configured_html = getattr(self, "scrape_configured_html", None)
+        if callable(scrape_configured_html):
+            entities = scrape_configured_html(html=html, url=url, country_code=country_code, page=page)
+        else:
+            entities = self.scrape_html(html=html, url=url, country_code=country_code, level=page.lowest_level)
         return ScrapedHtmlPage(entities=entities, html=html, url=url)
 
     def scrape_html(self, html: str, url: str, country_code: str, level: int) -> list[ScrapedAdminArea]:

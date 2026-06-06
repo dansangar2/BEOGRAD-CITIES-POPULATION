@@ -28,6 +28,17 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
             profile=profile,
         )
 
+    def scrape_configured_html(self, html: str, url: str, country_code: str, page) -> list[ScrapedAdminArea]:
+        soup, profile = self._soup_and_profile(html)
+        return self.parse_hierarchical_tables(
+            soup=soup,
+            url=url,
+            country_code=country_code,
+            level=page.lowest_level,
+            profile=profile,
+            page=page,
+        )
+
     def parse_hierarchical_tables(
         self,
         *,
@@ -38,14 +49,21 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
         root: ScrapedAdminArea | None = None,
         first_table_offset: int | None = None,
         profile: CityPopulationPageProfile | None = None,
+        page=None,
     ) -> list[ScrapedAdminArea]:
         profile = profile or detect_citypopulation_page_profile(soup)
         if root and root.parent_code is None and root.level > 0 and root.code != country_code:
             root = replace(root, parent_code=country_code)
 
+        include_tables = _include_tables_for_page(page)
+        table_levels = _table_levels_for_page(page)
+        should_include_tl = _should_include_table(include_tables, "tl")
+        should_include_ts = _should_include_table(include_tables, "ts")
+
         entities: list[ScrapedAdminArea] = [root] if root else []
         parents_by_name: dict[str, ScrapedAdminArea] = {}
-        tl_level = level + (first_table_offset if first_table_offset is not None else int(root is not None))
+        default_tl_level = level + (first_table_offset if first_table_offset is not None else int(root is not None))
+        tl_level = table_levels.get("tl", default_tl_level)
 
         tl = soup.find("table", id="tl") if profile.has_tl else None
         if tl:
@@ -60,14 +78,16 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
                     entity = replace(entity, parent_code=root.code)
                 elif entity.parent_code is None and entity.level > 0 and entity.code != country_code:
                     entity = replace(entity, parent_code=country_code)
-                entities.append(entity)
+                if should_include_tl:
+                    entities.append(entity)
                 for key in self._parent_lookup_keys(entity.name):
                     parents_by_name.setdefault(key, entity)
 
         ts = soup.find("table", id="ts") if profile.has_ts else None
         if ts:
             ts_has_radm = profile.ts_has_radm
-            ts_level = tl_level if profile.ts_uses_first_child_level else tl_level + 1
+            default_ts_level = tl_level if profile.ts_uses_first_child_level else tl_level + 1
+            ts_level = table_levels.get("ts", default_ts_level)
             for entity in self._parse_table(
                 table=ts,
                 country_code=country_code,
@@ -78,7 +98,8 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
             ):
                 if root and not ts_has_radm and entity.parent_code is None:
                     entity = replace(entity, parent_code=root.code)
-                entities.append(entity)
+                if should_include_ts:
+                    entities.append(entity)
 
         return entities
 
@@ -209,3 +230,15 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
         normalized = self._normalize_name(value)
         compact = re.sub(r"[\W_]+", "", normalized)
         return (normalized, compact) if compact and compact != normalized else (normalized,)
+
+
+def _include_tables_for_page(page) -> tuple[str, ...]:
+    return tuple(str(value).strip().lower() for value in getattr(page, "include_tables", ()) if str(value).strip())
+
+
+def _table_levels_for_page(page) -> dict[str, int]:
+    return {str(key).strip().lower(): int(value) for key, value in getattr(page, "table_levels", {}).items()}
+
+
+def _should_include_table(include_tables: tuple[str, ...], table: str) -> bool:
+    return not include_tables or table in include_tables

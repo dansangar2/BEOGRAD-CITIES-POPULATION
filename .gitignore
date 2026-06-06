@@ -3,11 +3,7 @@ db.sqlite3-*
 excels/
 __pycache__/
 *.py[cod]
-.web_tasks.json
-.web_task_logs/
-.web_task_progress/
-.web_scrape_resume/
+.web_*
 media/
-ciudades_del_mundo/subdivisions
 ciudades_del_mundo/historical_divisions/
 ciudades_del_mundo/new_subdivisions/

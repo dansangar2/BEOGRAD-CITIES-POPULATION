@@ -1,0 +1,7 @@
+name = "French Guiana"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "table"
+path = ["https://www.citypopulation.de/en/france/cities/guyane/"]
+lowest_level = 0

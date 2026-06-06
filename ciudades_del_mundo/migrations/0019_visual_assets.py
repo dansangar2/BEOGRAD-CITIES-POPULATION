@@ -71,18 +71,18 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="visualasset",
-            index=models.Index(fields=["entity_type", "entity_key"], name="ciudades_visual_asset_entity_idx"),
+            index=models.Index(fields=["entity_type", "entity_key"], name="vis_asset_entity_idx"),
         ),
         migrations.AddIndex(
             model_name="visualasset",
-            index=models.Index(fields=["country_code", "kind"], name="ciudades_visual_asset_country_kind_idx"),
+            index=models.Index(fields=["country_code", "kind"], name="vis_asset_country_kind_idx"),
         ),
         migrations.AddIndex(
             model_name="visualasset",
-            index=models.Index(fields=["status"], name="ciudades_visual_asset_status_idx"),
+            index=models.Index(fields=["status"], name="vis_asset_status_idx"),
         ),
         migrations.AddIndex(
             model_name="visualassettranslation",
-            index=models.Index(fields=["language"], name="ciudades_visual_asset_translation_lang_idx"),
+            index=models.Index(fields=["language"], name="vis_asset_tr_lang_idx"),
         ),
     ]

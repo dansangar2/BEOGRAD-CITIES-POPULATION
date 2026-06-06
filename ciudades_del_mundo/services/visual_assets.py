@@ -209,6 +209,11 @@ def ensure_visual_assets_for_config_slug(
     else:
         _asset_log(logger, f"[assets] country:{country_code} Wikidata: sin resultado")
 
+    configured_candidates = _configured_country_visual_asset_candidates(config)
+    for kind, candidate in configured_candidates.items():
+        candidates[kind] = candidate
+        _asset_log(logger, f"[assets] country:{country_code} {kind}: config -> {candidate.source_url or candidate.remote_url}")
+
     scanned_pages = 0
     if fetch_citypopulation and not all(kind in candidates for kind in VISUAL_ASSET_KINDS):
         for url in page_urls[:4]:
@@ -299,6 +304,7 @@ def ensure_visual_assets_for_admin_area(
         .first()
     )
     query = _wikidata_query_for_area(area.name, country_root.name if country_root else area.country_code)
+    configured_candidates = _configured_admin_area_visual_asset_candidates(area)
     _asset_log(logger, f"[assets] admin_area:{area.id} busca Wikidata/Commons: {query}")
     wikidata_id = _find_wikidata_id(query, country_code=area.country_code)
     descriptions: dict[str, dict] = {}
@@ -312,6 +318,9 @@ def ensure_visual_assets_for_admin_area(
         )
     else:
         _asset_log(logger, f"[assets] admin_area:{area.id} Wikidata: sin resultado")
+    for kind, candidate in configured_candidates.items():
+        candidates[kind] = candidate
+        _asset_log(logger, f"[assets] admin_area:{area.id} {kind}: config -> {candidate.source_url or candidate.remote_url}")
     return _persist_visual_candidates(
         entity_type="admin_area",
         entity_key=str(area.id),
@@ -432,6 +441,12 @@ def seed_visual_assets_from_scraped_page(
         by_kind: dict[str, AssetCandidate] = {}
         for candidate in grouped_by_id.get(str(getattr(entity, "id", "")), []):
             by_kind.setdefault(candidate.kind, candidate)
+        if entity_type == "country":
+            configured_candidates = _configured_country_visual_asset_candidates(_load_config(country_code) or {})
+        else:
+            configured_candidates = _configured_admin_area_visual_asset_candidates(entity)
+        for kind, candidate in configured_candidates.items():
+            by_kind[kind] = candidate
         descriptions: dict[str, dict] = {}
         wikidata_id = _page_wikidata_id_for_entity(entity, page_wikidata_ids) if fill_missing_with_wikidata else ""
         missing_kinds = [kind for kind in VISUAL_ASSET_KINDS if kind not in by_kind]
@@ -718,6 +733,9 @@ def get_visual_assets_for_entity(
     if include_fallbacks and entity_type == "country":
         for kind, asset in _configured_country_visual_assets(entity_key).items():
             assets.setdefault(kind, asset)
+    if include_fallbacks and entity_type == "admin_area":
+        for kind, asset in _configured_admin_area_visual_assets(entity_key).items():
+            assets.setdefault(kind, asset)
     if include_fallbacks:
         for kind, asset in _local_folder_assets_for_entity(entity_type, entity_key).items():
             assets.setdefault(kind, asset)
@@ -921,13 +939,6 @@ def _configured_country_wikidata_id(country_code: str) -> str:
         except (OperationalError, ProgrammingError):
             pass
 
-    seed_path = Path(settings.BASE_DIR) / "ciudades_del_mundo" / "subdivisions" / f"{country_code}.toml"
-    if seed_path.exists():
-        try:
-            configs.append(tomllib.loads(seed_path.read_text(encoding="utf-8")))
-        except (OSError, tomllib.TOMLDecodeError):
-            pass
-
     for config in configs:
         qid = _wikidata_qid(config.get("wikidata_id"))
         if qid:
@@ -936,58 +947,182 @@ def _configured_country_wikidata_id(country_code: str) -> str:
 
 
 def _configured_country_visual_assets(country_code: str) -> dict[str, dict]:
-    """Return explicit visual asset fallbacks declared in the country TOML."""
+    """Return explicit visual asset fallbacks declared in SQL config content."""
     config = _load_config(country_code)
     if not config:
-        seed_path = Path(settings.BASE_DIR) / "ciudades_del_mundo" / "subdivisions" / f"{country_code}.toml"
-        if seed_path.exists():
-            try:
-                config = tomllib.loads(seed_path.read_text(encoding="utf-8"))
-            except (OSError, tomllib.TOMLDecodeError):
-                config = None
-    if not config:
         return {}
+    return _configured_visual_asset_payloads(
+        entity_type="country",
+        entity_key=country_code,
+        entity_name=str(config.get("name") or country_code),
+        country_code=country_code,
+        raw_assets=_configured_country_visual_asset_candidates(config),
+    )
 
+
+def _configured_country_visual_asset_candidates(config: dict) -> dict[str, AssetCandidate]:
     visual_assets = config.get("visual_assets") or {}
     if not isinstance(visual_assets, dict):
         return {}
-
     country_qid = _wikidata_qid(config.get("wikidata_id"))
-    assets: dict[str, dict] = {}
+    candidates: dict[str, AssetCandidate] = {}
     for kind in VISUAL_ASSET_KINDS:
         raw_asset = visual_assets.get(kind) or {}
-        if not isinstance(raw_asset, dict):
+        candidate = _configured_visual_asset_candidate(kind, raw_asset, fallback_wikidata_id=country_qid)
+        if candidate:
+            candidates[kind] = candidate
+    return candidates
+
+
+def _configured_admin_area_visual_assets(entity_key: str) -> dict[str, dict]:
+    area = _load_admin_area_for_visual_config(entity_key)
+    if area is None:
+        return {}
+    candidates = _configured_admin_area_visual_asset_candidates(area)
+    return _configured_visual_asset_payloads(
+        entity_type="admin_area",
+        entity_key=str(area.id),
+        entity_name=str(area.name),
+        country_code=str(area.country_code),
+        raw_assets=candidates,
+    )
+
+
+def _configured_admin_area_visual_asset_candidates(area) -> dict[str, AssetCandidate]:
+    config = _load_config(str(getattr(area, "country_code", "") or ""))
+    if not config:
+        return {}
+    visual_assets = config.get("visual_assets") or {}
+    if not isinstance(visual_assets, dict):
+        return {}
+    entries = visual_assets.get("admin_areas") or visual_assets.get("areas") or []
+    if isinstance(entries, dict):
+        entries = [entries]
+    if not isinstance(entries, list):
+        return {}
+
+    candidates: dict[str, AssetCandidate] = {}
+    for raw_entry in entries:
+        if not isinstance(raw_entry, dict):
             continue
-        commons_filename = str(raw_asset.get("commons_filename") or "").strip()
-        remote_url = str(raw_asset.get("remote_url") or "").strip()
-        if not remote_url and commons_filename:
-            remote_url = commons_file_url(commons_filename, width=WIKIMEDIA_COMMONS_PREVIEW_WIDTH)
-        if not remote_url:
+        if not _configured_admin_area_asset_matches(area, raw_entry):
+            continue
+        kind = str(raw_entry.get("kind") or raw_entry.get("type") or "coat").strip().casefold()
+        if kind not in VISUAL_ASSET_KINDS:
+            continue
+        candidate = _configured_visual_asset_candidate(kind, raw_entry)
+        if candidate:
+            candidates[kind] = candidate
+    return candidates
+
+
+def _configured_admin_area_asset_matches(area, raw_entry: dict) -> bool:
+    raw_level = raw_entry.get("level")
+    if raw_level not in (None, ""):
+        try:
+            if int(raw_level) != int(getattr(area, "level", -1)):
+                return False
+        except (TypeError, ValueError):
+            return False
+
+    area_id = str(getattr(area, "id", "") or "")
+    area_code = str(getattr(area, "code", "") or "")
+    area_name = str(getattr(area, "name", "") or "")
+    exact_values = {
+        str(raw_entry.get("id") or ""),
+        str(raw_entry.get("code") or ""),
+    } - {""}
+    if area_id in exact_values or area_code in exact_values:
+        return True
+
+    aliases = raw_entry.get("aliases") or []
+    if isinstance(aliases, str):
+        aliases = [aliases]
+    raw_names = [raw_entry.get("name"), raw_entry.get("label"), *aliases]
+    normalized_names = {_normalize(str(item or "")) for item in raw_names if str(item or "").strip()}
+    if normalized_names and _normalize(area_name) in normalized_names:
+        return True
+    return False
+
+
+def _configured_visual_asset_candidate(
+    kind: str,
+    raw_asset,
+    *,
+    fallback_wikidata_id: str = "",
+) -> AssetCandidate | None:
+    if not isinstance(raw_asset, dict):
+        return None
+    commons_filename = str(raw_asset.get("commons_filename") or "").strip()
+    remote_url = str(raw_asset.get("remote_url") or "").strip()
+    if not remote_url and commons_filename:
+        remote_url = commons_file_url(commons_filename, width=WIKIMEDIA_COMMONS_PREVIEW_WIDTH)
+    if not remote_url:
+        return None
+    wikidata_id = _wikidata_qid(raw_asset.get("wikidata_id")) or fallback_wikidata_id
+    return AssetCandidate(
+        kind=kind,
+        remote_url=remote_url,
+        commons_filename=commons_filename,
+        wikidata_id=wikidata_id,
+        source=str(raw_asset.get("source") or "config"),
+        source_url=str(raw_asset.get("source_url") or (f"https://www.wikidata.org/wiki/{wikidata_id}" if wikidata_id else "")),
+        title=str(raw_asset.get("title") or raw_asset.get("name") or commons_filename or kind),
+        description=str(raw_asset.get("description") or ""),
+        blazon=str(raw_asset.get("blazon") or ""),
+        license_name=str(raw_asset.get("license_name") or ""),
+        author=str(raw_asset.get("author") or ""),
+        attribution=str(raw_asset.get("attribution") or ""),
+    )
+
+
+def _configured_visual_asset_payloads(
+    *,
+    entity_type: str,
+    entity_key: str,
+    entity_name: str,
+    country_code: str,
+    raw_assets: dict[str, AssetCandidate],
+) -> dict[str, dict]:
+    assets: dict[str, dict] = {}
+    for kind, candidate in raw_assets.items():
+        if not candidate.remote_url:
             continue
         assets[kind] = {
             "id": "",
-            "entity_type": "country",
-            "entity_key": country_code,
-            "entity_name": str(config.get("name") or country_code),
+            "entity_type": entity_type,
+            "entity_key": entity_key,
+            "entity_name": entity_name,
             "country_code": country_code,
             "kind": kind,
-            "wikidata_id": _wikidata_qid(raw_asset.get("wikidata_id")) or country_qid,
-            "commons_filename": commons_filename,
-            "remote_url": remote_url,
+            "wikidata_id": candidate.wikidata_id,
+            "commons_filename": candidate.commons_filename,
+            "remote_url": candidate.remote_url,
             "local_path": "",
             "local_exists": False,
             "local_url": "",
-            "image_url": remote_url,
-            "source": str(raw_asset.get("source") or "config"),
+            "image_url": candidate.remote_url,
+            "source": candidate.source or "config",
             "status": "remote",
             "error": "",
-            "license_name": "",
-            "author": "",
-            "attribution": "",
-            "source_url": f"https://www.wikidata.org/wiki/{country_qid}" if country_qid else "",
+            "license_name": candidate.license_name,
+            "author": candidate.author,
+            "attribution": candidate.attribution,
+            "source_url": candidate.source_url,
             "translations": {},
         }
     return assets
+
+
+def _load_admin_area_for_visual_config(entity_key: str):
+    try:
+        from ciudades_del_mundo.models import AdminArea
+    except Exception:  # pragma: no cover - startup/import edge case.
+        return None
+    try:
+        return AdminArea.objects.filter(id=entity_key).only("id", "country_code", "code", "name", "level").first()
+    except (OperationalError, ProgrammingError):
+        return None
 
 
 def _citypopulation_page_urls(config: dict, base_url: str) -> list[str]:
@@ -1751,6 +1886,34 @@ def _store_entity_descriptions(
             )
 
 
+def upsert_visual_asset_translation(
+    asset_id: int,
+    language: str,
+    *,
+    title: str = "",
+    description: str = "",
+    blazon: str = "",
+    source: str = "",
+    needs_review: bool = True,
+) -> None:
+    """Create or update one localized visual-asset text row.
+
+    This is the public service boundary used by AI enrichment and management
+    commands. Keep callers outside this module on this helper instead of the
+    private ``_upsert_translation`` implementation so the raw-SQL persistence
+    details can change without breaking imports.
+    """
+    _upsert_translation(
+        asset_id,
+        language,
+        title=title,
+        description=description,
+        blazon=blazon,
+        source=source,
+        needs_review=needs_review,
+    )
+
+
 def _upsert_translation(
     asset_id: int,
     language: str,
@@ -1786,29 +1949,6 @@ def _upsert_translation(
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
     _execute(sql, [asset_id, language, title, description, blazon, source, bool(needs_review), now, now])
-
-
-def upsert_visual_asset_translation(
-    asset_id: int,
-    language: str,
-    *,
-    title: str = "",
-    description: str = "",
-    blazon: str = "",
-    source: str = "",
-    needs_review: bool = True,
-) -> None:
-    """Persist one visual identity translation/description row."""
-
-    _upsert_translation(
-        asset_id,
-        language,
-        title=title,
-        description=description,
-        blazon=blazon,
-        source=source,
-        needs_review=needs_review,
-    )
 
 
 def _download_asset(

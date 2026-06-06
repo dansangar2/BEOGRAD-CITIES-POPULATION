@@ -70,19 +70,30 @@ def _metadata(slug, content):
 
 def seed_scraping_configs(apps, schema_editor):
     ScrapingConfig = apps.get_model("ciudades_del_mundo", "ScrapingConfig")
-    root = Path(settings.BASE_DIR) / "ciudades_del_mundo" / "subdivisions"
-    if not root.is_dir():
+    seed_path = Path(settings.BASE_DIR) / "ciudades_del_mundo" / "source_population_indices.toml"
+    if not seed_path.is_file():
         return
+    try:
+        raw = tomllib.loads(seed_path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return
+    entries = raw.get("scraping_configs") or raw.get("configs") or []
+    if not isinstance(entries, list):
+        return
+
     now = timezone.now()
     rows = []
-    for path in sorted(root.glob("*.toml")):
-        if path.name.startswith("_"):
+    seen = set()
+    for entry in entries:
+        if not isinstance(entry, dict):
             continue
-        try:
-            content = path.read_text(encoding="utf-8")
-        except OSError:
+        slug = str(entry.get("slug") or "").strip()
+        content = str(entry.get("content") or "").strip()
+        if not slug or not content or slug in seen:
             continue
-        slug = path.stem
+        seen.add(slug)
+        if not content.endswith("\n"):
+            content += "\n"
         meta = _metadata(slug, content)
         rows.append(
             ScrapingConfig(
@@ -91,7 +102,7 @@ def seed_scraping_configs(apps, schema_editor):
                 name=meta["name"],
                 content=content,
                 content_hash=sha256(content.encode("utf-8")).hexdigest(),
-                source_path=str(path.relative_to(settings.BASE_DIR)),
+                source_path=f"ciudades_del_mundo/source_population_indices.toml#scraping_configs.{slug}",
                 pages_count=meta["pages_count"],
                 cities_count=meta["cities_count"],
                 has_representation=meta["has_representation"],

@@ -1,0 +1,149 @@
+name = "España"
+country_code = "spain"
+base_url = "https://www.citypopulation.de/en/"
+wikidata_id = "Q29"
+
+LEGAL_SUBDIVISION = 3
+
+[representation]
+level = 2
+total = 350
+min = 2
+min_exceptions = { spain_51 = 1, spain_52 = 1 }
+max_exceptions = { spain_51 = 1, spain_52 = 1 }
+system = "dhondt"
+
+# Assets nacionales de reserva para que /countries y la Ficha muestren España
+# aunque aún no se haya hecho la siembra Wikidata/Commons.
+[visual_assets.flag]
+wikidata_id = "Q29"
+commons_filename = "Flag of Spain.svg"
+source = "config"
+
+[visual_assets.coat]
+wikidata_id = "Q29"
+commons_filename = "Coat of Arms of Spain.svg"
+source = "config"
+
+[[pages]]
+source = "infosection"
+# Landing principal: https://www.citypopulation.de/en/spain/
+# Aporta el país raíz y los data-wd/imagenes de cabecera para assets.
+path = [""]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+# Regiones/CCAA y provincias desde la división administrativa oficial.
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "table"
+# Regiones peninsulares/insulares: raíz L1, provincias L2 cuando existan,
+# municipios L2/L3 según tenga provincias la comunidad.
+path = [
+  "andalucia",
+  "aragon",
+  "asturias",
+  "canarias",
+  "cantabria",
+  "castillalamancha",
+  "castillayleon",
+  "cataluna",
+  "comunitatvalenciana",
+  "extremadura",
+  "galicia",
+  "illesbalears",
+  "larioja",
+  "madrid",
+  "murcia",
+  "navarra",
+  "paisvasco",
+]
+lowest_level = 1
+
+[[pages]]
+source = "table"
+# Ceuta y Melilla son ciudades autónomas sin provincia intermedia.
+# Su municipio debe quedar por debajo de la ciudad autónoma, no colgar
+# directamente de una raíz sintética spain_spain.
+path = [
+  "ceuta",
+  "melilla",
+]
+lowest_level = 1
+
+[[pages]]
+source = "double"
+# Localidades en provincias: municipio L3, localidad L4.
+path = [
+  "localities/acoruna",
+  "localities/alava",
+  "localities/albacete",
+  "localities/alicante",
+  "localities/almeria",
+  "localities/avila",
+  "localities/badajoz",
+  "localities/barcelona",
+  "localities/burgos",
+  "localities/caceres",
+  "localities/cadiz",
+  "localities/castellon",
+  "localities/ciudadreal",
+  "localities/cordoba",
+  "localities/cuenca",
+  "localities/girona",
+  "localities/granada",
+  "localities/guadalajara",
+  "localities/guipuzcoa",
+  "localities/huelva",
+  "localities/huesca",
+  "localities/jaen",
+  "localities/laspalmas",
+  "localities/leon",
+  "localities/lleida",
+  "localities/lugo",
+  "localities/malaga",
+  "localities/ourense",
+  "localities/palencia",
+  "localities/pontevedra",
+  "localities/salamanca",
+  "localities/santacruzdetenerife",
+  "localities/segovia",
+  "localities/sevilla",
+  "localities/soria",
+  "localities/tarragona",
+  "localities/teruel",
+  "localities/toledo",
+  "localities/valencia",
+  "localities/valladolid",
+  "localities/vizcaya",
+  "localities/zamora",
+  "localities/zaragoza",
+]
+lowest_level = 3
+
+[[pages]]
+source = "double"
+# Localidades en comunidades uniprovinciales: municipio L2, localidad L3.
+path = [
+  "localities/asturias",
+  "localities/cantabria",
+  "localities/illesbalears",
+  "localities/larioja",
+  "localities/madrid",
+  "localities/murcia",
+  "localities/navarra",
+]
+lowest_level = 2
+
+[[pages]]
+source = "double"
+# Localidades de ciudades autónomas: municipio L2, localidad L3.
+# En Ceuta deben entrar Benzú, Ceuta, El Principe Alfonso y Príncipe Felipe.
+path = [
+  "localities/ceuta",
+  "localities/melilla",
+]
+lowest_level = 2

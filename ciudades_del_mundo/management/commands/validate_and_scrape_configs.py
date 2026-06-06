@@ -1,4 +1,4 @@
-"""Populate configs that have already passed validation."""
+"""Validate and populate SQL scraping configs."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from ciudades_del_mundo.web.task_progress import write_config_progress
 
 
 class Command(BaseCommand):
-    help = "Popula configuraciones ya validadas, una por una."
+    help = "Valida y popula configuraciones SQL, una por una."
 
     def _write(self, message, *, style=None):
         self.stdout.write(style(message) if style else message)
@@ -21,7 +21,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "countries",
             nargs="*",
-            help="Slugs a popular. Si no se indican, se procesan todas las configuraciones.",
+            help="Slugs a validar y popular. Si no se indican, se procesan todas las configuraciones.",
         )
         parser.add_argument(
             "--page-workers",
@@ -55,7 +55,7 @@ class Command(BaseCommand):
             self._write("No hay configuraciones para popular.", style=self.style.WARNING)
             return
 
-        self._write(f"[popular] Populando {len(slugs)} configuración(es) validada(s)...")
+        self._write(f"[popular] Validando y populando {len(slugs)} configuración(es)...")
 
         scrape_options = {}
         if options.get("skip_assets"):
@@ -68,8 +68,10 @@ class Command(BaseCommand):
 
         for index, slug in enumerate(slugs, start=1):
             self._write(f"[popular] ({index}/{len(slugs)}) {slug}")
-            write_config_progress(slug, "populating")
+            write_config_progress(slug, "validating")
             try:
+                call_command("validate_subdivision_configs", slug)
+                write_config_progress(slug, "populating")
                 call_command("scrape_subdivisions_with_assets", slug, **scrape_options)
             except Exception as exc:
                 write_config_progress(slug, "failed", detail=str(exc))

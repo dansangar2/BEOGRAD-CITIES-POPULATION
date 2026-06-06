@@ -34,6 +34,21 @@ class CityPopulationEntity:
     url: str | None
 
 
+class CityPopulationHtmlFetcher:
+    """Thread-safe HtmlFetcher adapter for concurrent page prefetching.
+
+    Each request gets its own short-lived ``CityPopulationClient`` so concurrent
+    prefetching does not share a ``requests.Session`` across worker threads.
+    """
+
+    def __init__(self, debug: bool = False, parser: str = "lxml"):
+        self.debug = debug
+        self.parser = parser
+
+    def get(self, url: str) -> str:
+        return CityPopulationClient(debug=self.debug, parser=self.parser).get(url)
+
+
 class CityPopulationClient:
     """Thin client around requests plus row parsing helpers for CityPopulation."""
 

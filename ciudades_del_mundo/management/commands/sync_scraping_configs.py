@@ -1,4 +1,4 @@
-"""Synchronize temporary TOML seed files with the SQL config table."""
+"""Synchronize per-country TOML seed files with the SQL config table."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from ciudades_del_mundo.services.scraping_configs import (
 
 
 class Command(BaseCommand):
-    help = "Temporary bridge between bundled TOML seed files and SQL ScrapingConfig rows."
+    help = "Import/export per-country subdivisions TOML seeds and SQL ScrapingConfig rows."
 
     def add_arguments(self, parser):
         parser.add_argument("slugs", nargs="*", help="Optional config slugs to synchronize.")
@@ -19,12 +19,12 @@ class Command(BaseCommand):
         direction.add_argument(
             "--from-toml",
             action="store_true",
-            help="Import TOML seed files into SQL. This is the default.",
+            help="Import ciudades_del_mundo/subdivisions/*.toml seed files into SQL. This is the default.",
         )
         direction.add_argument(
             "--to-toml",
             action="store_true",
-            help="Export SQL configs back to TOML seed files.",
+            help="Export SQL configs back to ciudades_del_mundo/subdivisions/*.toml seed files.",
         )
         parser.add_argument(
             "--force",

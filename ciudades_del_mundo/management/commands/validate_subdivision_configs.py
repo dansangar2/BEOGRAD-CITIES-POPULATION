@@ -5,7 +5,9 @@ from __future__ import annotations
 from django.core.management.base import BaseCommand, CommandError
 
 from ciudades_del_mundo.infrastructure.scraping import PythonScrapingConfigRepository
+from ciudades_del_mundo.models import ScrapingConfig
 from ciudades_del_mundo.web.task_progress import write_config_progress
+from ciudades_del_mundo.services.scraping_config_extensions import attach_runtime_config_extensions
 
 
 class Command(BaseCommand):
@@ -36,12 +38,15 @@ class Command(BaseCommand):
             write_config_progress(slug, "validating")
             try:
                 config = repository.get(slug)
+                attach_runtime_config_extensions([config])
             except Exception as exc:
                 failed.append((slug, str(exc)))
+                ScrapingConfig.objects.filter(slug=slug).update(is_valid=False, validation_error=str(exc))
                 write_config_progress(slug, "failed", detail=str(exc))
                 self._write(f"ERROR {slug}: {exc}", style=self.style.ERROR, stderr=True)
                 continue
 
+            ScrapingConfig.objects.filter(slug=slug).update(is_valid=True, validation_error="")
             write_config_progress(slug, "validated")
             self._write(
                 f"OK {slug}: pages={len(config.pages)}, cities={len(config.cities)}, "

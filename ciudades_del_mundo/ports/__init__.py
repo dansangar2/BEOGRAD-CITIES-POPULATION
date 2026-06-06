@@ -1,8 +1,9 @@
 from .repositories import AdminAreaRepository, ScrapingConfigRepository, UnitOfWork
-from .scraping import HtmlScraper, ScrapedHtmlPage, ScrapingPageNotFoundError
+from .scraping import HtmlFetcher, HtmlScraper, ScrapedHtmlPage, ScrapingPageNotFoundError
 
 __all__ = [
     "AdminAreaRepository",
+    "HtmlFetcher",
     "HtmlScraper",
     "ScrapedHtmlPage",
     "ScrapingConfigRepository",

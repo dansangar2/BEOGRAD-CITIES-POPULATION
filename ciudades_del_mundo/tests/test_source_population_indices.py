@@ -11,7 +11,7 @@ if not apps.ready:
 
 from ciudades_del_mundo.models import AdminArea, NuevoAdminArea
 from ciudades_del_mundo.services.nuevo_admin_builder import create_nuevo_area_from_spec
-from ciudades_del_mundo.services.source_population_indices import SourcePopulationIndexRegistry
+from ciudades_del_mundo.services.source_population_indices import SourcePopulationIndexRegistry, _population_index_mapping
 
 
 class SourcePopulationIndexTests(TestCase):
@@ -54,6 +54,17 @@ class SourcePopulationIndexTests(TestCase):
             entity_type="Country",
             municipal_level=1,
         )
+
+
+    def test_shared_seed_file_ignores_scraping_configs_for_population_indices(self):
+        raw = {
+            "scraping_configs": [{"slug": "spain", "content": "name = \"Spain\""}],
+            "spain": {"Madrid": {1995: 0.5}},
+        }
+
+        registry = SourcePopulationIndexRegistry.from_mapping(_population_index_mapping(raw))
+
+        self.assertEqual(registry.multiplier_for_area(self.madrid, 1999), Decimal("0.5"))
 
     def test_registry_uses_period_until_next_configured_year(self):
         registry = SourcePopulationIndexRegistry.from_mapping(

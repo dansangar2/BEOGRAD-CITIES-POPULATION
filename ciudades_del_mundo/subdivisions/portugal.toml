@@ -1,0 +1,72 @@
+name = "Portugal"
+country_code = "portugal"
+wikidata_id = "Q45"
+base_url = "https://www.citypopulation.de/en/"
+reset_before_import = true
+LEGAL_SUBDIVISION = 3
+
+[[pages]]
+source = "cities"
+path = ["cities"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = [
+  "acores/admin",
+  "aveiro/admin",
+  "beja/admin",
+  "braga/admin",
+  "braganca/admin",
+  "castelobranco/admin",
+  "coimbra/admin",
+  "evora/admin",
+  "faro/admin",
+  "guarda/admin",
+  "leiria/admin",
+  "lisboa/admin",
+  "madeira/admin",
+  "portalegre/admin",
+  "porto/admin",
+  "santarem/admin",
+  "setubal/admin",
+  "vianadocastelo/admin",
+  "vilareal/admin",
+  "viseu/admin",
+]
+lowest_level = 1
+
+[[pages]]
+source = "double"
+path = [
+  "acores",
+  "aveiro",
+  "beja",
+  "braga",
+  "braganca",
+  "castelobranco",
+  "coimbra",
+  "evora",
+  "faro",
+  "guarda",
+  "leiria",
+  "lisboa",
+  "madeira",
+  "portalegre",
+  "porto",
+  "santarem",
+  "setubal",
+  "vianadocastelo",
+  "vilareal",
+  "viseu",
+]
+# The first table repeats municipalities and is only parent context.  Persist
+# localities as L4, one level below parishes, with the municipality as parent.
+lowest_level = 2
+include_tables = ["ts"]
+table_levels = { ts = 4 }

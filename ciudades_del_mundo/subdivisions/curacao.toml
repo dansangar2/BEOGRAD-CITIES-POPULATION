@@ -1,0 +1,19 @@
+[[pages]]
+source = "table"
+path = ["cities"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[cities]]
+city = "Willemstad"
+id = "30422"
+district_types = ["Place"]
+level = 2
+type = "City"
+from = { 0 = ["272"] }
+communes = ["30422"]
+keep_communes = false

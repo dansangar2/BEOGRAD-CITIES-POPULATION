@@ -1556,3 +1556,23 @@ msgstr "??????? ????????: %(slug)s"
 
 msgid "Solo puedes reanudar una configuraci?n parada durante el scraping."
 msgstr "????? ??? ??????? ????? ???? ????? ?????????."
+
+msgid "No hay datos"
+msgstr "لا توجد بيانات"
+
+msgid "No puedes limpiar mientras hay una operación activa en esta configuración."
+msgstr "لا يمكنك المسح أثناء وجود عملية نشطة لهذه التهيئة."
+
+# Added for the explicit config lifecycle.
+
+msgid "Limpiando"
+msgstr "جارٍ التنظيف"
+
+msgid "Solo puedes popular una configuración Por validar, Validada o en Fallo. Si ya está Populada, primero limpia sus datos."
+msgstr "لا يمكنك تعبئة إلا إعدادًا بحالة \"بانتظار التحقق\" أو \"تم التحقق\" أو \"فشل\". إذا كان قد تم تعبئته بالفعل، فامسح بياناته أولًا."
+
+msgid "No hay configuraciones disponibles para popular."
+msgstr "لا توجد إعدادات متاحة للتعبئة."
+
+msgid "Popular configuraciones disponibles (%(count)s)"
+msgstr "تعبئة الإعدادات المتاحة (%(count)s)"

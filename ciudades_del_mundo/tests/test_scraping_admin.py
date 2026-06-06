@@ -2,9 +2,11 @@ import unittest
 
 from bs4 import BeautifulSoup
 
+from ciudades_del_mundo.domain import ScrapingPageConfig
 from ciudades_del_mundo.infrastructure.scraping import (
     CityPopulationAdminScraper,
     CityPopulationAutoScraper,
+    CityPopulationDoubleScraper,
     CityPopulationPageType,
     detect_citypopulation_page_profile,
 )
@@ -143,3 +145,56 @@ class CityPopulationStructuredTableScraperTests(unittest.TestCase):
         self.assertEqual([entity.code for entity in entities], ["spain", "51001"])
         self.assertEqual(entities[1].level, 2)
         self.assertEqual(entities[1].parent_code, "spain")
+
+
+class CityPopulationDoubleScraperTests(unittest.TestCase):
+    def test_config_can_use_first_table_only_as_parent_context(self):
+        html = """
+        <html>
+          <body>
+            <table id="tl">
+              <thead>
+                <tr><th class="rpop" data-coldate="2024-01-01">2024</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="rname" id="iP1"><span itemprop="name">Rabat</span></td>
+                  <td class="rstatus">Prefecture</td>
+                  <td class="rpop">515,619</td>
+                </tr>
+              </tbody>
+            </table>
+            <table id="ts">
+              <thead>
+                <tr><th class="rpop" data-coldate="2024-01-01">2024</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="rname" id="iU1"><span itemprop="name">Rabat</span></td>
+                  <td class="rstatus">Urban Commune</td>
+                  <td class="radm" data-admid="P1">Rabat</td>
+                  <td class="rpop">509,916</td>
+                </tr>
+              </tbody>
+            </table>
+          </body>
+        </html>
+        """
+        page = ScrapingPageConfig(
+            path="morocco/rabatsalekenitra",
+            html_format="double",
+            lowest_level=2,
+            include_tables=("ts",),
+            table_levels={"ts": 4},
+        )
+
+        entities = CityPopulationDoubleScraper().scrape_configured_html(
+            html=html,
+            url="https://www.citypopulation.de/en/morocco/rabatsalekenitra/",
+            country_code="morocco",
+            page=page,
+        )
+
+        self.assertEqual([entity.code for entity in entities], ["U1"])
+        self.assertEqual(entities[0].level, 4)
+        self.assertEqual(entities[0].parent_code, "P1")

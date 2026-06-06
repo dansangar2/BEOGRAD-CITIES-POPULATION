@@ -1,4 +1,4 @@
-﻿{% extends "ciudades_del_mundo/base.html" %}
+{% extends "ciudades_del_mundo/base.html" %}
 {% load i18n %}
 
 {% block title %}{% trans "Scraping - Ciudades del Mundo" %}{% endblock %}
@@ -190,16 +190,16 @@
     border-color: #3b82f6;
   }
 
+  .configs-page-grid .config-table .status.config-status-clearing {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #f59e0b;
+  }
+
   .configs-page-grid .config-table .status.config-status-populated {
     background: #ede9fe;
     color: #5b21b6;
     border-color: #8b5cf6;
-  }
-
-  .configs-page-grid .config-table .status.config-status-stopped {
-    background: #f1f5f9;
-    color: #475569;
-    border-color: #94a3b8;
   }
 
   .configs-page-grid .config-table .status.config-status-running,
@@ -254,7 +254,7 @@
 {% endif %}
 
 <div class="configs-page-grid">
-  <section class="panel config-list-panel" data-config-table data-empty-label="{% trans 'No hay datos' %}" data-pending-label="{% trans 'Por Validar' %}" data-running-label="{% trans 'En ejecución' %}" data-queued-label="{% trans 'En cola' %}" data-succeeded-label="{% trans 'Correcto' %}" data-failed-label="{% trans 'Fallo' %}" data-cancelled-label="{% trans 'Parado' %}" data-stopped-label="{% trans 'Parado' %}" data-started-label="{% trans 'Tarea lanzada' %}" data-finished-label="{% trans 'Tarea finalizada' %}" data-updating-label="{% trans 'Actualizando tabla' %}" data-log-label="{% trans 'Ver registro' %}" data-validating-label="{% trans 'Validando' %}" data-validated-label="{% trans 'Validado' %}" data-populating-label="{% trans 'Populando' %}" data-populated-label="{% trans 'Populado' %}" data-invalid-label="{% trans 'Fallo' %}">
+  <section class="panel config-list-panel" data-config-table data-empty-label="{% trans 'No hay datos' %}" data-pending-label="{% trans 'Por Validar' %}" data-running-label="{% trans 'En ejecución' %}" data-queued-label="{% trans 'En cola' %}" data-succeeded-label="{% trans 'Correcto' %}" data-failed-label="{% trans 'Fallo' %}" data-cancelled-label="{% trans 'Cancelado' %}" data-started-label="{% trans 'Tarea lanzada' %}" data-finished-label="{% trans 'Tarea finalizada' %}" data-updating-label="{% trans 'Actualizando tabla' %}" data-log-label="{% trans 'Ver registro' %}" data-validating-label="{% trans 'Validando' %}" data-validated-label="{% trans 'Validado' %}" data-populating-label="{% trans 'Populando' %}" data-populated-label="{% trans 'Populado' %}" data-clearing-label="{% trans 'Limpiando' %}" data-invalid-label="{% trans 'Fallo' %}">
     <form class="filters advanced-filters async-table-form config-table-filter-form" method="get" data-dynamic-filter="1" data-client-side-filter="1" data-target="#config-table-panel" data-url="{{ config_table_url }}" data-defer-bootstrap="{% if not config_bootstrap_status.ready %}1{% else %}0{% endif %}" data-loading="{% trans 'Cargando tabla...' %}" data-error="{% trans 'La tabla no se pudo cargar. Reintenta en unos segundos.' %}">
       <label>
         {% trans "País o código" %}
@@ -269,8 +269,8 @@
           <option value="validated">{% trans "Validado" %}</option>
           <option value="failed">{% trans "Fallo" %}</option>
           <option value="populating">{% trans "Populando" %}</option>
+          <option value="clearing">{% trans "Limpiando" %}</option>
           <option value="populated">{% trans "Populado" %}</option>
-          <option value="stopped">{% trans "Parado" %}</option>
         </select>
       </label>
       <label>
@@ -298,7 +298,6 @@
         {% trans "Estado" %}
         <select name="status" data-dynamic-filter-control>
           <option value="">{% trans "Todos" %}</option>
-          <option value="queued">{% trans "En cola" %}</option>
           <option value="running">{% trans "En ejecución" %}</option>
           <option value="succeeded">{% trans "Correcto" %}</option>
           <option value="failed">{% trans "Error" %}</option>

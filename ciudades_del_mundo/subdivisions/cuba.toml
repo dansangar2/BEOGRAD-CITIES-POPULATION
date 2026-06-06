@@ -1,0 +1,41 @@
+LEGAL_SUBDIVISION = 1
+
+[[pages]]
+source = "infosection"
+path = ["cities"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "double"
+path = [
+  "pinardelrio",
+  "artemisa",
+  "lahabana",
+  "mayabeque",
+  "matanzas",
+  "cienfuegos",
+  "villaclara",
+  "sanctispiritus",
+  "ciegodeavila",
+  "camaguey",
+  "lastunas",
+  "holguin",
+  "granma",
+  "santiagodecuba",
+  "guantanamo",
+  "isladelajuventud",
+]
+lowest_level = 2
+
+[[cities]]
+city = "La Habana"
+id = "857"
+district_types = ["Municipality"]
+level = 1
+type = "Municipality"
+from = { 1 = ["Ciudad de la Habana"] }

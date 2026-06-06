@@ -15,9 +15,14 @@ from ciudades_del_mundo.domain import (
     RepresentationSystem,
     ScrapedAdminArea,
 )
+from ciudades_del_mundo.infrastructure.django.admin_area_deletion import (
+    SQLITE_SAFE_DELETE_BATCH_SIZE,
+    delete_admin_area_country,
+    delete_admin_area_ids,
+)
 from ciudades_del_mundo.models import AdminArea
 
-SQLITE_SAFE_BATCH_SIZE = 500
+SQLITE_SAFE_BATCH_SIZE = SQLITE_SAFE_DELETE_BATCH_SIZE
 
 
 def _to_decimal(value):
@@ -40,17 +45,16 @@ def _to_date(value):
 
 class DjangoAdminAreaRepository:
     def reset_country(self, country_code: str) -> None:
-        AdminArea.objects.filter(country_code=country_code).delete()
+        delete_admin_area_country(country_code, batch_size=SQLITE_SAFE_BATCH_SIZE)
 
     @transaction.atomic
     def save_many(self, country_code: str, entities: list[ScrapedAdminArea]) -> tuple[int, int]:
         if not entities:
             return 0, 0
 
-        existing = {
-            item.code: item.id
-            for item in AdminArea.objects.filter(country_code=country_code).only("id", "code")
-        }
+        existing = dict(
+            AdminArea.objects.filter(country_code=country_code).values_list("code", "id")
+        )
         incoming_ids = {entity.id for entity in entities}
         existing_ids = set(existing.values())
         created = sum(1 for entity_id in incoming_ids if entity_id not in existing_ids)
@@ -99,13 +103,12 @@ class DjangoAdminAreaRepository:
     @transaction.atomic
     def delete_missing(self, country_code: str, ids: set[str]) -> int:
         existing_ids = AdminArea.objects.filter(country_code=country_code).values_list("id", flat=True)
-        missing_ids = [existing_id for existing_id in existing_ids if existing_id not in ids]
-        deleted = len(missing_ids)
-        for start in range(0, deleted, SQLITE_SAFE_BATCH_SIZE):
-            AdminArea.objects.filter(
-                id__in=missing_ids[start : start + SQLITE_SAFE_BATCH_SIZE]
-            ).delete()
-        return deleted
+        missing_ids = [existing_id for existing_id in existing_ids.iterator() if existing_id not in ids]
+        return delete_admin_area_ids(
+            missing_ids,
+            batch_size=SQLITE_SAFE_BATCH_SIZE,
+            country_code=country_code,
+        )
 
     def list_summaries(self, country_code: str) -> list[AdminAreaSummary]:
         return [
@@ -129,14 +132,27 @@ class DjangoAdminAreaRepository:
 
     @transaction.atomic
     def save_most_populated_assignments(self, assignments: list[MostPopulatedAssignment]) -> int:
-        updated = 0
+        if not assignments:
+            return 0
+
+        areas_by_id = AdminArea.objects.in_bulk([assignment.area_id for assignment in assignments])
+        changed = []
+        now = timezone.now()
         for assignment in assignments:
-            updated += AdminArea.objects.filter(pk=assignment.area_id).exclude(
-                most_populate_city_id=assignment.most_populated_id
-            ).update(
-                most_populate_city_id=assignment.most_populated_id
+            area = areas_by_id.get(assignment.area_id)
+            if area is None or area.most_populate_city_id == assignment.most_populated_id:
+                continue
+            area.most_populate_city_id = assignment.most_populated_id
+            area.updated_at = now
+            changed.append(area)
+
+        if changed:
+            AdminArea.objects.bulk_update(
+                changed,
+                ["most_populate_city", "updated_at"],
+                batch_size=SQLITE_SAFE_BATCH_SIZE,
             )
-        return updated
+        return len(changed)
 
     @transaction.atomic
     def save_representatives(self, country_code: str, config: RepresentationConfig) -> int:
@@ -152,14 +168,22 @@ class DjangoAdminAreaRepository:
             raise ValueError(f"Sistema de representación no soportado: {config.system}.")
 
         seats_by_id = _allocate_dhondt_representatives(areas, config)
-        updated = 0
+        changed = []
+        now = timezone.now()
         for area in areas:
             seats = seats_by_id[area.id]
             if area.representatives != seats:
                 area.representatives = seats
-                area.save(update_fields=["representatives", "updated_at"])
-                updated += 1
-        return updated
+                area.updated_at = now
+                changed.append(area)
+
+        if changed:
+            AdminArea.objects.bulk_update(
+                changed,
+                ["representatives", "updated_at"],
+                batch_size=SQLITE_SAFE_BATCH_SIZE,
+            )
+        return len(changed)
 
 
 def _allocate_dhondt_representatives(areas: list[AdminArea], config: RepresentationConfig) -> dict[str, int]:

@@ -1,0 +1,152 @@
+LEGAL_SUBDIVISION = 3
+
+[[pages]]
+source = "infosection"
+path = ["cities"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["mun/admin"]
+lowest_level = 1
+
+[[cities]]
+city = "Panamá"
+id = "080800"
+district_types = ["Township"]
+level = 3
+type = "City"
+from = { 1 = ["Panamá"] }
+communes = [
+  "080801", "080802", "080803", "080804", "080805", "080806",
+  "080807", "080808", "080809", "080810", "080811", "080812",
+  "080813", "080814", "080815", "080816", "080817", "080818",
+  "080819", "080820", "080821", "080822", "080823", "080824",
+  "080825", "080826",
+]
+keep_communes = false
+
+[[cities]]
+city = "San Miguelito"
+id = "081000"
+district_types = ["Township"]
+level = 3
+type = "City"
+from = { 1 = ["Panamá"] }
+communes = [
+  "081001", "081002", "081003", "081004", "081005", "081006",
+  "081007", "081008", "081009",
+]
+keep_communes = false
+
+[[cities]]
+city = "Arraiján"
+id = "130100"
+district_types = ["Township"]
+level = 3
+type = "City"
+from = { 1 = ["Panamá Oeste"] }
+communes = [
+  "130101", "130102", "130103", "130104", "130105", "130106",
+  "130107", "130108", "130109",
+]
+keep_communes = false
+
+[[cities]]
+city = "La Chorrera"
+id = "130700"
+district_types = ["Township"]
+level = 3
+type = "City"
+from = { 1 = ["Panamá Oeste"] }
+communes = [
+  "130701", "130702", "130703", "130704", "130705", "130706",
+  "130707", "130708", "130709", "130710", "130711", "130712",
+  "130713", "130714", "130715", "130716", "130717", "130718",
+]
+keep_communes = false
+
+[[cities]]
+city = "Colón"
+id = "030100"
+district_types = ["Township"]
+level = 3
+type = "City"
+from = { 1 = ["Colón"] }
+communes = [
+  "030101", "030102", "030103", "030104", "030105", "030106",
+  "030107", "030108", "030109", "030110", "030111", "030112",
+  "030113", "030114", "030115",
+]
+keep_communes = false
+
+[[cities]]
+city = "David"
+id = "040600"
+district_types = ["Township"]
+level = 3
+type = "City"
+from = { 1 = ["Chiriquí"] }
+communes = [
+  "040601", "040602", "040603", "040604", "040605", "040606",
+  "040607", "040608", "040609", "040610", "040611", "040612",
+]
+keep_communes = false
+
+[[cities]]
+city = "Santiago"
+id = "091000"
+district_types = ["Township"]
+level = 3
+type = "City"
+from = { 1 = ["Veraguas"] }
+communes = [
+  "091001", "091002", "091003", "091004", "091005", "091006",
+  "091007", "091008", "091009", "091010", "091011", "091012",
+  "091013", "091014", "091015", "091016",
+]
+keep_communes = false
+
+[[cities]]
+city = "Penonomé"
+id = "020600"
+district_types = ["Township"]
+level = 3
+type = "City"
+from = { 1 = ["Coclé"] }
+communes = [
+  "020601", "020602", "020603", "020604", "020605", "020606",
+  "020607", "020608", "020609", "020610", "020611", "020612",
+  "020613", "020614", "020615", "020616",
+]
+keep_communes = false
+
+[[cities]]
+city = "Changuinola"
+id = "010200"
+district_types = ["Township"]
+level = 3
+type = "City"
+from = { 1 = ["Bocas del Toro"] }
+communes = [
+  "010201", "010203", "010204", "010206", "010207", "010208",
+  "010209", "010210", "010213", "010214", "010215", "010216",
+  "010217", "010218", "010219", "010220", "010221", "010222",
+  "010223",
+]
+keep_communes = false
+
+[[cities]]
+city = "Chitré"
+id = "060100"
+district_types = ["Township"]
+level = 3
+type = "City"
+from = { 1 = ["Herrera"] }
+communes = ["060101", "060102", "060103", "060104", "060105"]
+keep_communes = false

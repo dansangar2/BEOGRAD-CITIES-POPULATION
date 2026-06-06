@@ -16,6 +16,8 @@ class ScrapingConfigTests(TestCase):
                     "lowest_level": 2,
                     "area_km2": "123.45",
                     "area_overrides": {"A": "1.50"},
+                    "table_levels": {"ts": 4},
+                    "include_tables": ["ts"],
                 }
             ],
             slug="spain",
@@ -26,6 +28,8 @@ class ScrapingConfigTests(TestCase):
         self.assertTrue(all(page.lowest_level == 2 for page in pages))
         self.assertTrue(all(page.area_km2 == Decimal("123.45") for page in pages))
         self.assertTrue(all(page.area_overrides == {"A": Decimal("1.50")} for page in pages))
+        self.assertTrue(all(page.table_levels == {"ts": 4} for page in pages))
+        self.assertTrue(all(page.include_tables == ("ts",) for page in pages))
 
     def test_parse_pages_rejects_missing_path_and_negative_area(self):
         with self.assertRaisesRegex(ValueError, "path"):

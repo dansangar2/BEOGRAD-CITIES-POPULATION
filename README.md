@@ -20,15 +20,37 @@ Abre `http://127.0.0.1:8000/` para el panel principal o
 `127.0.0.1` para que Django escuche solo en tu propia maquina; no uses
 `0.0.0.0` salvo que quieras exponerlo en tu red local.
 
+### Primer arranque: cargar las configuraciones SQL iniciales
+
+Si partes de una base nueva o la tabla `ScrapingConfig` esta vacia, primero
+aplica migraciones y carga las configuraciones iniciales desde los TOML
+semilla de `ciudades_del_mundo/subdivisions/*.toml`:
+
+```powershell
+py manage.py migrate
+py manage.py sync_scraping_configs --force
+```
+
+Para cargar o reinstanciar solo un pais concreto desde su TOML semilla:
+
+```powershell
+py manage.py sync_scraping_configs spain --force
+```
+
+Despues ya puedes validar o popular desde `/configs/` o con los comandos CLI
+`validate_subdivision_configs` y `scrape_subdivisions_with_assets`.
+
 ## Estado actual
 
 El sistema de scraping ya no depende de modulos Python por pais. La
 configuracion activa vive en la tabla SQL `ScrapingConfig`; su campo `content`
 mantiene el mismo formato TOML para que siga siendo editable y versionable como
-texto dentro de SQL. Los ficheros locales de
-`ciudades_del_mundo/subdivisions/*.toml` son solo seeds temporales para
-bootstrap/import-export, estan ignorados por Git y deben desaparecer cuando se
-retire el puente TOML/SQL.
+texto dentro de SQL. El scraping runtime lee siempre la configuracion desde BBDD, no desde ficheros
+TOML. Los TOML de `ciudades_del_mundo/subdivisions/*.toml` se usan solo como
+semilla explicita para crear o refrescar filas en `/configs/` mediante
+`sync_scraping_configs`. Una vez instanciadas las filas SQL, puedes retirar esa
+carpeta local y el scraping seguira funcionando porque no hay fallback runtime a
+ficheros.
 
 Cada configuracion SQL describe:
 
@@ -40,24 +62,35 @@ Cada configuracion SQL describe:
 
 ## Arquitectura
 
-El proyecto esta organizado por capas:
+El proyecto esta organizado por capas hexagonales. Para que una IA pueda leerlo
+sin mezclar responsabilidades, empieza por `AGENTS.md`, luego entra solo en la
+capa del cambio:
 
 - `ciudades_del_mundo/domain`
-  Modelos puros y logica de dominio: configuracion de scraping, DTOs, jerarquia y ciudad mas poblada.
+  Modelos puros y logica de dominio: configuracion de scraping, DTOs, jerarquia y ciudad mas poblada. No importa Django ni adaptadores.
+- `ciudades_del_mundo/ports`
+  Protocolos que definen las fronteras del nucleo, como repositorios, scrapers y `HtmlFetcher`.
 - `ciudades_del_mundo/application`
-  Casos de uso: ejecutar scraping, aplicar ciudades configuradas y exportar `NuevoAdminArea`.
+  Casos de uso: ejecutar scraping, aplicar ciudades configuradas y exportar `NuevoAdminArea`. Solo depende de `domain`, `ports` y modulos de la propia capa.
 - `ciudades_del_mundo/infrastructure`
   Implementaciones concretas: repositorios Django, scrapers HTML, cliente HTTP y escritor XLSX.
 - `ciudades_del_mundo/services`
-  Servicios de agregacion, capitales y reparto de representantes.
+  Servicios operativos que todavia trabajan con modelos Django para agregacion, capitales, assets, traducciones dinamicas y reparto de representantes.
 - `ciudades_del_mundo/management/commands`
-  Comandos de operacion para scrapear, validar, construir subdivisiones y exportar.
+  Raices de composicion CLI: conectan casos de uso con repositorios, clientes HTTP y otros adaptadores.
 - `ciudades_del_mundo/web`
   Interfaz operativa para inspeccionar datos, editar configuraciones, lanzar
   tareas locales y borrar datos.
 - `locale`
   Catalogos gettext de la interfaz web en espanol, ingles, frances, aleman,
   ruso, italiano, serbio cirilico, serbio latino y arabe estandar.
+
+Regla de dependencias: `domain` y `ports` no importan adaptadores; `application`
+no importa `models`, `services`, `web`, `management` ni `infrastructure`. Las
+raices de composicion inyectan implementaciones concretas. Por ejemplo,
+`ScrapeAdminAreas` hace prefetch concurrente a traves del puerto `HtmlFetcher`,
+y el comando `scrape_subdivisions` le pasa `CityPopulationHtmlFetcher`
+desde `infrastructure`.
 
 ## Modelos principales
 
@@ -126,6 +159,31 @@ communes = []
 - En `[[cities]]`, `keep_communes = false` agrega las comunas o distritos usados para calcular la ciudad pero no los conserva como filas hijas.
 - `LEGAL_SUBDIVISION` es el unico nombre aceptado para el nivel legal.
 - `admin` e `infosection` son tipos de scraper, no atajos especiales de ruta.
+- Para paises con paginas CityPopulation divididas entre varias familias se
+  pueden declarar extensiones runtime en el TOML SQL:
+  `[[synthetic_entities]]`, `[[parent_overrides]]` y
+  `[[root_metric_sources]]`. Sirven para crear contenedores logicos, mover
+  padres/niveles y sumar metricas de paginas adicionales sin meter parches en
+  vistas ni modelos.
+
+- Algunas paginas de CityPopulation vinculan filas hijas a un padre que no es el
+  nivel inmediatamente anterior. En esos casos la config puede importar esas
+  filas un nivel mas profundo manteniendo el `parent_code` real de la pagina.
+  Ejemplos: localidades de Italia por provincia, localidades de Portugal por
+  municipio y urban places de Marruecos por provincia/prefectura. La vista
+  `/countries/` abre primero el padre y despues el hijo cuando detecta ese salto
+  de nivel.
+
+Francia usa estas extensiones para insertar `Metropolitan France` y
+`Overseas France` como nivel 1, colgar regiones metropolitanas en nivel 2,
+colgar departamentos metropolitanos y ultramarinos en nivel 3, y sumar al pais
+las metricas de los departamentos de ultramar. Tras modificar esos seeds,
+sincroniza y valida la config SQL antes de popular:
+
+```powershell
+py manage.py sync_scraping_configs france --force
+py manage.py validate_subdivision_configs france
+```
 
 ## Comandos utiles
 
@@ -136,7 +194,36 @@ py manage.py validate_subdivision_configs
 py manage.py validate_subdivision_configs spain morocco
 ```
 
-### Sincronizar configuraciones TOML/SQL
+La validacion desde la web o CLI actualiza `ScrapingConfig.is_valid` y
+`validation_error`; si una configuracion estaba en `Fallo`, una validacion
+correcta borra el error anterior y la deja en `Validado`.
+
+### Limpiar datos scrapeados de una configuracion
+
+```powershell
+py manage.py clear_config_data spain
+```
+
+`clear_config_data` recibe el `CountryCode` real usado en `AdminArea.country_code`
+y borra esas filas. Tambien acepta el `slug` de la configuracion SQL por
+compatibilidad, pero lo resuelve antes al `country_code` guardado en
+`ScrapingConfig`. La accion web `Limpiar` se lanza desde el `slug` de la fila,
+pero ejecuta el comando con ese `CountryCode` real. La accion se permite cuando
+no hay operacion activa para esa configuracion (validar, popular o limpiar) y
+el `CountryCode` tiene al menos una fila `AdminArea`; no depende de que el
+estado visual sea `Populado`. Deja las configuraciones SQL afectadas pendientes
+de validar. No borra filas `ScrapingConfig` ni
+`NuevoAdminArea`; las relaciones derivadas que apunten a esos `AdminArea` se
+limpian segun las reglas del modelo. El borrado se hace por SQL en lotes
+pequenos, primero limpiando FKs/M2M dependientes y luego eliminando los
+`AdminArea`, para que SQLite no falle con `too many SQL variables` y para que
+sea mas rapido que el collector completo de Django. Durante la tarea escribe
+progreso por lote (`Limpiando: lote=... borradas=.../...`), visible en consola
+y en el log de la tarea web. En la web, `Limpiar` se ejecuta dentro de una
+transaccion: si se pulsa `Parar` antes de terminar, el borrado pendiente se
+revierte y la fila recupera sus datos y su estado anterior.
+
+### Sincronizar TOML semilla por pais con SQL
 
 ```powershell
 py manage.py sync_scraping_configs
@@ -145,7 +232,7 @@ py manage.py sync_scraping_configs --force
 py manage.py sync_scraping_configs --to-toml --output-dir .tmp-config-export
 ```
 
-Para reinstanciar solo la configuración inicial de España desde el TOML semilla:
+Para reinstanciar solo la configuración inicial de España desde `subdivisions/spain.toml`:
 
 ```powershell
 py manage.py migrate
@@ -155,18 +242,46 @@ py manage.py scrape_subdivisions --list-pages spain
 py manage.py scrape_subdivisions_with_assets spain
 ```
 
-`spain.toml` separa las localidades por profundidad: provincias con
+La configuracion SQL de España separa las localidades por profundidad: provincias con
 `lowest_level = 3`, comunidades uniprovinciales con `lowest_level = 2`, y
 Ceuta/Melilla con `lowest_level = 2`. Esto evita que las localidades de Ceuta
 y Melilla se importen un nivel demasiado profundo o dependan de una raíz
 sintética `spain_spain`.
 
-El runtime usa SQL como unica fuente operativa. Los TOML de `subdivisions/`
-quedan como semillas temporales locales para importar/exportar filas
-`ScrapingConfig`, pero no se versionan. El repositorio de scraping no hace
-fallback a esos ficheros: usa `sync_scraping_configs` o el bootstrap web para
-importarlos cuando existan en local. Este puente debe retirarse antes de
-publicar si el proyecto deja de necesitar seeds TOML.
+Para reinstanciar las configs tocadas en la configuracion de Francia, Marruecos
+y Sahara Occidental desde sus TOML de `subdivisions/`:
+
+```powershell
+py manage.py sync_scraping_configs france morocco westernsahara --force
+py manage.py validate_subdivision_configs france morocco westernsahara
+```
+
+Para reinstanciar Italia, Marruecos, Portugal y Tunez tras los cambios de
+niveles/padres en localidades, urban places y division municipal:
+
+```powershell
+py manage.py sync_scraping_configs italy morocco portugal tunisia --force
+py manage.py validate_subdivision_configs italy morocco portugal tunisia
+```
+
+El runtime usa SQL como unica fuente operativa. `sync_scraping_configs` importa
+o exporta TOML por pais desde `ciudades_del_mundo/subdivisions/*.toml`. El
+repositorio de scraping no hace fallback a TOML: usa `sync_scraping_configs`
+solo para crear o refrescar explicitamente las filas SQL de `/configs/`.
+
+La carpeta local `ciudades_del_mundo/subdivisions/` es opcional despues de
+sincronizar. Si se borra, no afecta al scraping ni al arranque mientras las
+filas SQL de `/configs/` ya existan. Para reconstruir o refrescar `/configs/`,
+restaura antes esos TOML y ejecuta:
+
+```powershell
+py manage.py sync_scraping_configs --force
+```
+
+Algunas paginas compuestas de CityPopulation usan una primera tabla solo como
+contexto del padre. En esos casos la config semilla puede usar
+`include_tables = ["ts"]` y `table_levels = { ts = 4 }` para persistir solo la
+segunda tabla en el nivel correcto, manteniendo el padre que expone la web.
 
 ### Ver las URLs que se van a scrapear
 
@@ -191,12 +306,18 @@ El scraping descarga paginas CityPopulation independientes en paralelo con
 `CIUDADES_SCRAPE_PAGE_WORKERS`). El parseo, los eventos `FOUND`, la siembra de
 assets y la escritura SQL se mantienen en el orden de la configuracion, por lo
 que no cambia la funcionalidad ni los datos extraidos; solo se solapa la espera
-de red. Usa `--page-workers=1` si quieres reproducir el comportamiento
-secuencial antiguo.
+de red. Si una misma URL/formato/nivel aparece repetida, se reutiliza el HTML y
+el parseo de esa pagina para no procesarla dos veces. Usa `--page-workers=1` si
+quieres reproducir el comportamiento secuencial antiguo.
 
-`--resume` reutiliza checkpoints locales de paginas completadas por una tarea
-web parada y solo descarga las paginas pendientes. Los checkpoints viven en
-`.web_scrape_resume/`, estan ignorados por Git, se invalidan cuando cambia el
+La persistencia del scrapeo tambien usa operaciones masivas: guardado por nivel
+con `bulk_create(update_conflicts=True)`, borrado rapido de filas ausentes con
+la misma limpieza segura de relaciones que `clear_config_data`, y
+`bulk_update` para ciudad mas poblada y representantes.
+
+`--resume` reutiliza checkpoints locales de paginas completadas para una
+recuperacion manual por CLI y solo descarga las paginas pendientes. Los
+checkpoints viven en `.web_scrape_resume/`, estan ignorados por Git, se invalidan cuando cambia el
 contenido SQL de la configuracion y se eliminan al terminar correctamente.
 
 ### Enriquecer textos dinamicos con IA
@@ -217,12 +338,19 @@ canonica en singular ingles (`Province`, `Municipality`, etc.) usando pais,
 nivel y ejemplos de entidades. El texto original queda en
 `AdminArea.raw_entity_type` y la forma canonica en `AdminArea.entity_type`.
 
+Importante: antes de scrapear con este esquema, ejecuta `py manage.py migrate`. Si el scrapeo muestra `table ciudades_del_mundo_adminarea has no column named raw_entity_type`, la base local esta en una version anterior a `0020_dynamic_ai_texts`; aplica migraciones y vuelve a lanzar el comando.
+
+Si `makemigrations` propone una migracion del tipo `0022_remove_visualassettranslation_asset_and_more.py` que elimina `VisualAsset` o `VisualAssetTranslation`, no la apliques: es una migracion destructiva generada porque faltaban las clases Django de esos modelos en `models.py`, aunque las tablas ya existen por `0019_visual_assets`. El arreglo correcto es restaurar esas clases, borrar la migracion 0022 generada localmente y comprobar de nuevo con `py manage.py makemigrations --check --dry-run`.
+
 Las traducciones dinamicas se guardan en `DynamicTranslation` y tienen prioridad
 en la UI cuando estan activas y no requieren revision. Gettext queda para textos
 estaticos de interfaz. Las descripciones de banderas, escudos y sellos se
 guardan en `VisualAssetTranslation.description` y `blazon`; el proveedor recibe
 la URL de imagen cuando existe, pero el resultado sigue marcado con metadatos de
-origen/modelo para poder revisarlo.
+origen/modelo para poder revisarlo. Los módulos externos a
+`services/visual_assets.py` deben escribir esas filas mediante el helper público
+`upsert_visual_asset_translation`, no importando el helper privado
+`_upsert_translation`.
 
 ### Reparar banderas y escudos
 
@@ -236,15 +364,29 @@ py manage.py ensure_visual_assets spain --no-citypopulation-fetch
 
 El comando manual usa Wikidata/Commons como fuente principal para banderas y
 escudos. Para paises raiz, primero respeta el `wikidata_id` configurado en
-TOML/SQL y los `[visual_assets.flag]`/`[visual_assets.coat]` declarados como
-`commons_filename` o `remote_url`; despues hace busqueda Wikidata si falta el
-QID. Tambien guarda sellos cuando Wikidata los expone. CityPopulation queda
+SQL/TOML y los `[visual_assets.flag]`/`[visual_assets.coat]` declarados como
+`wikidata_id`, `commons_filename` o `remote_url`; despues hace busqueda
+Wikidata si falta el QID. Tambien admite `[[visual_assets.admin_areas]]` para
+assets curados de ciudades/subdivisiones cuando Wikidata no expone P41/P94/P158.
+No se deben anadir fallbacks hardcodeados en vistas: casos como Sahara
+Occidental, donde la bandera y el escudo viven en QID distintos, se resuelven
+en el contenido SQL de la configuracion o en el TOML semilla del pais bajo
+`subdivisions/` antes de sincronizar. CityPopulation queda
 solo como respaldo para imagenes explicitamente etiquetadas o con nombre de
 archivo claro, porque sus paginas incluyen iconos de idioma que no son la
 bandera del pais. Los ficheros
 no se descargan por defecto: se guarda `commons_filename`, `remote_url`, QID y
 traducciones/descripciones en SQL, y la UI usa directamente URLs de Wikimedia
-Commons (`Special:FilePath`). La ficha selecciona la traduccion del idioma activo
+Commons (`Special:FilePath`). Para refrescar el caso de Sahara Occidental tras
+sincronizar la configuracion semilla:
+
+```powershell
+py manage.py sync_scraping_configs westernsahara --force
+py manage.py ensure_visual_assets westernsahara --no-citypopulation-fetch
+py manage.py ensure_visual_assets --country-subdivisions westernsahara
+```
+
+La ficha selecciona la traduccion del idioma activo
 y solo muestra texto heraldico/vexilologico curado. `media/visual_assets/` queda solo como fallback
 legacy o para reparaciones locales explicitas.
 `scrape_subdivisions_with_assets` reutiliza el HTML ya descargado por el
@@ -405,26 +547,35 @@ Secciones principales:
 
 - `/configs/`: lista filas SQL `ScrapingConfig` con tablas dinamicas cargadas
   desde `/configs/table/` y `/configs/tasks/table/`; las filas se descargan una
-  vez y la paginacion cambia de pagina en cliente. Permite validar y lanzar
-  scraping. Una configuracion `Populada` puede volver a lanzarse con `Popular`
-  sin revalidar, y las acciones masivas de poblado incluyen configuraciones
-  `Validadas` y `Populadas`. `Popular no populados` lanza solo las filas
-  elegibles que todavia no estan `Populadas`. Las filas con validacion o
-  poblado activo muestran `Parar` junto a `Validar`/`Popular`; al cancelar la
-  tarea la fila pasa a `Parado`. Si el servidor local se reinicia o el ordenador
-  se apaga con una tarea en cola/ejecucion, esa tarea se recupera como `Parado`
-  en vez de `Fallo`; una fila parada durante el poblado muestra `Reanudar`, que
-  lanza `scrape_subdivisions_with_assets --resume` para continuar desde las
-  paginas completadas antes de la parada. Durante una tarea de poblado, la
-  etiqueta `Populando` mantiene ancho estable con tres puntos animados por JS,
-  sin keyframes CSS que se reinicien al refrescar la fila, y la fila se refresca
-  con una cadencia baja para que el estado pase a `Populado` y el boton
-  `Popular` se reactive al terminar. Las tareas lanzadas desde la web usan
-  `scrape_subdivisions_with_assets --page-workers=4` para solapar la descarga
-  de HTML de CityPopulation sin cambiar el orden de parseo/escritura. El
-  boton `Validar` de una configuracion queda desactivado mientras esa validacion
-  sigue activa. El editor guarda `ScrapingConfig.content` y valida
-  sintaxis/esquema antes de escribir.
+  vez y la paginacion cambia de pagina en cliente. El ciclo visible de una
+  configuracion es: `Por Validar`, `Validando`, `Validado`, `Populando`,
+  `Populado`, `Limpiando` y `Fallo`. `Popular` esta disponible desde
+  `Por Validar`, `Fallo` y `Validado`; desde `Por Validar`/`Fallo` lanza
+  `validate_and_scrape_configs`, por lo que primero se ve `Validando` y despues
+  `Populando`. Desde `Validado` lanza directamente
+  `scrape_subdivisions_with_assets --page-workers=4`. `Populado` solo muestra
+  `Limpiar`. `Limpiar` se muestra si existen `AdminArea` previos y la fila no
+  esta `Validando`, `Populando` ni `Limpiando`. Los estados activos solo
+  muestran `Parar`; no dejan visible `Validar` o `Popular` como botones
+  deshabilitados. Al cancelar no existe estado `Parado`/`Parando`, la fila
+  vuelve al estado anterior inferible. Si se cancela `Populando`, vuelve a
+  `Validado`; si se cancela `Limpiando`, la limpieza se revierte porque se
+  ejecuta dentro de una transaccion y la fila recupera sus datos. Durante una
+  tarea de poblado, la etiqueta `Populando` mantiene ancho estable con tres
+  puntos animados por JS, sin keyframes CSS que se reinicien al refrescar la
+  fila, y la fila se refresca con una cadencia baja para que el estado pase a
+  `Populado` al terminar. Las filas navegables de tablas soportan clic normal,
+  teclado, Ctrl/Cmd-clic y clic con la rueda para abrir el contenido en otra
+  pestana. El contenido clicable que carga una ficha en la misma pagina
+  (graficas, tarjetas, filas de estadisticas y miniaturas visuales) abre esa
+  misma ficha en otra pestana con clic de rueda. Los botones de accion no
+  capturan clic con rueda salvo que sean enlaces reales a otra pagina. Las
+  tareas lanzadas desde la web usan
+  `scrape_subdivisions_with_assets --page-workers=4` cuando ya estan validadas
+  para solapar la descarga de HTML de CityPopulation sin cambiar el orden de
+  parseo/escritura. El boton `Validar` de una configuracion queda desactivado
+  mientras esa validacion sigue activa. El editor guarda `ScrapingConfig.content`
+  y valida sintaxis/esquema antes de escribir.
 - `/recipes/`: lista recetas de `new_subdivisions` e `historical_divisions`.
   Permite crear recetas nuevas con un formulario JSON, editar recetas nuevas en
   Python y lanzar `build_new_subdivisions`, CSV o Excel.
@@ -435,7 +586,10 @@ Secciones principales:
   asset registrado, terreno y poblacion desde `/api/countries/`;
   al hacer clic carga la ficha basica del pais y sus subdivisiones directas desde
   `/api/countries/<country_code>/`, y cada subdivision se abre recursivamente con
-  `/api/admin-areas/<area_id>/`.
+  `/api/admin-areas/<area_id>/`. Si una subdivision tiene hijos directos en varios
+  niveles porque CityPopulation enlaza una tabla inferior a un padre superior,
+  la ficha muestra un recuadro por nivel hijo para no mezclar, por ejemplo,
+  comunas L3 y urban places L4.
 - `/stats/`: redireccion de compatibilidad hacia `/countries/`.
 - `/delete/`: borrado confirmado de datos `AdminArea` por pais fuente o
   `NuevoAdminArea` por pais derivado.
@@ -486,22 +640,24 @@ complejos o especiales, como movimiento de colores en `Arcoiris`, barridos en
 `Retro` o animacion por pasos en `8bits`.
 
 Las tareas web se gestionan en `ciudades_del_mundo/web/tasks.py`. Cada accion
-lanza un subproceso `manage.py`, guarda estado/salida reciente en
-`.web_tasks.json`, escribe el log completo en `.web_task_logs/*.log` y usa
+lanza un subproceso `manage.py`, guarda estado/salida reciente en la tabla
+`WebTask`, escribe el log completo en `.web_task_logs/*.log` y usa
 `.web_task_progress/*.json` para progreso por tarea en la raiz del proyecto.
-Las tareas de scraping guardan checkpoints de reanudacion en
-`.web_scrape_resume/` mientras no terminan correctamente. `/tasks/<id>/` carga
+Las tareas de scraping pueden dejar checkpoints tecnicos en
+`.web_scrape_resume/` mientras no terminan correctamente, pero la UI de
+configuraciones ya no muestra una accion `Reanudar`: al parar una tarea la fila
+vuelve al estado anterior inferible. `/tasks/<id>/` carga
 el log completo al abrirse y, mientras la
 tarea sigue activa, solo solicita el nuevo fragmento por offset para no
-ralentizar la pagina. Esos ficheros locales estan ignorados por git. Como maximo
-se ejecuta 1 subproceso a la vez; el resto queda en estado `queued` y se
-despacha por orden cuando termina o se cancela una tarea en ejecucion. Si se
-lanza otra tarea con la misma clave operativa, o si se guarda una
-configuracion/receta mientras su tarea equivalente sigue activa, la tarea
-anterior se cancela y se reemplaza. Al reiniciar el servidor se conserva el
-historial reciente; cualquier tarea activa o en cola se marca como interrumpida.
-Las tareas pueden continuar si se cierra el navegador, pero no si se apaga el PC
-o el proceso Django que las lanzo.
+ralentizar la pagina. Esos ficheros locales estan ignorados por git.
+Las tareas web empiezan inmediatamente en el backend: no existe cola real de
+subprocesos. La unica cola permitida es visual, en las cajas/toasts del
+navegador, para no mostrar mas de tres avisos a la vez. Si se lanza otra tarea
+con la misma clave operativa, o si se guarda una configuracion/receta mientras
+su tarea equivalente sigue activa, la tarea anterior se cancela y se reemplaza.
+Al reiniciar el servidor se conserva el historial reciente; cualquier tarea
+activa se marca como parada. Las tareas pueden continuar si se cierra el
+navegador, pero no si se apaga el PC o el proceso Django que las lanzo.
 
 Las API y graficas del navegador de paises usan solo filas `AdminArea` visibles:
 se excluyen las filas con `city_merge_status = 3` para que no aparezcan en
@@ -561,8 +717,10 @@ db.sqlite3
 ## Paquetes de configuracion
 
 - `subdivisions`
-  Seeds TOML temporales locales para crear/exportar filas `ScrapingConfig`; no
-  son la fuente operativa del runtime y no se versionan.
+  TOML semilla por pais para instanciar o refrescar `/configs/` con
+  `sync_scraping_configs`. No es fuente operativa del scraping runtime: despues
+  de sincronizar, la tabla SQL `ScrapingConfig` es suficiente para validar y
+  popular.
 - `historical_divisions`
   Recetas Python para subdivisiones historicas.
 - `new_subdivisions`
@@ -601,6 +759,10 @@ ejecutar operaciones caras.
 ```powershell
 py manage.py test ciudades_del_mundo.tests --verbosity 2
 ```
+
+La suite incluye `test_architecture_boundaries.py`, que falla si `domain`,
+`ports` o `application` empiezan a importar capas externas y rompe la direccion
+hexagonal.
 
 Tambien puede ejecutarse con `unittest` directo:
 

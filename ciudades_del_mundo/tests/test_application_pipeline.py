@@ -1,6 +1,5 @@
 from decimal import Decimal
 import unittest
-from unittest.mock import patch
 
 from ciudades_del_mundo.application.scrape_admin_areas import CachedScrapePage, ScrapeAdminAreas
 from ciudades_del_mundo.domain import AdminAreaSummary, ScrapedAdminArea, ScrapingJobConfig, ScrapingPageConfig
@@ -206,6 +205,15 @@ class ScrapeAdminAreasTests(unittest.TestCase):
         self.assertEqual([entity.name for entity in repository.saved_entities], ["Cached Testland"])
 
 
+class FakeHtmlFetcher:
+    def __init__(self):
+        self.urls = []
+
+    def get(self, url):
+        self.urls.append(url)
+        return f"html:{url}"
+
+
 class PrefetchHtmlScraper:
     html_format = "table"
 
@@ -220,6 +228,15 @@ class PrefetchHtmlScraper:
                 pop_latest=1,
             )
         ]
+
+
+class CountingPrefetchHtmlScraper(PrefetchHtmlScraper):
+    def __init__(self):
+        self.calls = []
+
+    def scrape_html(self, html, url, country_code, level):
+        self.calls.append((url, level))
+        return super().scrape_html(html, url, country_code, level)
 
 
 class PrefetchPipelineTests(unittest.TestCase):
@@ -238,23 +255,19 @@ class PrefetchPipelineTests(unittest.TestCase):
             ],
         )
 
-        def fake_fetch(url):
-            return f"html:{url}"
+        fetcher = FakeHtmlFetcher()
+        use_case = ScrapeAdminAreas(
+            repository=repository,
+            scrapers=[PrefetchHtmlScraper()],
+            on_page_start=starts.append,
+            on_page_complete=completes.append,
+            page_workers=3,
+            html_fetcher=fetcher,
+        )
 
-        with patch(
-            "ciudades_del_mundo.application.scrape_admin_areas._fetch_citypopulation_html",
-            side_effect=fake_fetch,
-        ) as fetch:
-            use_case = ScrapeAdminAreas(
-                repository=repository,
-                scrapers=[PrefetchHtmlScraper()],
-                on_page_start=starts.append,
-                on_page_complete=completes.append,
-                page_workers=3,
-            )
-            use_case.run(config)
+        use_case.run(config)
 
-        fetched_urls = [call.args[0] for call in fetch.call_args_list]
+        fetched_urls = fetcher.urls
         self.assertEqual(
             fetched_urls,
             [
@@ -275,6 +288,53 @@ class PrefetchPipelineTests(unittest.TestCase):
         self.assertEqual([entity.level for entity in repository.saved_entities], [1, 2])
         self.assertEqual(repository.saved_entities[0].name, "html:https://example.test/en/fake/a/")
 
+
+    def test_page_prefetch_reuses_parsed_duplicate_pages(self):
+        repository = FakeRepository()
+        config = ScrapingJobConfig(
+            slug="fake",
+            country_code="fake",
+            base_url="https://example.test/en/",
+            pages=[
+                ScrapingPageConfig(path="fake/a", html_format="table", lowest_level=1),
+                ScrapingPageConfig(path="fake/a", html_format="table", lowest_level=1),
+            ],
+        )
+
+        fetcher = FakeHtmlFetcher()
+        scraper = CountingPrefetchHtmlScraper()
+        use_case = ScrapeAdminAreas(
+            repository=repository,
+            scrapers=[scraper],
+            page_workers=2,
+            html_fetcher=fetcher,
+        )
+
+        use_case.run(config)
+
+        self.assertEqual(fetcher.urls, ["https://example.test/en/fake/a/"])
+        self.assertEqual(scraper.calls, [("https://example.test/en/fake/a/", 1)])
+
+    def test_page_prefetch_requires_injected_html_fetcher(self):
+        repository = FakeRepository()
+        config = ScrapingJobConfig(
+            slug="fake",
+            country_code="fake",
+            base_url="https://example.test/en/",
+            pages=[
+                ScrapingPageConfig(path="fake/a", html_format="table", lowest_level=1),
+                ScrapingPageConfig(path="fake/b", html_format="table", lowest_level=2),
+            ],
+        )
+        use_case = ScrapeAdminAreas(
+            repository=repository,
+            scrapers=[FakeHtmlScraper()],
+            page_workers=3,
+        )
+
+        use_case.run(config)
+
+        self.assertEqual([entity.name for entity in repository.saved_entities], ["Testland", "Child"])
 
 
 class SpanishSyntheticRootScraper:
@@ -326,3 +386,87 @@ class SpanishSyntheticRootTests(unittest.TestCase):
             [entity.name for entity in repository.saved_entities if entity.code == "spain"],
             ["Spain"],
         )
+
+class RuntimeConfigExtensionScraper:
+    html_format = "table"
+
+    def scrape(self, base_url, country_code, page):
+        return [
+            ScrapedAdminArea(
+                code="france",
+                name="France",
+                level=0,
+                country_code="france",
+                area_km2=Decimal("543940"),
+                pop_latest=68_000_000,
+            ),
+            ScrapedAdminArea(
+                code="IDF",
+                name="Île-de-France",
+                level=2,
+                country_code="france",
+                parent_code="france",
+                pop_latest=12_000_000,
+            ),
+            ScrapedAdminArea(
+                code="GUF",
+                name="French Guiana",
+                level=3,
+                country_code="france",
+                parent_code=None,
+                area_km2=Decimal("83534"),
+                pop_latest=298_554,
+            ),
+        ]
+
+
+class RuntimeConfigExtensionTests(unittest.TestCase):
+    def test_synthetic_containers_parent_overrides_and_root_metric_additions(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[RuntimeConfigExtensionScraper()])
+        config = ScrapingJobConfig(
+            slug="france",
+            country_code="france",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[ScrapingPageConfig(path="france/admin", html_format="table", lowest_level=0)],
+        )
+        object.__setattr__(
+            config,
+            "runtime_synthetic_entities",
+            (
+                {
+                    "code": "METRO",
+                    "name": "Metropolitan France",
+                    "level": 1,
+                    "parent_code": "france",
+                    "copy_metrics_from": "france",
+                },
+                {
+                    "code": "OVERSEAS",
+                    "name": "Overseas France",
+                    "level": 1,
+                    "parent_code": "france",
+                    "metric_source_codes": ("GUF",),
+                },
+            ),
+        )
+        object.__setattr__(
+            config,
+            "runtime_parent_overrides",
+            (
+                {"match_levels": (2,), "parent_code": "METRO", "exclude_codes": ("METRO", "OVERSEAS")},
+                {"codes": ("GUF",), "parent_code": "OVERSEAS", "level": 3},
+            ),
+        )
+        object.__setattr__(config, "runtime_root_metric_sources", ({"code": "GUF"},))
+
+        use_case.run(config)
+
+        by_code = {entity.code: entity for entity in repository.saved_entities}
+        self.assertEqual(by_code["METRO"].parent_code, "france")
+        self.assertEqual(by_code["METRO"].pop_latest, 68_000_000)
+        self.assertEqual(by_code["OVERSEAS"].pop_latest, 298_554)
+        self.assertEqual(by_code["IDF"].parent_code, "METRO")
+        self.assertEqual(by_code["GUF"].parent_code, "OVERSEAS")
+        self.assertEqual(by_code["france"].pop_latest, 68_298_554)
+        self.assertEqual(by_code["france"].area_km2, Decimal("627474"))

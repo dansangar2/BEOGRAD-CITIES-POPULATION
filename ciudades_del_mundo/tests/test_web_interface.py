@@ -1,29 +1,37 @@
 import ast
 import json
+from io import StringIO
 from pathlib import Path
 import re
 from tempfile import TemporaryDirectory
-import unittest
 from unittest.mock import patch
 
+from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 from django.utils import translation
 
-from ciudades_del_mundo.models import AdminArea
+from ciudades_del_mundo.models import AdminArea, NuevoAdminArea, ScrapingConfig
 from ciudades_del_mundo.services.scraping_configs import upsert_scraping_config
 from ciudades_del_mundo.web.task_progress import task_progress_path
 from ciudades_del_mundo.web.tasks import ManagedTask, TaskManager, task_manager
 from ciudades_del_mundo.web.views import (
+    _admin_area_detail_payload,
     _area_capital_display_names,
     _area_related_places,
     _eligible_config_slugs_for_bulk,
     _latest_bulk_config_progress,
     _render_recipe_from_form,
+    _can_clear_config_row,
     _can_scrape_config_status,
     _validate_config_text,
     _validate_recipe_text,
 )
+
+
+def _config_action_form_tag(html: str, action: str) -> str:
+    match = re.search(r'<form[^>]*data-config-action-form="' + re.escape(action) + r'"[^>]*>', html)
+    return match.group(0) if match else ""
 
 
 class _Relation:
@@ -48,7 +56,7 @@ class _RecordingTaskManager(TaskManager):
         self.started_workers.append(task_id)
 
 
-class WebInterfaceHelperTests(unittest.TestCase):
+class WebInterfaceHelperTests(TestCase):
     def test_area_map_helpers_include_capitals_and_major_city(self):
         capital = _Object(id="capital-1", name="Capital source")
         area = _Object(
@@ -71,6 +79,53 @@ class WebInterfaceHelperTests(unittest.TestCase):
             {"kind": "Ciudad mayor registrada", "name": "Big City", "query": "Big City, Region"},
             places,
         )
+
+
+    def test_admin_area_detail_groups_children_by_level(self):
+        root = AdminArea.objects.create(
+            id="test_root",
+            country_code="testcountry",
+            code="testcountry",
+            name="Test Country",
+            level=0,
+            pop_latest=1000,
+        )
+        province = AdminArea.objects.create(
+            id="test_province",
+            country_code="testcountry",
+            code="province",
+            name="Province",
+            entity_type="Province",
+            level=2,
+            parent=root,
+            pop_latest=500,
+        )
+        AdminArea.objects.create(
+            id="test_commune",
+            country_code="testcountry",
+            code="commune",
+            name="Commune",
+            entity_type="Commune",
+            level=3,
+            parent=province,
+            pop_latest=300,
+        )
+        AdminArea.objects.create(
+            id="test_place",
+            country_code="testcountry",
+            code="place",
+            name="Urban Place",
+            entity_type="Urban Place",
+            level=4,
+            parent=province,
+            pop_latest=200,
+        )
+
+        payload = _admin_area_detail_payload(province)
+
+        self.assertEqual([group["level"] for group in payload["child_groups"]], [3, 4])
+        self.assertEqual([row["name"] for row in payload["child_groups"][0]["children"]], ["Commune"])
+        self.assertEqual([row["name"] for row in payload["child_groups"][1]["children"]], ["Urban Place"])
 
     def test_validate_config_text_accepts_minimal_toml(self):
         _validate_config_text(
@@ -167,24 +222,27 @@ lowest_level = 0
                 for expected in expected_strings:
                     self.assertIn(expected, text)
 
-    def test_task_manager_persists_and_loads_task_history(self):
+    def test_task_manager_reads_existing_db_task_history(self):
         with TemporaryDirectory() as tmpdir:
-            history_path = Path(tmpdir) / "tasks.json"
-            manager = TaskManager(history_path=history_path)
+            manager = TaskManager(history_path=Path(tmpdir) / "tasks.json")
+            log_path = Path(tmpdir) / "task-1.log"
+            task = ManagedTask.objects.create(
+                id="task-1",
+                key="validate:test",
+                label="Validar test",
+                args=["validate_subdivision_configs", "test"],
+                status=ManagedTask.Status.SUCCEEDED,
+                returncode=0,
+                created_at=timezone.now(),
+                started_at=timezone.now(),
+                finished_at=timezone.now(),
+                log_path=str(log_path),
+            )
             with manager._lock:
-                manager._tasks["task-1"] = ManagedTask(
-                    id="task-1",
-                    key="validate:test",
-                    label="Validar test",
-                    args=["validate_subdivision_configs", "test"],
-                    status="succeeded",
-                    returncode=0,
-                )
-                manager._append_output_locked(manager._tasks["task-1"], "ok\n")
-                manager._latest_by_key["validate:test"] = "task-1"
-                manager._save_locked()
+                manager._append_output_locked(task, "ok\n")
+                task.save(update_fields=["output", "log_path", "updated_at"])
 
-            reloaded = TaskManager(history_path=history_path)
+            reloaded = TaskManager(history_path=Path(tmpdir) / "tasks.json")
             task = reloaded.get("task-1")
 
         self.assertIsNotNone(task)
@@ -195,25 +253,25 @@ lowest_level = 0
 
     def test_task_manager_reads_full_log_file_after_output_tail_is_trimmed(self):
         with TemporaryDirectory() as tmpdir:
-            history_path = Path(tmpdir) / "tasks.json"
-            manager = TaskManager(history_path=history_path)
+            manager = TaskManager(history_path=Path(tmpdir) / "tasks.json")
+            task = ManagedTask.objects.create(
+                id="task-log",
+                key="validate:log",
+                label="Validar log",
+                args=["validate_subdivision_configs", "log"],
+                status=ManagedTask.Status.SUCCEEDED,
+                returncode=0,
+                created_at=timezone.now(),
+                started_at=timezone.now(),
+                finished_at=timezone.now(),
+                log_path=str(Path(tmpdir) / "task-log.log"),
+            )
             with manager._lock:
-                task = ManagedTask(
-                    id="task-log",
-                    key="validate:log",
-                    label="Validar log",
-                    args=["validate_subdivision_configs", "log"],
-                    status="succeeded",
-                    returncode=0,
-                    log_path=manager._relative_log_path("task-log"),
-                )
-                manager._tasks[task.id] = task
-                manager._latest_by_key[task.key] = task.id
                 for index in range(260):
                     manager._append_output_locked(task, f"line {index}\n")
-                manager._save_locked()
+                task.save(update_fields=["output", "log_path", "updated_at"])
 
-            reloaded = TaskManager(history_path=history_path)
+            reloaded = TaskManager(history_path=Path(tmpdir) / "tasks.json")
             task = reloaded.get("task-log")
             full_output = reloaded.output_text(task)
 
@@ -222,12 +280,13 @@ lowest_level = 0
         self.assertIn("line 0\n", full_output)
         self.assertIn("line 259\n", full_output)
 
-    def test_task_manager_limits_running_tasks_and_dispatches_queue(self):
+    def test_task_manager_starts_all_tasks_immediately_without_backend_queue(self):
         with TemporaryDirectory() as tmpdir:
             manager = _RecordingTaskManager(
                 history_path=Path(tmpdir) / "tasks.json",
-                max_running_tasks=3,
+                max_running_tasks=1,
             )
+            manager._recovery_done = True
             tasks = [
                 manager.start(
                     key=f"validate:test-{index}",
@@ -237,28 +296,17 @@ lowest_level = 0
                 for index in range(5)
             ]
 
-            self.assertEqual(
-                [task.status for task in tasks],
-                ["running", "running", "running", "queued", "queued"],
-            )
-            self.assertEqual(manager.started_workers, [task.id for task in tasks[:3]])
+            self.assertEqual([task.status for task in tasks], ["running"] * 5)
+            self.assertEqual(manager.started_workers, [task.id for task in tasks])
+            self.assertEqual(ManagedTask.objects.filter(status=ManagedTask.Status.QUEUED).count(), 0)
 
-            with manager._lock:
-                tasks[0].status = "succeeded"
-                task_ids_to_start = manager._dispatch_queued_locked()
-            manager._start_workers(task_ids_to_start)
-
-        self.assertEqual(task_ids_to_start, [tasks[3].id])
-        self.assertEqual(tasks[3].status, "running")
-        self.assertEqual(tasks[4].status, "queued")
-        self.assertEqual(manager.started_workers, [task.id for task in tasks[:4]])
-
-    def test_task_manager_cancels_queued_task_without_starting_worker(self):
+    def test_task_manager_cancels_running_task_after_starting_worker(self):
         with TemporaryDirectory() as tmpdir:
             manager = _RecordingTaskManager(
                 history_path=Path(tmpdir) / "tasks.json",
                 max_running_tasks=1,
             )
+            manager._recovery_done = True
             first = manager.start(
                 key="validate:first",
                 label="Validar primero",
@@ -271,10 +319,32 @@ lowest_level = 0
             )
 
             manager.cancel(second.id)
+            first.refresh_from_db()
+            second.refresh_from_db()
 
         self.assertEqual(first.status, "running")
         self.assertEqual(second.status, "cancelled")
-        self.assertEqual(manager.started_workers, [first.id])
+        self.assertEqual(manager.started_workers, [first.id, second.id])
+
+    def test_can_clear_requires_rows_and_no_active_operation(self):
+        for status in ["pending", "validated", "populated", "failed"]:
+            with self.subTest(status=status):
+                self.assertTrue(_can_clear_config_row({"rows": 3}, status))
+
+        for status in ["validating", "populating", "clearing", "running", "queued"]:
+            with self.subTest(status=status):
+                self.assertFalse(_can_clear_config_row({"rows": 3}, status))
+
+        self.assertFalse(_can_clear_config_row({"rows": 0}, "populated"))
+
+    def test_can_scrape_matches_config_lifecycle(self):
+        for status in ["pending", "failed", "validated"]:
+            with self.subTest(status=status):
+                self.assertTrue(_can_scrape_config_status(status))
+
+        for status in ["populated", "validating", "populating", "clearing", "running", "queued"]:
+            with self.subTest(status=status):
+                self.assertFalse(_can_scrape_config_status(status))
 
 
 class TaskManagerDatabaseTests(TestCase):
@@ -415,13 +485,13 @@ lowest_level = 0
 
 
 class ConfigSourceEntitiesViewTests(TestCase):
-    def test_populated_config_can_be_scraped_again(self):
-        slug = "zztestrepopulate"
+    def test_populated_config_only_shows_clear_when_rows_exist(self):
+        slug = "zztestpopulatedonlyclear"
         original_recovery_done = task_manager._recovery_done
         upsert_scraping_config(
             slug,
             """
-name = "Repopulate Test"
+name = "Populated Only Clear Test"
 LEGAL_SUBDIVISION = 2
 
 [[pages]]
@@ -429,6 +499,13 @@ source = "admin"
 path = ["admin"]
 lowest_level = 0
 """.strip() + "\n",
+        )
+        AdminArea.objects.create(
+            id=f"{slug}_root",
+            country_code=slug,
+            code="root",
+            name="Populatedland",
+            level=0,
         )
         try:
             task_manager._recovery_done = True
@@ -450,12 +527,13 @@ lowest_level = 0
 
             self.assertEqual(response.status_code, 200)
             html = response.content.decode("utf-8")
-            self.assertTrue(_can_scrape_config_status("populated"))
-            self.assertIn(f"/configs/{slug}/task/scrape/", html)
-            self.assertIn('data-config-action="scrape"', html)
+            self.assertFalse(_can_scrape_config_status("populated"))
             scrape_form = re.search(r'<form[^>]*data-config-action-form="scrape"[^>]*>', html)
+            clear_form = re.search(r'<form[^>]*data-config-action-form="clear"[^>]*>', html)
             self.assertIsNotNone(scrape_form)
-            self.assertNotIn("hidden", scrape_form.group(0))
+            self.assertIsNotNone(clear_form)
+            self.assertIn("hidden", scrape_form.group(0))
+            self.assertNotIn("hidden", clear_form.group(0))
         finally:
             task_manager._recovery_done = original_recovery_done
 
@@ -495,7 +573,51 @@ lowest_level = 0
             self.assertIn(f"/configs/{slug}/task/validate/", html)
             self.assertIn("config-status-validating config-status-loading", html)
             self.assertIn('class="config-status-dots" aria-hidden="true"', html)
-            self.assertIn('data-config-action="validate" disabled', html)
+            self.assertIn("hidden", _config_action_form_tag(html, "validate"))
+            self.assertIn("hidden", _config_action_form_tag(html, "scrape"))
+            self.assertNotIn("hidden", _config_action_form_tag(html, "stop"))
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
+    def test_config_table_links_failed_validation_to_task_log(self):
+        slug = "zztestvalidatefailed"
+        task_id = "validate-failed-log-link"
+        original_recovery_done = task_manager._recovery_done
+        upsert_scraping_config(
+            slug,
+            """
+name = "Validate Failed Test"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        try:
+            task_manager._recovery_done = True
+            now = timezone.now()
+            ManagedTask.objects.create(
+                id=task_id,
+                key=f"validate-config:{slug}",
+                label="Validar test fallido",
+                args=["validate_subdivision_configs", slug],
+                status=ManagedTask.Status.FAILED,
+                returncode=1,
+                created_at=now,
+                started_at=now,
+                finished_at=now,
+                updated_at=now,
+            )
+
+            response = self.client.get(f"/configs/table/?q={slug}")
+
+            self.assertEqual(response.status_code, 200)
+            html = response.content.decode("utf-8")
+            self.assertIn(f'href="/tasks/{task_id}/"', html)
+            self.assertIn("config-status-failed", html)
+            self.assertIn(">Fallo</a>", html)
         finally:
             task_manager._recovery_done = original_recovery_done
 
@@ -537,6 +659,56 @@ lowest_level = 0
             self.assertIn('<span class="config-status-label">Populando</span>', html)
             self.assertIn('class="config-status-dots" aria-hidden="true"', html)
             self.assertNotIn("\u2026Populando", html)
+            self.assertIn("hidden", _config_action_form_tag(html, "validate"))
+            self.assertIn("hidden", _config_action_form_tag(html, "scrape"))
+            self.assertNotIn("hidden", _config_action_form_tag(html, "stop"))
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
+    def test_populating_after_prevalidation_hides_popular_button(self):
+        slug = "zztestpopulateafterprevalidation"
+        original_recovery_done = task_manager._recovery_done
+        upsert_scraping_config(
+            slug,
+            """
+name = "Populate After Prevalidation Test"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        try:
+            task_manager._recovery_done = True
+            now = timezone.now()
+            task = ManagedTask.objects.create(
+                id="scrape-after-prevalidation-active",
+                key=f"scrape:{slug}",
+                label="Popular test",
+                args=["validate_and_scrape_configs", slug],
+                status=ManagedTask.Status.RUNNING,
+                created_at=now,
+                started_at=now,
+                updated_at=now,
+            )
+            path = task_progress_path(task.id)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                json.dumps({"task_id": task.id, "configs": {slug: {"status": "populating"}}}),
+                encoding="utf-8",
+            )
+
+            response = self.client.get(f"/configs/table/?q={slug}")
+
+            self.assertEqual(response.status_code, 200)
+            html = response.content.decode("utf-8")
+            self.assertIn("config-status-populating config-status-loading", html)
+            self.assertIn("hidden", _config_action_form_tag(html, "scrape"))
+            self.assertIn("hidden", _config_action_form_tag(html, "validate"))
+            self.assertIn("hidden", _config_action_form_tag(html, "clear"))
+            self.assertNotIn("hidden", _config_action_form_tag(html, "stop"))
         finally:
             task_manager._recovery_done = original_recovery_done
 
@@ -563,8 +735,9 @@ lowest_level = 0
                 key=f"scrape:{slug}",
                 label="Popular test",
                 args=["scrape_subdivisions_with_assets", slug],
-                status=ManagedTask.Status.QUEUED,
+                status=ManagedTask.Status.RUNNING,
                 created_at=now,
+                started_at=now,
                 updated_at=now,
             )
 
@@ -579,7 +752,7 @@ lowest_level = 0
         finally:
             task_manager._recovery_done = original_recovery_done
 
-    def test_stop_config_task_marks_config_as_stopped(self):
+    def test_stop_config_task_returns_to_validated_state(self):
         slug = "zzteststopstate"
         original_recovery_done = task_manager._recovery_done
         upsert_scraping_config(
@@ -597,13 +770,26 @@ lowest_level = 0
         try:
             task_manager._recovery_done = True
             now = timezone.now()
+            ManagedTask.objects.create(
+                id="validate-before-stop",
+                key=f"validate-config:{slug}",
+                label="Validar test",
+                args=["validate_subdivision_configs", slug],
+                status=ManagedTask.Status.SUCCEEDED,
+                returncode=0,
+                created_at=now,
+                started_at=now,
+                finished_at=now,
+                updated_at=now,
+            )
             task = ManagedTask.objects.create(
                 id="scrape-stop-state",
                 key=f"scrape:{slug}",
                 label="Popular test",
                 args=["scrape_subdivisions_with_assets", slug],
-                status=ManagedTask.Status.QUEUED,
+                status=ManagedTask.Status.RUNNING,
                 created_at=now,
+                started_at=now,
                 updated_at=now,
             )
 
@@ -614,24 +800,25 @@ lowest_level = 0
             )
 
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(response.json()["status"], "stopped")
+            self.assertEqual(response.json()["status"], "validated")
             task.refresh_from_db()
             self.assertEqual(task.status, ManagedTask.Status.CANCELLED)
 
             summary = self.client.get(f"/configs/{slug}/summary/").json()
-            self.assertEqual(summary["task_status"], "stopped")
-            self.assertEqual(summary["status_filter"], "stopped")
+            self.assertEqual(summary["task_status"], "validated")
+            self.assertEqual(summary["status_filter"], "validated")
             self.assertTrue(summary["can_scrape"])
+            self.assertFalse(summary["can_resume"])
         finally:
             task_manager._recovery_done = original_recovery_done
 
-    def test_stopped_scrape_row_shows_resume_button(self):
-        slug = "zztestresumebutton"
+    def test_cancelled_scrape_row_returns_to_validated_without_resume_button(self):
+        slug = "zztestcancelledscrapevalidated"
         original_recovery_done = task_manager._recovery_done
         upsert_scraping_config(
             slug,
             """
-name = "Resume Button Test"
+name = "Cancelled Scrape Test"
 LEGAL_SUBDIVISION = 2
 
 [[pages]]
@@ -644,7 +831,7 @@ lowest_level = 0
             task_manager._recovery_done = True
             now = timezone.now()
             ManagedTask.objects.create(
-                id="scrape-resume-cancelled",
+                id="scrape-cancelled",
                 key=f"scrape:{slug}",
                 label="Popular test",
                 args=["scrape_subdivisions_with_assets", slug],
@@ -659,20 +846,56 @@ lowest_level = 0
 
             self.assertEqual(response.status_code, 200)
             html = response.content.decode("utf-8")
-            self.assertIn(f"/configs/{slug}/task/resume/", html)
-            self.assertIn('data-config-action-form="resume"', html)
-            self.assertIn('data-config-action="resume"', html)
-            self.assertIn(">Reanudar<", html)
+            self.assertIn("config-status-validated", html)
+            self.assertNotIn(f"/configs/{slug}/task/resume/", html)
+            scrape_form = re.search(r'<form[^>]*data-config-action-form="scrape"[^>]*>', html)
+            self.assertIsNotNone(scrape_form)
+            self.assertNotIn("hidden", scrape_form.group(0))
         finally:
             task_manager._recovery_done = original_recovery_done
 
-    def test_resume_config_task_starts_scrape_with_resume_flag(self):
-        slug = "zztestresumeaction"
+    def test_pending_popular_action_validates_before_scraping(self):
+        slug = "zztestpendingpopularvalidates"
         original_recovery_done = task_manager._recovery_done
         upsert_scraping_config(
             slug,
             """
-name = "Resume Action Test"
+name = "Pending Popular Test"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        try:
+            task_manager._recovery_done = True
+            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+                start.return_value = _Object(
+                    id="pending-popular-started",
+                    status=ManagedTask.Status.RUNNING,
+                )
+                response = self.client.post(
+                    f"/configs/{slug}/task/scrape/",
+                    HTTP_ACCEPT="application/json",
+                    HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                )
+
+            self.assertEqual(response.status_code, 200)
+            kwargs = start.call_args.kwargs
+            self.assertEqual(kwargs["key"], f"scrape:{slug}")
+            self.assertEqual(kwargs["args"], ["validate_and_scrape_configs", slug, "--no-download-assets", "--page-workers=4"])
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
+    def test_validated_popular_action_scrapes_directly(self):
+        slug = "zztestvalidatedpopulardirect"
+        original_recovery_done = task_manager._recovery_done
+        upsert_scraping_config(
+            slug,
+            """
+name = "Validated Popular Test"
 LEGAL_SUBDIVISION = 2
 
 [[pages]]
@@ -685,24 +908,24 @@ lowest_level = 0
             task_manager._recovery_done = True
             now = timezone.now()
             ManagedTask.objects.create(
-                id="scrape-resume-source",
-                key=f"scrape:{slug}",
-                label="Popular test",
-                args=["scrape_subdivisions_with_assets", slug],
-                status=ManagedTask.Status.CANCELLED,
+                id="validate-direct-popular",
+                key=f"validate-config:{slug}",
+                label="Validar test",
+                args=["validate_subdivision_configs", slug],
+                status=ManagedTask.Status.SUCCEEDED,
+                returncode=0,
                 created_at=now,
                 started_at=now,
                 finished_at=now,
                 updated_at=now,
             )
-
             with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
                 start.return_value = _Object(
-                    id="resume-started",
-                    status=ManagedTask.Status.QUEUED,
+                    id="validated-popular-started",
+                    status=ManagedTask.Status.RUNNING,
                 )
                 response = self.client.post(
-                    f"/configs/{slug}/task/resume/",
+                    f"/configs/{slug}/task/scrape/",
                     HTTP_ACCEPT="application/json",
                     HTTP_X_REQUESTED_WITH="XMLHttpRequest",
                 )
@@ -710,10 +933,500 @@ lowest_level = 0
             self.assertEqual(response.status_code, 200)
             kwargs = start.call_args.kwargs
             self.assertEqual(kwargs["key"], f"scrape:{slug}")
-            self.assertIn("--resume", kwargs["args"])
-            self.assertEqual(response.json()["label"], f"Reanudar datos: {slug}")
+            self.assertEqual(kwargs["args"], ["scrape_subdivisions_with_assets", slug, "--no-download-assets", "--page-workers=4"])
         finally:
             task_manager._recovery_done = original_recovery_done
+
+
+    def test_validate_command_clears_previous_config_error_on_success(self):
+        slug = "zztestvalidateclearsfailure"
+        upsert_scraping_config(
+            slug,
+            """
+name = "Validate Clears Failure"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        ScrapingConfig.objects.filter(slug=slug).update(is_valid=False, validation_error="old failure")
+
+        call_command("validate_subdivision_configs", slug, stdout=StringIO())
+
+        record = ScrapingConfig.objects.get(slug=slug)
+        self.assertTrue(record.is_valid)
+        self.assertEqual(record.validation_error, "")
+        summary = self.client.get(f"/configs/{slug}/summary/").json()
+        self.assertEqual(summary["status_filter"], "validated")
+        self.assertTrue(summary["can_scrape"])
+
+    def test_config_table_shows_clear_button_when_rows_exist_and_no_operation_is_active(self):
+        slug = "zztestclearbutton"
+        original_recovery_done = task_manager._recovery_done
+        upsert_scraping_config(
+            slug,
+            """
+name = "Clear Button Test"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        AdminArea.objects.create(
+            id=f"{slug}_root",
+            country_code=slug,
+            code="root",
+            name="Clearland",
+            level=0,
+        )
+        try:
+            task_manager._recovery_done = True
+            response = self.client.get(f"/configs/table/?q={slug}")
+
+            self.assertEqual(response.status_code, 200)
+            html = response.content.decode("utf-8")
+            self.assertIn(f"/configs/{slug}/task/clear/", html)
+            self.assertIn('data-config-action-form="clear"', html)
+            self.assertIn('data-config-action="clear"', html)
+            self.assertNotRegex(html, r'data-config-action-form="clear"[^>]*hidden')
+            self.assertIn(">Limpiar<", html)
+            self.assertNotIn("status-icon", html)
+
+            now = timezone.now()
+            ManagedTask.objects.create(
+                id="validate-clear-button-active",
+                key=f"validate-config:{slug}",
+                label="Validar test",
+                args=["validate_subdivision_configs", slug],
+                status=ManagedTask.Status.RUNNING,
+                created_at=now,
+                started_at=now,
+                updated_at=now,
+            )
+            response = self.client.get(f"/configs/table/?q={slug}")
+            html = response.content.decode("utf-8")
+            self.assertIn(f"/configs/{slug}/task/clear/", html)
+            self.assertRegex(html, r'data-config-action-form="clear"[^>]*hidden')
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
+    def test_cancelled_clear_returns_to_previous_available_actions(self):
+        slug = "zztestcancelledclearnotonly"
+        original_recovery_done = task_manager._recovery_done
+        upsert_scraping_config(
+            slug,
+            """
+name = "Cancelled Clear Not Only Test"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        AdminArea.objects.create(
+            id=f"{slug}_root",
+            country_code=slug,
+            code="root",
+            name="Cancelledland",
+            level=0,
+        )
+        try:
+            task_manager._recovery_done = True
+            now = timezone.now()
+            ManagedTask.objects.create(
+                id="clear-cancelled-not-only",
+                key=f"clear-config:{slug}",
+                label="Limpiar test",
+                args=["clear_config_data", slug],
+                status=ManagedTask.Status.CANCELLED,
+                created_at=now,
+                started_at=now,
+                finished_at=now,
+                updated_at=now,
+            )
+
+            response = self.client.get(f"/configs/table/?q={slug}")
+
+            self.assertEqual(response.status_code, 200)
+            html = response.content.decode("utf-8")
+            scrape_form = re.search(r'<form[^>]*data-config-action-form="scrape"[^>]*>', html)
+            clear_form = re.search(r'<form[^>]*data-config-action-form="clear"[^>]*>', html)
+            self.assertIsNotNone(scrape_form)
+            self.assertIsNotNone(clear_form)
+            self.assertNotIn("hidden", scrape_form.group(0))
+            self.assertNotIn("hidden", clear_form.group(0))
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
+    def test_config_table_hides_clear_button_while_clear_is_active(self):
+        slug = "zztestclearbuttonactiveclear"
+        original_recovery_done = task_manager._recovery_done
+        upsert_scraping_config(
+            slug,
+            """
+name = "Active Clear Button Test"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        AdminArea.objects.create(
+            id=f"{slug}_root",
+            country_code=slug,
+            code="root",
+            name="Active Clearland",
+            level=0,
+        )
+        try:
+            task_manager._recovery_done = True
+            now = timezone.now()
+            ManagedTask.objects.create(
+                id="clear-button-active-clear",
+                key=f"clear-config:{slug}",
+                label="Limpiar test",
+                args=["clear_config_data", slug],
+                status=ManagedTask.Status.RUNNING,
+                created_at=now,
+                started_at=now,
+                updated_at=now,
+            )
+
+            response = self.client.get(f"/configs/table/?q={slug}")
+
+            self.assertEqual(response.status_code, 200)
+            html = response.content.decode("utf-8")
+            self.assertIn(f"/configs/{slug}/task/clear/", html)
+            self.assertRegex(html, r'data-config-action-form="clear"[^>]*hidden')
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
+    def test_clear_config_task_starts_clear_command(self):
+        slug = "zztestclearaction"
+        original_recovery_done = task_manager._recovery_done
+        upsert_scraping_config(
+            slug,
+            """
+name = "Clear Action Test"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        AdminArea.objects.create(
+            id=f"{slug}_root",
+            country_code=slug,
+            code="root",
+            name="Clear Action Land",
+            level=0,
+        )
+        try:
+            task_manager._recovery_done = True
+            now = timezone.now()
+            ManagedTask.objects.create(
+                id="scrape-clear-action-populated",
+                key=f"scrape:{slug}",
+                label="Popular test",
+                args=["scrape_subdivisions_with_assets", slug],
+                status=ManagedTask.Status.SUCCEEDED,
+                returncode=0,
+                created_at=now,
+                started_at=now,
+                finished_at=now,
+                updated_at=now,
+            )
+            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+                start.return_value = _Object(
+                    id="clear-started",
+                    status=ManagedTask.Status.RUNNING,
+                )
+                response = self.client.post(
+                    f"/configs/{slug}/task/clear/",
+                    HTTP_ACCEPT="application/json",
+                    HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                )
+
+            self.assertEqual(response.status_code, 200)
+            kwargs = start.call_args.kwargs
+            self.assertEqual(kwargs["key"], f"clear-config:{slug}")
+            self.assertEqual(kwargs["args"], ["clear_config_data", slug])
+            self.assertEqual(response.json()["label"], f"Limpiar: {slug}")
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
+    def test_clear_config_task_rejects_active_operation_even_with_rows(self):
+        slug = "zztestclearactive"
+        original_recovery_done = task_manager._recovery_done
+        upsert_scraping_config(
+            slug,
+            """
+name = "Clear Active Test"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        AdminArea.objects.create(
+            id=f"{slug}_root",
+            country_code=slug,
+            code="root",
+            name="Clear Active Land",
+            level=0,
+        )
+        try:
+            task_manager._recovery_done = True
+            now = timezone.now()
+            ManagedTask.objects.create(
+                id="scrape-clear-active",
+                key=f"scrape:{slug}",
+                label="Popular active",
+                args=["scrape_subdivisions_with_assets", slug],
+                status=ManagedTask.Status.RUNNING,
+                created_at=now,
+                started_at=now,
+                updated_at=now,
+            )
+            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+                response = self.client.post(
+                    f"/configs/{slug}/task/clear/",
+                    HTTP_ACCEPT="application/json",
+                    HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                )
+
+            self.assertEqual(response.status_code, 400)
+            start.assert_not_called()
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
+    def test_clear_config_task_action_passes_country_code_to_command(self):
+        slug = "zztestclearcountryaction"
+        country_code = "zzrealclearcountry"
+        original_recovery_done = task_manager._recovery_done
+        upsert_scraping_config(
+            slug,
+            f"""
+name = "Clear Action CountryCode Test"
+country_code = "{country_code}"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        AdminArea.objects.create(
+            id=f"{country_code}_root",
+            country_code=country_code,
+            code="root",
+            name="Clear Action CountryCode Land",
+            level=0,
+        )
+        try:
+            task_manager._recovery_done = True
+            now = timezone.now()
+            ManagedTask.objects.create(
+                id="scrape-clear-country-populated",
+                key=f"scrape:{slug}",
+                label="Popular test",
+                args=["scrape_subdivisions_with_assets", slug],
+                status=ManagedTask.Status.SUCCEEDED,
+                returncode=0,
+                created_at=now,
+                started_at=now,
+                finished_at=now,
+                updated_at=now,
+            )
+            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+                start.return_value = _Object(
+                    id="clear-country-started",
+                    status=ManagedTask.Status.RUNNING,
+                )
+                response = self.client.post(
+                    f"/configs/{slug}/task/clear/",
+                    HTTP_ACCEPT="application/json",
+                    HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                )
+
+            self.assertEqual(response.status_code, 200)
+            kwargs = start.call_args.kwargs
+            self.assertEqual(kwargs["key"], f"clear-config:{slug}")
+            self.assertEqual(kwargs["args"], ["clear_config_data", country_code])
+            self.assertEqual(response.json()["label"], f"Limpiar: {slug}")
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
+    def test_clear_config_data_command_deletes_rows_and_returns_to_pending(self):
+        slug = "zztestclearcommand"
+        original_recovery_done = task_manager._recovery_done
+        record = upsert_scraping_config(
+            slug,
+            """
+name = "Clear Command Test"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        record.is_valid = False
+        record.validation_error = "previous validation failure"
+        record.save(update_fields=["is_valid", "validation_error"])
+        root = AdminArea.objects.create(
+            id=f"{slug}_root",
+            country_code=slug,
+            code="root",
+            name="Clear Command Land",
+            level=0,
+        )
+        AdminArea.objects.create(
+            id=f"{slug}_child",
+            country_code=slug,
+            code="child",
+            name="Child",
+            level=1,
+            parent=root,
+        )
+        try:
+            task_manager._recovery_done = True
+            call_command("clear_config_data", slug)
+
+            self.assertEqual(AdminArea.objects.filter(country_code=slug).count(), 0)
+            record.refresh_from_db()
+            self.assertFalse(record.is_valid)
+            self.assertEqual(record.validation_error, "")
+
+            summary = self.client.get(f"/configs/{slug}/summary/").json()
+            self.assertEqual(summary["rows"], 0)
+            self.assertEqual(summary["task_status"], "pending")
+            self.assertEqual(summary["status_filter"], "pending")
+            self.assertTrue(summary["can_validate"])
+            self.assertFalse(summary["can_clear"])
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
+    def test_clear_config_data_command_accepts_country_code_not_only_slug(self):
+        slug = "zztestclearcountryslug"
+        country_code = "zzrealclearcommand"
+        record = upsert_scraping_config(
+            slug,
+            f"""
+name = "Clear Command CountryCode Test"
+country_code = "{country_code}"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        AdminArea.objects.create(
+            id=f"{country_code}_root",
+            country_code=country_code,
+            code="root",
+            name="Clear Command CountryCode Land",
+            level=0,
+        )
+        AdminArea.objects.create(
+            id=f"{slug}_root",
+            country_code=slug,
+            code="root",
+            name="Different Slug Land",
+            level=0,
+        )
+
+        call_command("clear_config_data", country_code)
+
+        self.assertEqual(AdminArea.objects.filter(country_code=country_code).count(), 0)
+        self.assertEqual(AdminArea.objects.filter(country_code=slug).count(), 1)
+        record.refresh_from_db()
+        self.assertFalse(record.is_valid)
+        self.assertEqual(record.validation_error, "")
+
+    def test_clear_config_data_command_uses_small_delete_batches(self):
+        slug = "zztestclearbatch"
+        upsert_scraping_config(
+            slug,
+            """
+name = "Clear Batch Test"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        root = AdminArea.objects.create(
+            id=f"{slug}_root",
+            country_code=slug,
+            code="root",
+            name="Clear Batch Land",
+            level=0,
+        )
+        parent = root
+        created = []
+        for index in range(1, 8):
+            area = AdminArea.objects.create(
+                id=f"{slug}_child_{index}",
+                country_code=slug,
+                code=f"child-{index}",
+                name=f"Child {index}",
+                level=min(index, 5),
+                parent=parent,
+            )
+            created.append(area)
+            parent = area
+
+        root.capitals.add(created[0], created[1])
+        created[2].most_populate_city = created[-1]
+        created[2].save(update_fields=["most_populate_city"])
+        derived = NuevoAdminArea.objects.create(
+            id=f"{slug}-derived",
+            country_code=slug,
+            code="derived",
+            name="Derived",
+            level=0,
+            most_populate_city=created[-1],
+        )
+        derived.capitals.add(created[0])
+        derived.municipios_originales.add(created[1], created[2])
+
+        stdout = StringIO()
+        with patch(
+            "ciudades_del_mundo.management.commands.clear_config_data.CLEAR_DELETE_BATCH_SIZE",
+            2,
+        ):
+            call_command("clear_config_data", slug, stdout=stdout)
+
+        self.assertEqual(AdminArea.objects.filter(country_code=slug).count(), 0)
+        derived.refresh_from_db()
+        self.assertIsNone(derived.most_populate_city_id)
+        self.assertEqual(derived.capitals.count(), 0)
+        self.assertEqual(derived.municipios_originales.count(), 0)
+        output = stdout.getvalue()
+        self.assertIn(f"Limpiando: country_code={slug} filas=8 lote=2", output)
+        self.assertIn("Limpiando: lote=1", output)
+        self.assertIn("borradas=", output)
 
     def test_bulk_scrape_unpopulated_excludes_already_populated_configs(self):
         validated_slug = "zztestvalidatedonly"

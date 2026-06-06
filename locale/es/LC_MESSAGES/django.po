@@ -1562,3 +1562,23 @@ msgstr "Reanudar datos: %(slug)s"
 
 msgid "Solo puedes reanudar una configuraci?n parada durante el scraping."
 msgstr "Solo puedes reanudar una configuraci?n parada durante el scraping."
+
+msgid "No hay datos"
+msgstr "No hay datos"
+
+msgid "No puedes limpiar mientras hay una operación activa en esta configuración."
+msgstr "No puedes limpiar mientras hay una operación activa en esta configuración."
+
+# Added for the explicit config lifecycle.
+
+msgid "Limpiando"
+msgstr "Limpiando"
+
+msgid "Solo puedes popular una configuración Por validar, Validada o en Fallo. Si ya está Populada, primero limpia sus datos."
+msgstr "Solo puedes popular una configuración Por validar, Validada o en Fallo. Si ya está Populada, primero limpia sus datos."
+
+msgid "No hay configuraciones disponibles para popular."
+msgstr "No hay configuraciones disponibles para popular."
+
+msgid "Popular configuraciones disponibles (%(count)s)"
+msgstr "Popular configuraciones disponibles (%(count)s)"

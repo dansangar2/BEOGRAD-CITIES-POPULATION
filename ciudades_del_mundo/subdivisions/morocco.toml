@@ -1,0 +1,62 @@
+name = "Morocco"
+country_code = "morocco"
+wikidata_id = "Q1028"
+base_url = "https://www.citypopulation.de/en/"
+reset_before_import = true
+LEGAL_SUBDIVISION = 3
+
+[visual_assets.flag]
+wikidata_id = "Q1028"
+commons_filename = "Flag of Morocco.svg"
+
+[visual_assets.coat]
+wikidata_id = "Q1028"
+commons_filename = "Coat of arms of Morocco.svg"
+
+[[pages]]
+source = "cities"
+path = ["cities"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 1
+
+[[pages]]
+source = "admin"
+path = [
+  "benimellalkhenifra/admin",
+  "draatafilalet/admin",
+  "fesmeknes/admin",
+  "grandcasablancasettat/admin",
+  "guelmimouednoun/admin",
+  "marrakechsafi/admin",
+  "oriental/admin",
+  "rabatsalekenitra/admin",
+  "soussmassa/admin",
+  "tangertetouanalhoceima/admin",
+]
+# Regional admin pages expose a synthetic region root.  Start that root at L1
+# so provinces/prefectures become L2 and communes become L3.
+lowest_level = 1
+
+[[pages]]
+source = "double"
+path = [
+  "benimellalkhenifra",
+  "draatafilalet",
+  "fesmeknes",
+  "grandcasablancasettat",
+  "guelmimouednoun",
+  "marrakechsafi",
+  "oriental",
+  "rabatsalekenitra",
+  "soussmassa",
+  "tangertetouanalhoceima",
+]
+# The first table repeats provinces/prefectures and is only parent context.
+# Persist the second table as L4 urban places while keeping its province parent.
+lowest_level = 2
+include_tables = ["ts"]
+table_levels = { ts = 4 }

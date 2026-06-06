@@ -25,6 +25,17 @@ class ScrapingPageNotFoundError(RuntimeError):
         self.url = url
 
 
+class HtmlFetcher(Protocol):
+    """Port for downloading raw HTML outside the application use case.
+
+    The application layer may orchestrate prefetching, but the concrete HTTP
+    client remains an infrastructure adapter passed by the composition root.
+    """
+
+    def get(self, url: str) -> str:
+        ...
+
+
 class HtmlScraper(Protocol):
     """Protocol implemented by each page-layout-specific scraper."""
 

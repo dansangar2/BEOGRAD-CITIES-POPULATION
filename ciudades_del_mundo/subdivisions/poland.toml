@@ -1,0 +1,31 @@
+[[pages]]
+source = "infosection"
+path = ["cities"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = [
+  "dolnoslaskie/admin",
+  "kujawsko_pomorskie/admin",
+  "lubelskie/admin",
+  "lubuskie/admin",
+  "lodzkie/admin",
+  "malopolskie/admin",
+  "mazowieckie/admin",
+  "opolskie/admin",
+  "podkarpackie/admin",
+  "podlaskie/admin",
+  "pomorskie/admin",
+  "slaskie/admin",
+  "swietokrzyskie/admin",
+  "warminsko_mazurskie/admin",
+  "wielkopolskie/admin",
+  "zachodniopomorskie/admin",
+]
+lowest_level = 1

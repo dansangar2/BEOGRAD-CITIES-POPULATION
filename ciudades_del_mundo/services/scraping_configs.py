@@ -1,4 +1,4 @@
-"""SQL-backed storage helpers for CityPopulation scraping configs."""
+"""SQL-backed storage helpers and explicit TOML seed import/export for scraping configs."""
 
 from __future__ import annotations
 
@@ -143,7 +143,7 @@ def upsert_scraping_config(slug: str, content: str, *, source_path: str = "") ->
 
 
 def bundled_toml_config_paths(slugs: list[str] | tuple[str, ...] | None = None) -> list[Path]:
-    """Return the bundled subdivision TOML files that must exist in SQL."""
+    """Return per-country subdivision TOML seed files available for explicit SQL import."""
     root = Path(settings.BASE_DIR) / "ciudades_del_mundo" / "subdivisions"
     if not root.is_dir():
         return []
@@ -156,7 +156,7 @@ def bundled_toml_config_paths(slugs: list[str] | tuple[str, ...] | None = None) 
 
 
 def scraping_config_bootstrap_status(*, imported_count: int = 0) -> ConfigBootstrapStatus:
-    """Return whether the SQL config table contains every bundled TOML config."""
+    """Return whether SQL contains every currently available TOML seed config."""
     paths = bundled_toml_config_paths()
     expected_slugs = {path.stem for path in paths}
     if not scraping_config_table_exists():
@@ -188,7 +188,7 @@ def scraping_config_bootstrap_status(*, imported_count: int = 0) -> ConfigBootst
 
 
 def ensure_initial_scraping_configs(*, force: bool = False) -> ConfigBootstrapStatus:
-    """Synchronously seed SQL from bundled TOML files until no initial rows are missing.
+    """Synchronously seed SQL from per-country TOML files until no initial rows are missing.
 
     This is safe after an interrupted first run: existing rows are left intact by
     default and only missing TOML configs are inserted. Pass ``force=True`` from
@@ -223,10 +223,10 @@ def sync_scraping_configs_from_toml(
     only_if_empty: bool = True,
     slugs: list[str] | tuple[str, ...] | None = None,
 ) -> int:
-    """Import bundled TOML files into SQL.
+    """Import per-country TOML seed files into SQL.
 
-    ``only_if_empty`` is kept for backwards compatibility. The import now also
-    repairs interrupted initial runs by inserting any missing bundled TOML rows.
+    ``only_if_empty`` is kept for backwards compatibility. The import also
+    repairs interrupted initial runs by inserting any missing seed TOML rows.
     """
     if not scraping_config_table_exists():
         return 0
@@ -257,10 +257,10 @@ def export_scraping_configs_to_toml(
     slugs: list[str] | tuple[str, ...] | None = None,
     output_dir: str | Path | None = None,
 ) -> int:
-    """Export SQL scraping configs back to TOML seed files.
+    """Export SQL scraping configs back to per-country TOML seed files.
 
-    This is a temporary bridge for development/bootstrap. It must not become the
-    runtime source of truth once the SQL config workflow is finalized.
+    This is a development/bootstrap bridge only. Runtime scraping must keep
+    using SQL rows, not these exported files.
     """
     if not scraping_config_table_exists():
         return 0

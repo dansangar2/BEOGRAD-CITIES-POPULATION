@@ -1,6 +1,7 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.error import HTTPError
+from django.apps import apps
 from django.db import connection
 from django.test import TestCase, override_settings
 from unittest.mock import patch
@@ -21,6 +22,20 @@ from ciudades_del_mundo.services.visual_assets import (
     get_visual_assets_for_entity,
     seed_visual_assets_from_scraped_page,
 )
+
+
+class VisualAssetModelDeclarationTests(TestCase):
+    def test_visual_asset_models_are_declared_to_match_existing_migrations(self):
+        self.assertEqual(
+            apps.get_model("ciudades_del_mundo", "VisualAsset")._meta.db_table,
+            "ciudades_del_mundo_visual_asset",
+        )
+        translation_model = apps.get_model("ciudades_del_mundo", "VisualAssetTranslation")
+        self.assertEqual(
+            translation_model._meta.get_field("asset").remote_field.model._meta.object_name,
+            "VisualAsset",
+        )
+
 
 
 class VisualAssetSeedingTests(TestCase):

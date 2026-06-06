@@ -1,0 +1,36 @@
+name = "Western Sahara"
+country_code = "westernsahara"
+wikidata_id = "Q6250"
+base_url = "https://www.citypopulation.de/en/"
+reset_before_import = true
+LEGAL_SUBDIVISION = 1
+
+[visual_assets.flag]
+wikidata_id = "Q6250"
+commons_filename = "Flag of the Sahrawi Arab Democratic Republic.svg"
+
+[visual_assets.coat]
+wikidata_id = "Q752781"
+commons_filename = "Coat of arms of the Sahrawi Arab Democratic Republic.svg"
+
+[[pages]]
+source = "auto"
+path = ["westernsahara"]
+lowest_level = 0
+
+# Curated assets for cities whose Wikidata items do not expose P94/P158.
+[[visual_assets.admin_areas]]
+name = "Laâyoune"
+aliases = ["Laayoune", "El Aaiún", "El Aaiun", "Laâyoune (El Aaiún, Al-'Ayūn)"]
+kind = "coat"
+commons_filename = "Coat of Arms of the Spanish Sahara.svg"
+source_url = "https://www.crwflags.com/fotw/flags/eh-laay.html"
+description = "Escudo histórico asociado a El Aaiún/Sáhara Español; Wikidata no expone un escudo municipal actual para Laâyoune."
+
+[[visual_assets.admin_areas]]
+name = "Dakhla"
+aliases = ["Dajla", "Ad-Dākhlah", "Dakhla (Ad-Dākhlah)"]
+kind = "coat"
+commons_filename = "Emblem of Dajla.svg"
+source_url = "https://commons.wikimedia.org/wiki/Category:Coats_of_arms_of_Western_Sahara"
+description = "Emblema de Dajla/Dakhla disponible en Wikimedia Commons; Wikidata no expone un escudo municipal en Q345204."

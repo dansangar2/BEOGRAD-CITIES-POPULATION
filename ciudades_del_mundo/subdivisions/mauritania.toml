@@ -1,0 +1,20 @@
+LEGAL_SUBDIVISION = 3
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["mun/admin"]
+lowest_level = 1
+
+[[cities]]
+city = "Nouakchott"
+id = "13000"
+district_types = ["Region", "City District"]
+level = 2
+type = "City"
+from = { 1 = ["Nouakchott"] }
+keep_communes = false

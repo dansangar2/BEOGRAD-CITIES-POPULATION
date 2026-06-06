@@ -1568,3 +1568,23 @@ msgstr "Reprendre les donn?es : %(slug)s"
 
 msgid "Solo puedes reanudar una configuraci?n parada durante el scraping."
 msgstr "Vous ne pouvez reprendre qu'une configuration arr?t?e pendant le scraping."
+
+msgid "No hay datos"
+msgstr "Aucune donnee"
+
+msgid "No puedes limpiar mientras hay una operación activa en esta configuración."
+msgstr "Impossible de nettoyer pendant qu’une opération est active sur cette configuration."
+
+# Added for the explicit config lifecycle.
+
+msgid "Limpiando"
+msgstr "Nettoyage"
+
+msgid "Solo puedes popular una configuración Por validar, Validada o en Fallo. Si ya está Populada, primero limpia sus datos."
+msgstr "Vous ne pouvez peupler qu’une configuration À valider, Validée ou en Échec. Si elle est déjà Peuplée, nettoyez d’abord ses données."
+
+msgid "No hay configuraciones disponibles para popular."
+msgstr "Aucune configuration disponible à peupler."
+
+msgid "Popular configuraciones disponibles (%(count)s)"
+msgstr "Peupler les configurations disponibles (%(count)s)"

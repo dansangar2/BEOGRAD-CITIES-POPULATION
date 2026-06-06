@@ -30,5 +30,13 @@ class CityPopulationAutoScraper(BaseCityPopulationScraper):
         scraper = self._scraper_for_profile(profile)
         return list(scraper.scrape_html(html=html, url=url, country_code=country_code, level=level))
 
+    def scrape_configured_html(self, html: str, url: str, country_code: str, page) -> list[ScrapedAdminArea]:
+        _soup, profile = self._soup_and_profile(html)
+        scraper = self._scraper_for_profile(profile)
+        scrape_configured_html = getattr(scraper, "scrape_configured_html", None)
+        if callable(scrape_configured_html):
+            return list(scrape_configured_html(html=html, url=url, country_code=country_code, page=page))
+        return list(scraper.scrape_html(html=html, url=url, country_code=country_code, level=page.lowest_level))
+
     def _scraper_for_profile(self, profile: CityPopulationPageProfile) -> BaseCityPopulationScraper:
         return self._scrapers[profile.preferred_html_format]

@@ -1568,3 +1568,23 @@ msgstr "Daten fortsetzen: %(slug)s"
 
 msgid "Solo puedes reanudar una configuraci?n parada durante el scraping."
 msgstr "Du kannst nur eine Konfiguration fortsetzen, die w?hrend des Scrapings angehalten wurde."
+
+msgid "No hay datos"
+msgstr "Keine Daten"
+
+msgid "No puedes limpiar mientras hay una operación activa en esta configuración."
+msgstr "Du kannst nicht bereinigen, während für diese Konfiguration ein Vorgang aktiv ist."
+
+# Added for the explicit config lifecycle.
+
+msgid "Limpiando"
+msgstr "Wird bereinigt"
+
+msgid "Solo puedes popular una configuración Por validar, Validada o en Fallo. Si ya está Populada, primero limpia sus datos."
+msgstr "Du kannst nur eine Konfiguration im Status Zu validieren, Validiert oder Fehlgeschlagen populieren. Wenn sie bereits Populiert ist, bereinige zuerst ihre Daten."
+
+msgid "No hay configuraciones disponibles para popular."
+msgstr "Es gibt keine verfügbaren Konfigurationen zum Populieren."
+
+msgid "Popular configuraciones disponibles (%(count)s)"
+msgstr "Verfügbare Konfigurationen populieren (%(count)s)"

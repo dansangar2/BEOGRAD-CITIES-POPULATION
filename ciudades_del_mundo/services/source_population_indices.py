@@ -167,7 +167,26 @@ def load_source_population_index_registry(
             f"No se pudo leer {config_path}: {exc}"
         ) from exc
 
-    return SourcePopulationIndexRegistry.from_mapping(raw)
+    return SourcePopulationIndexRegistry.from_mapping(_population_index_mapping(raw))
+
+
+def _population_index_mapping(raw: Mapping | None) -> Mapping | None:
+    """Return only population-index sections from the shared seed TOML.
+
+    ``source_population_indices.toml`` also contains ``[[scraping_configs]]``
+    seed blocks for SQL bootstrap. Those blocks are ignored here so derived
+    hierarchy population multipliers can keep using the same file safely.
+    """
+    if not isinstance(raw, Mapping):
+        return raw
+    explicit = raw.get("population_indices")
+    if isinstance(explicit, Mapping):
+        return explicit
+    return {
+        key: value
+        for key, value in raw.items()
+        if key not in {"scraping_configs", "configs"}
+    }
 
 
 # ---------------------------------------------------------------------------

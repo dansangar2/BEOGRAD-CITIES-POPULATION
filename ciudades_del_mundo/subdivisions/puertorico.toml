@@ -1,0 +1,9 @@
+[[pages]]
+source = "infosection"
+path = ["cities"]
+lowest_level = 0
+
+[[pages]]
+source = "table"
+path = ["admin"]
+lowest_level = 1

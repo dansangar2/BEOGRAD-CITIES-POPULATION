@@ -1,0 +1,20 @@
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "table"
+path = [
+  "places/antwerpen",
+  "places/brabantwallon",
+  "places/bruxelles",
+  "places/liege",
+  "places/limburg",
+  "places/luxembourg",
+  "places/namur",
+  "places/oostvlaanderen",
+  "places/vlaamsbrabant",
+  "places/westvlaanderen",
+]
+lowest_level = 2

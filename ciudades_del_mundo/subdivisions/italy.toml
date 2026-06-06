@@ -1,0 +1,85 @@
+name = "Italy"
+country_code = "italy"
+wikidata_id = "Q38"
+base_url = "https://www.citypopulation.de/en/"
+reset_before_import = true
+LEGAL_SUBDIVISION = 3
+
+[[pages]]
+source = "cities"
+path = ["cities"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "double"
+path = [
+  "abruzzi",
+  "basilicata",
+  "calabria",
+  "campania",
+  "emiliaromagna",
+  "friuliveneziagiulia",
+  "lazio",
+  "liguria",
+  "lombardia",
+  "marche",
+  "molise",
+  "piemonte",
+  "puglia",
+  "sardegna",
+  "sicilia",
+  "toscana",
+  "trentinoaltoadige",
+  "umbria",
+  "valledaosta",
+  "veneto",
+]
+lowest_level = 2
+
+[[pages]]
+source = "double"
+path = [
+  "localities/abruzzi",
+  "localities/basilicata",
+  "localities/calabria",
+  "localities/campania",
+  "localities/emiliaromagna",
+  "localities/friuliveneziagiulia",
+  "localities/lazio",
+  "localities/liguria",
+  "localities/lombardia",
+  "localities/marche",
+  "localities/molise",
+  "localities/piemonte",
+  "localities/puglia",
+  "localities/sardegna",
+  "localities/sicilia",
+  "localities/toscana",
+  "localities/trentinoaltoadige",
+  "localities/umbria",
+  "localities/valledaosta",
+  "localities/veneto",
+]
+# The first table repeats provinces and is only parent context.  Persist
+# localities as L4, one level below communes, with the province as real parent.
+lowest_level = 2
+include_tables = ["ts"]
+table_levels = { ts = 4 }
+
+[[pages]]
+source = "auto"
+path = [
+  "firenzecity",
+  "genovacity",
+  "milanocity",
+  "napolicity",
+  "palermocity",
+  "romacity",
+  "torinocity",
+]
+lowest_level = 3

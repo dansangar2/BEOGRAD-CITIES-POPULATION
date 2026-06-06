@@ -1556,3 +1556,23 @@ msgstr "??????? ???????: %(slug)s"
 
 msgid "Solo puedes reanudar una configuraci?n parada durante el scraping."
 msgstr "?????? ????????? ???? ????????????? ??????????? ????? ??????????."
+
+msgid "No hay datos"
+msgstr "Нема података"
+
+msgid "No puedes limpiar mientras hay una operación activa en esta configuración."
+msgstr "Не можеш да очистиш док је активна операција за ову конфигурацију."
+
+# Added for the explicit config lifecycle.
+
+msgid "Limpiando"
+msgstr "Чишћење"
+
+msgid "Solo puedes popular una configuración Por validar, Validada o en Fallo. Si ya está Populada, primero limpia sus datos."
+msgstr "Можеш попунити само конфигурацију у стању „За проверу“, „Проверено“ или „Грешка“. Ако је већ попуњена, прво очисти њене податке."
+
+msgid "No hay configuraciones disponibles para popular."
+msgstr "Нема доступних конфигурација за попуњавање."
+
+msgid "Popular configuraciones disponibles (%(count)s)"
+msgstr "Попуни доступне конфигурације (%(count)s)"

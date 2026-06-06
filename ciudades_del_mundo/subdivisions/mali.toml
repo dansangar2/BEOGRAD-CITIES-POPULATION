@@ -1,0 +1,20 @@
+LEGAL_SUBDIVISION = 3
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["mun/admin"]
+lowest_level = 1
+
+[[cities]]
+city = "Bamako"
+id = "9100"
+district_types = ["Capital District", "Arrondissement"]
+level = 2
+type = "City"
+from = { 1 = ["Bamako"] }
+keep_communes = false

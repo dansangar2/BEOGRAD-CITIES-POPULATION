@@ -293,7 +293,7 @@ class WebTask(models.Model):
     key = models.CharField(max_length=255, db_index=True)
     label = models.CharField(max_length=255)
     args = models.JSONField(default=list, blank=True)
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.QUEUED, db_index=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.RUNNING, db_index=True)
     created_at = models.DateTimeField(db_index=True)
     started_at = models.DateTimeField(null=True, blank=True, db_index=True)
     finished_at = models.DateTimeField(null=True, blank=True, db_index=True)
@@ -353,6 +353,86 @@ class ScrapingConfig(models.Model):
 
     def __str__(self):
         return f"{self.slug} ({self.country_code})"
+
+
+class VisualAsset(models.Model):
+    """Visual identity metadata persisted for countries and admin areas.
+
+    The visual asset services mostly use raw SQL for batch upserts and reads,
+    but the Django model must stay declared because migration 0019 owns these
+    tables. Removing this class makes ``makemigrations`` generate destructive
+    ``DeleteModel`` operations for existing visual-asset tables.
+    """
+
+    entity_type = models.CharField(max_length=40)
+    entity_key = models.CharField(max_length=200)
+    entity_name = models.CharField(max_length=300, blank=True, default="")
+    country_code = models.CharField(max_length=80, blank=True, default="")
+    kind = models.CharField(max_length=40)
+    wikidata_id = models.CharField(max_length=40, blank=True, default="")
+    commons_filename = models.CharField(max_length=500, blank=True, default="")
+    remote_url = models.TextField(blank=True, default="")
+    local_path = models.CharField(max_length=500, blank=True, default="")
+    local_exists = models.BooleanField(default=False)
+    source = models.CharField(max_length=40, blank=True, default="")
+    status = models.CharField(max_length=40, default="missing")
+    error = models.TextField(blank=True, default="")
+    license_name = models.CharField(max_length=255, blank=True, default="")
+    author = models.TextField(blank=True, default="")
+    attribution = models.TextField(blank=True, default="")
+    source_url = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+
+    class Meta:
+        db_table = "ciudades_del_mundo_visual_asset"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["entity_type", "entity_key", "kind"],
+                name="ciudades_visual_asset_entity_kind_uniq",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["entity_type", "entity_key"], name="vis_asset_entity_idx"),
+            models.Index(fields=["country_code", "kind"], name="vis_asset_country_kind_idx"),
+            models.Index(fields=["status"], name="vis_asset_status_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.entity_type}:{self.entity_key}:{self.kind} ({self.status})"
+
+
+class VisualAssetTranslation(models.Model):
+    """Localized metadata for a persisted visual asset."""
+
+    asset = models.ForeignKey(
+        VisualAsset,
+        on_delete=models.CASCADE,
+        related_name="translations",
+    )
+    language = models.CharField(max_length=20)
+    title = models.CharField(max_length=300, blank=True, default="")
+    description = models.TextField(blank=True, default="")
+    blazon = models.TextField(blank=True, default="")
+    source = models.CharField(max_length=80, blank=True, default="")
+    needs_review = models.BooleanField(default=True)
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+
+    class Meta:
+        db_table = "ciudades_del_mundo_visual_asset_translation"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["asset", "language"],
+                name="ciudades_visual_asset_translation_uniq",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["language"], name="vis_asset_tr_lang_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.asset_id}:{self.language}"
 
 
 class DynamicTranslation(models.Model):

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 import os
 import subprocess
@@ -25,7 +24,8 @@ from .task_progress import (
 
 
 TERMINAL_STATUSES = {WebTask.Status.SUCCEEDED, WebTask.Status.FAILED, WebTask.Status.CANCELLED}
-MAX_RUNNING_TASKS = 1
+# Tasks start immediately; only UI notification boxes are visually queued.
+MAX_RUNNING_TASKS = 0
 MAX_PERSISTED_TASKS = 300
 TASK_LOG_DIR_NAME = ".web_task_logs"
 OUTPUT_TAIL_LINES = 240
@@ -50,11 +50,12 @@ class TaskManager:
         self._processes: dict[str, subprocess.Popen] = {}
         self._history_path = history_path or (Path(settings.BASE_DIR) / ".web_tasks.json")
         self._log_dir = Path(settings.BASE_DIR) / TASK_LOG_DIR_NAME
-        self._max_running_tasks = max(1, int(max_running_tasks))
+        # Kept for backwards-compatible construction in tests/callers; it no longer throttles tasks.
+        self._max_running_tasks = max(0, int(max_running_tasks or 0))
         self._recovery_done = False
 
     def start(self, *, key: str, label: str, args: list[str]) -> WebTask:
-        """Queue a task, cancelling the active task with the same key first."""
+        """Start a task immediately, cancelling the active task with the same key first."""
         self._ensure_recovered()
         process_to_terminate = None
         with self._lock:
@@ -63,21 +64,22 @@ class TaskManager:
                 process_to_terminate = self._cancel_locked(previous)
 
             task_id = uuid.uuid4().hex[:12]
+            now = timezone.now()
             task = WebTask.objects.create(
                 id=task_id,
                 key=key,
                 label=label,
                 args=[str(arg) for arg in args],
-                status=WebTask.Status.QUEUED,
-                created_at=timezone.now(),
+                status=WebTask.Status.RUNNING,
+                created_at=now,
+                started_at=now,
                 log_path=self._relative_log_path(task_id),
             )
-            task_ids_to_start = self._dispatch_queued_locked()
             self._trim_history_locked()
 
         if process_to_terminate and process_to_terminate.poll() is None:
             process_to_terminate.terminate()
-        self._start_workers(task_ids_to_start)
+        self._start_worker(task.id)
         return task
 
     def cancel(self, task_id: str) -> WebTask | None:
@@ -88,11 +90,9 @@ class TaskManager:
             if not task or not task.is_active:
                 return task
             process = self._cancel_locked(task)
-            task_ids_to_start = self._dispatch_queued_locked()
 
         if process and process.poll() is None:
             process.terminate()
-        self._start_workers(task_ids_to_start)
         return self.get(task_id)
 
     def get(self, task_id: str) -> WebTask | None:
@@ -174,37 +174,42 @@ class TaskManager:
     def _cancel_locked(self, task: WebTask) -> subprocess.Popen | None:
         task.cancel_requested = True
         self._append_output_locked(task, _("\n[CANCEL] Cancelación solicitada desde la interfaz.\n"))
-        if task.status == WebTask.Status.QUEUED:
+        process = self._processes.get(task.id)
+        if task.status == WebTask.Status.QUEUED or process is None:
             task.status = WebTask.Status.CANCELLED
             task.finished_at = timezone.now()
             task.save(update_fields=["cancel_requested", "status", "finished_at", "output", "log_path", "updated_at"])
-            return None
+            return process
         task.save(update_fields=["cancel_requested", "output", "log_path", "updated_at"])
-        return self._processes.get(task.id)
+        return process
 
     def _dispatch_queued_locked(self) -> list[str]:
-        running = WebTask.objects.filter(status=WebTask.Status.RUNNING).count()
-        capacity = self._max_running_tasks - running
-        if capacity <= 0:
-            return []
+        """Legacy safeguard: promote any old queued rows immediately.
 
+        New web tasks are never queued in the backend. This method remains for
+        compatibility with older callers/tests and starts every non-cancelled
+        queued row instead of throttling them.
+        """
         queued = list(
             WebTask.objects.filter(status=WebTask.Status.QUEUED, cancel_requested=False)
-            .order_by("created_at", "id")[:capacity]
+            .order_by("created_at", "id")
         )
         now = timezone.now()
         task_ids = []
         for task in queued:
             task.status = WebTask.Status.RUNNING
-            task.started_at = now
+            task.started_at = task.started_at or now
             task.save(update_fields=["status", "started_at", "updated_at"])
             task_ids.append(task.id)
         return task_ids
 
+    def _start_worker(self, task_id: str) -> None:
+        thread = threading.Thread(target=self._run, args=(task_id,), daemon=True)
+        thread.start()
+
     def _start_workers(self, task_ids: list[str]) -> None:
         for task_id in task_ids:
-            thread = threading.Thread(target=self._run, args=(task_id,), daemon=True)
-            thread.start()
+            self._start_worker(task_id)
 
     def _run(self, task_id: str) -> None:
         close_old_connections()
@@ -220,13 +225,10 @@ class TaskManager:
                 task.status = WebTask.Status.CANCELLED
                 task.finished_at = timezone.now()
                 task.save(update_fields=["status", "finished_at", "updated_at"])
-                task_ids_to_start = self._dispatch_queued_locked()
                 should_stop = True
             else:
-                task_ids_to_start = []
                 should_stop = False
         if should_stop:
-            self._start_workers(task_ids_to_start)
             close_old_connections()
             return
 
@@ -267,8 +269,6 @@ class TaskManager:
                         _("[ERROR] No se pudo iniciar la tarea: %(error)s\n") % {"error": exc},
                     )
                     task.save(update_fields=["status", "finished_at", "output", "log_path", "updated_at"])
-                task_ids_to_start = self._dispatch_queued_locked()
-            self._start_workers(task_ids_to_start)
             close_old_connections()
             return
 
@@ -313,9 +313,7 @@ class TaskManager:
                     task.status = WebTask.Status.FAILED
                 task.save(update_fields=["returncode", "finished_at", "status", "output", "log_path", "updated_at"])
             self._processes.pop(task_id, None)
-            task_ids_to_start = self._dispatch_queued_locked()
             self._trim_history_locked()
-        self._start_workers(task_ids_to_start)
         close_old_connections()
 
     def _append_output_locked(self, task: WebTask, text: str) -> None:
@@ -372,9 +370,9 @@ class TaskManager:
         except (OperationalError, ProgrammingError):
             return
         for task in interrupted:
-            task.status = WebTask.Status.FAILED
+            task.status = WebTask.Status.CANCELLED
             task.finished_at = timezone.now()
-            self._append_output_locked(task, _("\n[INFO] Tarea interrumpida por reinicio del servidor.\n"))
+            self._append_output_locked(task, _("\n[INFO] Tarea parada por reinicio del servidor.\n"))
             task.save(update_fields=["status", "finished_at", "output", "log_path", "updated_at"])
 
     def _trim_history_locked(self) -> None:

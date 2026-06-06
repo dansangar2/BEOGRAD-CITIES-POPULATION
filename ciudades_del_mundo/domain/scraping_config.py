@@ -28,13 +28,20 @@ class RepresentationSystem(StrEnum):
 
 @dataclass(frozen=True)
 class ScrapingPageConfig:
-    """One logical scraping page after expanding grouped path arrays."""
+    """One logical scraping page after expanding grouped path arrays.
+
+    ``table_levels`` and ``include_tables`` are optional hints for compound
+    CityPopulation layouts.  They let a scraper use one table as parent lookup
+    context while persisting another table at a different hierarchy level.
+    """
 
     path: str
     html_format: str
     lowest_level: int = 1
     area_km2: Decimal | None = None
     area_overrides: dict[str, Decimal] = field(default_factory=dict)
+    table_levels: dict[str, int] = field(default_factory=dict)
+    include_tables: tuple[str, ...] = ()
 
     @classmethod
     def from_mapping(cls, data: dict, *, path: str) -> "ScrapingPageConfig":
@@ -50,6 +57,8 @@ class ScrapingPageConfig:
             area_overrides=_parse_area_overrides(
                 data.get("area_overrides", data.get("size_overrides", data.get("custom_sizes")))
             ),
+            table_levels=_parse_table_levels(data.get("table_levels", data.get("levels"))),
+            include_tables=_parse_include_tables(data.get("include_tables", data.get("tables"))),
         )
 
 
@@ -237,6 +246,40 @@ def _parse_area_overrides(value) -> dict[str, Decimal]:
             raise ValueError(f"area_overrides[{key!r}] debe declarar un area numerica.")
         overrides[str(key)] = area_km2
     return overrides
+
+
+def _parse_table_levels(value) -> dict[str, int]:
+    if not value:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError("table_levels debe ser un dict {tabla: nivel}.")
+    levels = {}
+    for key, raw_level in value.items():
+        table = str(key).strip().lower()
+        if not table:
+            raise ValueError("table_levels no puede declarar una tabla vacia.")
+        try:
+            levels[table] = int(raw_level)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"table_levels[{key!r}] debe ser entero.") from exc
+    return levels
+
+
+def _parse_include_tables(value) -> tuple[str, ...]:
+    if value in (None, ""):
+        return ()
+    if isinstance(value, str):
+        raw_values = [value]
+    elif isinstance(value, Iterable):
+        raw_values = list(value)
+    else:
+        raw_values = [value]
+    tables = []
+    for raw_table in raw_values:
+        table = str(raw_table).strip().lower()
+        if table and table not in tables:
+            tables.append(table)
+    return tuple(tables)
 
 
 def _normalize_page_path(slug: str, raw_path) -> str:
