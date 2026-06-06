@@ -1,1 +1,0 @@
-{"configs": {"test-2": {"detail": "No SQL scraping config found for slug 'test-2'. Run 'py manage.py sync_scraping_configs' to import temporary TOML seeds.", "status": "failed", "updated_at": "2026-06-05T23:07:54.579552+00:00"}}, "task_id": "828f956c217f", "updated_at": "2026-06-05T23:07:54.579552+00:00"}
