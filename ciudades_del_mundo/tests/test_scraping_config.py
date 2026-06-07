@@ -18,6 +18,12 @@ class ScrapingConfigTests(TestCase):
                     "area_overrides": {"A": "1.50"},
                     "table_levels": {"ts": 4},
                     "include_tables": ["ts"],
+                    "include_root": False,
+                    "root_level": 2,
+                    "root_code": "GUF",
+                    "root_name": "French Guiana",
+                    "root_parent_code": "OVERSEAS",
+                    "root_entity_type": "Overseas Department",
                 }
             ],
             slug="spain",
@@ -30,6 +36,12 @@ class ScrapingConfigTests(TestCase):
         self.assertTrue(all(page.area_overrides == {"A": Decimal("1.50")} for page in pages))
         self.assertTrue(all(page.table_levels == {"ts": 4} for page in pages))
         self.assertTrue(all(page.include_tables == ("ts",) for page in pages))
+        self.assertTrue(all(page.include_root is False for page in pages))
+        self.assertTrue(all(page.root_level == 2 for page in pages))
+        self.assertTrue(all(page.root_code == "GUF" for page in pages))
+        self.assertTrue(all(page.root_name == "French Guiana" for page in pages))
+        self.assertTrue(all(page.root_parent_code == "OVERSEAS" for page in pages))
+        self.assertTrue(all(page.root_entity_type == "Overseas Department" for page in pages))
 
     def test_parse_pages_rejects_missing_path_and_negative_area(self):
         with self.assertRaisesRegex(ValueError, "path"):

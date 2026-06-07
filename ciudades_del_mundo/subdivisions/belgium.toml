@@ -1,7 +1,69 @@
+name = "Belgium"
+country_code = "belgium"
+wikidata_id = "Q31"
+base_url = "https://www.citypopulation.de/en/"
+reset_before_import = true
+LEGAL_SUBDIVISION = 4
+
+# L0 country -> L1 regions -> L2 provinces/province-equivalent region ->
+# L3 arrondissements -> L4 municipalities -> L5 municipalities/sub-municipalities.
+# CityPopulation does not expose Flanders/Wallonia as rows in /belgium/admin/,
+# so they are declared here and province rows are reparented into them.
+[[synthetic_entities]]
+code = "BE-VLG"
+name = "Flemish Region"
+level = 1
+parent_code = "belgium"
+entity_type = "Region"
+metric_source_codes = ["10000", "70000", "40000", "20001", "30000"]
+
+[[synthetic_entities]]
+code = "BE-WAL"
+name = "Walloon Region"
+level = 1
+parent_code = "belgium"
+entity_type = "Region"
+metric_source_codes = ["20002", "50000", "60000", "80000", "90000"]
+
+[[parent_overrides]]
+codes = ["10000", "70000", "40000", "20001", "30000"]
+level = 2
+parent_code = "BE-VLG"
+
+[[parent_overrides]]
+codes = ["20002", "50000", "60000", "80000", "90000"]
+level = 2
+parent_code = "BE-WAL"
+
+[[parent_overrides]]
+codes = ["04000"]
+level = 1
+parent_code = "belgium"
+
 [[pages]]
 source = "admin"
 path = ["admin"]
 lowest_level = 0
+table_levels = { admin1 = 2, admin2 = 3 }
+
+[[pages]]
+source = "table"
+path = [
+  "antwerpen",
+  "brabantwallon",
+  "bruxelles",
+  "hainaut",
+  "liege",
+  "limburg",
+  "luxembourg",
+  "namur",
+  "oostvlaanderen",
+  "vlaamsbrabant",
+  "westvlaanderen",
+]
+lowest_level = 0
+root_level = 2
+table_levels = { tl = 3, ts = 4 }
 
 [[pages]]
 source = "table"
@@ -9,6 +71,7 @@ path = [
   "places/antwerpen",
   "places/brabantwallon",
   "places/bruxelles",
+  "places/hainaut",
   "places/liege",
   "places/limburg",
   "places/luxembourg",
@@ -17,4 +80,7 @@ path = [
   "places/vlaamsbrabant",
   "places/westvlaanderen",
 ]
-lowest_level = 2
+lowest_level = 0
+include_root = false
+include_tables = ["ts"]
+table_levels = { tl = 4, ts = 5 }

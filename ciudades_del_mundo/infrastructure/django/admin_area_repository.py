@@ -76,6 +76,7 @@ class DjangoAdminAreaRepository:
             "pop_latest_date",
             "last_census_year",
             "url",
+            "annotations",
             "updated_at",
         ]
 
@@ -286,6 +287,7 @@ def _admin_area_from_entity(
         pop_latest_date=_to_date(entity.pop_latest_date),
         last_census_year=entity.last_census_year,
         url=entity.url,
+        annotations=entity.annotations or "",
         created_at=now,
         updated_at=now,
     )

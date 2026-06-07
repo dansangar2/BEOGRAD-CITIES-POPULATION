@@ -196,6 +196,12 @@ class ScrapeAdminAreas:
                         page.lowest_level,
                         tuple(sorted(getattr(page, "table_levels", {}).items())),
                         tuple(getattr(page, "include_tables", ())),
+                        getattr(page, "include_root", True),
+                        getattr(page, "root_level", None),
+                        getattr(page, "root_code", None),
+                        getattr(page, "root_name", None),
+                        getattr(page, "root_parent_code", None),
+                        getattr(page, "root_entity_type", None),
                     )
                     cached_entities = parsed_by_page_key.get(page_key)
                     if cached_entities is None:
@@ -358,6 +364,11 @@ def _apply_runtime_config_extensions(
         extended,
         getattr(config, "runtime_parent_overrides", ()),
     )
+    extended = _refresh_synthetic_entity_metrics(
+        extended,
+        getattr(config, "runtime_synthetic_entities", ()),
+    )
+    extended = _fill_missing_root_metrics_from_children(config.country_code, extended)
     extended = _apply_root_metric_sources(
         config.country_code,
         extended,
@@ -397,12 +408,11 @@ def _apply_synthetic_entities(
                 pop_latest_date = source.pop_latest_date
                 density = source.density
 
-        metric_codes = [str(value).strip() for value in spec.get("metric_source_codes") or () if str(value).strip()]
-        if metric_codes:
-            sources = [original_by_code[value] for value in metric_codes if value in original_by_code]
-            area_km2 = _sum_decimals(source.area_km2 for source in sources)
-            pop_latest = _sum_ints(source.pop_latest for source in sources)
-            pop_latest_date = _latest_metric_date(source.pop_latest_date for source in sources)
+        metric_sources = _metric_sources_for_synthetic_spec(entities, spec)
+        if metric_sources:
+            area_km2 = _sum_decimals(source.area_km2 for source in metric_sources)
+            pop_latest = _sum_ints(source.pop_latest for source in metric_sources)
+            pop_latest_date = _latest_metric_date(source.pop_latest_date for source in metric_sources)
             density = _density(pop_latest, area_km2)
 
         entity_type = str(spec.get("entity_type") or "").strip()
@@ -426,6 +436,114 @@ def _apply_synthetic_entities(
         existing_codes.add(code)
     return updated
 
+
+
+def _refresh_synthetic_entity_metrics(
+    entities: list[ScrapedAdminArea],
+    specs,
+) -> list[ScrapedAdminArea]:
+    if not specs:
+        return entities
+
+    specs_by_code = {str(spec.get("code") or "").strip(): spec for spec in specs if str(spec.get("code") or "").strip()}
+    if not specs_by_code:
+        return entities
+
+    updated = []
+    for entity in entities:
+        spec = specs_by_code.get(entity.code)
+        if not spec:
+            updated.append(entity)
+            continue
+        sources = _metric_sources_for_synthetic_spec(entities, spec, exclude_codes={entity.code})
+        if not sources:
+            updated.append(entity)
+            continue
+        area_km2 = _sum_decimals(source.area_km2 for source in sources)
+        pop_latest = _sum_ints(source.pop_latest for source in sources)
+        pop_latest_date = _latest_metric_date(source.pop_latest_date for source in sources)
+        updated.append(
+            replace(
+                entity,
+                area_km2=area_km2,
+                pop_latest=pop_latest,
+                pop_latest_date=pop_latest_date,
+                density=_density(pop_latest, area_km2),
+            )
+        )
+    return updated
+
+
+def _metric_sources_for_synthetic_spec(
+    entities: list[ScrapedAdminArea],
+    spec: dict,
+    *,
+    exclude_codes: set[str] | None = None,
+) -> list[ScrapedAdminArea]:
+    exclude_codes = exclude_codes or set()
+    by_code = _first_entity_by_code(entities)
+    sources: list[ScrapedAdminArea] = []
+    seen: set[str] = set()
+
+    for raw_code in spec.get("metric_source_codes") or ():
+        code = str(raw_code).strip()
+        source = by_code.get(code)
+        if source and source.code not in exclude_codes and source.code not in seen:
+            sources.append(source)
+            seen.add(source.code)
+
+    parent_code = str(spec.get("metric_source_parent_code") or "").strip()
+    raw_level = spec.get("metric_source_level")
+    metric_level = int(raw_level) if raw_level not in (None, "") else None
+    if parent_code or metric_level is not None:
+        for entity in entities:
+            if entity.code in exclude_codes or entity.code in seen:
+                continue
+            if parent_code and entity.parent_code != parent_code:
+                continue
+            if metric_level is not None and entity.level != metric_level:
+                continue
+            sources.append(entity)
+            seen.add(entity.code)
+
+    return sources
+
+
+def _fill_missing_root_metrics_from_children(
+    country_code: str,
+    entities: list[ScrapedAdminArea],
+) -> list[ScrapedAdminArea]:
+    roots = [entity for entity in entities if entity.code == country_code and entity.level == 0]
+    if not roots:
+        return entities
+
+    root = roots[0]
+    if root.pop_latest is not None and root.area_km2 is not None:
+        return entities
+
+    child_levels = [entity.level for entity in entities if entity.parent_code == root.code and entity.level > root.level]
+    if not child_levels:
+        return entities
+    highest_child_level = min(child_levels)
+    sources = [
+        entity
+        for entity in entities
+        if entity.parent_code == root.code and entity.level == highest_child_level
+    ]
+    if not sources:
+        return entities
+
+    area_km2 = root.area_km2 if root.area_km2 is not None else _sum_decimals(source.area_km2 for source in sources)
+    pop_latest = root.pop_latest if root.pop_latest is not None else _sum_ints(source.pop_latest for source in sources)
+    pop_latest_date = root.pop_latest_date or _latest_metric_date(source.pop_latest_date for source in sources)
+    updated_root = replace(
+        root,
+        area_km2=area_km2,
+        pop_latest=pop_latest,
+        pop_latest_date=pop_latest_date,
+        density=_density(pop_latest, area_km2),
+    )
+    return [updated_root if entity is root else entity for entity in entities]
 
 def _apply_parent_overrides(entities: list[ScrapedAdminArea], overrides) -> list[ScrapedAdminArea]:
     if not overrides:

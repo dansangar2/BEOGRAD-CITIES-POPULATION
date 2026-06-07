@@ -13,10 +13,15 @@ commons_filename = "Flag of the Sahrawi Arab Democratic Republic.svg"
 wikidata_id = "Q752781"
 commons_filename = "Coat of arms of the Sahrawi Arab Democratic Republic.svg"
 
+# L0 territory -> L1 provinces/RASD -> L2 cities/towns.
 [[pages]]
-source = "auto"
-path = ["westernsahara"]
+source = "cities"
+path = [""]
 lowest_level = 0
+root_code = "westernsahara"
+root_name = "Western Sahara"
+root_entity_type = "Territory"
+table_levels = { tl = 1, ts = 2 }
 
 # Curated assets for cities whose Wikidata items do not expose P94/P158.
 [[visual_assets.admin_areas]]

@@ -1467,7 +1467,7 @@ label {
   z-index: 1;
   background: var(--card-bg);
   color: var(--muted);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -2034,7 +2034,7 @@ label {
   min-width: 0;
   width: 100%;
   table-layout: auto;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .subdivision-share-wrap .first-order-summary-table th,
@@ -2201,7 +2201,7 @@ label {
   display: grid;
   gap: 3px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -3144,94 +3144,83 @@ html[data-theme="rainbow"] .task-console {
 
 .config-toast-stack {
   position: fixed;
-  top: 18px;
-  right: 18px;
+  top: 12px;
+  right: 12px;
   z-index: 1200;
-  --config-toast-height: 184px;
-  --config-toast-gap: 12px;
-  --config-toast-offscreen-x: calc(100% + 34px);
+  --config-toast-height: 112px;
+  --config-toast-gap: 10px;
+  --config-toast-offscreen-x: calc(100% + 20px);
   --config-toast-exit-y: calc(0px - var(--config-toast-height) - var(--config-toast-gap));
-  display: block;
-  width: min(420px, calc(100vw - 36px));
-  height: calc(
-    var(--config-toast-height) +
-    var(--config-toast-height) +
-    var(--config-toast-height) +
-    var(--config-toast-gap) +
-    var(--config-toast-gap)
-  );
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--config-toast-gap);
+  width: min(340px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
   overflow: hidden;
   pointer-events: none;
   contain: layout paint;
 }
 
 .config-task-toast {
-  position: absolute;
-  top: 0;
-  right: 0;
+  position: relative;
   box-sizing: border-box;
   display: flex;
+  flex: 0 0 var(--config-toast-height);
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   width: 100%;
   height: var(--config-toast-height);
   min-height: var(--config-toast-height);
   max-height: var(--config-toast-height);
   pointer-events: auto;
-  padding: 14px;
+  padding: 10px 12px;
   border: 1px solid var(--line);
-  border-left: 5px solid var(--info);
-  border-radius: 12px;
+  border-left: 4px solid var(--info);
+  border-radius: 10px;
   background: var(--surface);
-  box-shadow: 0 18px 48px rgb(15 23 42 / 16%);
+  box-shadow: 0 10px 24px rgb(15 23 42 / 14%);
   overflow: hidden;
   transform-origin: top right;
-  transform: translate3d(var(--toast-x, 0px), var(--toast-y, 0px), 0);
+  transform: translate3d(var(--toast-x, 0px), 0, 0);
   opacity: var(--toast-opacity, 1);
   transition:
-    transform 0.54s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.24s ease;
+    transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s ease;
   will-change: opacity, transform;
 }
 
 .config-task-toast.is-entering {
-  animation: config-toast-enter-square 0.54s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: config-toast-enter-square 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .config-task-toast.is-dismissing {
   z-index: 100;
   pointer-events: none;
   transition: none;
-  animation: config-toast-exit-square 0.58s cubic-bezier(0.37, 0, 0.2, 1) forwards;
+  animation: config-toast-exit-square 0.26s cubic-bezier(0.37, 0, 0.2, 1) forwards;
 }
 
 @keyframes config-toast-enter-square {
   0% {
     opacity: 0;
-    transform: translate3d(var(--config-toast-offscreen-x), calc(var(--toast-y) - 16px), 0);
-  }
-  34% {
-    opacity: 0.92;
-    transform: translate3d(var(--config-toast-offscreen-x), var(--toast-y), 0);
+    transform: translate3d(var(--config-toast-offscreen-x), 0, 0);
   }
   100% {
     opacity: 1;
-    transform: translate3d(0px, var(--toast-y), 0);
+    transform: translate3d(0px, 0, 0);
   }
 }
 
 @keyframes config-toast-exit-square {
   0% {
     opacity: 1;
-    transform: translate3d(0px, var(--toast-y), 0);
-  }
-  48% {
-    opacity: 1;
-    transform: translate3d(0px, var(--toast-exit-y), 0);
+    transform: translate3d(0px, 0, 0);
   }
   100% {
     opacity: 0;
-    transform: translate3d(var(--config-toast-offscreen-x), var(--toast-exit-y), 0);
+    transform: translate3d(var(--config-toast-offscreen-x), 0, 0);
   }
 }
 
@@ -3256,20 +3245,31 @@ html[data-theme="rainbow"] .task-console {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex: 0 0 auto;
+  min-height: 24px;
 }
 
 .config-task-toast-header .quiet {
   flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  line-height: 1;
 }
 
 .config-task-toast-status {
   flex: 0 0 auto;
-  height: 2.8em;
+  display: -webkit-box;
+  height: auto;
+  max-height: 1.3em;
   margin: 0;
   overflow: hidden;
-  line-height: 1.4;
+  font-size: 0.88rem;
+  line-height: 1.3;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
 }
 
 .config-task-output {
@@ -3328,10 +3328,13 @@ html[data-theme="rainbow"] .task-console {
   }
 
   .config-toast-stack {
-    top: 10px;
-    right: 10px;
-    --config-toast-height: 172px;
-    width: calc(100vw - 20px);
+    top: 8px;
+    right: 8px;
+    --config-toast-height: 104px;
+    --config-toast-gap: 8px;
+    width: min(320px, calc(100vw - 16px));
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
   }
 }
 
@@ -3360,7 +3363,7 @@ html[data-theme="rainbow"] .task-console {
 .config-task-toast-title {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -3368,16 +3371,19 @@ html[data-theme="rainbow"] .task-console {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 0.95rem;
+  line-height: 1.2;
 }
 
 .config-task-toast-icon {
   display: inline-grid;
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
   place-items: center;
   border-radius: 999px;
   background: color-mix(in srgb, var(--info) 14%, transparent);
-  font-size: 18px;
+  font-size: 13px;
   line-height: 1;
 }
 
@@ -3797,14 +3803,32 @@ html[data-theme="rainbow"] .task-console {
 }
 
 .config-toast-stack {
-  --config-toast-height: clamp(184px, 24vh, 244px);
-  --config-toast-height: clamp(184px, 24dvh, 244px);
+  --config-toast-height: clamp(104px, 13vh, 116px);
+  --config-toast-height: clamp(104px, 13dvh, 116px);
+  --config-toast-gap: 10px;
 }
 
 .config-task-toast,
 .config-task-toast-status,
 .config-task-output {
   min-width: 0;
+}
+
+
+.config-task-toast .button,
+.config-task-toast button {
+  min-height: 28px;
+  padding: 5px 10px;
+  font-size: 0.84rem;
+  line-height: 1.15;
+}
+
+.config-task-toast .config-task-log-link {
+  align-self: flex-start;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .config-task-output {
@@ -3848,5 +3872,125 @@ html[data-theme^="retro"] .knowledge-card {
 
   .stats-country-card {
     --country-flag-box-size: clamp(96px, 38vw, 148px);
+  }
+}
+
+/* /countries: columna de anotación condicional y paneles multinivel alineados. */
+.country-data-table th.table-column-name,
+.country-data-table td.table-column-name {
+  width: 170px;
+  max-width: 190px;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.country-data-table th.table-column-entity-type,
+.country-data-table td.table-column-entity-type {
+  width: 160px;
+  min-width: 160px;
+  text-align: left;
+}
+
+.country-data-table th.table-column-annotations,
+.country-data-table td.table-column-annotations,
+.stats-children-table th.table-column-annotations,
+.stats-children-table td.table-column-annotations {
+  width: 160px;
+  min-width: 140px;
+  max-width: 240px;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-align: left;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.country-data-table th.table-column-population,
+.country-data-table td.table-column-population,
+.country-data-table th.table-column-area-km2,
+.country-data-table td.table-column-area-km2,
+.country-data-table th.table-column-density,
+.country-data-table td.table-column-density {
+  width: 104px;
+  min-width: 104px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.country-data-table th.table-column-population-percent,
+.country-data-table td.table-column-population-percent,
+.country-data-table th.table-column-area-percent,
+.country-data-table td.table-column-area-percent {
+  width: 72px;
+  min-width: 72px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.country-data-table th.table-column-parent,
+.country-data-table td.table-column-parent {
+  width: 160px;
+  min-width: 160px;
+  text-align: left;
+}
+
+.stats-children-table th.table-column-color,
+.stats-children-table td.table-column-color {
+  width: 26px;
+  text-align: center;
+}
+
+.stats-children-table th.table-column-name,
+.stats-children-table td.table-column-name,
+.stats-children-table th.table-column-entity-type,
+.stats-children-table td.table-column-entity-type {
+  width: auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: left;
+  white-space: normal;
+}
+
+.stats-children-table th.table-column-population,
+.stats-children-table td.table-column-population,
+.stats-children-table th.table-column-population-percent,
+.stats-children-table td.table-column-population-percent,
+.stats-children-table th.table-column-area-km2,
+.stats-children-table td.table-column-area-km2,
+.stats-children-table th.table-column-area-percent,
+.stats-children-table td.table-column-area-percent,
+.stats-children-table th.table-column-density,
+.stats-children-table td.table-column-density,
+.stats-children-table th.table-column-child-count,
+.stats-children-table td.table-column-child-count {
+  width: 1%;
+  min-width: 58px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.stats-area-detail-grid--stacked-levels {
+  align-items: stretch;
+}
+
+.stats-area-detail-grid--stacked-levels > .stats-area-basic-panel {
+  grid-row: span var(--stats-area-child-panel-count, 1);
+  height: 100%;
+}
+
+.stats-area-detail-grid--stacked-levels > .stats-country-first-level-panel {
+  grid-column: 2;
+}
+
+@media (max-width: 920px) {
+  .stats-area-detail-grid--stacked-levels > .stats-area-basic-panel,
+  .stats-area-detail-grid--stacked-levels > .stats-country-first-level-panel {
+    grid-column: auto;
+    grid-row: auto;
   }
 }

@@ -1,4 +1,9 @@
+name = "Gibraltar"
+country_code = "gibraltar"
+base_url = "https://www.citypopulation.de/en/"
+LEGAL_SUBDIVISION = 1
+
 [[pages]]
-source = "admin"
+source = "table"
 path = ["admin"]
 lowest_level = 0

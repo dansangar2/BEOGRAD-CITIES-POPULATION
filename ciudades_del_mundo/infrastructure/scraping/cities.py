@@ -1,4 +1,4 @@
-"""Scraper for CityPopulation country pages centered on city lists."""
+"""Scraper for CityPopulation country pages centered on city/place lists."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ from ciudades_del_mundo.infrastructure.scraping.admin import CityPopulationAdmin
 from ciudades_del_mundo.infrastructure.scraping.base import BaseCityPopulationScraper
 from ciudades_del_mundo.infrastructure.scraping.double import CityPopulationDoubleScraper
 from ciudades_del_mundo.infrastructure.scraping.infosection import CityPopulationInfoSectionScraper
+from ciudades_del_mundo.infrastructure.scraping.page_config import apply_root_config
 
 
 class CityPopulationCitiesScraper(BaseCityPopulationScraper):
@@ -19,6 +20,26 @@ class CityPopulationCitiesScraper(BaseCityPopulationScraper):
         self._infosection_scraper = CityPopulationInfoSectionScraper(debug=debug)
 
     def scrape_html(self, html: str, url: str, country_code: str, level: int) -> list[ScrapedAdminArea]:
+        return self._scrape_configured(html=html, url=url, country_code=country_code, level=level, page=None)
+
+    def scrape_configured_html(self, html: str, url: str, country_code: str, page) -> list[ScrapedAdminArea]:
+        return self._scrape_configured(
+            html=html,
+            url=url,
+            country_code=country_code,
+            level=page.lowest_level,
+            page=page,
+        )
+
+    def _scrape_configured(
+        self,
+        *,
+        html: str,
+        url: str,
+        country_code: str,
+        level: int,
+        page,
+    ) -> list[ScrapedAdminArea]:
         soup, profile = self._soup_and_profile(html)
         root = self._admin_scraper._parse_root(soup, country_code=country_code, level=level, url=url)
         if not root:
@@ -29,6 +50,8 @@ class CityPopulationCitiesScraper(BaseCityPopulationScraper):
                 level=level,
             )
             root = roots[0] if roots else None
+        if page is not None:
+            root = apply_root_config(root, page=page, country_code=country_code, url=url, default_level=level)
 
         return self._double_scraper.parse_hierarchical_tables(
             soup=soup,
@@ -38,4 +61,5 @@ class CityPopulationCitiesScraper(BaseCityPopulationScraper):
             root=root,
             first_table_offset=1,
             profile=profile,
+            page=page,
         )

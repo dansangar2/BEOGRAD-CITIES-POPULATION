@@ -8,6 +8,24 @@ lowest_level = 0
 [[pages]]
 source = "table"
 path = [
+  "burgenland",
+  "karnten",
+  "niederosterreich",
+  "oberosterreich",
+  "salzburg",
+  "steiermark",
+  "tirol",
+  "vorarlberg",
+  "wien",
+]
+lowest_level = 1
+include_root = false
+include_tables = ["ts"]
+table_levels = { tl = 2, ts = 3 }
+
+[[pages]]
+source = "table"
+path = [
   "localities/eisenstadt",
   "localities/gussing",
   "localities/jennersdorf",
@@ -88,4 +106,7 @@ path = [
   "localities/dornbirn",
   "localities/feldkirch",
 ]
-lowest_level = 3
+lowest_level = 2
+include_root = false
+include_tables = ["ts"]
+table_levels = { tl = 3, ts = 4 }

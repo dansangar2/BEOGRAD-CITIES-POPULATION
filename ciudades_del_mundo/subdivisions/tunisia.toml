@@ -5,12 +5,23 @@ base_url = "https://www.citypopulation.de/en/"
 reset_before_import = true
 LEGAL_SUBDIVISION = 3
 
+# L0 country -> L1 governorates -> L2 delegations -> L3 municipalities.
+# /tunisia/mun/admin repeats governorates as parent context; persist only municipalities.
 [[pages]]
 source = "admin"
 path = ["admin"]
 lowest_level = 0
+root_code = "tunisia"
+root_name = "Tunisia"
+root_entity_type = "Country"
+table_levels = { admin1 = 1, admin2 = 2 }
 
 [[pages]]
 source = "admin"
 path = ["mun/admin"]
 lowest_level = 0
+root_code = "tunisia"
+root_name = "Tunisia"
+root_entity_type = "Country"
+table_levels = { admin1 = 1, admin2 = 3 }
+include_tables = ["admin2"]

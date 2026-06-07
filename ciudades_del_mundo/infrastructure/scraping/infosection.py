@@ -5,6 +5,7 @@ from __future__ import annotations
 from ciudades_del_mundo.domain import ScrapedAdminArea
 from ciudades_del_mundo.infrastructure.scraping.admin import CityPopulationAdminScraper
 from ciudades_del_mundo.infrastructure.scraping.base import BaseCityPopulationScraper
+from ciudades_del_mundo.infrastructure.scraping.page_config import apply_root_config
 
 
 class CityPopulationInfoSectionScraper(BaseCityPopulationScraper):
@@ -15,10 +16,32 @@ class CityPopulationInfoSectionScraper(BaseCityPopulationScraper):
         self._admin_scraper = CityPopulationAdminScraper(debug=debug)
 
     def scrape_html(self, html: str, url: str, country_code: str, level: int) -> list[ScrapedAdminArea]:
+        return self._scrape_configured(html=html, url=url, country_code=country_code, level=level, page=None)
+
+    def scrape_configured_html(self, html: str, url: str, country_code: str, page) -> list[ScrapedAdminArea]:
+        return self._scrape_configured(
+            html=html,
+            url=url,
+            country_code=country_code,
+            level=page.lowest_level,
+            page=page,
+        )
+
+    def _scrape_configured(
+        self,
+        *,
+        html: str,
+        url: str,
+        country_code: str,
+        level: int,
+        page,
+    ) -> list[ScrapedAdminArea]:
         soup, _profile = self._soup_and_profile(html)
         root = self._admin_scraper._parse_root(soup, country_code=country_code, level=level, url=url)
         if not root:
             root = self._parse_tfoot_root(soup=soup, url=url, country_code=country_code, level=level)
+        if page is not None:
+            root = apply_root_config(root, page=page, country_code=country_code, url=url, default_level=level)
         return [root] if root else []
 
     def _parse_tfoot_root(

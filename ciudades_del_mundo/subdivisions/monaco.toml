@@ -1,4 +1,15 @@
+name = "Monaco"
+country_code = "monaco"
+base_url = "https://www.citypopulation.de/en/"
+reset_before_import = true
+LEGAL_SUBDIVISION = 1
+
+# L0 country -> L1 quarters -> L2 quarters/sectors.
 [[pages]]
 source = "table"
 path = [""]
 lowest_level = 0
+root_code = "monaco"
+root_name = "Monaco"
+root_entity_type = "Country"
+table_levels = { tl = 1, ts = 2 }

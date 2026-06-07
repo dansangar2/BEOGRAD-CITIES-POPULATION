@@ -2265,6 +2265,7 @@ def _admin_area_identity_payload(area: AdminArea, children: list[AdminArea] | No
         "name": _area_display_name(area),
         "official_name": _area_display_name(area),
         "entity_type": _entity_type_label(area.entity_type, country_code=area.country_code),
+        "annotations": area.annotations or "",
         "level": area.level,
         "parent": _area_display_name(area.parent) if area.parent else "",
         "population": int(area.pop_latest or 0) if area.pop_latest is not None else None,
@@ -2290,6 +2291,7 @@ def _admin_area_child_rows(children: list[AdminArea], population_total, area_tot
             "id": child.id,
             "name": _area_display_name(child),
             "entity_type": _entity_type_label(child.entity_type, country_code=child.country_code),
+            "annotations": child.annotations or "",
             "level": child.level,
             "area_km2": _number_or_none(child.area_km2),
             "population": int(child.pop_latest or 0) if child.pop_latest is not None else None,
@@ -2392,6 +2394,7 @@ def _country_table_rows(
             "area_percent": _ratio_percent(row.area_km2, area_total),
             "parent": _area_display_name(row.parent) if row.parent else "",
             "entity_type": _entity_type_label(row.entity_type, country_code=country_code),
+            "annotations": row.annotations or "",
         }
         for row in rows
     ]
@@ -2707,6 +2710,7 @@ def _first_order_card(area: AdminArea, population_total, area_total, *, include_
         "id": area.id,
         "name": _area_display_name(area),
         "entity_type": _entity_type_label(area.entity_type, country_code=area.country_code),
+        "annotations": area.annotations or "",
         "level": area.level,
         "population": population,
         "area_km2": area_km2,
@@ -2725,6 +2729,7 @@ def _second_order_share_rows(area: AdminArea) -> list[dict]:
         {
             "name": _area_display_name(child),
             "entity_type": _entity_type_label(child.entity_type, country_code=child.country_code),
+            "annotations": child.annotations or "",
             "population": int(child.pop_latest or 0) if child.pop_latest is not None else None,
             "area_km2": _number_or_none(child.area_km2),
             "population_percent": _ratio_percent(child.pop_latest, area.pop_latest),

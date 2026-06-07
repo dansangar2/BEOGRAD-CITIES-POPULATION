@@ -78,6 +78,8 @@ def _normalize_synthetic_entities(raw) -> tuple[dict, ...]:
                 "url": _optional_string(item.get("url")),
                 "copy_metrics_from": _optional_string(item.get("copy_metrics_from")),
                 "metric_source_codes": _string_list(item.get("metric_source_codes")),
+                "metric_source_parent_code": _optional_string(item.get("metric_source_parent_code")),
+                "metric_source_level": _optional_int(item.get("metric_source_level")),
             }
         )
     return tuple(normalized)
@@ -150,3 +152,9 @@ def _int_value(value, *, field: str) -> int:
 def _optional_string(value) -> str | None:
     text = str(value or "").strip()
     return text or None
+
+
+def _optional_int(value) -> int | None:
+    if value in (None, ""):
+        return None
+    return int(value)

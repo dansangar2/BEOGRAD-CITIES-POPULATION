@@ -1,6 +1,15 @@
+name = "French Polynesia"
+country_code = "frenchpolynesia"
+base_url = "https://www.citypopulation.de/en/"
+reset_before_import = true
 LEGAL_SUBDIVISION = 1
 
+# L0 overseas collectivity -> L1 circumscriptions -> L2 places.
 [[pages]]
 source = "cities"
-path = ["cities"]
+path = [""]
 lowest_level = 0
+root_code = "frenchpolynesia"
+root_name = "French Polynesia"
+root_entity_type = "Overseas Collectivity"
+table_levels = { tl = 1, ts = 2 }

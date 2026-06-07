@@ -1,9 +1,15 @@
-[[pages]]
-source = "infosection"
-path = ["cities"]
-lowest_level = 0
+name = "Malta"
+country_code = "malta"
+base_url = "https://www.citypopulation.de/en/"
+reset_before_import = true
+LEGAL_SUBDIVISION = 2
 
+# L0 country -> L1 statistical districts -> L2 localities.
 [[pages]]
 source = "admin"
 path = ["admin"]
 lowest_level = 0
+root_code = "malta"
+root_name = "Malta"
+root_entity_type = "Country"
+table_levels = { admin1 = 1, admin2 = 2 }

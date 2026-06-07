@@ -2009,8 +2009,9 @@
     ];
     columns.forEach(function (column) {
       var th = document.createElement("th");
+      th.className = "table-column-" + String(column[0] || "").replace(/_/g, "-");
       if (column[0] === "color") {
-        th.className = "color-column";
+        th.className += " color-column";
         th.setAttribute("aria-label", container.dataset.colorLabel || "Color");
         header.appendChild(th);
         return;
@@ -2405,18 +2406,28 @@
     table.className = "compact-table country-data-table";
     var thead = document.createElement("thead");
     var headerRow = document.createElement("tr");
+    var rows = (data.table && data.table.rows) || [];
+    var hasAnnotations = rows.some(function (row) {
+      return String(row.annotations || "").trim() !== "";
+    });
     var columns = [
       ["name", labels.nameLabel],
-      ["entity_type", labels.entityTypeLabel],
+      ["entity_type", labels.entityTypeLabel]
+    ];
+    if (hasAnnotations) {
+      columns.push(["annotations", labels.annotationLabel]);
+    }
+    columns = columns.concat([
       ["population", "POB"],
       ["population_percent", "% POB"],
       ["area_km2", "KM2"],
       ["area_percent", "% KM2"],
       ["density", "DENS"],
       ["parent", labels.parentLabel]
-    ];
+    ]);
     columns.forEach(function (column) {
       var th = document.createElement("th");
+      th.className = "table-column-" + String(column[0] || "").replace(/_/g, "-");
       var button = document.createElement("button");
       button.type = "button";
       button.className = "table-sort-button";
@@ -2449,7 +2460,6 @@
     pagination.appendChild(pageSizeLabel);
     panel.appendChild(pagination);
 
-    var rows = (data.table && data.table.rows) || [];
     var sortKey = "name";
     var sortDirection = 1;
     var page = 1;
@@ -2489,7 +2499,7 @@
         if (!query) {
           return true;
         }
-        return [row.name, row.parent, row.entity_type].some(function (value) {
+        return [row.name, row.parent, row.entity_type, row.annotations].some(function (value) {
           return String(value || "").toLowerCase().indexOf(query) !== -1;
         });
       }).sort(function (left, right) {
@@ -2542,17 +2552,33 @@
             openCountryTableRowDetail(row, labels, target, areaStack);
           });
         }
-        [
-          row.name,
-          row.entity_type || "-",
-          formattedNumberOrDash(row.population),
-          formatPercentNumber(row.population_percent),
-          formattedNumberOrDash(row.area_km2),
-          formatPercentNumber(row.area_percent),
-          formattedNumberOrDash(row.density),
-          row.parent || "-"
-        ].forEach(function (value) {
+        columns.map(function (column) {
+          switch (column[0]) {
+            case "name":
+              return row.name;
+            case "entity_type":
+              return row.entity_type || "-";
+            case "population":
+              return formattedNumberOrDash(row.population);
+            case "population_percent":
+              return formatPercentNumber(row.population_percent);
+            case "area_km2":
+              return formattedNumberOrDash(row.area_km2);
+            case "area_percent":
+              return formatPercentNumber(row.area_percent);
+            case "density":
+              return formattedNumberOrDash(row.density);
+            case "parent":
+              return row.parent || "-";
+            case "annotations":
+              return row.annotations || "-";
+            default:
+              return row[column[0]] || "-";
+          }
+        }).forEach(function (value, index) {
           var td = document.createElement("td");
+          var column = columns[index] || [];
+          td.className = "table-column-" + String(column[0] || "").replace(/_/g, "-");
           td.textContent = value;
           tr.appendChild(td);
         });
@@ -2693,8 +2719,9 @@
     ];
     columns.forEach(function (column) {
       var th = document.createElement("th");
+      th.className = "table-column-" + String(column[0] || "").replace(/_/g, "-");
       if (column[0] === "color") {
-        th.className = "color-column";
+        th.className += " color-column";
         th.setAttribute("aria-label", labels.colorLabel || "Color");
         header.appendChild(th);
         return;
@@ -2773,6 +2800,7 @@
       sortedRows.forEach(function (rowData) {
         var row = document.createElement("tr");
         var colorCell = document.createElement("td");
+        colorCell.className = "table-column-color";
         var marker = document.createElement("span");
         marker.className = "table-color-dot";
         marker.style.background = rowData.color || "#94a3b8";
@@ -2866,8 +2894,9 @@
     ];
     columns.forEach(function (column) {
       var th = document.createElement("th");
+      th.className = "table-column-" + String(column[0] || "").replace(/_/g, "-");
       if (column[0] === "color") {
-        th.className = "color-column";
+        th.className += " color-column";
         th.setAttribute("aria-label", labels.colorLabel || "Color");
         header.appendChild(th);
         return;
@@ -2943,6 +2972,7 @@
       visibleRows.forEach(function (card) {
         var row = document.createElement("tr");
         var colorCell = document.createElement("td");
+        colorCell.className = "table-column-color";
         var marker = document.createElement("span");
         marker.className = "table-color-dot";
         marker.style.background = card.color || "#94a3b8";
@@ -3092,6 +3122,7 @@
       nameLabel: detailLabel(target, "nameLabel", "Nombre"),
       colorLabel: detailLabel(target, "colorLabel", "Color"),
       entityTypeLabel: detailLabel(target, "entityTypeLabel", "Tipo"),
+      annotationLabel: detailLabel(target, "annotationLabel", "Anotación"),
       officialNameLabel: detailLabel(target, "officialNameLabel", "Nombre oficial"),
       officialLanguageLabel: detailLabel(target, "officialLanguageLabel", "Idioma oficial"),
       capitalLabel: detailLabel(target, "capitalLabel", "Capital"),
@@ -3348,6 +3379,7 @@
         id: row.id,
         name: row.name,
         entity_type: row.entity_type,
+        annotations: row.annotations || "",
         population: row.population,
         population_percent: row.population_percent,
         area_km2: row.area_km2,
@@ -3544,21 +3576,30 @@
     table.className = "compact-table stats-children-table";
     var thead = document.createElement("thead");
     var header = document.createElement("tr");
+    var hasAnnotations = preparedRows.some(function (row) {
+      return String(row.annotations || "").trim() !== "";
+    });
     var columns = [
       ["color", ""],
       ["name", labels.nameLabel],
-      ["entity_type", labels.entityTypeLabel],
+      ["entity_type", labels.entityTypeLabel]
+    ];
+    if (hasAnnotations) {
+      columns.push(["annotations", labels.annotationLabel]);
+    }
+    columns = columns.concat([
       ["population", "POB"],
       ["population_percent", "% POB"],
       ["area_km2", "KM2"],
       ["area_percent", "% KM2"],
       ["density", "DENS"],
       ["child_count", "Subd."]
-    ];
+    ]);
     columns.forEach(function (column) {
       var th = document.createElement("th");
+      th.className = "table-column-" + String(column[0] || "").replace(/_/g, "-");
       if (column[0] === "color") {
-        th.className = "color-column";
+        th.className += " color-column";
         th.setAttribute("aria-label", labels.colorLabel || "Color");
         header.appendChild(th);
         return;
@@ -3588,7 +3629,7 @@
     }
 
     function statsSearchText(row) {
-      return [row.name, row.entity_type, row.population, row.population_percent, row.area_km2, row.area_percent, row.density, row.child_count]
+      return [row.name, row.entity_type, row.annotations, row.population, row.population_percent, row.area_km2, row.area_percent, row.density, row.child_count]
         .map(function (value) { return String(value || "").toLowerCase(); })
         .join(" ");
     }
@@ -3655,24 +3696,49 @@
         }
 
         var colorCell = document.createElement("td");
+        colorCell.className = "table-column-color";
         var marker = document.createElement("span");
         marker.className = "table-color-dot";
         marker.style.background = item.color || "#94a3b8";
         colorCell.appendChild(marker);
         row.appendChild(colorCell);
 
-        [
-          item.name || "-",
-          item.entity_type || "-",
-          formattedNumberOrDash(item.population),
-          formatPercentNumber(item.population_percent),
-          formattedNumberOrDash(item.area_km2),
-          formatPercentNumber(item.area_percent),
-          formattedNumberOrDash(item.density),
-          formattedNumberOrDash(item.child_count)
-        ].forEach(function (value, index) {
+        columns.slice(1).forEach(function (column) {
+          var value;
+          switch (column[0]) {
+            case "name":
+              value = item.name || "-";
+              break;
+            case "entity_type":
+              value = item.entity_type || "-";
+              break;
+            case "annotations":
+              value = item.annotations || "-";
+              break;
+            case "population":
+              value = formattedNumberOrDash(item.population);
+              break;
+            case "population_percent":
+              value = formatPercentNumber(item.population_percent);
+              break;
+            case "area_km2":
+              value = formattedNumberOrDash(item.area_km2);
+              break;
+            case "area_percent":
+              value = formatPercentNumber(item.area_percent);
+              break;
+            case "density":
+              value = formattedNumberOrDash(item.density);
+              break;
+            case "child_count":
+              value = formattedNumberOrDash(item.child_count);
+              break;
+            default:
+              value = item[column[0]] || "-";
+          }
           var td = document.createElement("td");
-          if (index === 0) {
+          td.className = "table-column-" + String(column[0] || "").replace(/_/g, "-");
+          if (column[0] === "name") {
             td.className = "stats-child-name-cell";
             var name = document.createElement("strong");
             name.textContent = value;
@@ -3729,6 +3795,10 @@
     var childGroups = Array.isArray(payload.child_groups) && payload.child_groups.length
       ? payload.child_groups
       : [{ label: null, children: payload.children || [] }];
+    if (childGroups.length > 1) {
+      grid.classList.add("stats-area-detail-grid--stacked-levels");
+      grid.style.setProperty("--stats-area-child-panel-count", String(childGroups.length));
+    }
 
     renderCountryGeneralPanel(basicPanel, { country: area }, Object.assign({}, labels, {
       generalTitle: area.name || labels.generalTitle
@@ -4392,7 +4462,7 @@
   }
 
 
-  var CONFIG_TOAST_MAX_VISIBLE = 3;
+  var CONFIG_TOAST_MAX_VISIBLE = 4;
   var CONFIG_TOAST_DONE_VISIBLE_MS = 1000;
   var CONFIG_TOAST_AFTER_INTERACTION_VISIBLE_MS = 4000;
   var CONFIG_TOAST_SELECTION_RECHECK_MS = 1200;
@@ -4400,9 +4470,9 @@
   var CONFIG_ACTIVE_ROW_REFRESH_MS = 1500;
   var CONFIG_LOADING_DOTS_STEP_MS = 600;
   var CONFIG_LOADING_DOTS_CYCLE = ["", ".", "..", "..."];
-  var CONFIG_TOAST_ENTER_MS = 540;
-  var CONFIG_TOAST_EXIT_MS = 580;
-  var CONFIG_TOAST_REPLENISH_DELAY_MS = 280;
+  var CONFIG_TOAST_ENTER_MS = 340;
+  var CONFIG_TOAST_EXIT_MS = 260;
+  var CONFIG_TOAST_REPLENISH_DELAY_MS = 120;
   var configToastVisible = [];
   var configToastQueue = [];
   var configLoadingDotsIndex = 0;
@@ -4505,10 +4575,31 @@
   }
 
   function configToastMetrics(stack) {
+    var cssHeight = configToastCssPx(stack, "--config-toast-height", 112);
+    var gap = configToastCssPx(stack, "--config-toast-gap", 10);
+    var measuredHeight = 0;
+    if (stack) {
+      var sample = stack.querySelector(".config-task-toast");
+      if (sample) {
+        measuredHeight = sample.getBoundingClientRect().height || 0;
+      }
+    }
     return {
-      height: configToastCssPx(stack, "--config-toast-height", 184),
-      gap: configToastCssPx(stack, "--config-toast-gap", 12)
+      height: Math.max(cssHeight, measuredHeight),
+      gap: gap
     };
+  }
+
+  function configToastVisibleLimit(stack) {
+    var metrics = configToastMetrics(stack);
+    var viewport = window.visualViewport;
+    var viewportHeight = viewport && viewport.height ? viewport.height : window.innerHeight;
+    var stackTop = stack.getBoundingClientRect().top || 0;
+    var availableHeight = Math.max(metrics.height, viewportHeight - stackTop - 12);
+    var slots = Math.floor((availableHeight + metrics.gap) / (metrics.height + metrics.gap));
+    var limit = Math.max(1, Math.min(CONFIG_TOAST_MAX_VISIBLE, slots || 1));
+    stack.style.height = (limit * metrics.height + Math.max(0, limit - 1) * metrics.gap) + "px";
+    return limit;
   }
 
   function configToastSlotY(stack, index) {
@@ -4516,23 +4607,51 @@
     return index * (metrics.height + metrics.gap);
   }
 
+  function moveOverflowConfigToastsToQueue(stack) {
+    var limit = configToastVisibleLimit(stack);
+    while (configToastVisible.length > limit) {
+      var toast = configToastVisible.pop();
+      if (!toast || toast.isDismissing) {
+        continue;
+      }
+      if (toast.dismissTimer) {
+        window.clearTimeout(toast.dismissTimer);
+        toast.dismissTimer = null;
+      }
+      toast.isVisible = false;
+      toast.slotIndex = null;
+      if (toast.element) {
+        toast.element.classList.remove("is-entering", "is-dismissing");
+        if (toast.element.parentNode) {
+          toast.element.parentNode.removeChild(toast.element);
+        }
+      }
+      configToastQueue.unshift(toast);
+    }
+    return limit;
+  }
+
   function layoutVisibleConfigToasts() {
     var stack = ensureConfigToastStack();
+    var limit = moveOverflowConfigToastsToQueue(stack);
     configToastVisible.forEach(function (toast, index) {
       if (!toast || !toast.element || toast.isDismissing) {
         return;
       }
       toast.slotIndex = index;
-      toast.element.style.setProperty("--toast-y", configToastSlotY(stack, index) + "px");
+      toast.element.style.setProperty("--toast-y", "0px");
       toast.element.style.setProperty("--toast-x", "0px");
       toast.element.style.setProperty("--toast-opacity", "1");
-      toast.element.style.zIndex = String(CONFIG_TOAST_MAX_VISIBLE - index);
+      toast.element.style.zIndex = String(limit - index);
     });
   }
 
   function showNextQueuedConfigToast() {
-    while (configToastVisible.length < CONFIG_TOAST_MAX_VISIBLE && configToastQueue.length) {
+    var stack = ensureConfigToastStack();
+    var limit = configToastVisibleLimit(stack);
+    while (configToastVisible.length < limit && configToastQueue.length) {
       showConfigToast(configToastQueue.shift());
+      limit = configToastVisibleLimit(stack);
     }
   }
 
@@ -4541,13 +4660,18 @@
       return;
     }
     var stack = ensureConfigToastStack();
+    var limit = configToastVisibleLimit(stack);
+    if (configToastVisible.length >= limit) {
+      configToastQueue.push(toast);
+      return;
+    }
     var slotIndex = configToastVisible.length;
     toast.slotIndex = slotIndex;
     toast.isVisible = true;
     configToastVisible.push(toast);
     toast.element.classList.remove("is-dismissing");
     toast.element.classList.add("is-entering");
-    toast.element.style.setProperty("--toast-y", configToastSlotY(stack, slotIndex) + "px");
+    toast.element.style.setProperty("--toast-y", "0px");
     toast.element.style.setProperty("--toast-x", "var(--config-toast-offscreen-x)");
     toast.element.style.setProperty("--toast-opacity", "0");
     stack.appendChild(toast.element);
@@ -4563,7 +4687,8 @@
   }
 
   function enqueueConfigToast(toast) {
-    if (configToastVisible.length < CONFIG_TOAST_MAX_VISIBLE) {
+    var stack = ensureConfigToastStack();
+    if (configToastVisible.length < configToastVisibleLimit(stack)) {
       showConfigToast(toast);
     } else {
       configToastQueue.push(toast);
@@ -4589,10 +4714,9 @@
     }
     if (toast.element && toast.element.parentNode && !immediate) {
       var stack = toast.element.parentNode;
-      var metrics = configToastMetrics(stack);
       toast.element.classList.remove("is-entering");
       stack.appendChild(toast.element);
-      toast.element.style.setProperty("--toast-exit-y", (0 - metrics.height - metrics.gap) + "px");
+      toast.element.style.setProperty("--toast-exit-y", "0px");
       toast.element.style.setProperty("--toast-x", "0px");
       toast.element.style.setProperty("--toast-opacity", "1");
       toast.element.style.zIndex = "100";
@@ -4677,6 +4801,19 @@
       }
       dismissConfigToast(toast);
     }, effectiveDelay);
+  }
+
+  function refreshConfigToastLayout() {
+    if (!document.querySelector(".config-toast-stack")) {
+      return;
+    }
+    layoutVisibleConfigToasts();
+    showNextQueuedConfigToast();
+  }
+
+  window.addEventListener("resize", refreshConfigToastLayout);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", refreshConfigToastLayout);
   }
 
   function createConfigToast(title, message, container) {

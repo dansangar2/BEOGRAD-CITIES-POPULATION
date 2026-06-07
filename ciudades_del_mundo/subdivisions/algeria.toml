@@ -63,6 +63,8 @@ path = [
   "relizane",
 ]
 lowest_level = 2
+include_tables = ["ts"]
+table_levels = { ts = 3 }
 
 [[cities]]
 city = "El Djazair"

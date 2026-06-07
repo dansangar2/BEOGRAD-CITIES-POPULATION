@@ -1,19 +1,25 @@
+name = "Curaçao"
+country_code = "curacao"
+base_url = "https://www.citypopulation.de/en/"
+reset_before_import = true
+LEGAL_SUBDIVISION = 1
+
+# L0 country -> L1 cities/places -> L2 geozones -> L3 neighborhoods.
 [[pages]]
 source = "table"
 path = ["cities"]
 lowest_level = 0
+root_code = "curacao"
+root_name = "Curaçao"
+root_entity_type = "Country"
+include_tables = ["ts"]
+table_levels = { tl = 0, ts = 1 }
 
 [[pages]]
 source = "admin"
 path = ["admin"]
 lowest_level = 0
-
-[[cities]]
-city = "Willemstad"
-id = "30422"
-district_types = ["Place"]
-level = 2
-type = "City"
-from = { 0 = ["272"] }
-communes = ["30422"]
-keep_communes = false
+root_code = "curacao"
+root_name = "Curaçao"
+root_entity_type = "Country"
+table_levels = { admin1 = 2, admin2 = 3 }

@@ -1,7 +1,0 @@
-name = "Guadeloupe"
-LEGAL_SUBDIVISION = 2
-
-[[pages]]
-source = "table"
-path = ["https://www.citypopulation.de/en/france/cities/guadeloupe/"]
-lowest_level = 0

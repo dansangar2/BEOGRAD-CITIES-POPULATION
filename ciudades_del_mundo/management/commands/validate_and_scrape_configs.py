@@ -45,7 +45,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--download-assets",
             action="store_true",
-            help="Descargar ficheros de Commons durante el scraping. Más lento y puede provocar 429.",
+            help="Descargar ficheros de Commons en la fase de assets. Más lento y puede provocar 429.",
         )
 
     def handle(self, *args, **options):

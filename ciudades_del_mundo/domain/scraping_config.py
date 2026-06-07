@@ -42,6 +42,12 @@ class ScrapingPageConfig:
     area_overrides: dict[str, Decimal] = field(default_factory=dict)
     table_levels: dict[str, int] = field(default_factory=dict)
     include_tables: tuple[str, ...] = ()
+    include_root: bool = True
+    root_level: int | None = None
+    root_code: str | None = None
+    root_name: str | None = None
+    root_parent_code: str | None = None
+    root_entity_type: str | None = None
 
     @classmethod
     def from_mapping(cls, data: dict, *, path: str) -> "ScrapingPageConfig":
@@ -59,6 +65,12 @@ class ScrapingPageConfig:
             ),
             table_levels=_parse_table_levels(data.get("table_levels", data.get("levels"))),
             include_tables=_parse_include_tables(data.get("include_tables", data.get("tables"))),
+            include_root=bool(data.get("include_root", True)),
+            root_level=_int_or_none(data.get("root_level")),
+            root_code=_optional_string(data.get("root_code")),
+            root_name=_optional_string(data.get("root_name")),
+            root_parent_code=_optional_string(data.get("root_parent_code")),
+            root_entity_type=_optional_string(data.get("root_entity_type")),
         )
 
 
@@ -220,6 +232,17 @@ def _as_tuple(value) -> tuple[str, ...]:
     if isinstance(value, (str, int)):
         return (str(value),)
     return tuple(str(item) for item in value)
+
+
+def _optional_string(value) -> str | None:
+    text = str(value or "").strip()
+    return text or None
+
+
+def _int_or_none(value) -> int | None:
+    if value in (None, ""):
+        return None
+    return int(value)
 
 
 def _decimal_or_none(value) -> Decimal | None:

@@ -5,10 +5,10 @@ base_url = "https://www.citypopulation.de/en/"
 reset_before_import = true
 LEGAL_SUBDIVISION = 5
 
-# France is split by CityPopulation between Metropolitan France and five
-# overseas-department pages. Keep the real administrative tree as one country:
-# France L0 -> Metropolitan/Overseas L1 -> Regions L2 -> Departments L3 ->
-# Arrondissements L4 -> Communes L5.
+# France is split by CityPopulation between Metropolitan France and the
+# overseas-department city pages. Keep one real tree:
+# France L0 -> Metropolitan/Overseas L1 -> Regions / overseas departments L2 ->
+# Departments L3 -> Arrondissements L4 -> Communes L5.
 
 [[synthetic_entities]]
 code = "METRO"
@@ -16,7 +16,8 @@ name = "Metropolitan France"
 level = 1
 parent_code = "france"
 entity_type = "area"
-copy_metrics_from = "france"
+metric_source_parent_code = "METRO"
+metric_source_level = 2
 
 [[synthetic_entities]]
 code = "OVERSEAS"
@@ -33,46 +34,25 @@ exclude_codes = ["METRO", "OVERSEAS"]
 
 [[parent_overrides]]
 codes = ["GUF", "GLP", "MTQ", "MYT", "REU"]
-level = 3
+level = 2
 parent_code = "OVERSEAS"
-
-[[root_metric_sources]]
-path = "france/cities/guyane"
-code = "GUF"
-
-[[root_metric_sources]]
-path = "france/cities/guadeloupe"
-code = "GLP"
-
-[[root_metric_sources]]
-path = "france/cities/martinique"
-code = "MTQ"
-
-[[root_metric_sources]]
-path = "france/cities/mayotte"
-code = "MYT"
-
-[[root_metric_sources]]
-path = "france/cities/reunion"
-code = "REU"
-
-[[pages]]
-source = "cities"
-path = ["cities"]
-lowest_level = 0
 
 [[pages]]
 source = "admin"
 path = ["reg/admin"]
-lowest_level = 2
+lowest_level = 0
+include_root = false
+table_levels = { admin1 = 2, admin2 = 3 }
 
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 3
+lowest_level = 0
+include_root = false
+table_levels = { admin1 = 3, admin2 = 4 }
 
 [[pages]]
-source = "auto"
+source = "table"
 path = [
   "ain",
   "aisne",
@@ -171,15 +151,50 @@ path = [
   "yonne",
   "yvelines",
 ]
-lowest_level = 4
+lowest_level = 3
+table_levels = { tl = 4, ts = 5 }
 
 [[pages]]
-source = "auto"
-path = [
-  "cities/guyane",
-  "cities/guadeloupe",
-  "cities/martinique",
-  "cities/mayotte",
-  "cities/reunion",
-]
-lowest_level = 3
+source = "cities"
+path = ["cities/guyane"]
+lowest_level = 2
+root_code = "GUF"
+root_parent_code = "OVERSEAS"
+root_entity_type = "Overseas Department"
+table_levels = { tl = 4, ts = 5 }
+
+[[pages]]
+source = "cities"
+path = ["cities/guadeloupe"]
+lowest_level = 2
+root_code = "GLP"
+root_parent_code = "OVERSEAS"
+root_entity_type = "Overseas Department"
+table_levels = { tl = 4, ts = 5 }
+
+[[pages]]
+source = "cities"
+path = ["cities/martinique"]
+lowest_level = 2
+root_code = "MTQ"
+root_parent_code = "OVERSEAS"
+root_entity_type = "Overseas Department"
+table_levels = { tl = 4, ts = 5 }
+
+[[pages]]
+source = "cities"
+path = ["cities/mayotte"]
+lowest_level = 2
+root_code = "MYT"
+root_parent_code = "OVERSEAS"
+root_entity_type = "Overseas Department"
+table_levels = { tl = 4, ts = 5 }
+
+[[pages]]
+source = "cities"
+path = ["cities/reunion"]
+lowest_level = 2
+root_code = "REU"
+root_parent_code = "OVERSEAS"
+root_entity_type = "Overseas Department"
+table_levels = { tl = 4, ts = 5 }

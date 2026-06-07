@@ -9,10 +9,18 @@ from bs4 import BeautifulSoup
 
 from ciudades_del_mundo.domain import ScrapedAdminArea
 from ciudades_del_mundo.infrastructure.scraping.base import BaseCityPopulationScraper
+from ciudades_del_mundo.infrastructure.scraping.page_config import (
+    include_tables_for_page,
+    should_include_table,
+    table_levels_for_page,
+)
 from ciudades_del_mundo.infrastructure.scraping.page_types import (
     CityPopulationPageProfile,
     detect_citypopulation_page_profile,
 )
+
+
+MULTI_PARENT_ANNOTATION = "La localidad se reparte por varias subdivisiones superiores"
 
 
 class CityPopulationDoubleScraper(BaseCityPopulationScraper):
@@ -55,10 +63,10 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
         if root and root.parent_code is None and root.level > 0 and root.code != country_code:
             root = replace(root, parent_code=country_code)
 
-        include_tables = _include_tables_for_page(page)
-        table_levels = _table_levels_for_page(page)
-        should_include_tl = _should_include_table(include_tables, "tl")
-        should_include_ts = _should_include_table(include_tables, "ts")
+        include_tables = include_tables_for_page(page)
+        table_levels = table_levels_for_page(page)
+        should_include_tl = should_include_table(include_tables, "tl")
+        should_include_ts = should_include_table(include_tables, "ts")
 
         entities: list[ScrapedAdminArea] = [root] if root else []
         parents_by_name: dict[str, ScrapedAdminArea] = {}
@@ -136,7 +144,14 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
                     default_entity_type=default_entity_type,
                     visible_pop_columns=visible_pop_columns,
                 )
-                parent_code = self._parent_code_from_radm(tr, parents_by_name or {})
+                parent_code = None
+                annotations = ""
+                if parsed:
+                    parent_code, annotations = self._parent_code_from_radm(
+                        tr,
+                        parents_by_name or {},
+                        child_name=parsed.name,
+                    )
             else:
                 parsed = self._client.parse_tr_tl(
                     tr=tr,
@@ -151,6 +166,7 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
                     visible_pop_columns=visible_pop_columns,
                 )
                 parent_code = None
+                annotations = ""
 
             if not parsed:
                 continue
@@ -169,6 +185,7 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
                     pop_latest_date=parsed.pop_latest_date,
                     last_census_year=parsed.last_census_year,
                     url=parsed.url,
+                    annotations=annotations,
                 )
             )
 
@@ -210,35 +227,122 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
             return value[:-1]
         return value
 
-    def _parent_code_from_radm(self, tr, parents_by_name: dict[str, ScrapedAdminArea]) -> str | None:
+    def _parent_code_from_radm(
+        self,
+        tr,
+        parents_by_name: dict[str, ScrapedAdminArea],
+        *,
+        child_name: str,
+    ) -> tuple[str | None, str]:
         parent_cell = tr.find("td", class_=lambda value: value and "radm" in value.split())
         if not parent_cell:
-            return None
+            return None, ""
+        raw_parent_text = parent_cell.get_text(" ", strip=True)
+        parent_texts, shared_population = self._parent_reference_candidates(
+            raw_parent_text,
+            child_name=child_name,
+        )
         parent_id = parent_cell.get("data-admid")
         if parent_id:
-            return parent_id
-        for parent_name in self._parent_lookup_keys(parent_cell.get_text(" ", strip=True)):
+            return parent_id, MULTI_PARENT_ANNOTATION if shared_population else ""
+
+        for parent_text in parent_texts:
+            parent = self._resolve_parent_by_name(parent_text, parents_by_name)
+            if parent:
+                return parent.code, MULTI_PARENT_ANNOTATION if shared_population else ""
+        return None, MULTI_PARENT_ANNOTATION if shared_population else ""
+
+    def _parent_reference_candidates(self, raw_parent_text: str, *, child_name: str) -> tuple[list[str], bool]:
+        """Return ordered parent names and whether the row shares population.
+
+        Some CityPopulation ``ts`` tables leave ``radm`` blank for rows that
+        repeat a parent with the same name, or put several candidate parents in
+        a slash-separated label.  In those cases, prefer the same-name parent;
+        otherwise fall back to the first slash segment and mark the child as
+        sharing population with other divisions.
+        """
+        text = re.sub(r"\s+", " ", raw_parent_text or "").strip()
+        child = re.sub(r"\s+", " ", child_name or "").strip()
+        if not text:
+            return ([child] if child else []), bool(child)
+
+        parts = [part.strip() for part in re.split(r"\s*/\s*", text) if part.strip()]
+        if len(parts) <= 1:
+            return ([text] if text else []), False
+
+        child_keys = set(self._parent_lookup_keys(child))
+        matching_parts = [part for part in parts if child_keys.intersection(self._parent_lookup_keys(part))]
+        if matching_parts:
+            ordered = matching_parts + [part for part in parts if part not in matching_parts]
+        else:
+            ordered = parts
+        return ordered, True
+
+    def _resolve_parent_by_name(
+        self,
+        parent_text: str,
+        parents_by_name: dict[str, ScrapedAdminArea],
+    ) -> ScrapedAdminArea | None:
+        for parent_name in self._parent_lookup_keys(parent_text):
             parent = parents_by_name.get(parent_name)
             if parent:
-                return parent.code
+                return parent
+            parent = self._unique_parent_by_prefix(parent_name, parents_by_name)
+            if parent:
+                return parent
+        return None
+
+    def _unique_parent_by_prefix(
+        self,
+        parent_name: str,
+        parents_by_name: dict[str, ScrapedAdminArea],
+    ) -> ScrapedAdminArea | None:
+        """Resolve abbreviated ``radm`` labels when they uniquely prefix a parent.
+
+        Examples include Austrian communes where the child row says
+        ``Breitenbrunn`` but the parent table says ``Breitenbrunn am
+        Neusiedler See``.  The match is only accepted when it resolves to one
+        unique parent code to avoid accidental cross-parent assignments.
+        """
+        if not parent_name:
+            return None
+        matches: dict[str, ScrapedAdminArea] = {}
+        for key, candidate in parents_by_name.items():
+            if key.startswith(f"{parent_name} "):
+                matches[candidate.code] = candidate
+        if len(matches) == 1:
+            return next(iter(matches.values()))
         return None
 
     def _normalize_name(self, value: str) -> str:
         return re.sub(r"\s+", " ", value).strip().casefold()
 
     def _parent_lookup_keys(self, value: str) -> tuple[str, ...]:
-        normalized = self._normalize_name(value)
-        compact = re.sub(r"[\W_]+", "", normalized)
-        return (normalized, compact) if compact and compact != normalized else (normalized,)
+        """Return robust lookup aliases for parent names shown in ``radm`` cells.
 
+        CityPopulation parent tables often include translations or legacy names
+        in brackets/parentheses (for example ``České Budějovice [ Budweis ]``
+        or ``Käerjeng ( Bascharage, Clemency )``), while child rows usually
+        refer to the shorter administrative name.  The aliases stay generic and
+        avoid country-specific branches by indexing both the full label and the
+        leading canonical label before bracketed qualifiers.
+        """
+        candidates = [value]
+        leading = re.split(r"\s*[\[(]", value, maxsplit=1)[0].strip()
+        if leading and leading != value:
+            candidates.append(leading)
+        without_brackets = re.sub(r"\s*[\[(][^\])]*[\])]", "", value).strip()
+        if without_brackets and without_brackets not in candidates:
+            candidates.append(without_brackets)
 
-def _include_tables_for_page(page) -> tuple[str, ...]:
-    return tuple(str(value).strip().lower() for value in getattr(page, "include_tables", ()) if str(value).strip())
+        keys: list[str] = []
+        for candidate in candidates:
+            normalized = self._normalize_name(candidate)
+            if not normalized:
+                continue
+            compact = re.sub(r"[\W_]+", "", normalized)
+            for key in (normalized, compact):
+                if key and key not in keys:
+                    keys.append(key)
+        return tuple(keys)
 
-
-def _table_levels_for_page(page) -> dict[str, int]:
-    return {str(key).strip().lower(): int(value) for key, value in getattr(page, "table_levels", {}).items()}
-
-
-def _should_include_table(include_tables: tuple[str, ...], table: str) -> bool:
-    return not include_tables or table in include_tables

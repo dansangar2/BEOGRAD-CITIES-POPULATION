@@ -6,11 +6,6 @@ reset_before_import = true
 LEGAL_SUBDIVISION = 3
 
 [[pages]]
-source = "cities"
-path = ["cities"]
-lowest_level = 0
-
-[[pages]]
 source = "admin"
 path = ["admin"]
 lowest_level = 0

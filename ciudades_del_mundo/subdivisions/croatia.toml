@@ -34,3 +34,6 @@ path = [
   "zagreb",
 ]
 lowest_level = 1
+include_root = false
+include_tables = ["ts"]
+table_levels = { tl = 2, ts = 3 }

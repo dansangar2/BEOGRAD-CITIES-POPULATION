@@ -14,7 +14,10 @@ from ciudades_del_mundo.web.task_progress import write_config_progress
 
 
 class Command(BaseCommand):
-    help = "Ejecuta scrape_subdivisions y reutiliza sus paginas para registrar bandera/escudo/sello."
+    help = (
+        "Ejecuta scrape_subdivisions y, tras popular los datos, registra bandera/escudo/sello "
+        "como segunda fase reanudable."
+    )
 
     def _write(self, message):
         self.stdout.write(message)
@@ -34,7 +37,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--skip-assets",
             action="store_true",
-            help="No registrar ni descargar bandera/escudo durante el scraping.",
+            help="No registrar ni descargar bandera/escudo tras popular los datos.",
         )
         parser.add_argument(
             "--no-download-assets",
@@ -44,7 +47,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--download-assets",
             action="store_true",
-            help="Descargar los ficheros de Commons durante el scraping. Más lento y puede provocar 429.",
+            help="Descargar los ficheros de Commons en la fase de assets. Más lento y puede provocar 429.",
         )
         parser.add_argument(
             "--skip-subdivision-assets",

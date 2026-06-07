@@ -168,11 +168,32 @@ Page-level scraping config hints:
 - `include_tables = ["ts"]` on a `[[pages]]` entry tells compound scrapers to
   use other page tables only as lookup context and not persist them. This is
   useful for CityPopulation locality/urban-place pages where the first table
-  repeats provinces or municipalities already imported elsewhere.
-- `table_levels = { ts = 4 }` overrides the persisted level for a table in a
-  compound page while preserving the scraped parent code. Use it when a source
-  table is attached to a higher-level parent but semantically sits one level
-  below another hierarchy branch.
+  repeats provinces or municipalities already imported elsewhere. The same
+  hint also works for hierarchical admin bodies using keys such as
+  `include_tables = ["admin2"]`, so `/tunisia/mun/admin/` can use governorates
+  as parent context while persisting only municipalities.
+- `table_levels = { ts = 4 }` or `table_levels = { admin1 = 1, admin2 = 3 }`
+  overrides the semantic level for a table/body without changing the parser
+  implementation. Use it when CityPopulation attaches rows to a higher-level
+  page parent but the project hierarchy needs a gap, e.g. municipalities at L3
+  under L1 governorates, urban centers at L3 under L2 municipalities, or
+  sub-municipalities at L5 under L4 municipalities.
+- `root_code`, `root_name`, `root_level`, `root_parent_code` and
+  `root_entity_type` recode or create a page root from TOML. They are intended
+  for rootless admin pages and CityPopulation pages whose internal root code is
+  not the project country/territory code.
+- `[[synthetic_entities]]`, `[[parent_overrides]]` and
+  `[[root_metric_sources]]` are runtime config extensions for rare cases such
+  as Belgium/Flanders/Wallonia or France Metropolitan/Overseas grouping. Keep
+  them data-only; do not add country-specific branches to scraper code.
+- When a compound `table`/`double` page assigns `table#ts` parents through an
+  `radm` column, blank `radm` cells must resolve to the same-name parent from
+  `table#tl` when possible. If `radm` contains multiple parent labels separated
+  by `/`, prefer the label matching the child name; if none match, try the first
+  label first. Rows resolved through blank or slash-separated parent labels get
+  `AdminArea.annotations = "Comparte población con otras divisiones"`. The
+  `/countries/` country data table shows an `Anotaciones` column only when at
+  least one visible row has an annotation.
 
 - `subdivisions/*.toml`: git-ignored local seed/export artifacts. They are
   allowed for explicit `/configs/` bootstrap through `sync_scraping_configs`,
@@ -193,7 +214,7 @@ Page-level scraping config hints:
 - levels: `0..5`, where `0` is country/root
 - hierarchy: `parent` self-FK
 - important fields: `entity_type`, `raw_entity_type`, `area_km2`, `density`,
-  `pop_latest`, `pop_latest_date`, `last_census_year`, `url`,
+  `pop_latest`, `pop_latest_date`, `last_census_year`, `url`, `annotations`,
   `representatives`
 - `raw_entity_type` preserves the scraped/incomplete label when AI or stored
   inference normalizes `entity_type` to a canonical internal singular label
@@ -1410,7 +1431,11 @@ If the user asks about web UI:
   `scrape_subdivisions_with_assets --no-download-assets --page-workers=4` when
   the row is already `Validado`, so independent CityPopulation HTML downloads
   overlap while the child command still emits page-complete events in config
-  order. `TaskManager` starts web tasks immediately and does not throttle them
+  order. Asset discovery from cached CityPopulation pages now runs only after
+  the country data has been fully populated; `.web_scrape_resume/*.json` keeps
+  the cached pages, a `data_populated` marker and per-page asset checkpoints so
+  a rerun can continue directly from the asset/AI phase if that second phase
+  fails. `TaskManager` starts web tasks immediately and does not throttle them
   with a backend queue. Only the browser notification boxes/toasts are visually
   queued when more than three would be visible at once. `TaskManager` persists
   task history/status in the `WebTask` database table, full per-task logs to

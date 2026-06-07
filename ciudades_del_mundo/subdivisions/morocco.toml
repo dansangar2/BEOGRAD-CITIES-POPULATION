@@ -14,14 +14,9 @@ wikidata_id = "Q1028"
 commons_filename = "Coat of arms of Morocco.svg"
 
 [[pages]]
-source = "cities"
-path = ["cities"]
-lowest_level = 0
-
-[[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 1
+lowest_level = 0
 
 [[pages]]
 source = "admin"

@@ -51,6 +51,7 @@ class AdminArea(models.Model):
     pop_latest_date  = models.DateField(null=True, blank=True)
     last_census_year = models.IntegerField(null=True, blank=True)
     url              = models.URLField(max_length=500, null=True, blank=True)
+    annotations      = models.TextField(blank=True, default="", verbose_name="Anotaciones")
 
     # --- NUEVOS CAMPOS ---
     # Varias capitales (auto-relación, no simétrica)

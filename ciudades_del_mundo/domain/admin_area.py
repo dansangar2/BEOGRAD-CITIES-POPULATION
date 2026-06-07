@@ -30,6 +30,7 @@ class ScrapedAdminArea:
     last_census_year: int | None = None
     url: str | None = None
     city_merge_status: int = CITY_MERGE_NONE
+    annotations: str = ""
 
     @property
     def id(self) -> str:

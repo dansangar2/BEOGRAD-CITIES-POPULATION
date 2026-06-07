@@ -1,29 +1,25 @@
+name = "Aruba"
+country_code = "aruba"
+base_url = "https://www.citypopulation.de/en/"
+reset_before_import = true
+LEGAL_SUBDIVISION = 2
+
+# L0 country -> L1 regions -> L2 cities/urban areas -> L3 zones.
 [[pages]]
 source = "table"
 path = ["cities"]
 lowest_level = 0
+root_code = "aruba"
+root_name = "Aruba"
+root_entity_type = "Country"
+include_tables = ["ts"]
+table_levels = { tl = 1, ts = 2 }
 
 [[pages]]
 source = "admin"
 path = ["admin"]
 lowest_level = 0
-
-[[cities]]
-city = "Oranjestad"
-id = "19610"
-district_types = ["Urban Area"]
-level = 2
-type = "City"
-from = { 0 = ["244"] }
-communes = ["19610"]
-keep_communes = false
-
-[[cities]]
-city = "Sint Nicolaas"
-id = "19611"
-district_types = ["Urban Area"]
-level = 2
-type = "City"
-from = { 0 = ["244"] }
-communes = ["19611"]
-keep_communes = false
+root_code = "aruba"
+root_name = "Aruba"
+root_entity_type = "Country"
+table_levels = { admin1 = 1, admin2 = 3 }
