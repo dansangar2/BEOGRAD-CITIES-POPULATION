@@ -5,6 +5,10 @@ reset_before_import = true
 LEGAL_SUBDIVISION = 1
 
 # L0 collectivity -> L1 statistical areas -> L2 capital.
+[visual_assets.flag]
+remote_url = "https://www.citypopulation.de/images/flags/saintbarthelemy.svg"
+source = "config"
+
 [[pages]]
 source = "cities"
 path = [""]
@@ -13,3 +17,7 @@ root_code = "saintbarthelemy"
 root_name = "Saint-Barthélemy"
 root_entity_type = "Overseas Collectivity"
 table_levels = { tl = 1, ts = 2 }
+
+[[parent_overrides]]
+codes = ["25266"]
+parent_code = "8446"

@@ -12,6 +12,7 @@ from ciudades_del_mundo.infrastructure.scraping.base import BaseCityPopulationSc
 from ciudades_del_mundo.infrastructure.scraping.page_config import (
     include_tables_for_page,
     should_include_table,
+    status_levels_for_page,
     table_levels_for_page,
 )
 from ciudades_del_mundo.infrastructure.scraping.page_types import (
@@ -20,7 +21,7 @@ from ciudades_del_mundo.infrastructure.scraping.page_types import (
 )
 
 
-MULTI_PARENT_ANNOTATION = "La localidad se reparte por varias subdivisiones superiores"
+SHARED_POPULATION_ANNOTATION = "Comparte población con otras divisiones"
 
 
 class CityPopulationDoubleScraper(BaseCityPopulationScraper):
@@ -65,6 +66,7 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
 
         include_tables = include_tables_for_page(page)
         table_levels = table_levels_for_page(page)
+        status_levels = status_levels_for_page(page)
         should_include_tl = should_include_table(include_tables, "tl")
         should_include_ts = should_include_table(include_tables, "ts")
 
@@ -81,6 +83,7 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
                 level=tl_level,
                 base_url=url,
                 parser="tl",
+                status_levels=status_levels,
             ):
                 if root:
                     entity = replace(entity, parent_code=root.code)
@@ -103,6 +106,7 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
                 base_url=url,
                 parser="ts",
                 parents_by_name=parents_by_name,
+                status_levels=status_levels,
             ):
                 if root and not ts_has_radm and entity.parent_code is None:
                     entity = replace(entity, parent_code=root.code)
@@ -120,74 +124,78 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
         base_url: str,
         parser: str,
         parents_by_name: dict[str, ScrapedAdminArea] | None = None,
+        status_levels: dict[str, int] | None = None,
     ) -> list[ScrapedAdminArea]:
         last_pop_idx, last_pop_date = self._client.detect_last_visible_pop_column(table)
         visible_pop_columns = self._client.visible_pop_columns(table)
         last_year = self._client.year_from_date(last_pop_date)
-        tbody = table.find("tbody")
-        if not tbody:
+        tbodies = table.find_all("tbody", recursive=False)
+        if not tbodies:
             return []
         default_entity_type = self._default_entity_type(table)
         area_divisor = self._area_divisor(table)
+        status_levels = status_levels or {}
 
         entities = []
-        for tr in tbody.find_all("tr", recursive=False):
-            if parser == "ts":
-                parsed = self._client.parse_tr_ts(
-                    tr=tr,
-                    last_visible_pop_idx=last_pop_idx,
-                    last_visible_date=last_pop_date,
-                    default_last_census_year=last_year,
-                    country_code=country_code,
-                    base_url=base_url,
-                    has_radm=bool(table.find("th", class_=lambda value: value and "radm" in value.split())),
-                    default_entity_type=default_entity_type,
-                    visible_pop_columns=visible_pop_columns,
-                )
-                parent_code = None
-                annotations = ""
-                if parsed:
-                    parent_code, annotations = self._parent_code_from_radm(
-                        tr,
-                        parents_by_name or {},
-                        child_name=parsed.name,
+        for tbody in tbodies:
+            for tr in tbody.find_all("tr", recursive=False):
+                if parser == "ts":
+                    parsed = self._client.parse_tr_ts(
+                        tr=tr,
+                        last_visible_pop_idx=last_pop_idx,
+                        last_visible_date=last_pop_date,
+                        default_last_census_year=last_year,
+                        country_code=country_code,
+                        base_url=base_url,
+                        has_radm=bool(table.find("th", class_=lambda value: value and "radm" in value.split())),
+                        default_entity_type=default_entity_type,
+                        visible_pop_columns=visible_pop_columns,
                     )
-            else:
-                parsed = self._client.parse_tr_tl(
-                    tr=tr,
-                    explicit_level=level,
-                    last_visible_pop_idx=last_pop_idx,
-                    last_visible_date=last_pop_date,
-                    default_last_census_year=last_year,
-                    country_code=country_code,
-                    base_url=base_url,
-                    default_entity_type=default_entity_type,
-                    area_divisor=area_divisor,
-                    visible_pop_columns=visible_pop_columns,
-                )
-                parent_code = None
-                annotations = ""
+                    parent_code = None
+                    annotations = ""
+                    if parsed:
+                        parent_code, annotations = self._parent_code_from_radm(
+                            tr,
+                            parents_by_name or {},
+                            child_name=parsed.name,
+                        )
+                else:
+                    parsed = self._client.parse_tr_tl(
+                        tr=tr,
+                        explicit_level=level,
+                        last_visible_pop_idx=last_pop_idx,
+                        last_visible_date=last_pop_date,
+                        default_last_census_year=last_year,
+                        country_code=country_code,
+                        base_url=base_url,
+                        default_entity_type=default_entity_type,
+                        area_divisor=area_divisor,
+                        visible_pop_columns=visible_pop_columns,
+                    )
+                    parent_code = None
+                    annotations = ""
 
-            if not parsed:
-                continue
+                if not parsed:
+                    continue
 
-            entities.append(
-                ScrapedAdminArea(
-                    code=parsed.entity_id,
-                    name=parsed.name,
-                    level=level,
-                    country_code=country_code,
-                    entity_type=parsed.entity_type,
-                    parent_code=parent_code,
-                    area_km2=parsed.area_km2,
-                    density=parsed.density,
-                    pop_latest=parsed.pop_latest,
-                    pop_latest_date=parsed.pop_latest_date,
-                    last_census_year=parsed.last_census_year,
-                    url=parsed.url,
-                    annotations=annotations,
+                entity_level = status_levels.get(str(parsed.entity_type or "").strip().casefold(), level)
+                entities.append(
+                    ScrapedAdminArea(
+                        code=parsed.entity_id,
+                        name=parsed.name,
+                        level=entity_level,
+                        country_code=country_code,
+                        entity_type=parsed.entity_type,
+                        parent_code=parent_code,
+                        area_km2=parsed.area_km2,
+                        density=parsed.density,
+                        pop_latest=parsed.pop_latest,
+                        pop_latest_date=parsed.pop_latest_date,
+                        last_census_year=parsed.last_census_year,
+                        url=parsed.url,
+                        annotations=annotations,
+                    )
                 )
-            )
 
         return entities
 
@@ -237,20 +245,20 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
         parent_cell = tr.find("td", class_=lambda value: value and "radm" in value.split())
         if not parent_cell:
             return None, ""
+        parent_id = parent_cell.get("data-admid")
+        if parent_id:
+            return parent_id, ""
+
         raw_parent_text = parent_cell.get_text(" ", strip=True)
         parent_texts, shared_population = self._parent_reference_candidates(
             raw_parent_text,
             child_name=child_name,
         )
-        parent_id = parent_cell.get("data-admid")
-        if parent_id:
-            return parent_id, MULTI_PARENT_ANNOTATION if shared_population else ""
-
         for parent_text in parent_texts:
             parent = self._resolve_parent_by_name(parent_text, parents_by_name)
             if parent:
-                return parent.code, MULTI_PARENT_ANNOTATION if shared_population else ""
-        return None, MULTI_PARENT_ANNOTATION if shared_population else ""
+                return parent.code, SHARED_POPULATION_ANNOTATION if shared_population else ""
+        return None, SHARED_POPULATION_ANNOTATION if shared_population else ""
 
     def _parent_reference_candidates(self, raw_parent_text: str, *, child_name: str) -> tuple[list[str], bool]:
         """Return ordered parent names and whether the row shares population.

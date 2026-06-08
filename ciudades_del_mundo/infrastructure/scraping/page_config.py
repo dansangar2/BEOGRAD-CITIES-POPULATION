@@ -96,3 +96,10 @@ def apply_root_config(
 def _optional_string(value) -> str | None:
     text = str(value or "").strip()
     return text or None
+
+
+def status_levels_for_page(page) -> dict[str, int]:
+    if page is None:
+        return {}
+    raw = getattr(page, "status_levels", None) or {}
+    return {str(key).strip().casefold(): int(value) for key, value in raw.items()}

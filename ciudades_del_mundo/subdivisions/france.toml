@@ -1,7 +1,6 @@
 name = "France"
 country_code = "france"
 wikidata_id = "Q142"
-base_url = "https://www.citypopulation.de/en/"
 reset_before_import = true
 LEGAL_SUBDIVISION = 5
 
@@ -36,6 +35,11 @@ exclude_codes = ["METRO", "OVERSEAS"]
 codes = ["GUF", "GLP", "MTQ", "MYT", "REU"]
 level = 2
 parent_code = "OVERSEAS"
+
+[[pages]]
+source = "infosection"
+path = ["cities"]
+lowest_level = 0
 
 [[pages]]
 source = "admin"

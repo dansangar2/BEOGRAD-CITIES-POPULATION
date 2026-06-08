@@ -17,6 +17,7 @@ class ScrapingConfigTests(TestCase):
                     "area_km2": "123.45",
                     "area_overrides": {"A": "1.50"},
                     "table_levels": {"ts": 4},
+                    "status_levels": {"AReg": 1, "Cant": 2},
                     "include_tables": ["ts"],
                     "include_root": False,
                     "root_level": 2,
@@ -35,6 +36,7 @@ class ScrapingConfigTests(TestCase):
         self.assertTrue(all(page.area_km2 == Decimal("123.45") for page in pages))
         self.assertTrue(all(page.area_overrides == {"A": Decimal("1.50")} for page in pages))
         self.assertTrue(all(page.table_levels == {"ts": 4} for page in pages))
+        self.assertTrue(all(page.status_levels == {"areg": 1, "cant": 2} for page in pages))
         self.assertTrue(all(page.include_tables == ("ts",) for page in pages))
         self.assertTrue(all(page.include_root is False for page in pages))
         self.assertTrue(all(page.root_level == 2 for page in pages))

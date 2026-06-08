@@ -27,6 +27,7 @@ urlpatterns = [
     path("configs/tasks/table/", views.config_tasks_table, name="config_tasks_table"),
     path("configs/new/", views.config_new, name="config_new"),
     path("configs/all/task/<slug:action>/", views.start_all_config_task, name="start_all_config_task"),
+    path("configs/<slug:slug>/export-toml/", views.config_export_toml, name="config_export_toml"),
     path("configs/<slug:slug>/", views.config_edit, name="config_edit"),
     path("configs/<slug:slug>/summary/", views.config_summary, name="config_summary"),
     path("configs/<slug:slug>/source-entities/", views.config_source_entities, name="config_source_entities"),

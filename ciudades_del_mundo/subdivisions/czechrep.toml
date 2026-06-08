@@ -1,3 +1,9 @@
+name = "Czech Republic"
+country_code = "czechrep"
+[visual_assets.flag]
+remote_url = "https://commons.wikimedia.org/wiki/Special:Redirect/file/Flag%20of%20the%20Czech%20Republic.svg?width=640"
+source = "config"
+
 [[pages]]
 source = "infosection"
 path = ["cities"]

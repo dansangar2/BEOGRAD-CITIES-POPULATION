@@ -36,7 +36,6 @@ from ciudades_del_mundo.services.ai_text_provider import (
 from ciudades_del_mundo.services.scrape_resume import ScrapeResumeStore
 from ciudades_del_mundo.services.scraping_config_extensions import attach_runtime_config_extensions
 from ciudades_del_mundo.services.visual_assets import (
-    AssetSeedResult,
     seed_visual_assets_from_scraped_page,
     visual_asset_tables_exist,
 )
@@ -69,10 +68,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--seed-assets-from-pages",
             action="store_true",
-            help=(
-                "Después de popular los datos del país, persiste bandera/escudo/sello desde "
-                "las páginas CityPopulation cacheadas como segunda fase reanudable."
-            ),
+            help="Persist flag/coat/seal images found in each already-downloaded CityPopulation page.",
         )
         parser.add_argument(
             "--no-download-assets",
@@ -157,34 +153,8 @@ class Command(BaseCommand):
 
             ai_service = self._ai_service(options) if options.get("ai_enrich") else None
             resume_store = _resume_store_for_config(config)
-            continue_asset_phase = seed_assets and resume_store.data_populated()
-            if not options.get("resume") and not continue_asset_phase:
+            if not options.get("resume"):
                 resume_store.clear()
-
-            if continue_asset_phase:
-                self._write(f"[assets] {config.slug}: continuando fase de assets tras datos ya populados")
-                self._seed_assets_from_resume_pages(
-                    config,
-                    resume_store=resume_store,
-                    download_assets=bool(options.get("download_assets")) and not bool(options.get("no_download_assets")),
-                    subdivision_levels=subdivision_levels,
-                    max_individual_wikidata_lookups=int(options.get("max_individual_wikidata_lookups") or 0),
-                )
-                if ai_service:
-                    stats = ai_service.translate_dynamic_texts(
-                        country_code=config.country_code,
-                        include_country=True,
-                        include_admin_area_names=bool(options.get("ai_translate_area_names")),
-                        include_entity_types=True,
-                        limit=max(1, int(options.get("ai_limit") or 1)),
-                    )
-                    stats += ai_service.describe_missing_visual_assets(
-                        country_code=config.country_code,
-                        limit=max(1, int(options.get("ai_limit") or 1)),
-                    )
-                    self._write(stats.as_log_line(f"[ai] {config.slug}:"))
-                resume_store.clear()
-                continue
 
             use_case = ScrapeAdminAreas(
                 repository=DjangoAdminAreaRepository(),
@@ -237,15 +207,6 @@ class Command(BaseCommand):
                 f"updated={result.updated}, deleted={result.deleted}",
                 style=self.style.SUCCESS,
             )
-            if seed_assets:
-                resume_store.mark_data_populated()
-                self._seed_assets_from_resume_pages(
-                    config,
-                    resume_store=resume_store,
-                    download_assets=bool(options.get("download_assets")) and not bool(options.get("no_download_assets")),
-                    subdivision_levels=subdivision_levels,
-                    max_individual_wikidata_lookups=int(options.get("max_individual_wikidata_lookups") or 0),
-                )
             if ai_service:
                 stats = ai_service.translate_dynamic_texts(
                     country_code=config.country_code,
@@ -274,59 +235,26 @@ class Command(BaseCommand):
         max_individual_wikidata_lookups: int,
     ) -> None:
         self._write(f"FOUND {page.found} entities: {page.url}")
-        # Always keep the completed page HTML/entities in the resume store.
-        # Asset discovery is intentionally delayed until after the country data
-        # has been fully persisted, so a failed second phase can resume here.
+        if not seed_assets:
+            resume_store.save_page(page)
+            return
+        result = seed_visual_assets_from_scraped_page(
+            country_code=config.country_code,
+            page_url=page.url,
+            html=page.html,
+            entities=list(page.entities),
+            download_missing=download_assets,
+            subdivision_levels=subdivision_levels,
+            fill_missing_with_wikidata=True,
+            max_individual_wikidata_lookups=max_individual_wikidata_lookups,
+            logger=self._write,
+        )
+        if result.found or result.downloaded or result.missing or result.errors:
+            self._write(result.as_log_line(f"{config.slug}:page-assets"))
         resume_store.save_page(page)
 
     def _on_cached_page(self, page) -> None:
         self._write(f"RESUME {page.found} cached entities: {page.url}")
-
-    def _seed_assets_from_resume_pages(
-        self,
-        config,
-        *,
-        resume_store: ScrapeResumeStore,
-        download_assets: bool,
-        subdivision_levels: tuple[int, ...] | None,
-        max_individual_wikidata_lookups: int,
-    ) -> AssetSeedResult:
-        pages = resume_store.iter_pages()
-        if not pages:
-            raise CommandError(
-                f"No hay paginas cacheadas para buscar assets de {config.slug}. "
-                "Vuelve a ejecutar el scraping completo."
-            )
-
-        total = AssetSeedResult()
-        self._write(f"[assets] {config.slug}: fase 2 tras popular datos ({len(pages)} paginas cacheadas)")
-        for page in pages:
-            if resume_store.asset_page_done(page.key):
-                self._write(f"[assets] {config.slug}: omite pagina ya procesada: {page.url}")
-                continue
-            result = seed_visual_assets_from_scraped_page(
-                country_code=config.country_code,
-                page_url=page.url,
-                html=page.html,
-                entities=list(page.entities),
-                download_missing=download_assets,
-                subdivision_levels=subdivision_levels,
-                fill_missing_with_wikidata=True,
-                max_individual_wikidata_lookups=max_individual_wikidata_lookups,
-                logger=self._write,
-            )
-            total = AssetSeedResult(
-                scanned_pages=total.scanned_pages + result.scanned_pages,
-                found=total.found + result.found,
-                downloaded=total.downloaded + result.downloaded,
-                missing=total.missing + result.missing,
-                errors=total.errors + result.errors,
-            )
-            if result.found or result.downloaded or result.missing or result.errors:
-                self._write(result.as_log_line(f"{config.slug}:page-assets"))
-            resume_store.mark_asset_page_done(page.key)
-        self._write(total.as_log_line(f"{config.slug}:assets-total"))
-        return total
 
     def _run_with_sqlite_retry(self, callback, *, attempts: int = 8):
         delay = 1.0

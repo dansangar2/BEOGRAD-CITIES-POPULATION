@@ -1,4 +1,10 @@
+name = "Austria"
+country_code = "austria"
 LEGAL_SUBDIVISION = 4
+
+[visual_assets.flag]
+remote_url = "https://www.citypopulation.de/images/flags/austria.svg"
+source = "config"
 
 [[pages]]
 source = "admin"

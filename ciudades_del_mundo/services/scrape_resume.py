@@ -30,12 +30,6 @@ class ResumePageSnapshot:
     found: int
     html: str
     entities: tuple[ScrapedAdminArea, ...]
-    key: str = ""
-    path: str = ""
-    html_format: str = ""
-    lowest_level: int = 0
-    url: str = ""
-    index: int = 0
 
 
 class ScrapeResumeStore:
@@ -79,66 +73,7 @@ class ScrapeResumeStore:
             found=int(item.get("found") or len(entities)),
             html=str(item.get("html") or ""),
             entities=tuple(_deserialize_entity(entity) for entity in entities if isinstance(entity, dict)),
-            key=page_cache_key(page),
-            path=str(item.get("path") or ""),
-            html_format=str(item.get("html_format") or ""),
-            lowest_level=int(item.get("lowest_level") or 0),
-            url=str(item.get("url") or ""),
-            index=int(item.get("index") or 0),
         )
-
-    def iter_pages(self) -> tuple[ResumePageSnapshot, ...]:
-        """Return all cached pages in configured order."""
-        payload = self._read()
-        pages = payload.get("pages")
-        if not isinstance(pages, dict):
-            return ()
-        snapshots: list[ResumePageSnapshot] = []
-        for key, item in pages.items():
-            if not isinstance(item, dict):
-                continue
-            entities = item.get("entities")
-            if not isinstance(entities, list):
-                continue
-            snapshots.append(
-                ResumePageSnapshot(
-                    found=int(item.get("found") or len(entities)),
-                    html=str(item.get("html") or ""),
-                    entities=tuple(_deserialize_entity(entity) for entity in entities if isinstance(entity, dict)),
-                    key=str(key),
-                    path=str(item.get("path") or ""),
-                    html_format=str(item.get("html_format") or ""),
-                    lowest_level=int(item.get("lowest_level") or 0),
-                    url=str(item.get("url") or ""),
-                    index=int(item.get("index") or 0),
-                )
-            )
-        return tuple(sorted(snapshots, key=lambda page: (page.index, page.path, page.url)))
-
-    def data_populated(self) -> bool:
-        """Return whether scraping/import finished and only the asset phase remains."""
-        return bool(self._read().get("data_populated"))
-
-    def mark_data_populated(self) -> None:
-        payload = self._read()
-        payload["data_populated"] = True
-        payload["data_populated_at"] = timezone.now().isoformat()
-        payload["updated_at"] = timezone.now().isoformat()
-        _write_json_atomic(self.path, payload)
-
-    def asset_page_done(self, page_key: str) -> bool:
-        asset_pages = self._read().get("asset_pages")
-        return isinstance(asset_pages, dict) and str(asset_pages.get(str(page_key)) or "") == "completed"
-
-    def mark_asset_page_done(self, page_key: str) -> None:
-        payload = self._read()
-        asset_pages = payload.get("asset_pages")
-        if not isinstance(asset_pages, dict):
-            asset_pages = {}
-        asset_pages[str(page_key)] = "completed"
-        payload["asset_pages"] = asset_pages
-        payload["updated_at"] = timezone.now().isoformat()
-        _write_json_atomic(self.path, payload)
 
     def save_page(self, page) -> None:
         payload = self._read()

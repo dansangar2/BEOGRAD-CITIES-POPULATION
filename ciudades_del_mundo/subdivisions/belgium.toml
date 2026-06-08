@@ -9,6 +9,25 @@ LEGAL_SUBDIVISION = 4
 # L3 arrondissements -> L4 municipalities -> L5 municipalities/sub-municipalities.
 # CityPopulation does not expose Flanders/Wallonia as rows in /belgium/admin/,
 # so they are declared here and province rows are reparented into them.
+
+[[visual_assets.admin_areas]]
+code = "BE-VLG"
+kind = "flag"
+commons_filename = "Flag of Flanders.svg"
+source = "config"
+
+[[visual_assets.admin_areas]]
+code = "BE-WAL"
+kind = "flag"
+commons_filename = "Flag of Wallonia.svg"
+source = "config"
+
+[[visual_assets.admin_areas]]
+code = "04000"
+kind = "flag"
+commons_filename = "Flag of the Brussels-Capital Region.svg"
+source = "config"
+
 [[synthetic_entities]]
 code = "BE-VLG"
 name = "Flemish Region"
@@ -39,6 +58,10 @@ parent_code = "BE-WAL"
 codes = ["04000"]
 level = 1
 parent_code = "belgium"
+
+[visual_assets.flag]
+remote_url = "https://www.citypopulation.de/images/flags/belgium.svg"
+source = "config"
 
 [[pages]]
 source = "admin"

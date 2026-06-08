@@ -1,11 +1,24 @@
+name = "North Macedonia"
+country_code = "northmacedonia"
+base_url = "https://www.citypopulation.de/en/"
 LEGAL_SUBDIVISION = 2
-
-[[pages]]
-source = "infosection"
-path = ["cities"]
-lowest_level = 0
 
 [[pages]]
 source = "admin"
 path = ["admin"]
 lowest_level = 0
+
+[[pages]]
+source = "table"
+# Regiones L1, municipios L2 y localidades L3.
+path = [
+  "istocen",
+  "jugoistocen",
+  "jugozapaden",
+  "pelagoniski",
+  "poloski",
+  "severoistocen",
+  "skopski",
+  "vardarski",
+]
+lowest_level = 1

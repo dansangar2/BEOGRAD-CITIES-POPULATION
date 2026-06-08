@@ -27,6 +27,32 @@ CITYPOPULATION_BASE_URL = "https://www.citypopulation.de/en/"
 _BOOTSTRAP_LOCK = threading.RLock()
 
 
+def strip_config_base_url(content: str) -> str:
+    """Remove the deprecated top-level base_url field from TOML content.
+
+    CityPopulation is the only supported source for these configs, so the
+    scraper always uses ``CITYPOPULATION_BASE_URL`` directly.  Keeping this
+    field in editable/exported TOML only creates noise.
+    """
+    lines = str(content or "").splitlines(keepends=True)
+    cleaned: list[str] = []
+    before_first_table = True
+    removed = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("[") and not stripped.startswith("#"):
+            before_first_table = False
+        if before_first_table and stripped.startswith("base_url") and stripped.split("=", 1)[0].strip() == "base_url":
+            removed = True
+            continue
+        cleaned.append(line)
+    result = "".join(cleaned)
+    if removed:
+        result = result.replace("\n\n\n", "\n\n")
+    return result
+
+
+
 @dataclass(frozen=True)
 class ConfigMetadata:
     country_code: str
@@ -108,7 +134,7 @@ def parse_scraping_job_config(slug: str, content: str) -> ScrapingJobConfig:
     return ScrapingJobConfig(
         slug=slug,
         country_code=str(data.get("country_code") or slug),
-        base_url=str(data.get("base_url") or CITYPOPULATION_BASE_URL),
+        base_url=CITYPOPULATION_BASE_URL,
         legal_subdivision_level=_int_or_none(data.get("LEGAL_SUBDIVISION")),
         name=data.get("name"),
         reset_before_import=bool(data.get("reset_before_import", False)),
@@ -121,6 +147,7 @@ def parse_scraping_job_config(slug: str, content: str) -> ScrapingJobConfig:
 
 def upsert_scraping_config(slug: str, content: str, *, source_path: str = "") -> ScrapingConfig:
     """Create/update one SQL config and refresh its cached metadata."""
+    content = strip_config_base_url(content)
     metadata = parse_config_metadata(slug, content)
     digest = sha256(content.encode("utf-8")).hexdigest()
     obj, _ = ScrapingConfig.objects.update_or_create(
@@ -272,7 +299,7 @@ def export_scraping_configs_to_toml(
     exported = 0
     for record in records:
         path = root / f"{record.slug}.toml"
-        content = record.content
+        content = strip_config_base_url(record.content)
         if path.exists():
             existing = path.read_text(encoding="utf-8")
             if existing == content:

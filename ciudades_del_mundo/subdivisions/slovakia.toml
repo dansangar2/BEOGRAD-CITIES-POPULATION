@@ -1,3 +1,9 @@
+name = "Slovakia"
+country_code = "slovakia"
+[visual_assets.flag]
+remote_url = "https://www.citypopulation.de/images/flags/slovakia.svg"
+source = "config"
+
 [[pages]]
 source = "infosection"
 path = ["cities"]
@@ -27,24 +33,18 @@ table_levels = { tl = 2, ts = 3 }
 
 [[cities]]
 city = "Bratislava"
-id = "100"
+id = "528000"
 district_types = ["City District"]
 level = 2
 type = "City"
 from = { 1 = ["1"] }
-keep_communes = false
-child_id = "528000"
-child_level = 3
-child_type = "City"
+keep_communes = true
 
 [[cities]]
 city = "Košice"
-id = "800"
+id = "599000"
 district_types = ["City District"]
 level = 2
 type = "City"
 from = { 1 = ["8"] }
-keep_communes = false
-child_id = "599000"
-child_level = 3
-child_type = "City"
+keep_communes = true

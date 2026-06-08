@@ -1,9 +1,7 @@
+name = "Cuba"
+country_code = "cuba"
+base_url = "https://www.citypopulation.de/en/"
 LEGAL_SUBDIVISION = 1
-
-[[pages]]
-source = "infosection"
-path = ["cities"]
-lowest_level = 0
 
 [[pages]]
 source = "admin"
@@ -11,7 +9,8 @@ path = ["admin"]
 lowest_level = 0
 
 [[pages]]
-source = "double"
+source = "table"
+# Provincias L1, municipios L2 y lugares/pueblos L3.
 path = [
   "pinardelrio",
   "artemisa",
@@ -30,7 +29,7 @@ path = [
   "guantanamo",
   "isladelajuventud",
 ]
-lowest_level = 2
+lowest_level = 1
 
 [[cities]]
 city = "La Habana"

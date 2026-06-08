@@ -1,7 +1,7 @@
-[[pages]]
-source = "infosection"
-path = ["cities"]
-lowest_level = 0
+name = "Romania"
+country_code = "romania"
+base_url = "https://www.citypopulation.de/en/"
+LEGAL_SUBDIVISION = 3
 
 [[pages]]
 source = "admin"
@@ -10,48 +10,51 @@ lowest_level = 0
 
 [[pages]]
 source = "table"
+# Regiones L1, condados L2 y comunas/ciudades L3.
 path = [
-  "alba",
-  "arad",
-  "arges",
-  "bacau",
-  "bihor",
-  "bistritanasaud",
-  "botosani",
-  "braila",
-  "brasov",
-  "bucuresti",
-  "buzau",
-  "calarasi",
-  "carasseverin",
-  "cluj",
-  "constanta",
-  "covasna",
-  "dambovita",
-  "dolj",
-  "galati",
-  "giurgiu",
-  "gorj",
-  "harghita",
-  "hunedoara",
-  "ialomita",
-  "iasi",
-  "ilfov",
-  "maramures",
-  "mehedinti",
-  "mures",
-  "neamt",
-  "olt",
-  "prahova",
-  "salaj",
-  "satumare",
-  "sibiu",
-  "suceava",
-  "teleorman",
-  "timis",
-  "tulcea",
-  "valcea",
-  "vaslui",
-  "vrancea",
+  "localities/alba",
+  "localities/arad",
+  "localities/arges",
+  "localities/bacau",
+  "localities/bihor",
+  "localities/bistritanasaud",
+  "localities/botosani",
+  "localities/braila",
+  "localities/brasov",
+  "localities/bucuresti",
+  "localities/buzau",
+  "localities/calarasi",
+  "localities/carasseverin",
+  "localities/cluj",
+  "localities/constanta",
+  "localities/covasna",
+  "localities/dambovita",
+  "localities/dolj",
+  "localities/galati",
+  "localities/giurgiu",
+  "localities/gorj",
+  "localities/harghita",
+  "localities/hunedoara",
+  "localities/ialomita",
+  "localities/iasi",
+  "localities/ilfov",
+  "localities/maramures",
+  "localities/mehedinti",
+  "localities/mures",
+  "localities/neamt",
+  "localities/olt",
+  "localities/prahova",
+  "localities/salaj",
+  "localities/satumare",
+  "localities/sibiu",
+  "localities/suceava",
+  "localities/teleorman",
+  "localities/timis",
+  "localities/tulcea",
+  "localities/valcea",
+  "localities/vaslui",
+  "localities/vrancea",
 ]
-lowest_level = 1
+lowest_level = 2
+include_tables = ["tl"]
+table_levels = { tl = 3 }

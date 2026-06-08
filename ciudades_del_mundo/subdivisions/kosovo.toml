@@ -1,9 +1,7 @@
+name = "Kosovo"
+country_code = "kosovo"
+base_url = "https://www.citypopulation.de/en/"
 LEGAL_SUBDIVISION = 2
-
-[[pages]]
-source = "infosection"
-path = ["cities"]
-lowest_level = 0
 
 [[pages]]
 source = "admin"

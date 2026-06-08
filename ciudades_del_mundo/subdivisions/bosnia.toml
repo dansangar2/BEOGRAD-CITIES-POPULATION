@@ -1,13 +1,22 @@
+name = "Bosnia and Herzegovina"
+country_code = "bosnia"
+base_url = "https://www.citypopulation.de/en/"
+LEGAL_SUBDIVISION = 3
+
 [[pages]]
-source = "infosection"
+source = "cities"
+# País raíz + entidades/cantones mezclados en table#tl.
 path = ["cities"]
 lowest_level = 0
+include_tables = ["tl"]
+status_levels = { AReg = 1, ADist = 2, Cant = 2 }
 
 [[pages]]
 source = "table"
+# Cantones/entidades L2, municipios L3 y localidades L4.
 path = [
-  "bosanskopodrinjski",
   "brcko",
+  "bosanskopodrinjski",
   "hercegovackoneretvanski",
   "kanton10",
   "posavski",
@@ -19,4 +28,9 @@ path = [
   "zapadnohercegovacki",
   "zenickodobojski",
 ]
-lowest_level = 1
+lowest_level = 2
+
+[[parent_overrides]]
+# Los cantones pertenecen a Federacija Bosna i Hercegovina.
+codes = ["6755", "6756", "6761", "6757", "6758", "6754", "6759", "6760", "6762", "6763"]
+parent_code = "2112"

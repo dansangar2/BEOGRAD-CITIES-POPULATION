@@ -182,10 +182,18 @@ Page-level scraping config hints:
   `root_entity_type` recode or create a page root from TOML. They are intended
   for rootless admin pages and CityPopulation pages whose internal root code is
   not the project country/territory code.
+- `status_levels = { StatusLabel = 2 }` lets a compound table assign levels
+  by the row status label when one CityPopulation table mixes administrative
+  ranks. Use this before adding country-specific parser code; Bosnia uses it
+  for `AReg`, `ADist` and `Cant` rows on `/bosnia/cities/`.
 - `[[synthetic_entities]]`, `[[parent_overrides]]` and
   `[[root_metric_sources]]` are runtime config extensions for rare cases such
   as Belgium/Flanders/Wallonia or France Metropolitan/Overseas grouping. Keep
   them data-only; do not add country-specific branches to scraper code.
+- Synthetic page-root rewrites must ignore generic URL endings such as
+  `/admin/` and use the preceding real page slug. For example,
+  `/poland/dolnoslaskie/admin/` belongs to `dolnoslaskie`, not to a generic
+  `admin` root.
 - When a compound `table`/`double` page assigns `table#ts` parents through an
   `radm` column, blank `radm` cells must resolve to the same-name parent from
   `table#tl` when possible. If `radm` contains multiple parent labels separated
@@ -1431,11 +1439,7 @@ If the user asks about web UI:
   `scrape_subdivisions_with_assets --no-download-assets --page-workers=4` when
   the row is already `Validado`, so independent CityPopulation HTML downloads
   overlap while the child command still emits page-complete events in config
-  order. Asset discovery from cached CityPopulation pages now runs only after
-  the country data has been fully populated; `.web_scrape_resume/*.json` keeps
-  the cached pages, a `data_populated` marker and per-page asset checkpoints so
-  a rerun can continue directly from the asset/AI phase if that second phase
-  fails. `TaskManager` starts web tasks immediately and does not throttle them
+  order. `TaskManager` starts web tasks immediately and does not throttle them
   with a backend queue. Only the browser notification boxes/toasts are visually
   queued when more than three would be visible at once. `TaskManager` persists
   task history/status in the `WebTask` database table, full per-task logs to
@@ -1516,3 +1520,12 @@ If the user asks about web UI:
 keeps mixed-parent cases readable, such as a province that has both L3 communes
 and L4 urban places attached directly because CityPopulation links the L4 table
 to the province instead of to each commune.
+
+## Scraping notes added 2026-06-08 - hierarchy/assets corrections
+
+- Hungary/Budapest: keep `keep_communes = true` in `hungary.toml` so the configured city is inserted as the L2 complete city and the Budapest city districts are shifted below it as L3 children.
+- Slovakia/Bratislava and Košice: use the full city codes (`528000`, `599000`) for the configured city rows and keep the district rows below them with `keep_communes = true`. Do not use the older synthetic parent + `child_id` pattern here, because that leaves the complete city and districts at the wrong relative level.
+- Aruba: keep regions above urban areas. The intended hierarchy is L1 census regions, L2 cities/urban areas, L3 zones.
+- Curaçao: `/curacao/cities/` has unstable/no ids for several place rows and collisions with geozone/neighborhood ids. Keep geozones complete from `/curacao/admin/`; use synthetic L1 city/place containers and `parent_overrides` for geozones instead of persisting the cities-page rows directly.
+- Saint-Barthélemy: Gustavia (`25266`) must be parented to Centre (`8446`).
+- For territories whose scraped root page does not reliably seed a flag, add `[visual_assets.flag]` fallbacks in the TOML. Belgium also needs explicit `[[visual_assets.admin_areas]]` entries for `BE-VLG`, `BE-WAL` and `04000` region flags.

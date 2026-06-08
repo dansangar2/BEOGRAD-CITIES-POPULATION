@@ -41,6 +41,7 @@ class ScrapingPageConfig:
     area_km2: Decimal | None = None
     area_overrides: dict[str, Decimal] = field(default_factory=dict)
     table_levels: dict[str, int] = field(default_factory=dict)
+    status_levels: dict[str, int] = field(default_factory=dict)
     include_tables: tuple[str, ...] = ()
     include_root: bool = True
     root_level: int | None = None
@@ -64,6 +65,7 @@ class ScrapingPageConfig:
                 data.get("area_overrides", data.get("size_overrides", data.get("custom_sizes")))
             ),
             table_levels=_parse_table_levels(data.get("table_levels", data.get("levels"))),
+            status_levels=_parse_status_levels(data.get("status_levels", data.get("entity_type_levels"))),
             include_tables=_parse_include_tables(data.get("include_tables", data.get("tables"))),
             include_root=bool(data.get("include_root", True)),
             root_level=_int_or_none(data.get("root_level")),
@@ -285,6 +287,23 @@ def _parse_table_levels(value) -> dict[str, int]:
             levels[table] = int(raw_level)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"table_levels[{key!r}] debe ser entero.") from exc
+    return levels
+
+
+def _parse_status_levels(value) -> dict[str, int]:
+    if not value:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError("status_levels debe ser un dict {status: nivel}.")
+    levels = {}
+    for key, raw_level in value.items():
+        status = str(key).strip().casefold()
+        if not status:
+            raise ValueError("status_levels no puede declarar un status vacio.")
+        try:
+            levels[status] = int(raw_level)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"status_levels[{key!r}] debe ser entero.") from exc
     return levels
 
 

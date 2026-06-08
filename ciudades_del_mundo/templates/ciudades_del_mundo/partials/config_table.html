@@ -23,7 +23,7 @@
     </thead>
     <tbody data-client-page-rows>
       {% for config in rows %}
-      <tr data-client-row data-config-row="{{ config.slug }}" data-row-href="{% url 'ciudades_del_mundo:config_edit' config.slug %}" data-search="{{ config.country_label }} {{ config.country_code }}" data-slug="{{ config.slug }}" data-country="{{ config.country_label }}" data-country-code="{{ config.country_code }}" data-pages="{{ config.pages }}" data-cities="{{ config.cities }}" data-rows="{{ config.rows }}" data-task="{{ config.status_filter|default:config.task_display_status|default:'' }}" data-status="{{ config.status_filter|default:config.task_display_status|default:'' }}" data-can-validate="{% if config.can_validate %}1{% else %}0{% endif %}" data-can-scrape="{% if config.can_scrape %}1{% else %}0{% endif %}" data-can-resume="{% if config.can_resume %}1{% else %}0{% endif %}" data-can-clear="{% if config.can_clear %}1{% else %}0{% endif %}" class="clickable-row" tabindex="0">
+      <tr data-client-row data-config-row="{{ config.slug }}" data-row-href="{% url 'ciudades_del_mundo:config_edit' config.slug %}" data-search="{{ config.country_label }} {{ config.country_code }}" data-slug="{{ config.slug }}" data-country="{{ config.country_label }}" data-country-code="{{ config.country_code }}" data-pages="{{ config.pages }}" data-cities="{{ config.cities }}" data-rows="{{ config.rows }}" data-task="{{ config.status_filter|default:config.task_display_status|default:'' }}" data-status="{{ config.status_filter|default:config.task_display_status|default:'' }}" data-can-validate="{% if config.can_validate %}1{% else %}0{% endif %}" data-can-scrape="{% if config.can_scrape %}1{% else %}0{% endif %}" data-can-resume="{% if config.can_resume %}1{% else %}0{% endif %}" data-can-clear="{% if config.can_clear %}1{% else %}0{% endif %}" data-can-stop="{% if config.can_stop %}1{% else %}0{% endif %}" class="clickable-row" tabindex="0">
         <td data-field="slug"><code>{{ config.slug }}</code></td>
         <td data-field="country">{{ config.country_label }}</td>
         <td data-field="pages">{{ config.pages }}</td>
@@ -66,9 +66,9 @@
               {% csrf_token %}
               <button type="submit" class="quiet" data-config-action="validate" {% if config.task_display_status == "validating" %}disabled{% endif %}>{% trans "Validar" %}</button>
             </form>
-            <form method="post" action="{% url 'ciudades_del_mundo:start_config_task' config.slug 'scrape' %}" data-config-task-form data-config-action-form="scrape" data-action-label="{% trans 'Popular' %}" data-summary-url="{% url 'ciudades_del_mundo:config_summary' config.slug %}" {% if not config.can_scrape %}hidden{% endif %}>
+            <form method="post" action="{% url 'ciudades_del_mundo:start_config_task' config.slug 'scrape' %}" data-config-task-form data-config-action-form="scrape" data-action-label="{% if config.status_filter == 'populated' %}{% trans 'Re-popular' %}{% else %}{% trans 'Popular' %}{% endif %}" data-summary-url="{% url 'ciudades_del_mundo:config_summary' config.slug %}" {% if not config.can_scrape %}hidden{% endif %}>
               {% csrf_token %}
-              <button type="submit" data-config-action="scrape" {% if config.task_display_status == "populating" %}disabled{% endif %}>{% trans "Popular" %}</button>
+              <button type="submit" data-config-action="scrape" data-default-label="{% trans 'Popular' %}" data-repopulate-label="{% trans 'Re-popular' %}" {% if config.task_display_status == "populating" %}disabled{% endif %}>{% if config.status_filter == 'populated' %}{% trans "Re-popular" %}{% else %}{% trans "Popular" %}{% endif %}</button>
             </form>
             <form method="post" action="{% url 'ciudades_del_mundo:start_config_task' config.slug 'clear' %}" data-config-task-form data-config-action-form="clear" data-action-label="{% trans 'Limpiar' %}" data-summary-url="{% url 'ciudades_del_mundo:config_summary' config.slug %}" {% if not config.can_clear %}hidden{% endif %}>
               {% csrf_token %}

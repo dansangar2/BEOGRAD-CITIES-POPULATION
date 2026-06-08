@@ -767,6 +767,8 @@
         initLocalDateTimes(target);
         initSelect2(target);
         initConfigTaskActions(target);
+        initConfigExportActions(target);
+        refreshConfigActionButtons(target);
         initClientSorting(target, form);
         initClickableRows(target);
         if (!clientSortKey || !applyClientSort(target, form, clientSortKey, clientSortDirection, clientPage || 1)) {
@@ -2009,9 +2011,8 @@
     ];
     columns.forEach(function (column) {
       var th = document.createElement("th");
-      th.className = "table-column-" + String(column[0] || "").replace(/_/g, "-");
       if (column[0] === "color") {
-        th.className += " color-column";
+        th.className = "color-column";
         th.setAttribute("aria-label", container.dataset.colorLabel || "Color");
         header.appendChild(th);
         return;
@@ -2412,22 +2413,19 @@
     });
     var columns = [
       ["name", labels.nameLabel],
-      ["entity_type", labels.entityTypeLabel]
-    ];
-    if (hasAnnotations) {
-      columns.push(["annotations", labels.annotationLabel]);
-    }
-    columns = columns.concat([
+      ["entity_type", labels.entityTypeLabel],
       ["population", "POB"],
       ["population_percent", "% POB"],
       ["area_km2", "KM2"],
       ["area_percent", "% KM2"],
       ["density", "DENS"],
       ["parent", labels.parentLabel]
-    ]);
+    ];
+    if (hasAnnotations) {
+      columns.push(["annotations", "Anotaciones"]);
+    }
     columns.forEach(function (column) {
       var th = document.createElement("th");
-      th.className = "table-column-" + String(column[0] || "").replace(/_/g, "-");
       var button = document.createElement("button");
       button.type = "button";
       button.className = "table-sort-button";
@@ -2575,10 +2573,8 @@
             default:
               return row[column[0]] || "-";
           }
-        }).forEach(function (value, index) {
+        }).forEach(function (value) {
           var td = document.createElement("td");
-          var column = columns[index] || [];
-          td.className = "table-column-" + String(column[0] || "").replace(/_/g, "-");
           td.textContent = value;
           tr.appendChild(td);
         });
@@ -2719,9 +2715,8 @@
     ];
     columns.forEach(function (column) {
       var th = document.createElement("th");
-      th.className = "table-column-" + String(column[0] || "").replace(/_/g, "-");
       if (column[0] === "color") {
-        th.className += " color-column";
+        th.className = "color-column";
         th.setAttribute("aria-label", labels.colorLabel || "Color");
         header.appendChild(th);
         return;
@@ -2800,7 +2795,6 @@
       sortedRows.forEach(function (rowData) {
         var row = document.createElement("tr");
         var colorCell = document.createElement("td");
-        colorCell.className = "table-column-color";
         var marker = document.createElement("span");
         marker.className = "table-color-dot";
         marker.style.background = rowData.color || "#94a3b8";
@@ -2894,9 +2888,8 @@
     ];
     columns.forEach(function (column) {
       var th = document.createElement("th");
-      th.className = "table-column-" + String(column[0] || "").replace(/_/g, "-");
       if (column[0] === "color") {
-        th.className += " color-column";
+        th.className = "color-column";
         th.setAttribute("aria-label", labels.colorLabel || "Color");
         header.appendChild(th);
         return;
@@ -2972,7 +2965,6 @@
       visibleRows.forEach(function (card) {
         var row = document.createElement("tr");
         var colorCell = document.createElement("td");
-        colorCell.className = "table-column-color";
         var marker = document.createElement("span");
         marker.className = "table-color-dot";
         marker.style.background = card.color || "#94a3b8";
@@ -3122,7 +3114,6 @@
       nameLabel: detailLabel(target, "nameLabel", "Nombre"),
       colorLabel: detailLabel(target, "colorLabel", "Color"),
       entityTypeLabel: detailLabel(target, "entityTypeLabel", "Tipo"),
-      annotationLabel: detailLabel(target, "annotationLabel", "Anotación"),
       officialNameLabel: detailLabel(target, "officialNameLabel", "Nombre oficial"),
       officialLanguageLabel: detailLabel(target, "officialLanguageLabel", "Idioma oficial"),
       capitalLabel: detailLabel(target, "capitalLabel", "Capital"),
@@ -3379,7 +3370,6 @@
         id: row.id,
         name: row.name,
         entity_type: row.entity_type,
-        annotations: row.annotations || "",
         population: row.population,
         population_percent: row.population_percent,
         area_km2: row.area_km2,
@@ -3576,30 +3566,21 @@
     table.className = "compact-table stats-children-table";
     var thead = document.createElement("thead");
     var header = document.createElement("tr");
-    var hasAnnotations = preparedRows.some(function (row) {
-      return String(row.annotations || "").trim() !== "";
-    });
     var columns = [
       ["color", ""],
       ["name", labels.nameLabel],
-      ["entity_type", labels.entityTypeLabel]
-    ];
-    if (hasAnnotations) {
-      columns.push(["annotations", labels.annotationLabel]);
-    }
-    columns = columns.concat([
+      ["entity_type", labels.entityTypeLabel],
       ["population", "POB"],
       ["population_percent", "% POB"],
       ["area_km2", "KM2"],
       ["area_percent", "% KM2"],
       ["density", "DENS"],
       ["child_count", "Subd."]
-    ]);
+    ];
     columns.forEach(function (column) {
       var th = document.createElement("th");
-      th.className = "table-column-" + String(column[0] || "").replace(/_/g, "-");
       if (column[0] === "color") {
-        th.className += " color-column";
+        th.className = "color-column";
         th.setAttribute("aria-label", labels.colorLabel || "Color");
         header.appendChild(th);
         return;
@@ -3629,7 +3610,7 @@
     }
 
     function statsSearchText(row) {
-      return [row.name, row.entity_type, row.annotations, row.population, row.population_percent, row.area_km2, row.area_percent, row.density, row.child_count]
+      return [row.name, row.entity_type, row.population, row.population_percent, row.area_km2, row.area_percent, row.density, row.child_count]
         .map(function (value) { return String(value || "").toLowerCase(); })
         .join(" ");
     }
@@ -3696,49 +3677,24 @@
         }
 
         var colorCell = document.createElement("td");
-        colorCell.className = "table-column-color";
         var marker = document.createElement("span");
         marker.className = "table-color-dot";
         marker.style.background = item.color || "#94a3b8";
         colorCell.appendChild(marker);
         row.appendChild(colorCell);
 
-        columns.slice(1).forEach(function (column) {
-          var value;
-          switch (column[0]) {
-            case "name":
-              value = item.name || "-";
-              break;
-            case "entity_type":
-              value = item.entity_type || "-";
-              break;
-            case "annotations":
-              value = item.annotations || "-";
-              break;
-            case "population":
-              value = formattedNumberOrDash(item.population);
-              break;
-            case "population_percent":
-              value = formatPercentNumber(item.population_percent);
-              break;
-            case "area_km2":
-              value = formattedNumberOrDash(item.area_km2);
-              break;
-            case "area_percent":
-              value = formatPercentNumber(item.area_percent);
-              break;
-            case "density":
-              value = formattedNumberOrDash(item.density);
-              break;
-            case "child_count":
-              value = formattedNumberOrDash(item.child_count);
-              break;
-            default:
-              value = item[column[0]] || "-";
-          }
+        [
+          item.name || "-",
+          item.entity_type || "-",
+          formattedNumberOrDash(item.population),
+          formatPercentNumber(item.population_percent),
+          formattedNumberOrDash(item.area_km2),
+          formatPercentNumber(item.area_percent),
+          formattedNumberOrDash(item.density),
+          formattedNumberOrDash(item.child_count)
+        ].forEach(function (value, index) {
           var td = document.createElement("td");
-          td.className = "table-column-" + String(column[0] || "").replace(/_/g, "-");
-          if (column[0] === "name") {
+          if (index === 0) {
             td.className = "stats-child-name-cell";
             var name = document.createElement("strong");
             name.textContent = value;
@@ -3795,10 +3751,6 @@
     var childGroups = Array.isArray(payload.child_groups) && payload.child_groups.length
       ? payload.child_groups
       : [{ label: null, children: payload.children || [] }];
-    if (childGroups.length > 1) {
-      grid.classList.add("stats-area-detail-grid--stacked-levels");
-      grid.style.setProperty("--stats-area-child-panel-count", String(childGroups.length));
-    }
 
     renderCountryGeneralPanel(basicPanel, { country: area }, Object.assign({}, labels, {
       generalTitle: area.name || labels.generalTitle
@@ -4463,16 +4415,16 @@
 
 
   var CONFIG_TOAST_MAX_VISIBLE = 4;
-  var CONFIG_TOAST_DONE_VISIBLE_MS = 1000;
+  var CONFIG_TOAST_DONE_VISIBLE_MS = 2600;
   var CONFIG_TOAST_AFTER_INTERACTION_VISIBLE_MS = 4000;
   var CONFIG_TOAST_SELECTION_RECHECK_MS = 1200;
   var CONFIG_TASK_POLL_MS = 450;
   var CONFIG_ACTIVE_ROW_REFRESH_MS = 1500;
   var CONFIG_LOADING_DOTS_STEP_MS = 600;
   var CONFIG_LOADING_DOTS_CYCLE = ["", ".", "..", "..."];
-  var CONFIG_TOAST_ENTER_MS = 340;
-  var CONFIG_TOAST_EXIT_MS = 260;
-  var CONFIG_TOAST_REPLENISH_DELAY_MS = 120;
+  var CONFIG_TOAST_ENTER_MS = 540;
+  var CONFIG_TOAST_EXIT_MS = 580;
+  var CONFIG_TOAST_REPLENISH_DELAY_MS = 280;
   var configToastVisible = [];
   var configToastQueue = [];
   var configLoadingDotsIndex = 0;
@@ -4575,83 +4527,48 @@
   }
 
   function configToastMetrics(stack) {
-    var cssHeight = configToastCssPx(stack, "--config-toast-height", 112);
-    var gap = configToastCssPx(stack, "--config-toast-gap", 10);
-    var measuredHeight = 0;
-    if (stack) {
-      var sample = stack.querySelector(".config-task-toast");
-      if (sample) {
-        measuredHeight = sample.getBoundingClientRect().height || 0;
-      }
-    }
     return {
-      height: Math.max(cssHeight, measuredHeight),
-      gap: gap
+      height: configToastCssPx(stack, "--config-toast-height", 136),
+      gap: configToastCssPx(stack, "--config-toast-gap", 16)
     };
   }
 
-  function configToastVisibleLimit(stack) {
+  function configToastElementHeight(toast, stack) {
     var metrics = configToastMetrics(stack);
-    var viewport = window.visualViewport;
-    var viewportHeight = viewport && viewport.height ? viewport.height : window.innerHeight;
-    var stackTop = stack.getBoundingClientRect().top || 0;
-    var availableHeight = Math.max(metrics.height, viewportHeight - stackTop - 12);
-    var slots = Math.floor((availableHeight + metrics.gap) / (metrics.height + metrics.gap));
-    var limit = Math.max(1, Math.min(CONFIG_TOAST_MAX_VISIBLE, slots || 1));
-    stack.style.height = (limit * metrics.height + Math.max(0, limit - 1) * metrics.gap) + "px";
-    return limit;
-  }
-
-  function configToastSlotY(stack, index) {
-    var metrics = configToastMetrics(stack);
-    return index * (metrics.height + metrics.gap);
-  }
-
-  function moveOverflowConfigToastsToQueue(stack) {
-    var limit = configToastVisibleLimit(stack);
-    while (configToastVisible.length > limit) {
-      var toast = configToastVisible.pop();
-      if (!toast || toast.isDismissing) {
-        continue;
-      }
-      if (toast.dismissTimer) {
-        window.clearTimeout(toast.dismissTimer);
-        toast.dismissTimer = null;
-      }
-      toast.isVisible = false;
-      toast.slotIndex = null;
-      if (toast.element) {
-        toast.element.classList.remove("is-entering", "is-dismissing");
-        if (toast.element.parentNode) {
-          toast.element.parentNode.removeChild(toast.element);
-        }
-      }
-      configToastQueue.unshift(toast);
+    if (!toast || !toast.element) {
+      return metrics.height;
     }
-    return limit;
+    var rect = toast.element.getBoundingClientRect ? toast.element.getBoundingClientRect() : null;
+    return Math.ceil((rect && rect.height) || toast.element.offsetHeight || metrics.height);
+  }
+
+  function configToastSlotY(stack, index, list) {
+    var metrics = configToastMetrics(stack);
+    var toasts = list || configToastVisible;
+    var y = 0;
+    for (var i = 0; i < index; i += 1) {
+      y += configToastElementHeight(toasts[i], stack) + metrics.gap;
+    }
+    return y;
   }
 
   function layoutVisibleConfigToasts() {
     var stack = ensureConfigToastStack();
-    var limit = moveOverflowConfigToastsToQueue(stack);
     configToastVisible.forEach(function (toast, index) {
       if (!toast || !toast.element || toast.isDismissing) {
         return;
       }
       toast.slotIndex = index;
-      toast.element.style.setProperty("--toast-y", "0px");
+      toast.element.style.setProperty("--toast-y", configToastSlotY(stack, index, configToastVisible) + "px");
       toast.element.style.setProperty("--toast-x", "0px");
       toast.element.style.setProperty("--toast-opacity", "1");
-      toast.element.style.zIndex = String(limit - index);
+      toast.element.style.zIndex = String(CONFIG_TOAST_MAX_VISIBLE - index);
     });
   }
 
   function showNextQueuedConfigToast() {
-    var stack = ensureConfigToastStack();
-    var limit = configToastVisibleLimit(stack);
-    while (configToastVisible.length < limit && configToastQueue.length) {
+    while (configToastVisible.length < CONFIG_TOAST_MAX_VISIBLE && configToastQueue.length) {
       showConfigToast(configToastQueue.shift());
-      limit = configToastVisibleLimit(stack);
     }
   }
 
@@ -4660,18 +4577,13 @@
       return;
     }
     var stack = ensureConfigToastStack();
-    var limit = configToastVisibleLimit(stack);
-    if (configToastVisible.length >= limit) {
-      configToastQueue.push(toast);
-      return;
-    }
     var slotIndex = configToastVisible.length;
     toast.slotIndex = slotIndex;
     toast.isVisible = true;
     configToastVisible.push(toast);
     toast.element.classList.remove("is-dismissing");
     toast.element.classList.add("is-entering");
-    toast.element.style.setProperty("--toast-y", "0px");
+    toast.element.style.setProperty("--toast-y", configToastSlotY(stack, slotIndex, configToastVisible) + "px");
     toast.element.style.setProperty("--toast-x", "var(--config-toast-offscreen-x)");
     toast.element.style.setProperty("--toast-opacity", "0");
     stack.appendChild(toast.element);
@@ -4687,8 +4599,7 @@
   }
 
   function enqueueConfigToast(toast) {
-    var stack = ensureConfigToastStack();
-    if (configToastVisible.length < configToastVisibleLimit(stack)) {
+    if (configToastVisible.length < CONFIG_TOAST_MAX_VISIBLE) {
       showConfigToast(toast);
     } else {
       configToastQueue.push(toast);
@@ -4714,9 +4625,10 @@
     }
     if (toast.element && toast.element.parentNode && !immediate) {
       var stack = toast.element.parentNode;
+      var metrics = configToastMetrics(stack);
       toast.element.classList.remove("is-entering");
       stack.appendChild(toast.element);
-      toast.element.style.setProperty("--toast-exit-y", "0px");
+      toast.element.style.setProperty("--toast-exit-y", (0 - metrics.height - metrics.gap) + "px");
       toast.element.style.setProperty("--toast-x", "0px");
       toast.element.style.setProperty("--toast-opacity", "1");
       toast.element.style.zIndex = "100";
@@ -4801,19 +4713,6 @@
       }
       dismissConfigToast(toast);
     }, effectiveDelay);
-  }
-
-  function refreshConfigToastLayout() {
-    if (!document.querySelector(".config-toast-stack")) {
-      return;
-    }
-    layoutVisibleConfigToasts();
-    showNextQueuedConfigToast();
-  }
-
-  window.addEventListener("resize", refreshConfigToastLayout);
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener("resize", refreshConfigToastLayout);
   }
 
   function createConfigToast(title, message, container) {
@@ -4905,6 +4804,60 @@
     }
   }
 
+  function configTaskActionKind(form, button) {
+    if (form && form.dataset && form.dataset.configActionForm) {
+      return form.dataset.configActionForm;
+    }
+    if (button && button.dataset && button.dataset.configAction) {
+      return button.dataset.configAction;
+    }
+    return "";
+  }
+
+  function configTaskTerminalMessage(container, status, actionKind, fallbackLabel) {
+    container = container || document.body;
+    var key = configTaskKey(status);
+    var action = configTaskKey(actionKind || fallbackLabel || "");
+    var success = key === "succeeded";
+    var cancelled = key === "cancelled";
+    if (cancelled) {
+      return container.dataset.cancelledLabel || "Cancelado";
+    }
+    if (action.indexOf("scrape") !== -1 || action.indexOf("popular") !== -1) {
+      return success
+        ? (container.dataset.scrapeSuccessLabel || "Scraping finalizado correctamente.")
+        : (container.dataset.scrapeErrorLabel || "El scraping ha fallado.");
+    }
+    if (action.indexOf("validate") !== -1 || action.indexOf("validar") !== -1) {
+      return success
+        ? (container.dataset.validateSuccessLabel || "Validación finalizada correctamente.")
+        : (container.dataset.validateErrorLabel || "La validación ha fallado.");
+    }
+    if (action.indexOf("clear") !== -1 || action.indexOf("limpiar") !== -1) {
+      return success
+        ? (container.dataset.clearSuccessLabel || "Limpieza finalizada correctamente.")
+        : (container.dataset.clearErrorLabel || "La limpieza ha fallado.");
+    }
+    return success
+      ? (container.dataset.taskSuccessLabel || container.dataset.finishedLabel || configTaskLabel(container, status))
+      : (container.dataset.taskErrorLabel || configTaskLabel(container, status));
+  }
+
+  function parseJsonResponseText(response) {
+    return response.text().then(function (text) {
+      var data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch (error) {
+        throw new Error(text || response.statusText);
+      }
+      if (!response.ok || data.ok === false) {
+        throw new Error(data.error || data.message || response.statusText);
+      }
+      return data;
+    });
+  }
+
   function csrfFromForm(form) {
     var input = form.querySelector("input[name='csrfmiddlewaretoken']");
     return input ? input.value : "";
@@ -4960,6 +4913,7 @@
         row.dataset.canScrape = data.can_scrape ? "1" : "0";
         row.dataset.canResume = data.can_resume ? "1" : "0";
         row.dataset.canClear = data.can_clear ? "1" : "0";
+        row.dataset.canStop = data.can_stop ? "1" : "0";
         var fields = {
           country: data.country_label,
           pages: data.pages,
@@ -5086,7 +5040,7 @@
 
   function canScrapeConfigStatus(status) {
     var key = normalizeConfigStatus(status || "pending");
-    return ["pending", "failed", "validated"].indexOf(key) !== -1;
+    return ["pending", "failed", "validated", "populated"].indexOf(key) !== -1;
   }
 
   function configRowDatasetFlag(row, name) {
@@ -5111,13 +5065,14 @@
     var stopButton = row.querySelector('[data-config-action="stop"]');
     var datasetCanValidate = configRowDatasetFlag(row, "canValidate");
     var datasetCanScrape = configRowDatasetFlag(row, "canScrape");
+    var datasetCanStop = configRowDatasetFlag(row, "canStop");
     var activeOperation = ["validating", "populating", "clearing", "running", "queued"].indexOf(key) !== -1;
     var clearBlockedByStatus = activeOperation;
     var showValidate = datasetCanValidate === null ? canValidateConfigStatus(key) : datasetCanValidate;
     var showScrape = datasetCanScrape === null ? canScrapeConfigStatus(key) : datasetCanScrape;
     var showClear = row.dataset.canClear === "1";
     var showClearBusy = false;
-    var showStop = activeOperation;
+    var showStop = datasetCanStop === null ? activeOperation : datasetCanStop;
 
     if (data && Object.prototype.hasOwnProperty.call(data, "can_validate")) {
       showValidate = Boolean(data.can_validate);
@@ -5136,6 +5091,7 @@
     }
     if (data && Object.prototype.hasOwnProperty.call(data, "can_stop")) {
       showStop = Boolean(data.can_stop);
+      row.dataset.canStop = showStop ? "1" : "0";
     }
     if (activeOperation) {
       showValidate = false;
@@ -5150,8 +5106,16 @@
     if (scrapeButton) {
       scrapeButton.disabled = false;
       scrapeButton.removeAttribute("disabled");
-      if (scrapeButton.dataset.defaultLabel) {
-        scrapeButton.textContent = scrapeButton.dataset.defaultLabel;
+      if (!scrapeButton.dataset.defaultLabel) {
+        scrapeButton.dataset.defaultLabel = (scrapeButton.textContent || "").trim() || "Popular";
+      }
+      var labelSource = row.closest("[data-repopulate-label]") || document.querySelector("[data-repopulate-label]");
+      var repopulateLabel = (scrapeButton.dataset.repopulateLabel || (labelSource && labelSource.dataset.repopulateLabel) || "Re-popular").trim();
+      var nextScrapeLabel = key === "populated" ? repopulateLabel : scrapeButton.dataset.defaultLabel;
+      scrapeButton.textContent = nextScrapeLabel;
+      scrapeButton.dataset.actionLabel = nextScrapeLabel;
+      if (scrapeForm) {
+        scrapeForm.dataset.actionLabel = nextScrapeLabel;
       }
     }
     if (clearButton) {
@@ -5178,6 +5142,12 @@
     if (stopForm) {
       stopForm.hidden = !showStop;
     }
+  }
+
+  function refreshConfigActionButtons(root) {
+    (root || document).querySelectorAll("[data-config-row]").forEach(function (row) {
+      updateConfigActionButtons(row, row.dataset.status || row.dataset.task || "pending");
+    });
   }
 
   function cssEscape(value) {
@@ -5228,7 +5198,7 @@
     }
   }
 
-  function pollConfigTask(statusUrl, toast, button, summaryUrl, tableContainer) {
+  function pollConfigTask(statusUrl, toast, button, summaryUrl, tableContainer, actionKind, actionLabel) {
     function poll() {
       if (!statusUrl) {
         setConfigToastStatus(toast, "failed", "No se recibió la URL de estado de la tarea.");
@@ -5242,7 +5212,8 @@
       fetch(statusUrl, { headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" } })
         .then(parseJsonResponse)
         .then(function (data) {
-          setConfigToastStatus(toast, data.status, configTaskLabel(tableContainer || document.body, data.status));
+          var toastContainer = tableContainer || document.querySelector("[data-config-editor]") || document.body;
+          setConfigToastStatus(toast, data.status, configTaskLabel(toastContainer, data.status));
           if (toast.detailLink && data.detail_url) {
             toast.detailLink.href = data.detail_url;
             toast.detailLink.hidden = false;
@@ -5252,7 +5223,10 @@
             window.setTimeout(poll, CONFIG_TASK_POLL_MS);
             return;
           }
-          toast.element.classList.add(data.status === "succeeded" ? "is-success" : "is-error");
+          var terminalStatus = data.status || "failed";
+          var terminalMessage = configTaskTerminalMessage(toastContainer, terminalStatus, actionKind, actionLabel);
+          setConfigToastStatus(toast, terminalStatus, terminalMessage);
+          toast.element.classList.add(terminalStatus === "succeeded" ? "is-success" : "is-error");
           if (button && !button.closest("[data-config-row]")) {
             button.disabled = false;
           }
@@ -5265,7 +5239,7 @@
           });
         })
         .catch(function (error) {
-          setConfigToastStatus(toast, "failed", error.message || configTaskLabel(tableContainer || document.body, "failed"));
+          setConfigToastStatus(toast, "failed", error.message || configTaskTerminalMessage(tableContainer || document.body, "failed", actionKind, actionLabel));
           toast.element.classList.add("is-error");
           if (button && !button.closest("[data-config-row]")) {
             button.disabled = false;
@@ -5274,6 +5248,53 @@
         });
     }
     poll();
+  }
+
+  function initConfigExportActions(root) {
+    (root || document).querySelectorAll("[data-config-export-form]").forEach(function (form) {
+      if (!form || form._configExportBound) {
+        return;
+      }
+      form._configExportBound = true;
+      form.addEventListener("submit", function (event) {
+        event.preventDefault();
+        var button = form.querySelector("button[type='submit'], input[type='submit']");
+        var previousText = button ? button.textContent : "";
+        var title = form.dataset.actionLabel || (button ? button.textContent : "Exportar TOML");
+        var toast = createConfigToast(title, form.dataset.exportingLabel || "Exportando TOML...", document.body);
+        if (button) {
+          button.disabled = true;
+          if (form.dataset.exportingLabel) {
+            button.textContent = form.dataset.exportingLabel;
+          }
+        }
+        fetch(form.action || window.location.href, {
+          method: "POST",
+          body: new FormData(form),
+          credentials: "same-origin",
+          headers: {
+            "Accept": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRFToken": csrfFromForm(form)
+          }
+        }).then(parseJsonResponseText).then(function (data) {
+          setConfigToastStatus(toast, "succeeded", data.message || form.dataset.exportSuccessLabel || "TOML exportado correctamente.");
+          toast.element.classList.add("is-success");
+          scheduleConfigToastDismiss(toast, CONFIG_TOAST_DONE_VISIBLE_MS);
+        }).catch(function (error) {
+          setConfigToastStatus(toast, "failed", error.message || form.dataset.exportErrorLabel || "No se pudo exportar el TOML.");
+          toast.element.classList.add("is-error");
+          scheduleConfigToastDismiss(toast, CONFIG_TOAST_DONE_VISIBLE_MS);
+        }).finally(function () {
+          if (button) {
+            button.disabled = false;
+            if (previousText) {
+              button.textContent = previousText;
+            }
+          }
+        });
+      });
+    });
   }
 
   function initConfigTaskActions(root) {
@@ -5312,12 +5333,12 @@
           scheduleConfigToastDismiss(badToast, CONFIG_TOAST_DONE_VISIBLE_MS);
           return;
         }
+        var actionKind = configTaskActionKind(form, button);
         var actionRow = form.closest("[data-config-row]");
         if (actionRow) {
-          var actionKind = form.dataset.configActionForm || "";
           var currentRowStatus = normalizeConfigStatus(actionRow.dataset.status || actionRow.dataset.task || "pending");
           var pendingStatus = actionKind === "scrape"
-            ? (currentRowStatus === "validated" ? "populating" : "validating")
+            ? (currentRowStatus === "populated" ? "clearing" : (currentRowStatus === "validated" ? "populating" : "validating"))
             : (actionKind === "clear" ? "clearing" : (actionKind === "stop" ? currentRowStatus : "validating"));
           actionRow.dataset.task = pendingStatus;
           actionRow.dataset.status = pendingStatus;
@@ -5354,7 +5375,7 @@
           if (data.summary_url || form.dataset.summaryUrl || (button && button.dataset.summaryUrl)) {
             updateConfigRow(form.dataset.summaryUrl || (button && button.dataset.summaryUrl) || data.summary_url, tableContainer);
           }
-          pollConfigTask(data.status_url, toast, button, form.dataset.summaryUrl || (button && button.dataset.summaryUrl) || data.summary_url, tableContainer);
+          pollConfigTask(data.status_url, toast, button, form.dataset.summaryUrl || (button && button.dataset.summaryUrl) || data.summary_url, tableContainer, actionKind, actionLabel);
         }).catch(function (error) {
           setConfigToastStatus(toast, "failed", error.message || configTaskLabel(tableContainer || document.body, "failed"));
           toast.element.classList.add("is-error");
@@ -5377,7 +5398,7 @@
       return;
     }
     var selectedButton = editor.querySelector('[data-config-tab="' + name + '"]');
-    if (!selectedButton) {
+    if (!selectedButton || selectedButton.hidden || selectedButton.dataset.configDisabledTab === "true") {
       return;
     }
     editor.querySelectorAll("[data-config-tab]").forEach(function (tab) {
@@ -5406,6 +5427,103 @@
     });
   }
 
+  function activeConfigTabName(editor) {
+    var active = editor ? editor.querySelector("[data-config-tab].is-active") : null;
+    return active ? active.dataset.configTab || "" : "";
+  }
+
+  function configEditorSaveButton(form, submitter) {
+    if (submitter && submitter.matches && submitter.matches("button, input[type='submit']")) {
+      return submitter;
+    }
+    return form ? form.querySelector("button[type='submit']:not([data-config-action]), input[type='submit']:not([data-config-action])") : null;
+  }
+
+  function submitConfigEditorSave(form, editor, submitter) {
+    var button = configEditorSaveButton(form, submitter);
+    var previousButtonText = button ? button.textContent : "";
+    var title = editor.dataset.saveLabel || (button ? button.textContent : "Guardar configuración");
+    var toast = createConfigToast(title, editor.dataset.savingLabel || "Guardando configuración...", editor);
+    if (button) {
+      button.disabled = true;
+      if (editor.dataset.savingLabel) {
+        button.textContent = editor.dataset.savingLabel;
+      }
+    }
+    fetch(form.action || window.location.href, {
+      method: "POST",
+      body: new FormData(form),
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+        "X-CSRFToken": csrfFromForm(form)
+      }
+    }).then(parseJsonResponseText).then(function (data) {
+      var message = data.message || editor.dataset.saveSuccessLabel || "Configuración guardada correctamente.";
+      if (data.notice) {
+        message += " " + data.notice;
+      }
+      setConfigToastStatus(toast, "succeeded", message);
+      toast.element.classList.add("is-success");
+      scheduleConfigToastDismiss(toast, CONFIG_TOAST_DONE_VISIBLE_MS);
+      if (data.slug && editor.dataset.slug !== data.slug) {
+        editor.dataset.slug = data.slug;
+      }
+      if (data.task_restarted && data.status_url) {
+        var taskToast = createConfigToast(data.label || editor.dataset.populatingLabel || "Populando", data.notice || data.label || "", editor);
+        if (taskToast.detailLink && data.detail_url) {
+          taskToast.detailLink.href = data.detail_url;
+          taskToast.detailLink.hidden = false;
+        }
+        pollConfigTask(data.status_url, taskToast, null, data.summary_url || "", editor, "scrape", data.label || "");
+      }
+    }).catch(function (error) {
+      setConfigToastStatus(toast, "failed", error.message || editor.dataset.saveErrorLabel || "No se pudo guardar la configuración.");
+      toast.element.classList.add("is-error");
+      scheduleConfigToastDismiss(toast, CONFIG_TOAST_DONE_VISIBLE_MS);
+    }).finally(function () {
+      if (button) {
+        button.disabled = false;
+        if (previousButtonText) {
+          button.textContent = previousButtonText;
+        }
+      }
+    });
+  }
+
+  function initConfigEditorSubmitGuards(editor) {
+    if (!editor || editor.dataset.configSubmitGuardsReady === "true") {
+      return;
+    }
+    editor.dataset.configSubmitGuardsReady = "true";
+    editor.querySelectorAll("[data-config-editor-form]").forEach(function (form) {
+      form.addEventListener("submit", function (event) {
+        var formMode = form.dataset.configEditorForm || "";
+        var activeMode = activeConfigTabName(editor);
+        if (activeMode !== formMode) {
+          event.preventDefault();
+          return;
+        }
+        var editorModeInput = form.querySelector('input[name="editor_mode"]');
+        if (editorModeInput) {
+          editorModeInput.value = formMode;
+        }
+      });
+      form.addEventListener("submit", function (event) {
+        if (event.defaultPrevented || editor.dataset.mode !== "edit") {
+          return;
+        }
+        var submitter = event.submitter || document.activeElement;
+        if (submitter && submitter.matches && submitter.matches("[data-config-action]")) {
+          return;
+        }
+        event.preventDefault();
+        submitConfigEditorSave(form, editor, submitter);
+      });
+    });
+  }
+
   function initConfigEditor(root) {
     initConfigTabs(root);
     (root || document).querySelectorAll("[data-config-editor]").forEach(function (editor) {
@@ -5413,6 +5531,7 @@
         return;
       }
       editor.dataset.configEditorReady = "true";
+      initConfigEditorSubmitGuards(editor);
       var sourceScript = editor.querySelector("[data-source-entities-json]");
       var sourceEntities = [];
       try {
@@ -5422,6 +5541,7 @@
       }
       try {
         initManualPages(editor);
+        initManualAssetOverrides(editor);
         initCityTransfer(editor, sourceEntities);
         initConfigGenerator(editor);
         initAiLoginLinks(editor);
@@ -5436,36 +5556,468 @@
     });
   }
 
+  function pagePathValuesFromRow(row) {
+    var values = [];
+    if (!row) {
+      return values;
+    }
+    row.querySelectorAll("[data-page-path-input]").forEach(function (input) {
+      var value = (input.value || "").trim();
+      if (value && values.indexOf(value) === -1) {
+        values.push(value);
+      }
+    });
+    return values;
+  }
+
+  function syncPagePathHidden(row) {
+    if (!row) {
+      return;
+    }
+    var hidden = row.querySelector("[data-page-path-hidden]");
+    if (!hidden) {
+      return;
+    }
+    hidden.value = pagePathValuesFromRow(row).join("\n");
+    hidden.dispatchEvent(new Event("input", { bubbles: true }));
+    hidden.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function createPagePathBox(row, value) {
+    var list = row ? row.querySelector("[data-page-path-list]") : null;
+    if (!list) {
+      return null;
+    }
+    var wrapper = document.createElement("div");
+    wrapper.className = "page-path-row";
+    wrapper.setAttribute("data-page-path-row", "");
+
+    var input = document.createElement("input");
+    input.type = "text";
+    input.setAttribute("data-page-path-input", "");
+    input.placeholder = "admin";
+    input.value = value || "";
+    wrapper.appendChild(input);
+
+    var remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "quiet danger-text";
+    remove.setAttribute("data-remove-page-path", "");
+    remove.setAttribute("aria-label", "Quitar ruta");
+    remove.textContent = "×";
+    wrapper.appendChild(remove);
+
+    list.appendChild(wrapper);
+    input.addEventListener("input", function () { syncPagePathHidden(row); });
+    input.addEventListener("change", function () { syncPagePathHidden(row); });
+    remove.addEventListener("click", function () {
+      if (list.querySelectorAll("[data-page-path-row]").length > 1) {
+        wrapper.remove();
+      } else {
+        input.value = "";
+      }
+      syncPagePathHidden(row);
+    });
+    return wrapper;
+  }
+
+  function setPagePathBoxes(row, paths) {
+    var list = row ? row.querySelector("[data-page-path-list]") : null;
+    if (!list) {
+      return;
+    }
+    list.innerHTML = "";
+    var values = Array.isArray(paths) ? paths : [];
+    if (!values.length) {
+      values = [""];
+    }
+    values.forEach(function (path) {
+      createPagePathBox(row, path || "");
+    });
+    syncPagePathHidden(row);
+  }
+
+  function splitPagePathsText(text) {
+    var raw = String(text || "");
+    if (!raw.trim()) {
+      return [];
+    }
+    return raw.split(/\r?\n/).map(function (value) {
+      return value.trim();
+    }).filter(Boolean);
+  }
+
+  function bindPagePathControls(row) {
+    if (!row || row.dataset.pagePathReady === "true") {
+      return;
+    }
+    row.dataset.pagePathReady = "true";
+    row.querySelectorAll("[data-page-path-input]").forEach(function (input) {
+      input.addEventListener("input", function () { syncPagePathHidden(row); });
+      input.addEventListener("change", function () { syncPagePathHidden(row); });
+    });
+    row.querySelectorAll("[data-remove-page-path]").forEach(function (remove) {
+      remove.addEventListener("click", function () {
+        var pathRows = row.querySelectorAll("[data-page-path-row]");
+        var wrapper = remove.closest("[data-page-path-row]");
+        var input = wrapper ? wrapper.querySelector("[data-page-path-input]") : null;
+        if (pathRows.length > 1 && wrapper) {
+          wrapper.remove();
+        } else if (input) {
+          input.value = "";
+        }
+        syncPagePathHidden(row);
+      });
+    });
+    var addPath = row.querySelector("[data-add-page-path]");
+    if (addPath) {
+      addPath.addEventListener("click", function () {
+        var created = createPagePathBox(row, "");
+        syncPagePathHidden(row);
+        var input = created ? created.querySelector("[data-page-path-input]") : null;
+        if (input) {
+          input.focus();
+        }
+      });
+    }
+    var hidden = row.querySelector("[data-page-path-hidden]");
+    if (hidden && !pagePathValuesFromRow(row).length && hidden.value) {
+      setPagePathBoxes(row, splitPagePathsText(hidden.value));
+    } else {
+      syncPagePathHidden(row);
+    }
+  }
+
+  function bindManualPageRow(row, tbody) {
+    if (!row) {
+      return;
+    }
+    var remove = row.querySelector("[data-remove-page-row]");
+    if (remove && remove.dataset.bound !== "true") {
+      remove.dataset.bound = "true";
+      remove.addEventListener("click", function () {
+        if (tbody.querySelectorAll("tr").length > 1) {
+          row.remove();
+        }
+      });
+    }
+    bindPagePathControls(row);
+  }
+
+  function resetManualPageRow(row) {
+    if (!row) {
+      return;
+    }
+    row.querySelectorAll("input, textarea").forEach(function (field) {
+      if (field.matches("[data-page-path-input]")) {
+        return;
+      }
+      if (field.name === "page_lowest_level" || field.name === "page_level") {
+        field.value = "0";
+      } else {
+        field.value = "";
+      }
+    });
+    row.querySelectorAll("select").forEach(function (select) {
+      select.value = select.name === "page_source" ? "admin" : "";
+    });
+    row.dataset.pagePathReady = "false";
+    setPagePathBoxes(row, [""]);
+    bindPagePathControls(row);
+  }
+
   function initManualPages(editor) {
     var tbody = editor.querySelector("[data-manual-pages]");
     var add = editor.querySelector("[data-add-page-row]");
     if (!tbody || !add) {
       return;
     }
-    function bindRemove(row) {
-      var remove = row.querySelector("[data-remove-page-row]");
-      if (remove) {
-        remove.addEventListener("click", function () {
-          if (tbody.querySelectorAll("tr").length > 1) {
-            row.remove();
-          }
-        });
-      }
-    }
-    Array.prototype.slice.call(tbody.querySelectorAll("tr")).forEach(bindRemove);
+    Array.prototype.slice.call(tbody.querySelectorAll("tr")).forEach(function (row) {
+      bindManualPageRow(row, tbody);
+    });
     add.addEventListener("click", function () {
       var first = tbody.querySelector("tr");
       if (!first) {
         return;
       }
       var clone = first.cloneNode(true);
-      clone.querySelectorAll("input").forEach(function (input) {
-        input.value = input.name === "page_level" ? "1" : "";
+      clone.querySelectorAll("[data-remove-page-row]").forEach(function (button) {
+        delete button.dataset.bound;
       });
-      clone.querySelectorAll("select").forEach(function (select) { select.value = "table"; });
-      bindRemove(clone);
+      delete clone.dataset.pagePathReady;
+      resetManualPageRow(clone);
+      bindManualPageRow(clone, tbody);
       tbody.appendChild(clone);
     });
+  }
+
+  function bindManualAssetOverrideRow(row, tbody) {
+    if (!row) {
+      return;
+    }
+    var level = row.querySelector("[data-asset-assignment-level]");
+    if (level && level.dataset.bound !== "true") {
+      level.dataset.bound = "true";
+      level.addEventListener("change", function () {
+        updateAssetAssignmentEntityFilter(row);
+      });
+    }
+    updateAssetAssignmentEntityFilter(row);
+    var remove = row.querySelector("[data-remove-asset-override-row]");
+    if (remove && remove.dataset.bound !== "true") {
+      remove.dataset.bound = "true";
+      remove.addEventListener("click", function () {
+        row.remove();
+      });
+    }
+  }
+
+  function updateAssetAssignmentEntityFilter(row) {
+    if (!row) {
+      return;
+    }
+    var level = row.querySelector("[data-asset-assignment-level]");
+    var entity = row.querySelector("[data-asset-assignment-entity]");
+    if (!level || !entity) {
+      return;
+    }
+    var selectedLevel = level.value || "";
+    var selectedStillVisible = !entity.value;
+    Array.prototype.slice.call(entity.options).forEach(function (option) {
+      if (!option.value) {
+        option.hidden = false;
+        option.disabled = false;
+        return;
+      }
+      var visible = !selectedLevel || option.dataset.level === selectedLevel;
+      option.hidden = !visible;
+      option.disabled = !visible;
+      if (visible && option.value === entity.value) {
+        selectedStillVisible = true;
+      }
+    });
+    if (!selectedStillVisible) {
+      entity.value = "";
+    }
+  }
+
+  function assetAssignmentTemplateRow(form) {
+    var template = form ? form.querySelector("[data-asset-assignment-row-template]") : null;
+    if (template && template.content) {
+      var row = template.content.firstElementChild.cloneNode(true);
+      resetManualAssetOverrideRow(row);
+      return row;
+    }
+    var first = form ? form.querySelector("[data-manual-asset-overrides] tr") : null;
+    if (!first) {
+      return null;
+    }
+    var clone = first.cloneNode(true);
+    resetManualAssetOverrideRow(clone);
+    return clone;
+  }
+
+  function resetManualAssetOverrideRow(row) {
+    if (!row) {
+      return;
+    }
+    row.querySelectorAll("select").forEach(function (select) {
+      if (select.name === "asset_assignment_replace_existing") {
+        select.value = "true";
+      } else {
+        select.value = "";
+      }
+      select.disabled = false;
+    });
+    row.querySelectorAll("[data-remove-asset-override-row]").forEach(function (button) {
+      button.disabled = false;
+      delete button.dataset.bound;
+    });
+    row.querySelectorAll("[data-asset-assignment-level]").forEach(function (select) {
+      delete select.dataset.bound;
+    });
+  }
+
+  function initManualAssetOverrides(editor) {
+    var tbody = editor.querySelector("[data-manual-asset-overrides]");
+    var add = editor.querySelector("[data-add-asset-override-row]");
+    if (!tbody || !add) {
+      return;
+    }
+    Array.prototype.slice.call(tbody.querySelectorAll("tr")).forEach(function (row) {
+      bindManualAssetOverrideRow(row, tbody);
+    });
+    add.addEventListener("click", function () {
+      if (add.disabled) {
+        return;
+      }
+      var form = add.closest("form") || editor.querySelector(".config-manual-form");
+      var row = assetAssignmentTemplateRow(form);
+      if (!row) {
+        return;
+      }
+      bindManualAssetOverrideRow(row, tbody);
+      tbody.appendChild(row);
+      var firstInput = row.querySelector("select");
+      if (firstInput) {
+        firstInput.focus();
+      }
+    });
+  }
+
+  function updateManualVisualAssetsForm(form, visualAssets) {
+    visualAssets = visualAssets || {};
+    setManualFormField(form, "visual_asset_bulk_country_wikidata", visualAssets.bulk_country_wikidata || "true");
+    setManualFormField(form, "visual_asset_strict_required", visualAssets.strict_required || "true");
+    setManualFormField(form, "visual_asset_required_kinds", visualAssets.required_kinds || "flag, coat");
+    setManualFormField(form, "visual_asset_required_levels", visualAssets.required_levels || "");
+  }
+
+  function setManualFormField(form, name, value) {
+    var field = form ? form.querySelector('[name="' + name + '"]') : null;
+    if (!field) {
+      return;
+    }
+    field.value = value === undefined || value === null ? "" : String(value);
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function updateManualAssetOverrideRow(row, override) {
+    setManualPageField(row, "asset_assignment_level", manualPageValue(override, "level"));
+    setManualPageField(row, "asset_assignment_entity_id", manualPageValue(override, "entity_id"));
+    setManualPageField(row, "asset_assignment_flag_qid", manualPageValue(override, "flag_qid"));
+    setManualPageField(row, "asset_assignment_coat_qid", manualPageValue(override, "coat_qid"));
+    setManualPageField(row, "asset_assignment_replace_existing", manualPageValue(override, "replace_existing") || "true");
+    updateAssetAssignmentEntityFilter(row);
+  }
+
+  function updateManualAssetOverridesForm(form, overrides) {
+    var tbody = form ? form.querySelector("[data-manual-asset-overrides]") : null;
+    if (!tbody) {
+      return;
+    }
+    overrides = Array.isArray(overrides) ? overrides : [];
+    while (tbody.firstChild) {
+      tbody.removeChild(tbody.firstChild);
+    }
+    overrides.forEach(function (override) {
+      var row = assetAssignmentTemplateRow(form);
+      if (!row) {
+        return;
+      }
+      updateManualAssetOverrideRow(row, override || {});
+      bindManualAssetOverrideRow(row, tbody);
+      tbody.appendChild(row);
+    });
+  }
+
+
+  function setManualPageField(row, name, value) {
+    var field = row ? row.querySelector('[name="' + name + '"]') : null;
+    if (!field) {
+      return;
+    }
+    field.value = value === undefined || value === null ? "" : String(value);
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function manualPageValue(page, key) {
+    if (!page || page[key] === undefined || page[key] === null) {
+      return "";
+    }
+    return page[key];
+  }
+
+  function updateManualConfigForm(editor, manual) {
+    var form = editor ? editor.querySelector(".config-manual-form") : null;
+    var tbody = form ? form.querySelector("[data-manual-pages]") : null;
+    if (!form || !tbody || !manual) {
+      return;
+    }
+    var country = form.querySelector('[name="manual_country_code"]');
+    var legalSubdivision = form.querySelector('[name="manual_legal_subdivision"]');
+    var wikidataId = form.querySelector('[name="manual_wikidata_id"]');
+    if (country) {
+      country.value = manual.country_code || "";
+    }
+    if (legalSubdivision) {
+      legalSubdivision.value = manual.legal_subdivision || "";
+    }
+    if (wikidataId) {
+      wikidataId.value = manual.wikidata_id || "";
+    }
+    updateManualVisualAssetsForm(form, manual.visual_assets || {});
+    updateManualAssetOverridesForm(form, manual.asset_overrides || []);
+    var pages = Array.isArray(manual.pages) ? manual.pages : [];
+    if (!pages.length) {
+      pages = [{ source: "admin", paths: ["admin"], lowest_level: "0" }];
+    }
+    while (tbody.querySelectorAll("tr").length < pages.length) {
+      var template = tbody.querySelector("tr");
+      if (!template) {
+        break;
+      }
+      var clone = template.cloneNode(true);
+      clone.querySelectorAll("[data-remove-page-row]").forEach(function (button) {
+        delete button.dataset.bound;
+      });
+      delete clone.dataset.pagePathReady;
+      resetManualPageRow(clone);
+      bindManualPageRow(clone, tbody);
+      tbody.appendChild(clone);
+    }
+    while (tbody.querySelectorAll("tr").length > pages.length && tbody.querySelectorAll("tr").length > 1) {
+      tbody.querySelector("tr:last-child").remove();
+    }
+    Array.prototype.slice.call(tbody.querySelectorAll("tr")).forEach(function (row, index) {
+      var page = pages[index] || {};
+      var source = row.querySelector('[name="page_source"]');
+      var lowest = row.querySelector('[name="page_lowest_level"], [name="page_level"]');
+      if (source) {
+        source.value = page.source || "admin";
+        if (source.value !== (page.source || "admin")) {
+          source.value = "auto";
+        }
+      }
+      if (lowest) {
+        lowest.value = page.lowest_level === undefined || page.lowest_level === null ? "0" : String(page.lowest_level);
+      }
+      setManualPageField(row, "page_include_root", manualPageValue(page, "include_root"));
+      setManualPageField(row, "page_include_tables", manualPageValue(page, "include_tables"));
+      setManualPageField(row, "page_table_levels", manualPageValue(page, "table_levels"));
+      setManualPageField(row, "page_status_levels", manualPageValue(page, "status_levels"));
+      setManualPageField(row, "page_root_level", manualPageValue(page, "root_level"));
+      setManualPageField(row, "page_root_code", manualPageValue(page, "root_code"));
+      setManualPageField(row, "page_root_name", manualPageValue(page, "root_name"));
+      setManualPageField(row, "page_root_parent_code", manualPageValue(page, "root_parent_code"));
+      setManualPageField(row, "page_root_entity_type", manualPageValue(page, "root_entity_type"));
+      var paths = Array.isArray(page.paths) && page.paths.length ? page.paths : splitPagePathsText(page.paths_text || "");
+      setPagePathBoxes(row, paths.length ? paths : [""]);
+      bindManualPageRow(row, tbody);
+    });
+  }
+
+  function updateRawConfigForm(editor, content) {
+    var rawTextarea = editor ? editor.querySelector('[data-raw-config-form] textarea[name="content"]') : null;
+    if (!rawTextarea) {
+      return;
+    }
+    rawTextarea.value = content || "";
+    rawTextarea.dispatchEvent(new Event("input", { bubbles: true }));
+    rawTextarea.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function updateConfigEditorFromGeneratedContent(editor, content, manual) {
+    var output = editor ? editor.querySelector("[data-generated-config]") : null;
+    if (output) {
+      output.value = content || "";
+      output.dispatchEvent(new Event("input", { bubbles: true }));
+      output.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    updateRawConfigForm(editor, content || "");
+    updateManualConfigForm(editor, manual);
   }
 
   function initCityTransfer(editor, sourceEntities) {
@@ -5872,7 +6424,7 @@
           return data;
         });
       }).then(function (data) {
-        output.value = data.content || "";
+        updateConfigEditorFromGeneratedContent(editor, data.content || "", data.manual || null);
         log.value = "\u2705 " + (data.log || "");
       }).catch(function (error) {
         log.value = "\u274c " + (error.message || "Error");
@@ -5940,8 +6492,14 @@
   function ensureRepeatedManualRows(form, values) {
     var expected = Math.max(
       (values.page_level || []).length,
+      (values.page_lowest_level || []).length,
       (values.page_url || []).length,
-      (values.page_source || []).length
+      (values.page_path || []).length,
+      (values.page_source || []).length,
+      (values.page_include_root || []).length,
+      (values.page_include_tables || []).length,
+      (values.page_table_levels || []).length,
+      (values.page_status_levels || []).length
     );
     if (expected <= 1) {
       return;
@@ -5988,6 +6546,16 @@
         field.dispatchEvent(new Event("input", { bubbles: true }));
         field.dispatchEvent(new Event("change", { bubbles: true }));
       });
+    });
+    form.querySelectorAll("[data-page-path-hidden]").forEach(function (hidden) {
+      var row = hidden.closest("tr");
+      var tbody = row ? row.closest("[data-manual-pages]") : null;
+      if (row) {
+        setPagePathBoxes(row, splitPagePathsText(hidden.value));
+        if (tbody) {
+          bindManualPageRow(row, tbody);
+        }
+      }
     });
   }
 
@@ -6054,6 +6622,8 @@
     initConfigTables(document);
     initConfigLoadingDots(document);
     initConfigTaskActions(document);
+    initConfigExportActions(document);
+    refreshConfigActionButtons(document);
     initConfigEditor(document);
     initDataCharts(document);
     initDashboardCountryDetail(document);

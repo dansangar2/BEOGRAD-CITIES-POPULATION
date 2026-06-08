@@ -1,4 +1,10 @@
+name = "Wallis and Futuna"
+country_code = "wallisfutuna"
 LEGAL_SUBDIVISION = 2
+
+[visual_assets.flag]
+remote_url = "https://www.citypopulation.de/images/flags/wallisfutuna.svg"
+source = "config"
 
 [[pages]]
 source = "infosection"

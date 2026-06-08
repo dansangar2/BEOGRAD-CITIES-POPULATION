@@ -195,6 +195,7 @@ class ScrapeAdminAreas:
                         page.html_format,
                         page.lowest_level,
                         tuple(sorted(getattr(page, "table_levels", {}).items())),
+                        tuple(sorted(getattr(page, "status_levels", {}).items())),
                         tuple(getattr(page, "include_tables", ())),
                         getattr(page, "include_root", True),
                         getattr(page, "root_level", None),
@@ -779,8 +780,15 @@ def _page_root_slug(url: str | None) -> str | None:
     segments = [segment for segment in urlparse(url).path.split("/") if segment]
     if len(segments) < 2:
         return None
+
     # /en/spain/ceuta/ -> ceuta
-    return _normalize_url_slug(segments[-1])
+    # /en/poland/dolnoslaskie/admin/ -> dolnoslaskie
+    generic_tail = {"admin"}
+    for segment in reversed(segments):
+        normalized = _normalize_url_slug(segment)
+        if normalized and normalized not in generic_tail:
+            return normalized
+    return None
 
 
 def _normalize_entity_name(value: str | None) -> str:

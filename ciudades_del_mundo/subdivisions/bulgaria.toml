@@ -1,11 +1,44 @@
+name = "Bulgaria"
+country_code = "bulgaria"
+base_url = "https://www.citypopulation.de/en/"
 LEGAL_SUBDIVISION = 2
-
-[[pages]]
-source = "infosection"
-path = ["cities"]
-lowest_level = 0
 
 [[pages]]
 source = "admin"
 path = ["admin"]
 lowest_level = 0
+
+[[pages]]
+source = "table"
+# Provincias L1, municipios L2 y pueblos/asentamientos L3.
+path = [
+  "blagoevgrad",
+  "burgas",
+  "dobrich",
+  "gabrovo",
+  "haskovo",
+  "kardzhali",
+  "kyustendil",
+  "lovech",
+  "montana",
+  "pazardzhik",
+  "pernik",
+  "pleven",
+  "plovdiv",
+  "razgrad",
+  "ruse",
+  "shumen",
+  "silistra",
+  "sliven",
+  "smolyan",
+  "sofia",
+  "sofiacity",
+  "starazagora",
+  "targovishte",
+  "varna",
+  "velikotarnovo",
+  "vidin",
+  "vratsa",
+  "yambol",
+]
+lowest_level = 1

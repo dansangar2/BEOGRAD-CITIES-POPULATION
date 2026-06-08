@@ -53,7 +53,7 @@ class PythonScrapingConfigRepository:
         return ScrapingJobConfig(
             slug=slug,
             country_code=str(data.get("country_code") or slug),
-            base_url=str(data.get("base_url") or CITYPOPULATION_BASE_URL),
+            base_url=CITYPOPULATION_BASE_URL,
             legal_subdivision_level=_int_or_none(data.get("LEGAL_SUBDIVISION")),
             name=data.get("name"),
             reset_before_import=bool(data.get("reset_before_import", False)),

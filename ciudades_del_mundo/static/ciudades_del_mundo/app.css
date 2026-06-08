@@ -509,7 +509,7 @@ a:hover {
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
 }
 
 .language-form {
@@ -832,7 +832,7 @@ p {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 14px;
+  padding: 10px 12px;
 }
 
 .row-card span,
@@ -1467,7 +1467,7 @@ label {
   z-index: 1;
   background: var(--card-bg);
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -2034,7 +2034,7 @@ label {
   min-width: 0;
   width: 100%;
   table-layout: auto;
-  font-size: 13px;
+  font-size: 11px;
 }
 
 .subdivision-share-wrap .first-order-summary-table th,
@@ -2201,7 +2201,7 @@ label {
   display: grid;
   gap: 3px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -3056,25 +3056,102 @@ html[data-theme="rainbow"] .task-console {
 
 .manual-pages-wrap {
   margin-top: 8px;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 .manual-pages-table {
-  min-width: 720px;
+  min-width: 980px;
+  table-layout: fixed;
 }
 
-.manual-pages-table th:first-child,
-.manual-pages-table td:first-child {
-  width: 90px;
+.config-pages-toml-table th:first-child,
+.config-pages-toml-table td:first-child {
+  width: 380px;
 }
 
-.manual-pages-table th:nth-child(3),
-.manual-pages-table td:nth-child(3) {
-  width: 190px;
+.config-pages-toml-table th:nth-child(2),
+.config-pages-toml-table td:nth-child(2),
+.config-pages-toml-table th:nth-child(3),
+.config-pages-toml-table td:nth-child(3) {
+  width: 235px;
 }
 
-.manual-pages-table th:last-child,
-.manual-pages-table td:last-child {
-  width: 100px;
+.config-pages-toml-table th:last-child,
+.config-pages-toml-table td:last-child {
+  width: 92px;
+}
+
+.config-pages-toml-table th,
+.config-pages-toml-table td {
+  vertical-align: top;
+}
+
+.config-pages-toml-table input,
+.config-pages-toml-table select {
+  width: 100%;
+  min-width: 0;
+}
+
+.manual-actions-cell {
+  padding-top: 10px;
+}
+
+.manual-principal-stack,
+.manual-field-stack {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.manual-principal-stack {
+  grid-template-rows: minmax(48px, auto) minmax(0, 1fr);
+  height: 268px;
+  min-height: 268px;
+}
+
+.manual-field-stack-five {
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+  height: 268px;
+  min-height: 268px;
+}
+
+.manual-source-field {
+  align-self: start;
+}
+
+.manual-mini-field {
+  display: grid;
+  gap: 0.16rem;
+  margin: 0;
+  min-width: 0;
+}
+
+.manual-mini-field > span,
+.manual-mini-label {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.manual-mini-field input,
+.manual-mini-field select {
+  min-height: 34px;
+}
+
+.toml-root-fields {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.config-form-header-actions {
+  align-items: center;
+}
+
+.config-form-header-actions form {
+  margin: 0;
 }
 
 .spaced-title {
@@ -3144,32 +3221,37 @@ html[data-theme="rainbow"] .task-console {
 
 .config-toast-stack {
   position: fixed;
-  top: 12px;
-  right: 12px;
+  top: 18px;
+  right: 18px;
   z-index: 1200;
-  --config-toast-height: 112px;
-  --config-toast-gap: 10px;
-  --config-toast-offscreen-x: calc(100% + 20px);
+  --config-toast-height: 136px;
+  --config-toast-gap: 8px;
+  --config-toast-offscreen-x: calc(100% + 34px);
   --config-toast-exit-y: calc(0px - var(--config-toast-height) - var(--config-toast-gap));
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--config-toast-gap);
-  width: min(340px, calc(100vw - 24px));
-  max-height: calc(100vh - 24px);
-  max-height: calc(100dvh - 24px);
+  display: block;
+  width: min(360px, calc(100vw - 36px));
+  height: calc(
+    var(--config-toast-height) +
+    var(--config-toast-height) +
+    var(--config-toast-height) +
+    var(--config-toast-height) +
+    var(--config-toast-gap) +
+    var(--config-toast-gap) +
+    var(--config-toast-gap)
+  );
   overflow: hidden;
   pointer-events: none;
   contain: layout paint;
 }
 
 .config-task-toast {
-  position: relative;
+  position: absolute;
+  top: 0;
+  right: 0;
   box-sizing: border-box;
   display: flex;
-  flex: 0 0 var(--config-toast-height);
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
   height: var(--config-toast-height);
   min-height: var(--config-toast-height);
@@ -3177,50 +3259,58 @@ html[data-theme="rainbow"] .task-console {
   pointer-events: auto;
   padding: 10px 12px;
   border: 1px solid var(--line);
-  border-left: 4px solid var(--info);
+  border-left: 5px solid var(--info);
   border-radius: 10px;
   background: var(--surface);
-  box-shadow: 0 10px 24px rgb(15 23 42 / 14%);
+  box-shadow: 0 12px 30px rgb(15 23 42 / 14%);
   overflow: hidden;
   transform-origin: top right;
-  transform: translate3d(var(--toast-x, 0px), 0, 0);
+  transform: translate3d(var(--toast-x, 0px), var(--toast-y, 0px), 0);
   opacity: var(--toast-opacity, 1);
   transition:
-    transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.2s ease;
+    transform 0.54s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.24s ease;
   will-change: opacity, transform;
 }
 
 .config-task-toast.is-entering {
-  animation: config-toast-enter-square 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: config-toast-enter-square 0.54s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .config-task-toast.is-dismissing {
   z-index: 100;
   pointer-events: none;
   transition: none;
-  animation: config-toast-exit-square 0.26s cubic-bezier(0.37, 0, 0.2, 1) forwards;
+  animation: config-toast-exit-square 0.58s cubic-bezier(0.37, 0, 0.2, 1) forwards;
 }
 
 @keyframes config-toast-enter-square {
   0% {
     opacity: 0;
-    transform: translate3d(var(--config-toast-offscreen-x), 0, 0);
+    transform: translate3d(var(--config-toast-offscreen-x), calc(var(--toast-y) - 16px), 0);
+  }
+  34% {
+    opacity: 0.92;
+    transform: translate3d(var(--config-toast-offscreen-x), var(--toast-y), 0);
   }
   100% {
     opacity: 1;
-    transform: translate3d(0px, 0, 0);
+    transform: translate3d(0px, var(--toast-y), 0);
   }
 }
 
 @keyframes config-toast-exit-square {
   0% {
     opacity: 1;
-    transform: translate3d(0px, 0, 0);
+    transform: translate3d(0px, var(--toast-y), 0);
+  }
+  48% {
+    opacity: 1;
+    transform: translate3d(0px, var(--toast-exit-y), 0);
   }
   100% {
     opacity: 0;
-    transform: translate3d(var(--config-toast-offscreen-x), 0, 0);
+    transform: translate3d(var(--config-toast-offscreen-x), var(--toast-exit-y), 0);
   }
 }
 
@@ -3245,31 +3335,20 @@ html[data-theme="rainbow"] .task-console {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   flex: 0 0 auto;
-  min-height: 24px;
 }
 
 .config-task-toast-header .quiet {
   flex: 0 0 auto;
-  width: 26px;
-  height: 26px;
-  min-height: 26px;
-  padding: 0;
-  line-height: 1;
 }
 
 .config-task-toast-status {
   flex: 0 0 auto;
-  display: -webkit-box;
-  height: auto;
-  max-height: 1.3em;
+  height: 2.8em;
   margin: 0;
   overflow: hidden;
-  font-size: 0.88rem;
-  line-height: 1.3;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
+  line-height: 1.4;
 }
 
 .config-task-output {
@@ -3328,13 +3407,11 @@ html[data-theme="rainbow"] .task-console {
   }
 
   .config-toast-stack {
-    top: 8px;
-    right: 8px;
-    --config-toast-height: 104px;
+    top: 10px;
+    right: 10px;
+    --config-toast-height: 128px;
     --config-toast-gap: 8px;
-    width: min(320px, calc(100vw - 16px));
-    max-height: calc(100vh - 16px);
-    max-height: calc(100dvh - 16px);
+    width: calc(100vw - 20px);
   }
 }
 
@@ -3363,7 +3440,7 @@ html[data-theme="rainbow"] .task-console {
 .config-task-toast-title {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   min-width: 0;
 }
 
@@ -3371,19 +3448,16 @@ html[data-theme="rainbow"] .task-console {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.95rem;
-  line-height: 1.2;
 }
 
 .config-task-toast-icon {
   display: inline-grid;
-  width: 22px;
-  height: 22px;
-  flex: 0 0 22px;
+  width: 28px;
+  height: 28px;
   place-items: center;
   border-radius: 999px;
   background: color-mix(in srgb, var(--info) 14%, transparent);
-  font-size: 13px;
+  font-size: 18px;
   line-height: 1;
 }
 
@@ -3393,6 +3467,27 @@ html[data-theme="rainbow"] .task-console {
 
 .config-task-toast.is-error .config-task-toast-icon {
   background: color-mix(in srgb, var(--danger) 16%, transparent);
+}
+
+.config-task-toast-header {
+  gap: 8px;
+}
+
+.config-task-toast-status {
+  height: 2.35em;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.config-task-output {
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.config-task-toast-icon {
+  width: 24px;
+  height: 24px;
+  font-size: 15px;
 }
 
 .dual-table-transfer {
@@ -3803,32 +3898,14 @@ html[data-theme="rainbow"] .task-console {
 }
 
 .config-toast-stack {
-  --config-toast-height: clamp(104px, 13vh, 116px);
-  --config-toast-height: clamp(104px, 13dvh, 116px);
-  --config-toast-gap: 10px;
+  --config-toast-height: clamp(124px, 17vh, 144px);
+  --config-toast-height: clamp(124px, 17dvh, 144px);
 }
 
 .config-task-toast,
 .config-task-toast-status,
 .config-task-output {
   min-width: 0;
-}
-
-
-.config-task-toast .button,
-.config-task-toast button {
-  min-height: 28px;
-  padding: 5px 10px;
-  font-size: 0.84rem;
-  line-height: 1.15;
-}
-
-.config-task-toast .config-task-log-link {
-  align-self: flex-start;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .config-task-output {
@@ -3875,122 +3952,96 @@ html[data-theme^="retro"] .knowledge-card {
   }
 }
 
-/* /countries: columna de anotación condicional y paneles multinivel alineados. */
-.country-data-table th.table-column-name,
-.country-data-table td.table-column-name {
-  width: 170px;
-  max-width: 190px;
-  overflow: hidden;
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.technical-field-help {
+  margin: 0.75rem 0 1rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.35));
+  border-radius: 0.9rem;
+  background: var(--panel-muted-bg, rgba(148, 163, 184, 0.08));
 }
 
-.country-data-table th.table-column-entity-type,
-.country-data-table td.table-column-entity-type {
-  width: 160px;
-  min-width: 160px;
-  text-align: left;
+.technical-field-help summary {
+  cursor: pointer;
+  font-weight: 700;
 }
 
-.country-data-table th.table-column-annotations,
-.country-data-table td.table-column-annotations,
-.stats-children-table th.table-column-annotations,
-.stats-children-table td.table-column-annotations {
-  width: 160px;
-  min-width: 140px;
-  max-width: 240px;
-  overflow: visible;
-  overflow-wrap: anywhere;
-  text-align: left;
-  text-overflow: clip;
-  white-space: normal;
+.technical-field-help dl {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.35fr) minmax(0, 1fr);
+  gap: 0.55rem 1rem;
+  margin: 0.9rem 0 0;
 }
 
-.country-data-table th.table-column-population,
-.country-data-table td.table-column-population,
-.country-data-table th.table-column-area-km2,
-.country-data-table td.table-column-area-km2,
-.country-data-table th.table-column-density,
-.country-data-table td.table-column-density {
-  width: 104px;
-  min-width: 104px;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  white-space: nowrap;
+.technical-field-help dt {
+  font-family: var(--mono-font, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-weight: 700;
 }
 
-.country-data-table th.table-column-population-percent,
-.country-data-table td.table-column-population-percent,
-.country-data-table th.table-column-area-percent,
-.country-data-table td.table-column-area-percent {
-  width: 72px;
-  min-width: 72px;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  white-space: nowrap;
+.technical-field-help dd {
+  margin: 0;
 }
 
-.country-data-table th.table-column-parent,
-.country-data-table td.table-column-parent {
-  width: 160px;
-  min-width: 160px;
-  text-align: left;
-}
-
-.stats-children-table th.table-column-color,
-.stats-children-table td.table-column-color {
-  width: 26px;
-  text-align: center;
-}
-
-.stats-children-table th.table-column-name,
-.stats-children-table td.table-column-name,
-.stats-children-table th.table-column-entity-type,
-.stats-children-table td.table-column-entity-type {
-  width: auto;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  text-align: left;
-  white-space: normal;
-}
-
-.stats-children-table th.table-column-population,
-.stats-children-table td.table-column-population,
-.stats-children-table th.table-column-population-percent,
-.stats-children-table td.table-column-population-percent,
-.stats-children-table th.table-column-area-km2,
-.stats-children-table td.table-column-area-km2,
-.stats-children-table th.table-column-area-percent,
-.stats-children-table td.table-column-area-percent,
-.stats-children-table th.table-column-density,
-.stats-children-table td.table-column-density,
-.stats-children-table th.table-column-child-count,
-.stats-children-table td.table-column-child-count {
-  width: 1%;
-  min-width: 58px;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.stats-area-detail-grid--stacked-levels {
-  align-items: stretch;
-}
-
-.stats-area-detail-grid--stacked-levels > .stats-area-basic-panel {
-  grid-row: span var(--stats-area-child-panel-count, 1);
-  height: 100%;
-}
-
-.stats-area-detail-grid--stacked-levels > .stats-country-first-level-panel {
-  grid-column: 2;
-}
-
-@media (max-width: 920px) {
-  .stats-area-detail-grid--stacked-levels > .stats-area-basic-panel,
-  .stats-area-detail-grid--stacked-levels > .stats-country-first-level-panel {
-    grid-column: auto;
-    grid-row: auto;
+@media (max-width: 760px) {
+  .technical-field-help dl {
+    grid-template-columns: 1fr;
   }
+}
+
+.page-path-cell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0.35rem;
+  min-width: 0;
+  min-height: 0;
+  padding-bottom: calc(34px + 0.4rem);
+  position: relative;
+}
+
+.page-path-list {
+  align-content: start;
+  display: grid;
+  gap: 0.35rem;
+  grid-auto-rows: minmax(34px, max-content);
+  height: 100%;
+  max-height: none;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  padding-right: 0.25rem;
+  scrollbar-gutter: stable;
+}
+
+.page-path-row {
+  align-self: start;
+  display: grid;
+  grid-template-columns: minmax(250px, 1fr) auto;
+  gap: 0.35rem;
+  align-items: center;
+  min-height: 34px;
+}
+
+.page-path-row input {
+  height: 34px;
+  width: 100%;
+  min-width: 250px;
+}
+
+.mini-button {
+  align-self: end;
+  height: 34px;
+  margin-top: 0;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.85rem;
+}
+
+.page-path-cell [data-add-page-path] {
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  right: 0;
+}
+
+.advanced-scraping-field[hidden],
+.config-tab-ai[hidden] {
+  display: none !important;
 }

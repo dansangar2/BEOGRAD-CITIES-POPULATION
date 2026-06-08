@@ -344,7 +344,7 @@ class CityPopulationDoubleScraperTests(unittest.TestCase):
 
         self.assertEqual([entity.code for entity in entities], ["L1"])
         self.assertEqual(entities[0].parent_code, "P1")
-        self.assertEqual(entities[0].annotations, "La localidad se reparte por varias subdivisiones superiores")
+        self.assertEqual(entities[0].annotations, "Comparte población con otras divisiones")
 
     def test_slash_parent_cell_prefers_same_name_parent_and_adds_annotation(self):
         html = """
@@ -397,35 +397,28 @@ class CityPopulationDoubleScraperTests(unittest.TestCase):
 
         self.assertEqual([entity.code for entity in entities], ["L1"])
         self.assertEqual(entities[0].parent_code, "P2")
-        self.assertEqual(entities[0].annotations, "La localidad se reparte por varias subdivisiones superiores")
+        self.assertEqual(entities[0].annotations, "Comparte población con otras divisiones")
 
-    def test_slash_parent_cell_with_data_admid_keeps_parent_and_adds_annotation(self):
+
+
+    def test_status_levels_parse_all_tbody_groups_and_override_levels(self):
         html = """
         <html>
           <body>
             <table id="tl">
-              <thead><tr><th class="rpop" data-coldate="2025-01-01">2025</th></tr></thead>
-              <tbody>
+              <thead><tr><th class="rpop" data-coldate="2022-01-01">2022</th></tr></thead>
+              <tbody class="adm">
                 <tr>
-                  <td class="rname" id="iP1"><span itemprop="name">Alpha</span></td>
-                  <td class="rstatus">Commune</td>
-                  <td class="rpop">1,000</td>
-                </tr>
-                <tr>
-                  <td class="rname" id="iP2"><span itemprop="name">Beta</span></td>
-                  <td class="rstatus">Commune</td>
-                  <td class="rpop">900</td>
+                  <td class="rname" id="iF1"><span itemprop="name">Federation</span></td>
+                  <td class="rstatus">AReg</td>
+                  <td class="rpop">100</td>
                 </tr>
               </tbody>
-            </table>
-            <table id="ts">
-              <thead><tr><th class="radm">Commune</th><th class="rpop" data-coldate="2025-01-01">2025</th></tr></thead>
               <tbody>
                 <tr>
-                  <td class="rname" id="iL1"><span itemprop="name">Beta</span></td>
-                  <td class="rstatus">Locality</td>
-                  <td class="radm" data-admid="P1">Alpha / Beta</td>
-                  <td class="rpop">100</td>
+                  <td class="rname" id="iC1"><span itemprop="name">Canton</span></td>
+                  <td class="rstatus">Cant</td>
+                  <td class="rpop">50</td>
                 </tr>
               </tbody>
             </table>
@@ -433,24 +426,20 @@ class CityPopulationDoubleScraperTests(unittest.TestCase):
         </html>
         """
         page = ScrapingPageConfig(
-            path="example/localities/slash-data-admid",
-            html_format="table",
-            lowest_level=2,
-            include_root=False,
-            include_tables=("ts",),
-            table_levels={"tl": 3, "ts": 4},
+            path="bosnia/cities",
+            html_format="double",
+            lowest_level=0,
+            status_levels={"areg": 1, "cant": 2},
         )
 
         entities = CityPopulationDoubleScraper().scrape_configured_html(
             html=html,
-            url="https://www.citypopulation.de/en/example/localities/slash-data-admid/",
-            country_code="example",
+            url="https://www.citypopulation.de/en/bosnia/cities/",
+            country_code="bosnia",
             page=page,
         )
 
-        self.assertEqual([entity.code for entity in entities], ["L1"])
-        self.assertEqual(entities[0].parent_code, "P1")
-        self.assertEqual(entities[0].annotations, "La localidad se reparte por varias subdivisiones superiores")
+        self.assertEqual([(entity.code, entity.level) for entity in entities], [("F1", 1), ("C1", 2)])
 
 
 class CityPopulationConfiguredPageHintsTests(unittest.TestCase):

@@ -5,6 +5,10 @@ reset_before_import = true
 LEGAL_SUBDIVISION = 2
 
 # L0 country -> L1 statistical districts -> L2 localities.
+[visual_assets.flag]
+remote_url = "https://www.citypopulation.de/images/flags/malta.svg"
+source = "config"
+
 [[pages]]
 source = "admin"
 path = ["admin"]

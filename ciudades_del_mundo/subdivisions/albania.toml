@@ -1,9 +1,7 @@
+name = "Albania"
+country_code = "albania"
+base_url = "https://www.citypopulation.de/en/"
 LEGAL_SUBDIVISION = 3
-
-[[pages]]
-source = "infosection"
-path = ["cities"]
-lowest_level = 0
 
 [[pages]]
 source = "admin"
@@ -12,5 +10,6 @@ lowest_level = 0
 
 [[pages]]
 source = "admin"
+# /mun/admin usa los municipios L2 como contexto para unidades municipales L3.
 path = ["mun/admin"]
 lowest_level = 1

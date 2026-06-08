@@ -1,9 +1,15 @@
+name = "Montenegro"
+country_code = "montenegro"
+base_url = "https://www.citypopulation.de/en/"
+LEGAL_SUBDIVISION = 1
+
 [[pages]]
-source = "cities"
+source = "infosection"
 path = ["cities"]
 lowest_level = 0
 
 [[pages]]
-source = "table"
+source = "double"
+# Municipios L1 y pueblos/asentamientos L2.
 path = ["towns"]
 lowest_level = 1

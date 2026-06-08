@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 import ast
+from dataclasses import dataclass
+from itertools import zip_longest
 import json
 from pathlib import Path
 from pprint import pformat
 import re
 import tomllib
+import unicodedata
 from urllib.error import URLError
 from urllib.parse import quote, urljoin, urlparse
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
+
+from bs4 import BeautifulSoup
 
 from django.conf import settings
 from django.contrib import messages
@@ -31,8 +36,15 @@ from ciudades_del_mundo.domain import (
 )
 from ciudades_del_mundo.models import AdminArea, NuevoAdminArea, ScrapingConfig
 
+from ciudades_del_mundo.infrastructure.scraping.page_types import (
+    CityPopulationPageProfile,
+    CityPopulationPageType,
+    detect_citypopulation_page_profile,
+)
+
 from ciudades_del_mundo.services.scraping_configs import (
     ensure_initial_scraping_configs,
+    export_scraping_configs_to_toml,
     scraping_config_bootstrap_status,
     scraping_config_table_exists,
     upsert_scraping_config,
@@ -58,6 +70,15 @@ from .tasks import task_manager
 CONFIG_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 RECIPE_SLUG_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 HIDDEN_CITY_MERGE_STATUS = 3
+CITYPOPULATION_DISCOVERY_TIMEOUT = int(getattr(settings, "CITYPOPULATION_DISCOVERY_TIMEOUT", 8))
+CITYPOPULATION_DISCOVERY_MAX_PAGES = int(getattr(settings, "CITYPOPULATION_DISCOVERY_MAX_PAGES", 110))
+CITYPOPULATION_GENERATOR_USER_AGENT = str(
+    getattr(
+        settings,
+        "CITYPOPULATION_GENERATOR_USER_AGENT",
+        "Mozilla/5.0 (compatible; BEOGRAD-CITIES-POPULATION config discovery)",
+    )
+)
 AI_CONFIG_ENABLED = bool(getattr(settings, "AI_CONFIG_ENABLED", True))
 AI_PERSONAL_LOGIN_ENABLED = bool(getattr(settings, "AI_PERSONAL_LOGIN_ENABLED", True))
 AI_PROVIDER_LOGIN_URLS = {
@@ -70,6 +91,63 @@ AI_PROVIDER_LOGIN_URLS = {
 PACKAGE_ROOT = Path(settings.BASE_DIR) / "ciudades_del_mundo"
 NEW_RECIPES_ROOT = PACKAGE_ROOT / "new_subdivisions"
 HISTORICAL_RECIPES_ROOT = PACKAGE_ROOT / "historical_divisions"
+
+
+@dataclass(frozen=True)
+class CityPopulationRouteCandidate:
+    """One route discovered in a CityPopulation country index."""
+
+    path: str
+    title: str = ""
+    description: str = ""
+    section: str = ""
+    category: str = "other"
+
+
+@dataclass(frozen=True)
+class CityPopulationPageProbe:
+    """Structural facts detected after reading a candidate CityPopulation page."""
+
+    path: str
+    url: str
+    title: str
+    h1: str
+    headings: tuple[str, ...]
+    profile: CityPopulationPageProfile
+    table_ids: tuple[str, ...]
+    row_count: int
+    tl_rows: int
+    ts_rows: int
+    has_population: bool
+    category: str = "other"
+
+
+@dataclass(frozen=True)
+class CityPopulationGeneratedPage:
+    """TOML-ready page specification generated from a probed route."""
+
+    path: str
+    source: str
+    lowest_level: int
+    category: str = "other"
+    include_root: bool | None = None
+    include_tables: tuple[str, ...] = ()
+    table_levels: tuple[tuple[str, int], ...] = ()
+    status_levels: tuple[tuple[str, int], ...] = ()
+    root_level: int | None = None
+    root_code: str = ""
+    root_name: str = ""
+    root_parent_code: str = ""
+    root_entity_type: str = ""
+
+    @property
+    def table_levels_dict(self) -> dict[str, int]:
+        return dict(self.table_levels)
+
+    @property
+    def status_levels_dict(self) -> dict[str, int]:
+        return dict(self.status_levels)
+
 COUNTRY_NAME_ES_BY_CODE = {
     "afghanistan": "Afganistán",
     "algeria": "Argelia",
@@ -634,21 +712,13 @@ def config_tasks_table(request):
 
 def config_new(request):
     """Create a new SQL-backed scraping config."""
+    wants_json = _wants_json(request)
     default_content = (
-        'name = "Nuevo país"\n'
         "LEGAL_SUBDIVISION = 2\n\n"
         "[[pages]]\n"
         'source = "admin"\n'
         'path = ["admin"]\n'
-        "lowest_level = 0\n\n"
-        "# [[cities]]\n"
-        '# city = "Ciudad Unificada"\n'
-        '# id = "city-code"\n'
-        "# level = 3\n"
-        '# type = "City"\n'
-        '# district_types = ["District"]\n'
-        '# from = { 2 = ["Provincia"] }\n'
-        "# keep_communes = false\n"
+        "lowest_level = 0\n"
     )
     slug = ""
     content = default_content
@@ -661,19 +731,33 @@ def config_new(request):
             _validate_config_text(slug, content)
             upsert_scraping_config(slug, content)
         except ValueError as exc:
+            if wants_json:
+                return JsonResponse({"ok": False, "error": str(exc)}, status=400)
             messages.error(request, str(exc))
         else:
-            messages.success(request, _("Configuración '%(slug)s' creada.") % {"slug": slug})
+            message = _("Configuración '%(slug)s' creada.") % {"slug": slug}
+            if wants_json:
+                return JsonResponse(
+                    {
+                        "ok": True,
+                        "slug": slug,
+                        "message": message,
+                        "redirect_url": reverse("ciudades_del_mundo:config_edit", kwargs={"slug": slug}),
+                        "summary_url": reverse("ciudades_del_mundo:config_summary", kwargs={"slug": slug}),
+                    }
+                )
+            messages.success(request, message)
             return redirect("ciudades_del_mundo:config_edit", slug=slug)
     return render(request, "ciudades_del_mundo/config_form.html", _config_form_context("new", slug, content))
 
 
 def config_edit(request, slug):
-    """Edit a SQL-backed scraping config and restart active scrape work if needed."""
+    """Edit a SQL-backed scraping config without starting scrape work automatically."""
     slug = _normalize_config_slug(slug)
     config_record = _config_record(slug)
     if config_record is None:
         raise Http404(_("No existe la configuracion '%(slug)s'.") % {"slug": slug})
+    wants_json = _wants_json(request)
     active_scrape = task_manager.latest_for_key(f"scrape:{slug}")
     content = config_record.content
 
@@ -683,23 +767,59 @@ def config_edit(request, slug):
             _validate_config_text(slug, content)
             upsert_scraping_config(slug, content, source_path=config_record.source_path)
         except ValueError as exc:
+            if wants_json:
+                return JsonResponse({"ok": False, "error": str(exc)}, status=400)
             messages.error(request, str(exc))
         else:
-            messages.success(request, _("Configuración '%(slug)s' guardada.") % {"slug": slug})
-            if active_scrape and active_scrape.is_active:
-                replacement = task_manager.start(
-                    key=f"scrape:{slug}",
-                    label=_("Popular datos: %(slug)s") % {"slug": slug},
-                    args=active_scrape.args,
+            message = _("Configuración '%(slug)s' guardada.") % {"slug": slug}
+            if wants_json:
+                return JsonResponse(
+                    {
+                        "ok": True,
+                        "slug": slug,
+                        "message": message,
+                        "summary_url": reverse("ciudades_del_mundo:config_summary", kwargs={"slug": slug}),
+                    }
                 )
-                messages.info(
-                    request,
-                    _("Había un scraping activo para esta configuración; se canceló y se lanzó otra tarea."),
-                )
-                return redirect("ciudades_del_mundo:task_detail", task_id=replacement.id)
+            messages.success(request, message)
             return redirect("ciudades_del_mundo:config_edit", slug=slug)
 
     return render(request, "ciudades_del_mundo/config_form.html", _config_form_context("edit", slug, content, active_scrape))
+
+
+def config_export_toml(request, slug):
+    """Export one SQL-backed config to ciudades_del_mundo/subdivisions/<slug>.toml."""
+    wants_json = _wants_json(request)
+    slug = _normalize_config_slug(slug)
+    config_record = _config_record(slug)
+    if config_record is None:
+        error = _("No existe la configuracion '%(slug)s'.") % {"slug": slug}
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=404)
+        raise Http404(error)
+    if request.method != "POST":
+        if wants_json:
+            return JsonResponse({"ok": False, "error": _("Método no soportado.")}, status=405)
+        return redirect("ciudades_del_mundo:config_edit", slug=slug)
+    try:
+        exported = export_scraping_configs_to_toml(force=True, slugs=[slug])
+    except Exception as exc:  # noqa: BLE001 - surfaced to the editor as a form message.
+        error = _("No se pudo exportar el TOML: %(error)s") % {"error": exc}
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=500)
+        messages.error(request, error)
+    else:
+        if exported:
+            message = _("Configuración exportada a subdivisions/%(slug)s.toml.") % {"slug": slug}
+            if wants_json:
+                return JsonResponse({"ok": True, "message": message, "exported": True})
+            messages.success(request, message)
+        else:
+            message = _("El fichero subdivisions/%(slug)s.toml ya estaba actualizado.") % {"slug": slug}
+            if wants_json:
+                return JsonResponse({"ok": True, "message": message, "exported": False})
+            messages.info(request, message)
+    return redirect("ciudades_del_mundo:config_edit", slug=slug)
 
 
 def start_all_config_task(request, action):
@@ -751,7 +871,7 @@ def start_all_config_task(request, action):
             return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
         key = "scrape:all"
         label = _("Popular configuraciones disponibles (%(count)s)") % {"count": len(eligible_slugs)}
-        args = ["validate_and_scrape_configs", *eligible_slugs]
+        args = ["repopulate_configs", *eligible_slugs, "--no-download-assets", "--page-workers=4"]
     else:
         error = _("Acción de configuración no soportada.")
         if wants_json:
@@ -862,17 +982,21 @@ def start_config_task(request, slug, action):
         args = ["validate_subdivision_configs", slug]
     elif action == "scrape":
         if not row.get("can_scrape"):
-            error = _("Solo puedes popular una configuración Por validar, Validada o en Fallo. Si ya está Populada, primero limpia sus datos.")
+            error = _("Solo puedes popular una configuración Por validar, Validada, Populada o en Fallo.")
             if wants_json:
                 return JsonResponse({"ok": False, "error": error}, status=400)
             messages.info(request, error)
             return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
         key = f"scrape:{slug}"
-        label = _("Popular datos: %(slug)s") % {"slug": slug}
-        if current_status == "validated":
-            args = ["scrape_subdivisions_with_assets", slug, "--no-download-assets", "--page-workers=4"]
+        if current_status == "populated":
+            label = _("Re-popular datos: %(slug)s") % {"slug": slug}
+            args = ["scrape_subdivisions_with_assets", slug, "--clear-first", "--no-download-assets", "--page-workers=4"]
         else:
-            args = ["validate_and_scrape_configs", slug, "--no-download-assets", "--page-workers=4"]
+            label = _("Popular datos: %(slug)s") % {"slug": slug}
+            if current_status == "validated":
+                args = ["scrape_subdivisions_with_assets", slug, "--no-download-assets", "--page-workers=4"]
+            else:
+                args = ["validate_and_scrape_configs", slug, "--no-download-assets", "--page-workers=4"]
     elif action == "clear":
         if not row.get("can_clear"):
             error = _("No hay datos")
@@ -1093,7 +1217,7 @@ def config_generate_base(request, slug):
         _validate_config_text(slug, content)
     except ValueError as exc:
         return JsonResponse({"ok": False, "error": str(exc)}, status=400)
-    return JsonResponse({"ok": True, "content": content, "log": "\n".join(log_lines)})
+    return JsonResponse({"ok": True, "content": content, "manual": _parse_config_editor_data(slug, content), "log": "\n".join(log_lines)})
 
 
 def config_ai_login(request, slug):
@@ -2265,7 +2389,6 @@ def _admin_area_identity_payload(area: AdminArea, children: list[AdminArea] | No
         "name": _area_display_name(area),
         "official_name": _area_display_name(area),
         "entity_type": _entity_type_label(area.entity_type, country_code=area.country_code),
-        "annotations": area.annotations or "",
         "level": area.level,
         "parent": _area_display_name(area.parent) if area.parent else "",
         "population": int(area.pop_latest or 0) if area.pop_latest is not None else None,
@@ -2291,7 +2414,6 @@ def _admin_area_child_rows(children: list[AdminArea], population_total, area_tot
             "id": child.id,
             "name": _area_display_name(child),
             "entity_type": _entity_type_label(child.entity_type, country_code=child.country_code),
-            "annotations": child.annotations or "",
             "level": child.level,
             "area_km2": _number_or_none(child.area_km2),
             "population": int(child.pop_latest or 0) if child.pop_latest is not None else None,
@@ -2710,7 +2832,6 @@ def _first_order_card(area: AdminArea, population_total, area_total, *, include_
         "id": area.id,
         "name": _area_display_name(area),
         "entity_type": _entity_type_label(area.entity_type, country_code=area.country_code),
-        "annotations": area.annotations or "",
         "level": area.level,
         "population": population,
         "area_km2": area_km2,
@@ -2729,7 +2850,6 @@ def _second_order_share_rows(area: AdminArea) -> list[dict]:
         {
             "name": _area_display_name(child),
             "entity_type": _entity_type_label(child.entity_type, country_code=child.country_code),
-            "annotations": child.annotations or "",
             "population": int(child.pop_latest or 0) if child.pop_latest is not None else None,
             "area_km2": _number_or_none(child.area_km2),
             "population_percent": _ratio_percent(child.pop_latest, area.pop_latest),
@@ -2874,34 +2994,30 @@ def _is_ajax(request) -> bool:
 
 
 def _config_form_context(mode: str, slug: str, content: str, active_task=None) -> dict:
-    parsed = _parse_config_editor_data(slug, content)
-    selected_ids = parsed["selected_ids"]
-    city_level = str(parsed.get("city", {}).get("level") or "")
-    country_code = str(parsed.get("country_code") or slug or "")
-    source_level_choices = _source_level_filter_options_for_country(country_code) if mode == "edit" else []
-    initial_source_level = source_level_choices[0]["value"] if source_level_choices else None
-    initial_source_entities = (
-        _source_entities_for_config(country_code, level=initial_source_level)
-        if initial_source_level
-        else []
-    )
+    workflow = {
+        "status_filter": "pending",
+        "can_validate": False,
+        "can_scrape": False,
+        "can_clear": False,
+        "can_stop": False,
+        "rows": 0,
+        "country_code": slug,
+    }
+    if mode == "edit" and slug:
+        try:
+            workflow = _decorate_config_workflow_flags(_config_summary_for_slug(slug))
+        except (OperationalError, ProgrammingError):
+            pass
+    asset_editor_enabled = bool(mode == "edit" and int(workflow.get("rows") or 0) > 0)
+    parsed = _parse_config_editor_data(slug, content, asset_editor_enabled=asset_editor_enabled)
     return {
         "mode": mode,
         "slug": slug,
         "content": content,
         "active_task": active_task,
+        "config_workflow": workflow,
         "manual": parsed,
-        "manual_selected_ids_json": json.dumps(selected_ids, ensure_ascii=False),
-        # Las entidades disponibles se cargan por endpoint para evitar insertar
-        # un JSON enorme en /configs/{country}/ y para poder reconstruir filtros
-        # traducidos sin romper la pestaña Manual.
-        "source_entities_json": json.dumps(initial_source_entities, ensure_ascii=False),
-        "source_level_choices": source_level_choices,
         "scrape_types": _scrape_type_choices(),
-        "city_level_choices": [
-            {"value": str(level), "selected": str(level) == city_level}
-            for level in range(0, 6)
-        ],
         "ai_enabled": AI_CONFIG_ENABLED,
         "ai_personal_login_enabled": AI_PERSONAL_LOGIN_ENABLED,
         "ai_provider_choices": _ai_provider_choices(),
@@ -2911,6 +3027,7 @@ def _config_form_context(mode: str, slug: str, content: str, active_task=None) -
 def _scrape_type_choices() -> list[tuple[str, str]]:
     return [
         ("admin", _("Admin")),
+        ("auto", _("Auto")),
         ("table", _("Tabla")),
         ("double", _("Doble")),
         ("cities", _("Ciudades")),
@@ -2928,7 +3045,7 @@ def _ai_provider_choices() -> list[tuple[str, str]]:
     return [(provider, labels.get(provider, provider.title())) for provider in AI_PROVIDER_LOGIN_URLS.keys()]
 
 
-def _parse_config_editor_data(slug: str, content: str) -> dict:
+def _parse_config_editor_data(slug: str, content: str, *, asset_editor_enabled: bool = False) -> dict:
     data = {}
     try:
         data = tomllib.loads(content or "")
@@ -2937,35 +3054,265 @@ def _parse_config_editor_data(slug: str, content: str) -> dict:
     pages = []
     for page in data.get("pages") or []:
         raw_paths = page.get("path")
-        if raw_paths is None:
-            raw_paths = [""]
-        elif not isinstance(raw_paths, list):
-            raw_paths = [raw_paths]
-        for raw_path in raw_paths:
-            pages.append(
-                {
-                    "path": str(raw_path or ""),
-                    "source": str(page.get("source", page.get("html_format", "admin"))),
-                    "lowest_level": int(page.get("lowest_level", page.get("level", 0)) or 0),
-                }
-            )
-    cities = data.get("cities") or []
-    first_city = cities[0] if cities else {}
+        pages.append(
+            {
+                "paths": _page_paths_list_for_form(raw_paths),
+                "paths_text": _page_paths_text_for_form(raw_paths),
+                "source": str(page.get("source", page.get("html_format", "admin"))),
+                "lowest_level": "" if page.get("lowest_level", page.get("level")) is None else str(page.get("lowest_level", page.get("level"))),
+                "include_root": "" if "include_root" not in page else _bool_text(page.get("include_root")),
+                "include_tables": _list_text_for_form(page.get("include_tables", page.get("tables"))),
+                "table_levels": _mapping_text_for_form(page.get("table_levels", page.get("levels"))),
+                "status_levels": _mapping_text_for_form(page.get("status_levels", page.get("entity_type_levels"))),
+                "root_level": "" if page.get("root_level") is None else str(page.get("root_level")),
+                "root_code": str(page.get("root_code") or ""),
+                "root_name": str(page.get("root_name") or ""),
+                "root_parent_code": str(page.get("root_parent_code") or ""),
+                "root_entity_type": str(page.get("root_entity_type") or ""),
+            }
+        )
     country_code = str(data.get("country_code") or slug or "")
-    selected_ids = _selected_ids_from_city_config(country_code, first_city)
+    visual_assets = data.get("visual_assets") if isinstance(data.get("visual_assets"), dict) else {}
     return {
-        "name": str(data.get("name") or ""),
         "country_code": country_code,
+        "wikidata_id": str(data.get("wikidata_id") or ""),
         "legal_subdivision": "" if data.get("LEGAL_SUBDIVISION") is None else str(data.get("LEGAL_SUBDIVISION")),
         "pages": pages,
-        "city": {
-            "name": str(first_city.get("city") or ""),
-            "id": str(first_city.get("id") or ""),
-            "level": "" if first_city.get("level") is None else str(first_city.get("level")),
-            "type": str(first_city.get("type") or "City"),
+        "visual_assets": {
+            "bulk_country_wikidata": _bool_text(visual_assets.get("bulk_country_wikidata", True)),
+            "strict_required": _bool_text(visual_assets.get("strict_required", True)),
+            "required_kinds": _list_text_for_form(visual_assets.get("required_kinds") or ["flag", "coat"]),
+            "required_levels": _list_text_for_form(visual_assets.get("required_levels") or []),
         },
-        "selected_ids": selected_ids,
+        "asset_options": _asset_assignment_options_for_form(country_code, enabled=asset_editor_enabled),
+        "asset_overrides": _asset_assignment_rows_for_form(data, country_code=country_code),
     }
+
+
+def _raw_asset_overrides(data: dict) -> list[dict]:
+    raw = (
+        data.get("wikidata_asset_overrides")
+        or data.get("visual_asset_overrides")
+        or data.get("asset_overrides")
+        or []
+    )
+    if isinstance(raw, dict):
+        raw = [raw]
+    return [item for item in raw if isinstance(item, dict)]
+
+
+def _asset_assignment_rows_for_form(data: dict, *, country_code: str) -> list[dict]:
+    grouped: dict[str, dict[str, str]] = {}
+    for override in _raw_asset_overrides(data):
+        entity_id = _asset_assignment_entity_id_from_override(override, country_code=country_code)
+        if not entity_id:
+            continue
+        level = "" if override.get("level") is None else str(override.get("level"))
+        key = entity_id
+        row = grouped.setdefault(
+            key,
+            {
+                "level": level,
+                "entity_id": entity_id,
+                "flag_qid": "",
+                "coat_qid": "",
+                "replace_existing": _bool_text(override.get("replace_existing") or override.get("force") or True),
+            },
+        )
+        if level and not row.get("level"):
+            row["level"] = level
+        qid = str(override.get("wikidata_id") or override.get("qid") or override.get("wikidata") or "")
+        kinds = _list_from_value(override.get("kinds") or override.get("kind") or [])
+        if not kinds:
+            kinds = ["flag", "coat"]
+        for kind in kinds:
+            kind = str(kind or "").strip().lower()
+            if kind == "flag":
+                row["flag_qid"] = qid
+            elif kind == "coat":
+                row["coat_qid"] = qid
+    return list(grouped.values())
+
+
+def _asset_assignment_entity_id_from_override(override: dict, *, country_code: str) -> str:
+    ids = _list_from_value(
+        override.get("ids")
+        or override.get("id")
+        or override.get("entity_keys")
+        or override.get("entity_key")
+    )
+    if ids:
+        return str(ids[0])
+    try:
+        queryset = _visible_admin_areas().filter(country_code=country_code)
+        level = override.get("level")
+        if level is not None and str(level).strip() != "":
+            queryset = queryset.filter(level=int(level))
+        codes = {value.casefold() for value in _list_from_value(override.get("codes") or override.get("code"))}
+        names = {_normalized_text(value) for value in _list_from_value(override.get("names") or override.get("name"))}
+        contains = [_normalized_text(value) for value in _list_from_value(override.get("name_contains") or override.get("names_contains"))]
+        for area in queryset.order_by("level", "name", "id"):
+            if codes and str(area.code or "").casefold() in codes:
+                return str(area.id)
+            area_names = {_normalized_text(area.name), _normalized_text(getattr(area, "official_name", "") or "")}
+            if names and area_names & names:
+                return str(area.id)
+            haystack = " ".join(name for name in area_names if name)
+            if contains and any(needle in haystack for needle in contains):
+                return str(area.id)
+    except Exception:
+        return ""
+    return ""
+
+
+def _asset_assignment_options_for_form(country_code: str, *, enabled: bool) -> dict:
+    base = {"enabled": bool(enabled), "levels": [], "entities": [], "flags": [], "coats": []}
+    if not enabled or not country_code:
+        return base
+    try:
+        areas = list(
+            _visible_admin_areas()
+            .filter(country_code=country_code)
+            .order_by("level", "name", "id")
+            .only("id", "name", "level", "code")
+        )
+    except (OperationalError, ProgrammingError):
+        return base
+    if not areas:
+        return base
+
+    area_ids = [str(area.id) for area in areas]
+    assets_by_entity = _admin_area_asset_kind_map(area_ids)
+    counts: dict[int, int] = {}
+    entities = []
+    for area in areas:
+        level = int(area.level or 0)
+        counts[level] = counts.get(level, 0) + 1
+        kinds = assets_by_entity.get(str(area.id), set())
+        has_flag = "flag" in kinds
+        has_coat = "coat" in kinds
+        status = "complete"
+        if not has_flag and not has_coat:
+            status = "missing_both"
+        elif not has_flag:
+            status = "missing_flag"
+        elif not has_coat:
+            status = "missing_coat"
+        entities.append(
+            {
+                "id": str(area.id),
+                "level": str(level),
+                "label": _area_display_name(area),
+                "status": status,
+                "status_label": _asset_entity_status_label(status),
+            }
+        )
+    base["levels"] = [
+        {"value": str(level), "label": _("Nivel %(level)s (%(count)s)") % {"level": level, "count": counts[level]}}
+        for level in sorted(counts)
+    ]
+    base["entities"] = entities
+    resources = _country_asset_resource_options(country_code)
+    base["flags"] = resources.get("flag", [])
+    base["coats"] = resources.get("coat", [])
+    return base
+
+
+def _asset_entity_status_label(status: str) -> str:
+    if status == "missing_both":
+        return _("Sin bandera ni escudo")
+    if status == "missing_flag":
+        return _("Sin bandera")
+    if status == "missing_coat":
+        return _("Sin escudo")
+    return _("Completo")
+
+
+def _admin_area_asset_kind_map(area_ids: list[str]) -> dict[str, set[str]]:
+    if not area_ids or not visual_asset_tables_exist():
+        return {}
+    placeholders = ", ".join(["%s"] * len(area_ids))
+    result: dict[str, set[str]] = {}
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+                SELECT entity_key, kind, commons_filename, remote_url, local_path, local_exists
+                FROM ciudades_del_mundo_visual_asset
+                WHERE entity_type = %s
+                  AND entity_key IN ({placeholders})
+                  AND kind IN (%s, %s)
+            """,
+            ["admin_area", *area_ids, "flag", "coat"],
+        )
+        for row in _dictfetchall(cursor):
+            if _visual_asset_row_has_image(row):
+                result.setdefault(str(row.get("entity_key")), set()).add(str(row.get("kind")))
+    return result
+
+
+def _country_asset_resource_options(country_code: str) -> dict[str, list[dict[str, object]]]:
+    result = {"flag": [], "coat": []}
+    if not visual_asset_tables_exist():
+        return result
+    assigned = set()
+    resources: dict[tuple[str, str], dict[str, object]] = {}
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+                SELECT entity_type, entity_key, entity_name, kind, wikidata_id, commons_filename, remote_url, local_path, local_exists
+                FROM ciudades_del_mundo_visual_asset
+                WHERE country_code = %s
+                  AND kind IN (%s, %s)
+                  AND wikidata_id <> ''
+                ORDER BY kind, entity_name, commons_filename
+            """,
+            [country_code, "flag", "coat"],
+        )
+        for row in _dictfetchall(cursor):
+            if not _visual_asset_row_has_image(row):
+                continue
+            kind = str(row.get("kind") or "")
+            qid = str(row.get("wikidata_id") or "")
+            if kind not in result or not qid:
+                continue
+            key = (kind, qid)
+            if str(row.get("entity_type") or "") in {"admin_area", "country"}:
+                assigned.add(key)
+            label = str(row.get("entity_name") or "").strip() or qid
+            filename = str(row.get("commons_filename") or "").strip()
+            if filename and filename not in label:
+                label = f"{label} — {filename}"
+            resources.setdefault(key, {"value": qid, "label": label, "assigned": False})
+    for key, option in resources.items():
+        option["assigned"] = key in assigned
+        result[key[0]].append(option)
+    for kind in result:
+        result[kind].sort(key=lambda item: (bool(item.get("assigned")), str(item.get("label") or "").casefold()))
+    return result
+
+
+def _list_from_value(value) -> list[str]:
+    if value is None or value == "":
+        return []
+    if isinstance(value, (list, tuple, set)):
+        raw_values = value
+    else:
+        raw_values = str(value).replace("\n", ",").split(",")
+    return [str(item or "").strip() for item in raw_values if str(item or "").strip()]
+
+
+def _visual_asset_row_has_image(row: dict) -> bool:
+    return bool(
+        row.get("commons_filename")
+        or row.get("remote_url")
+        or row.get("local_path")
+        or row.get("local_exists")
+    )
+
+
+def _dictfetchall(cursor) -> list[dict]:
+    columns = [column[0] for column in cursor.description]
+    return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
 def _selected_ids_from_city_config(country_code: str, city_config: dict) -> list[str]:
@@ -3154,38 +3501,29 @@ def _source_entity_type_filter_options(entities: list[dict]) -> list[dict]:
 
 
 def _config_content_from_request(request, slug: str, current_content: str, *, existing: bool) -> str:
-    editor_mode = request.POST.get("editor_mode") or "file"
+    editor_mode = str(request.POST.get("editor_mode") or "file").strip().lower()
     if editor_mode == "manual":
         return _render_config_from_manual_post(slug, request.POST)
-    return request.POST.get("content", current_content)
+    if editor_mode == "file":
+        return request.POST.get("content", current_content)
+    raise ValueError(_("La sección Scrapping solo genera una previsualización. Para guardar, abre Manual o Archivo."))
 
 
 def _render_config_from_manual_post(slug: str, post) -> str:
-    name = (post.get("manual_name") or "").strip()
     country_code = (post.get("manual_country_code") or slug).strip() or slug
     legal_subdivision = (post.get("manual_legal_subdivision") or "").strip()
-    page_levels = post.getlist("page_level")
-    page_urls = post.getlist("page_url")
-    page_sources = post.getlist("page_source")
-    pages = []
-    for level, url, source in zip(page_levels, page_urls, page_sources, strict=False):
-        url = str(url or "").strip()
-        source = str(source or "").strip() or "admin"
-        if not url:
-            continue
-        try:
-            level_int = int(level or 0)
-        except (TypeError, ValueError) as exc:
-            raise ValueError(_("El nivel de scrapeo debe ser numérico.")) from exc
-        pages.append({"source": source, "path": url, "lowest_level": level_int})
+    wikidata_id = (post.get("manual_wikidata_id") or "").strip()
+    pages = _manual_pages_from_post(post)
+    visual_assets = _manual_visual_assets_from_post(post)
+    asset_overrides = _manual_asset_overrides_from_post(post)
     if not pages:
         raise ValueError(_("Debes indicar al menos una ruta de scrapeo."))
 
     lines = []
-    if name:
-        lines.append(f"name = {_toml_string(name)}")
     if country_code and country_code != slug:
         lines.append(f"country_code = {_toml_string(country_code)}")
+    if wikidata_id:
+        lines.append(f"wikidata_id = {_toml_string(wikidata_id)}")
     if legal_subdivision:
         try:
             lines.append(f"LEGAL_SUBDIVISION = {int(legal_subdivision)}")
@@ -3198,46 +3536,327 @@ def _render_config_from_manual_post(slug: str, post) -> str:
             [
                 "[[pages]]",
                 f"source = {_toml_string(page['source'])}",
-                f"path = {_toml_string(page['path'])}",
+                f"path = {_toml_array(page['path'])}",
                 f"lowest_level = {page['lowest_level']}",
-                "",
             ]
         )
+        if page.get("include_root") is not None:
+            lines.append(f"include_root = {_toml_bool(page['include_root'])}")
+        if page.get("include_tables"):
+            lines.append(f"include_tables = {_toml_array(page['include_tables'])}")
+        if page.get("table_levels"):
+            lines.append(f"table_levels = {_toml_scalar_inline_table(page['table_levels'])}")
+        if page.get("status_levels"):
+            lines.append(f"status_levels = {_toml_scalar_inline_table(page['status_levels'])}")
+        if page.get("root_level") is not None:
+            lines.append(f"root_level = {page['root_level']}")
+        for key in ("root_code", "root_name", "root_parent_code", "root_entity_type"):
+            if page.get(key):
+                lines.append(f"{key} = {_toml_string(page[key])}")
+        lines.append("")
 
-    selected_ids = _json_list(post.get("selected_city_entities"))
-    city_name = (post.get("city_name") or "").strip()
-    if selected_ids and city_name:
-        selected = list(
-            _visible_admin_areas()
-            .filter(country_code=country_code, id__in=selected_ids)
-            .select_related("parent")
-            .order_by("level", "name")
-        )
-        if selected:
-            city_id = (post.get("city_id") or _slugify_code(city_name)).strip()
-            city_type = (post.get("city_type") or "City").strip()
-            try:
-                city_level = int(post.get("city_level") or max(min(area.level for area in selected) - 1, 0))
-            except (TypeError, ValueError) as exc:
-                raise ValueError(_("El nivel de ciudad unificada debe ser numérico.")) from exc
-            parent_from = _parent_from_for_selected(selected)
-            district_types = sorted({area.entity_type for area in selected if area.entity_type})
-            communes = [area.name for area in selected]
-            lines.extend(
-                [
-                    "[[cities]]",
-                    f"city = {_toml_string(city_name)}",
-                    f"id = {_toml_string(city_id)}",
-                    f"level = {city_level}",
-                    f"type = {_toml_string(city_type)}",
-                    f"district_types = {_toml_array(district_types)}",
-                    f"from = {_toml_inline_table(parent_from)}",
-                    f"communes = {_toml_array(communes)}",
-                    "keep_communes = false",
-                    "",
-                ]
-            )
+    if visual_assets:
+        lines.append("[visual_assets]")
+        lines.append(f"bulk_country_wikidata = {_toml_bool(visual_assets.get('bulk_country_wikidata', True))}")
+        lines.append(f"strict_required = {_toml_bool(visual_assets.get('strict_required', True))}")
+        if visual_assets.get("required_kinds"):
+            lines.append(f"required_kinds = {_toml_array(visual_assets['required_kinds'])}")
+        if visual_assets.get("required_levels"):
+            lines.append(f"required_levels = [{', '.join(str(int(level)) for level in visual_assets['required_levels'])}]")
+        lines.append("")
+
+    for override in asset_overrides:
+        lines.append("[[wikidata_asset_overrides]]")
+        for key in ("ids", "names", "name_contains", "codes", "kinds"):
+            if override.get(key):
+                lines.append(f"{key} = {_toml_array(override[key])}")
+        if override.get("level") is not None:
+            lines.append(f"level = {int(override['level'])}")
+        lines.append(f"wikidata_id = {_toml_string(override['wikidata_id'])}")
+        if override.get("replace_existing"):
+            lines.append("replace_existing = true")
+        lines.append("")
+
     return "\n".join(lines).rstrip() + "\n"
+
+
+def _manual_visual_assets_from_post(post) -> dict:
+    required_kinds = _list_from_text(post.get("visual_asset_required_kinds")) or ["flag", "coat"]
+    required_levels = _int_list_from_text(post.get("visual_asset_required_levels"), label="required_levels")
+    return {
+        "bulk_country_wikidata": _form_bool(post.get("visual_asset_bulk_country_wikidata"), default=True),
+        "strict_required": _form_bool(post.get("visual_asset_strict_required"), default=True),
+        "required_kinds": required_kinds,
+        "required_levels": required_levels,
+    }
+
+
+def _manual_asset_overrides_from_post(post) -> list[dict]:
+    levels = post.getlist("asset_assignment_level")
+    entity_ids = post.getlist("asset_assignment_entity_id")
+    flag_qids = post.getlist("asset_assignment_flag_qid")
+    coat_qids = post.getlist("asset_assignment_coat_qid")
+    replace_flags = post.getlist("asset_assignment_replace_existing")
+
+    rows = []
+    for index, values in enumerate(
+        zip_longest(levels, entity_ids, flag_qids, coat_qids, replace_flags, fillvalue=""),
+        start=1,
+    ):
+        raw_level, raw_entity_id, raw_flag_qid, raw_coat_qid, raw_replace = values
+        entity_id = str(raw_entity_id or "").strip()
+        flag_qid = str(raw_flag_qid or "").strip()
+        coat_qid = str(raw_coat_qid or "").strip()
+        if not entity_id and not flag_qid and not coat_qid and not str(raw_level or "").strip():
+            continue
+        if not entity_id:
+            raise ValueError(_("La corrección de assets %(index)s debe seleccionar una entidad.") % {"index": index})
+        level = str(raw_level or "").strip()
+        level_value = None
+        if level:
+            try:
+                level_value = int(level)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(_("El nivel de la corrección de assets %(index)s debe ser numérico.") % {"index": index}) from exc
+        replace_existing = _form_bool(raw_replace, default=True)
+        for kind, qid in (("flag", flag_qid), ("coat", coat_qid)):
+            if not qid:
+                continue
+            row = {
+                "ids": [entity_id],
+                "wikidata_id": qid,
+                "kinds": [kind],
+                "replace_existing": replace_existing,
+            }
+            if level_value is not None:
+                row["level"] = level_value
+            rows.append(row)
+    return rows
+
+
+def _form_bool(value, *, default: bool = False) -> bool:
+    text = str(value if value is not None else "").strip().lower()
+    if not text:
+        return default
+    return text in {"1", "true", "yes", "si", "sí", "on"}
+
+
+def _int_list_from_text(value: str | None, *, label: str) -> list[int]:
+    result = []
+    for item in _list_from_text(value):
+        try:
+            result.append(int(item))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(_("%(label)s debe contener solo números separados por comas.") % {"label": label}) from exc
+    return result
+
+
+def _manual_pages_from_post(post) -> list[dict]:
+    page_paths = post.getlist("page_path") or post.getlist("page_url")
+    page_sources = post.getlist("page_source")
+    page_levels = post.getlist("page_lowest_level") or post.getlist("page_level")
+    include_roots = post.getlist("page_include_root")
+    include_tables = post.getlist("page_include_tables")
+    table_levels = post.getlist("page_table_levels")
+    status_levels = post.getlist("page_status_levels")
+    root_levels = post.getlist("page_root_level")
+    root_codes = post.getlist("page_root_code")
+    root_names = post.getlist("page_root_name")
+    root_parent_codes = post.getlist("page_root_parent_code")
+    root_entity_types = post.getlist("page_root_entity_type")
+
+    pages = []
+    for index, values in enumerate(
+        zip_longest(
+            page_sources,
+            page_paths,
+            page_levels,
+            include_roots,
+            include_tables,
+            table_levels,
+            status_levels,
+            root_levels,
+            root_codes,
+            root_names,
+            root_parent_codes,
+            root_entity_types,
+            fillvalue="",
+        ),
+        start=1,
+    ):
+        (
+            source,
+            raw_paths,
+            raw_level,
+            raw_include_root,
+            raw_include_tables,
+            raw_table_levels,
+            raw_status_levels,
+            raw_root_level,
+            root_code,
+            root_name,
+            root_parent_code,
+            root_entity_type,
+        ) = values
+        paths = _page_paths_from_text(raw_paths)
+        if not paths:
+            continue
+        source = str(source or "").strip() or "admin"
+        try:
+            level_int = int(raw_level or 0)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(_("El lowest_level de la página %(index)s debe ser numérico.") % {"index": index}) from exc
+        page: dict[str, object] = {"source": source, "path": paths, "lowest_level": level_int}
+        include_root = _optional_bool(raw_include_root)
+        if include_root is not None:
+            page["include_root"] = include_root
+        parsed_include_tables = _list_from_text(raw_include_tables)
+        if parsed_include_tables:
+            page["include_tables"] = parsed_include_tables
+        parsed_table_levels = _int_mapping_from_text(raw_table_levels, label="table_levels")
+        if parsed_table_levels:
+            page["table_levels"] = parsed_table_levels
+        parsed_status_levels = _int_mapping_from_text(raw_status_levels, label="status_levels")
+        if parsed_status_levels:
+            page["status_levels"] = parsed_status_levels
+        root_level = str(raw_root_level or "").strip()
+        if root_level:
+            try:
+                page["root_level"] = int(root_level)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(_("root_level de la página %(index)s debe ser numérico.") % {"index": index}) from exc
+        for key, raw_value in {
+            "root_code": root_code,
+            "root_name": root_name,
+            "root_parent_code": root_parent_code,
+            "root_entity_type": root_entity_type,
+        }.items():
+            value = str(raw_value or "").strip()
+            if value:
+                page[key] = value
+        pages.append(page)
+    return pages
+
+
+def _page_paths_from_text(value: str | None) -> list[str]:
+    text = str(value or "").strip()
+    if not text:
+        return []
+    if text.startswith("["):
+        try:
+            parsed = tomllib.loads(f"value = {text}\n").get("value")
+        except tomllib.TOMLDecodeError as exc:
+            raise ValueError(_("path debe ser una lista TOML válida o una ruta por línea.")) from exc
+        values = parsed if isinstance(parsed, list) else [parsed]
+    else:
+        parts: list[str] = []
+        for line in text.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if "," in stripped:
+                parts.extend(part.strip() for part in stripped.split(","))
+            else:
+                parts.append(stripped)
+        values = parts
+    paths = []
+    for value in values:
+        path = str(value or "").strip()
+        if path in {"/", ".", "<root>", "<raiz>", "<raíz>"}:
+            path = ""
+        path = path.strip("/")
+        if path not in paths:
+            paths.append(path)
+    return paths
+
+
+def _page_paths_text_for_form(value) -> str:
+    return "\n".join(_page_paths_list_for_form(value))
+
+
+def _page_paths_list_for_form(value) -> list[str]:
+    if value is None:
+        return []
+    values = value if isinstance(value, list) else [value]
+    paths: list[str] = []
+    for raw in values:
+        text = str(raw or "").strip()
+        if not text:
+            text = "/"
+        if text not in paths:
+            paths.append(text)
+    return paths
+
+
+def _list_from_text(value: str | None) -> list[str]:
+    text = str(value or "").strip()
+    if not text:
+        return []
+    if text.startswith("["):
+        try:
+            parsed = tomllib.loads(f"value = {text}\n").get("value")
+        except tomllib.TOMLDecodeError as exc:
+            raise ValueError(_("include_tables debe ser una lista TOML válida o valores separados por comas.")) from exc
+        raw_values = parsed if isinstance(parsed, list) else [parsed]
+    else:
+        raw_values = []
+        for line in text.splitlines():
+            raw_values.extend(line.split(","))
+    values = []
+    for raw in raw_values:
+        item = str(raw or "").strip()
+        if item and item not in values:
+            values.append(item)
+    return values
+
+
+def _int_mapping_from_text(value: str | None, *, label: str) -> dict[str, int]:
+    text = str(value or "").strip()
+    if not text:
+        return {}
+    if not text.startswith("{"):
+        text = "{ " + text + " }"
+    try:
+        parsed = tomllib.loads(f"value = {text}\n").get("value")
+    except tomllib.TOMLDecodeError as exc:
+        raise ValueError(_("%(label)s debe tener formato TOML, por ejemplo: ts = 3, tl = 2") % {"label": label}) from exc
+    if not isinstance(parsed, dict):
+        raise ValueError(_("%(label)s debe ser un mapa TOML.") % {"label": label})
+    result = {}
+    for key, raw_value in parsed.items():
+        try:
+            result[str(key)] = int(raw_value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(_("%(label)s[%(key)s] debe ser numérico.") % {"label": label, "key": key}) from exc
+    return result
+
+
+def _optional_bool(value: str | None) -> bool | None:
+    text = str(value or "").strip().lower()
+    if not text:
+        return None
+    if text in {"true", "1", "yes", "si", "sí"}:
+        return True
+    if text in {"false", "0", "no"}:
+        return False
+    raise ValueError(_("include_root debe ser true o false."))
+
+
+def _bool_text(value) -> str:
+    return "true" if bool(value) else "false"
+
+
+def _list_text_for_form(value) -> str:
+    if not value:
+        return ""
+    values = value if isinstance(value, list) else [value]
+    return ", ".join(str(item) for item in values)
+
+
+def _mapping_text_for_form(value) -> str:
+    if not value or not isinstance(value, dict):
+        return ""
+    return ", ".join(f"{key} = {value[key]}" for key in sorted(value))
 
 
 def _json_list(value: str | None) -> list[str]:
@@ -3270,6 +3889,26 @@ def _toml_array(values) -> str:
     return "[" + ", ".join(_toml_string(value) for value in values) + "]"
 
 
+def _toml_bool(value: bool) -> str:
+    return "true" if value else "false"
+
+
+def _toml_key(value: str) -> str:
+    text = str(value)
+    if re.match(r"^[A-Za-z0-9_-]+$", text):
+        return text
+    return _toml_string(text)
+
+
+def _toml_scalar_inline_table(mapping: dict[str, int]) -> str:
+    if not mapping:
+        return "{}"
+    parts = []
+    for key in sorted(mapping):
+        parts.append(f"{_toml_key(str(key))} = {int(mapping[key])}")
+    return "{ " + ", ".join(parts) + " }"
+
+
 def _toml_inline_table(mapping: dict[int, list[str]]) -> str:
     if not mapping:
         return "{}"
@@ -3284,70 +3923,562 @@ def _slugify_code(value: str) -> str:
     return normalized.strip("-") or "city"
 
 
+
 def _generate_citypopulation_config(slug: str) -> tuple[str, list[str]]:
+    """Generate a TOML draft by probing the real CityPopulation country pages.
+
+    The older helper only listed links found in ``/en/<slug>/`` and guessed the
+    scraper type from the path.  This version opens the country index, selects
+    routes that usually contain the official administrative / locality data,
+    fetches those pages, detects their real table structure, and then writes a
+    DB-ready TOML draft grouped by compatible page hints.
+    """
     url = f"https://www.citypopulation.de/en/{slug}/"
-    log = [_("Buscando rutas en %(url)s") % {"url": url}]
-    try:
-        with urlopen(url, timeout=20) as response:  # noqa: S310 - user-triggered local scraping helper.
-            html = response.read().decode("utf-8", errors="replace")
-    except (OSError, URLError) as exc:
-        raise ValueError(_("No se pudo leer CityPopulation: %(error)s") % {"error": exc}) from exc
+    log = [_('Entrando en %(url)s') % {"url": url}]
+    root_html = _read_citypopulation_html(url)
+    root_probe = _citypopulation_page_probe(
+        slug=slug,
+        path="",
+        html=root_html,
+        url=url,
+        category="root",
+    )
+    root_name = _citypopulation_root_name(root_probe, slug)
 
-    paths = _citypopulation_paths_from_html(slug, html, base_url=url)
-    if not paths:
-        raise ValueError(_("No se encontraron rutas útiles para %(slug)s.") % {"slug": slug})
-    log.append(_("Rutas detectadas: %(count)s") % {"count": len(paths)})
-    grouped: dict[tuple[str, int], list[str]] = {}
-    for path in paths:
-        source, level = _guess_scrape_source(path)
-        grouped.setdefault((source, level), []).append(path)
+    candidates = _citypopulation_route_candidates(slug, root_html, base_url=url)
+    selected = _select_citypopulation_candidates(candidates)
+    log.append(
+        _('%(total)s rutas encontradas; %(selected)s rutas útiles seleccionadas para comprobar.')
+        % {"total": len(candidates), "selected": len(selected)}
+    )
 
-    lines = [f"name = {_toml_string(_display_name('', slug, country_code=slug))}", "", "LEGAL_SUBDIVISION = 2", ""]
-    for (source, level), values in sorted(grouped.items(), key=lambda item: (item[0][1], item[0][0])):
-        lines.extend(
-            [
-                "[[pages]]",
-                f"source = {_toml_string(source)}",
-                f"path = {_toml_array(values)}",
-                f"lowest_level = {level}",
-                "",
-            ]
+    probes: list[CityPopulationPageProbe] = []
+    if _citypopulation_probe_has_data(root_probe):
+        probes.append(root_probe)
+        log.append(_('La página raíz contiene tablas o sección informativa útil.'))
+
+    for candidate in selected:
+        if len(probes) >= CITYPOPULATION_DISCOVERY_MAX_PAGES:
+            log.append(
+                _('Límite de comprobación alcanzado (%(limit)s páginas).')
+                % {"limit": CITYPOPULATION_DISCOVERY_MAX_PAGES}
+            )
+            break
+        candidate_url = _citypopulation_url_for_path(slug, candidate.path)
+        try:
+            html = _read_citypopulation_html(candidate_url)
+        except (OSError, URLError, ValueError) as exc:
+            log.append(_('Omitida %(path)s: %(error)s') % {"path": candidate.path or "/", "error": exc})
+            continue
+        probe = _citypopulation_page_probe(
+            slug=slug,
+            path=candidate.path,
+            html=html,
+            url=candidate_url,
+            category=candidate.category,
         )
-    return "\n".join(lines).rstrip() + "\n", log
-
-
-def _citypopulation_paths_from_html(slug: str, html: str, *, base_url: str) -> list[str]:
-    raw_links = re.findall(r"href=[\"']([^\"'#?]+)", html, flags=re.IGNORECASE)
-    seen = set()
-    paths = []
-    for href in raw_links:
-        absolute = urljoin(base_url, href)
-        marker = f"/en/{slug}/"
-        if marker not in absolute:
+        if not _citypopulation_probe_has_data(probe):
+            log.append(_('Omitida %(path)s: no se detectaron tablas de población útiles.') % {"path": candidate.path})
             continue
-        path = absolute.split(marker, 1)[1].strip("/")
-        if not path or path.startswith(("maps", "search", "help")):
+        probes.append(probe)
+
+    if not probes:
+        raise ValueError(_('No se encontraron páginas de población útiles para %(slug)s.') % {"slug": slug})
+
+    generated_pages = _generated_pages_from_citypopulation_probes(probes, candidates)
+    if not generated_pages:
+        raise ValueError(_('No se pudo construir una configuración válida para %(slug)s.') % {"slug": slug})
+
+    content = _render_citypopulation_generated_config(
+        slug=slug,
+        name=root_name,
+        pages=generated_pages,
+        legal_subdivision=_infer_citypopulation_legal_subdivision(generated_pages, probes),
+    )
+    log.append(_('Páginas TOML generadas: %(count)s') % {"count": len(generated_pages)})
+    return content, log
+
+
+def _read_citypopulation_html(url: str) -> str:
+    request = Request(
+        url,
+        headers={
+            "User-Agent": CITYPOPULATION_GENERATOR_USER_AGENT,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        },
+    )
+    try:
+        with urlopen(request, timeout=CITYPOPULATION_DISCOVERY_TIMEOUT) as response:  # noqa: S310 - user-triggered local scraping helper.
+            return response.read().decode("utf-8", errors="replace")
+    except (OSError, URLError) as exc:
+        raise ValueError(_('No se pudo leer CityPopulation: %(error)s') % {"error": exc}) from exc
+
+
+def _citypopulation_route_candidates(slug: str, html: str, *, base_url: str) -> list[CityPopulationRouteCandidate]:
+    soup = BeautifulSoup(html, "html.parser")
+    root = soup.find(class_="cindex") or soup
+    seen: set[str] = set()
+    candidates: list[CityPopulationRouteCandidate] = []
+    for link in root.find_all("a", href=True):
+        path = _citypopulation_path_from_href(slug, link.get("href") or "", base_url=base_url)
+        if path is None or path in seen:
             continue
-        if path.endswith(('.html', '.htm')):
+        title_node = link.find("h3")
+        title = _clean_text(title_node.get_text(" ", strip=True) if title_node else "")
+        description = _clean_text(" ".join(node.get_text(" ", strip=True) for node in link.find_all("p")[:2]))
+        section = _citypopulation_previous_heading(link)
+        category = _citypopulation_candidate_category(path, title=title, description=description, section=section)
+        if category == "excluded":
             continue
-        if path not in seen:
-            seen.add(path)
-            paths.append(path)
-    if "admin" not in seen:
-        paths.insert(0, "admin")
-    return paths[:120]
+        seen.add(path)
+        candidates.append(
+            CityPopulationRouteCandidate(
+                path=path,
+                title=title,
+                description=description,
+                section=section,
+                category=category,
+            )
+        )
+    return candidates
 
 
-def _guess_scrape_source(path: str) -> tuple[str, int]:
-    value = path.strip("/").lower()
-    if value in {"", "admin"} or value.endswith("/admin"):
-        return "admin", 0
-    if "localit" in value:
-        return "double", 3
-    if "cities" in value or "city" in value:
-        return "cities", 3
-    return "table", 1
+def _citypopulation_path_from_href(slug: str, href: str, *, base_url: str) -> str | None:
+    href = str(href or "").strip()
+    if not href or href.startswith(("javascript:", "mailto:", "#")):
+        return None
+    absolute = urljoin(base_url, href)
+    parsed = urlparse(absolute)
+    if parsed.scheme not in {"http", "https"}:
+        return None
+    if parsed.netloc and parsed.netloc not in {"www.citypopulation.de", "citypopulation.de"}:
+        return None
+    marker = f"/en/{slug}/"
+    path = parsed.path
+    if marker not in path:
+        return None
+    relative = path.split(marker, 1)[1].strip("/")
+    if not relative:
+        return ""
+    if relative.startswith(("maps/", "search/", "help/")):
+        return None
+    if ".." in relative or relative.endswith((".html", ".htm")):
+        return None
+    return relative
 
+
+def _citypopulation_url_for_path(slug: str, path: str) -> str:
+    path = str(path or "").strip("/")
+    if path:
+        return f"https://www.citypopulation.de/en/{slug}/{path}/"
+    return f"https://www.citypopulation.de/en/{slug}/"
+
+
+def _citypopulation_candidate_category(path: str, *, title: str = "", description: str = "", section: str = "") -> str:
+    value = str(path or "").strip("/").casefold()
+    text = f"{value} {title} {description} {section}".casefold()
+    segments = [segment for segment in value.split("/") if segment]
+    if not value:
+        return "root"
+    excluded_segments = {
+        "agglo",
+        "urbanareas",
+        "metro",
+        "combmetro",
+        "ua",
+        "census",
+        "settlements",
+        "townships",
+        "map",
+        "maps",
+        "search",
+        "help",
+    }
+    if any(segment in excluded_segments for segment in segments):
+        return "excluded"
+    if any(word in text for word in ("top 10", "urban area", "agglomeration", "metropolitan", "micropolitan")):
+        return "excluded"
+    if value in {"admin", "reg/admin", "prov/admin", "states/admin", "state/admin", "province/admin"}:
+        return "main_admin"
+    if value in {"cities", "city", "towns"}:
+        return "main_cities"
+    if value.endswith("/admin") or "/admin/" in value:
+        return "regional_admin"
+    if value.startswith(("localities/", "places/", "towns/")):
+        return "localities"
+    if value.startswith("cities/"):
+        return "regional_cities"
+    if not segments or len(segments) == 1:
+        return "regional_detail"
+    if "admin" in segments:
+        return "regional_admin"
+    return "other"
+
+
+def _citypopulation_previous_heading(node) -> str:
+    for previous in node.find_all_previous(["h2", "h1"]):
+        text = _clean_text(previous.get_text(" ", strip=True))
+        if text:
+            return text
+    return ""
+
+
+def _select_citypopulation_candidates(
+    candidates: list[CityPopulationRouteCandidate],
+) -> list[CityPopulationRouteCandidate]:
+    candidate_by_path = {candidate.path: candidate for candidate in candidates}
+    usable = [candidate for candidate in candidates if not _is_redundant_citypopulation_coded_admin(candidate, candidate_by_path)]
+    caps = {
+        "main_admin": 12,
+        "main_cities": 6,
+        "regional_admin": 90,
+        "regional_detail": 80,
+        "regional_cities": 40,
+        "localities": 110,
+        "other": 25,
+        "root": 1,
+    }
+    order = ["main_admin", "main_cities", "regional_admin", "regional_detail", "regional_cities", "localities", "other"]
+    selected: list[CityPopulationRouteCandidate] = []
+    seen: set[str] = set()
+    for category in order:
+        rows = [candidate for candidate in usable if candidate.category == category]
+        rows.sort(key=lambda candidate: _citypopulation_candidate_sort_key(candidate))
+        for candidate in rows[: caps.get(category, 20)]:
+            if candidate.path in seen:
+                continue
+            selected.append(candidate)
+            seen.add(candidate.path)
+            if len(selected) >= CITYPOPULATION_DISCOVERY_MAX_PAGES:
+                return selected
+    return selected
+
+
+def _citypopulation_candidate_sort_key(candidate: CityPopulationRouteCandidate) -> tuple[int, str]:
+    path = candidate.path.casefold()
+    title_bonus = 0 if candidate.title else 1
+    if path in {"admin", "cities", "reg/admin", "prov/admin", "states/admin"}:
+        title_bonus -= 2
+    return (title_bonus, _natural_sort_text(path))
+
+
+def _is_redundant_citypopulation_coded_admin(
+    candidate: CityPopulationRouteCandidate,
+    candidate_by_path: dict[str, CityPopulationRouteCandidate],
+) -> bool:
+    """Skip URL variants like ``admin/01__foo`` when a cleaner route exists."""
+    path = candidate.path.strip("/")
+    match = re.search(r"(?:^|/)admin/[^/]*__(?P<name>[^/]+)$", path, flags=re.IGNORECASE)
+    if not match:
+        return False
+    coded_key = _route_key(match.group("name"))
+    if not coded_key:
+        return False
+    for other_path in candidate_by_path:
+        if other_path == candidate.path:
+            continue
+        parts = [part for part in other_path.strip("/").split("/") if part]
+        aliases = []
+        if parts:
+            aliases.append(parts[0])
+            aliases.append(parts[-1])
+            if parts[-1] == "admin" and len(parts) > 1:
+                aliases.append(parts[-2])
+        if any(_route_key(alias) == coded_key for alias in aliases):
+            return True
+    return False
+
+
+def _route_key(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", str(value or ""))
+    ascii_value = "".join(char for char in normalized if not unicodedata.combining(char))
+    return re.sub(r"[^a-z0-9]+", "", ascii_value.casefold())
+
+
+def _natural_sort_text(value: str) -> str:
+    return re.sub(r"\d+", lambda match: match.group(0).zfill(8), str(value or ""))
+
+
+def _citypopulation_page_probe(
+    *,
+    slug: str,
+    path: str,
+    html: str,
+    url: str,
+    category: str,
+) -> CityPopulationPageProbe:
+    soup = BeautifulSoup(html, "html.parser")
+    profile = detect_citypopulation_page_profile(soup)
+    title_node = soup.find("title")
+    h1_node = soup.find("h1")
+    table_ids: list[str] = []
+    row_count = 0
+    tl_rows = 0
+    ts_rows = 0
+    has_population = False
+    for table in soup.find_all("table"):
+        table_id = str(table.get("id") or "")
+        if table_id:
+            table_ids.append(table_id)
+        data_rows = sum(len(tbody.find_all("tr", recursive=False)) for tbody in table.find_all("tbody", recursive=False))
+        if table_id in {"tl", "ts"}:
+            row_count += data_rows
+        if table_id == "tl":
+            tl_rows = data_rows
+        if table_id == "ts":
+            ts_rows = data_rows
+        if table.find(class_=lambda value: value and "rpop" in value.split()):
+            has_population = True
+    headings = tuple(
+        _clean_text(node.get_text(" ", strip=True))
+        for node in soup.find_all("h2")[:8]
+        if _clean_text(node.get_text(" ", strip=True))
+    )
+    return CityPopulationPageProbe(
+        path=path.strip("/"),
+        url=url,
+        title=_clean_text(title_node.get_text(" ", strip=True) if title_node else ""),
+        h1=_clean_text(h1_node.get_text(" ", strip=True) if h1_node else slug),
+        headings=headings,
+        profile=profile,
+        table_ids=tuple(table_ids),
+        row_count=row_count,
+        tl_rows=tl_rows,
+        ts_rows=ts_rows,
+        has_population=has_population,
+        category=category,
+    )
+
+
+def _citypopulation_probe_has_data(probe: CityPopulationPageProbe) -> bool:
+    if probe.profile.page_type == CityPopulationPageType.UNKNOWN:
+        return False
+    if probe.row_count > 0 and probe.has_population:
+        return True
+    return probe.profile.page_type == CityPopulationPageType.INFOSECTION and probe.profile.has_root
+
+
+def _citypopulation_root_name(probe: CityPopulationPageProbe, slug: str) -> str:
+    if probe.h1 and probe.h1.casefold() != slug.casefold():
+        return probe.h1
+    return _display_name("", slug, country_code=slug) or slug
+
+
+def _generated_pages_from_citypopulation_probes(
+    probes: list[CityPopulationPageProbe],
+    candidates: list[CityPopulationRouteCandidate],
+) -> list[CityPopulationGeneratedPage]:
+    candidate_paths = {candidate.path for candidate in candidates}
+    generated: list[CityPopulationGeneratedPage] = []
+    seen: set[tuple] = set()
+    for probe in probes:
+        spec = _generated_page_from_citypopulation_probe(probe, candidate_paths=candidate_paths)
+        if spec is None:
+            continue
+        key = (
+            spec.path,
+            spec.source,
+            spec.lowest_level,
+            spec.include_root,
+            spec.include_tables,
+            spec.table_levels,
+            spec.status_levels,
+            spec.root_level,
+            spec.root_code,
+            spec.root_name,
+            spec.root_parent_code,
+            spec.root_entity_type,
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        generated.append(spec)
+    return sorted(generated, key=_generated_page_sort_key)
+
+
+def _generated_page_from_citypopulation_probe(
+    probe: CityPopulationPageProbe,
+    *,
+    candidate_paths: set[str],
+) -> CityPopulationGeneratedPage | None:
+    source = _citypopulation_source_for_probe(probe)
+    category = probe.category
+    lowest_level = _citypopulation_lowest_level_for_probe(probe, candidate_paths=candidate_paths)
+    include_root: bool | None = None
+    include_tables: tuple[str, ...] = ()
+    table_levels: tuple[tuple[str, int], ...] = ()
+
+    if category == "localities":
+        include_root = False
+        if probe.profile.has_ts:
+            include_tables = ("ts",)
+            table_levels = (("ts", max(lowest_level + 1, 4)),)
+        if source == "admin":
+            source = "double"
+    elif category == "regional_detail" and f"{probe.path}/admin" in candidate_paths and probe.profile.has_ts:
+        include_tables = ("ts",)
+        table_levels = (("ts", max(lowest_level + 2, 4)),)
+        if source == "admin":
+            source = "double"
+    elif category == "regional_cities" and probe.profile.has_ts and probe.profile.has_tl:
+        include_tables = ("ts",)
+        table_levels = (("ts", max(lowest_level + 2, 4)),)
+        if source == "admin":
+            source = "cities"
+    elif source == "admin" and probe.profile.admin_levels and category == "main_admin":
+        table_levels = ()
+
+    return CityPopulationGeneratedPage(
+        path=probe.path,
+        source=source,
+        lowest_level=lowest_level,
+        category=category,
+        include_root=include_root,
+        include_tables=include_tables,
+        table_levels=table_levels,
+    )
+
+
+def _citypopulation_source_for_probe(probe: CityPopulationPageProbe) -> str:
+    preferred = probe.profile.preferred_html_format
+    path = probe.path.casefold()
+    category = probe.category
+    if category in {"main_cities", "regional_cities"} and preferred in {"table", "double", "infosection"}:
+        return "cities"
+    if path.startswith("cities/") and preferred in {"table", "double", "infosection"}:
+        return "cities"
+    return preferred if preferred in {"admin", "table", "double", "cities", "infosection"} else "auto"
+
+
+def _citypopulation_lowest_level_for_probe(
+    probe: CityPopulationPageProbe,
+    *,
+    candidate_paths: set[str],
+) -> int:
+    path = probe.path.strip("/")
+    category = probe.category
+    if not path or category in {"main_admin", "main_cities"}:
+        return 0
+    if category == "regional_admin":
+        # National admin variants like states/admin are roots; region/admin pages
+        # start at the region/federal-subject level.
+        if path in {"reg/admin", "prov/admin", "states/admin", "state/admin", "province/admin"}:
+            return 0
+        return 1
+    if category == "regional_detail":
+        if f"{path}/admin" in candidate_paths:
+            return 2
+        return 1
+    if category == "regional_cities":
+        return 1
+    if category == "localities":
+        return 3
+    return 1
+
+
+def _generated_page_sort_key(page: CityPopulationGeneratedPage) -> tuple[int, int, str]:
+    order = {
+        "root": 0,
+        "main_cities": 1,
+        "main_admin": 2,
+        "regional_admin": 3,
+        "regional_detail": 4,
+        "regional_cities": 5,
+        "localities": 6,
+        "other": 7,
+    }
+    return (order.get(page.category, 99), page.lowest_level, _natural_sort_text(page.path))
+
+
+def _render_citypopulation_generated_config(
+    *,
+    slug: str,
+    name: str,
+    pages: list[CityPopulationGeneratedPage],
+    legal_subdivision: int | None,
+) -> str:
+    grouped: dict[tuple, list[str]] = {}
+    page_by_key: dict[tuple, CityPopulationGeneratedPage] = {}
+    for page in pages:
+        key = (
+            page.source,
+            page.lowest_level,
+            page.category,
+            page.include_root,
+            page.include_tables,
+            page.table_levels,
+            page.status_levels,
+            page.root_level,
+            page.root_code,
+            page.root_name,
+            page.root_parent_code,
+            page.root_entity_type,
+        )
+        grouped.setdefault(key, []).append(page.path)
+        page_by_key[key] = page
+
+    lines = [f"name = {_toml_string(name)}", f"country_code = {_toml_string(slug)}"]
+    if legal_subdivision is not None:
+        lines.append(f"LEGAL_SUBDIVISION = {int(legal_subdivision)}")
+    lines.append("")
+
+    for key in sorted(grouped, key=lambda item: _generated_page_sort_key(page_by_key[item])):
+        page = page_by_key[key]
+        paths = sorted(grouped[key], key=_natural_sort_text)
+        lines.append("[[pages]]")
+        lines.append(f"source = {_toml_string(page.source)}")
+        lines.append(f"path = {_toml_array(paths)}")
+        lines.append(f"lowest_level = {int(page.lowest_level)}")
+        if page.include_root is not None:
+            lines.append(f"include_root = {_toml_bool(page.include_root)}")
+        if page.include_tables:
+            lines.append(f"include_tables = {_toml_array(page.include_tables)}")
+        if page.table_levels:
+            lines.append(f"table_levels = {_toml_scalar_inline_table(page.table_levels_dict)}")
+        if page.status_levels:
+            lines.append(f"status_levels = {_toml_scalar_inline_table(page.status_levels_dict)}")
+        if page.root_level is not None:
+            lines.append(f"root_level = {int(page.root_level)}")
+        for field_name in ("root_code", "root_name", "root_parent_code", "root_entity_type"):
+            value = getattr(page, field_name)
+            if value:
+                lines.append(f"{field_name} = {_toml_string(value)}")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _infer_citypopulation_legal_subdivision(
+    pages: list[CityPopulationGeneratedPage],
+    probes: list[CityPopulationPageProbe],
+) -> int | None:
+    if not pages:
+        return None
+    probe_by_path = {probe.path: probe for probe in probes}
+    max_level = 0
+    has_locality_layer = False
+    for page in pages:
+        probe = probe_by_path.get(page.path)
+        estimated = page.lowest_level
+        if page.table_levels:
+            estimated = max(estimated, *(level for _table, level in page.table_levels))
+        elif probe and probe.profile.admin_levels:
+            estimated = max(estimated, page.lowest_level + max(probe.profile.admin_levels))
+        elif probe and probe.profile.has_tl and probe.profile.has_ts:
+            estimated = max(estimated, page.lowest_level + 2)
+        elif probe and (probe.profile.has_tl or probe.profile.has_ts):
+            estimated = max(estimated, page.lowest_level + 1)
+        max_level = max(max_level, estimated)
+        if page.category in {"localities", "regional_detail", "regional_cities"} and page.include_tables:
+            has_locality_layer = True
+    if max_level <= 0:
+        return None
+    if has_locality_layer and max_level > 1:
+        return min(5, max(1, max_level - 1))
+    return min(5, max(1, max_level))
+
+
+def _clean_text(value: str) -> str:
+    return re.sub(r"\s+", " ", str(value or "")).strip()
 
 def _config_summaries(limit: int | None = None) -> list[dict]:
     row_counts = _config_row_counts()
@@ -3410,8 +4541,8 @@ def _can_validate_config_status(status: str) -> bool:
 
 
 def _can_scrape_config_status(status: str) -> bool:
-    """Population is available from pending/failed states and from validated state."""
-    return str(status or "pending").strip().casefold() in {"pending", "failed", "validated"}
+    """Population is available from pending/failed/validated states, and re-population from populated."""
+    return str(status or "pending").strip().casefold() in {"pending", "failed", "validated", "populated"}
 
 
 def _can_validate_config_row(row: dict, status: str) -> bool:

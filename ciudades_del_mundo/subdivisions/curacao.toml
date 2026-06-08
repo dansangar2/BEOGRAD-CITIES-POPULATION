@@ -5,6 +5,10 @@ reset_before_import = true
 LEGAL_SUBDIVISION = 1
 
 # L0 country -> L1 cities/places -> L2 geozones -> L3 neighborhoods.
+[visual_assets.flag]
+remote_url = "https://www.citypopulation.de/images/flags/curacao.svg"
+source = "config"
+
 [[pages]]
 source = "table"
 path = ["cities"]
@@ -12,7 +16,7 @@ lowest_level = 0
 root_code = "curacao"
 root_name = "Curaçao"
 root_entity_type = "Country"
-include_tables = ["ts"]
+include_tables = ["none"]
 table_levels = { tl = 0, ts = 1 }
 
 [[pages]]
@@ -23,3 +27,100 @@ root_code = "curacao"
 root_name = "Curaçao"
 root_entity_type = "Country"
 table_levels = { admin1 = 2, admin2 = 3 }
+
+# /curacao/cities/ exposes places, but several place rows lack stable ids and
+# some ids collide with geozone/neighborhood ids from /curacao/admin/.  Keep
+# geozones complete by declaring the place containers and reparenting geozones
+# after the admin scrape.
+[[synthetic_entities]]
+code = "city-willemstad"
+name = "Willemstad"
+level = 1
+parent_code = "curacao"
+entity_type = "City"
+metric_source_codes = ["35", "55", "33", "21", "29", "03", "45", "50", "57", "18", "36", "26", "48", "17", "30", "61", "59", "39", "41", "37", "25", "22", "13", "32", "40", "62", "23", "49", "44", "65", "51", "27", "54", "16", "52", "19", "20", "58", "34", "56", "38", "53", "63", "42", "15", "14", "64", "60", "24", "31", "05", "09", "28", "47", "43"]
+
+[[synthetic_entities]]
+code = "city-barber"
+name = "Barber"
+level = 1
+parent_code = "curacao"
+entity_type = "City"
+metric_source_codes = ["10", "04", "06"]
+
+[[synthetic_entities]]
+code = "city-lagun"
+name = "Lagun"
+level = 1
+parent_code = "curacao"
+entity_type = "City"
+metric_source_codes = ["02"]
+
+[[synthetic_entities]]
+code = "city-sintwillibrordus"
+name = "Sint Willibrordus"
+level = 1
+parent_code = "curacao"
+entity_type = "City"
+metric_source_codes = ["11"]
+
+[[synthetic_entities]]
+code = "city-soto"
+name = "Soto"
+level = 1
+parent_code = "curacao"
+entity_type = "City"
+metric_source_codes = ["07", "08"]
+
+[[synthetic_entities]]
+code = "city-teracora"
+name = "Tera Cora"
+level = 1
+parent_code = "curacao"
+entity_type = "City"
+metric_source_codes = ["12"]
+
+[[synthetic_entities]]
+code = "city-westpunt"
+name = "Westpunt"
+level = 1
+parent_code = "curacao"
+entity_type = "City"
+metric_source_codes = ["01"]
+
+[[synthetic_entities]]
+code = "city-groteberg"
+name = "Grote Berg"
+level = 1
+parent_code = "curacao"
+entity_type = "City"
+metric_source_codes = ["1013"]
+
+[[parent_overrides]]
+match_levels = [2]
+parent_code = "city-willemstad"
+exclude_codes = ["01", "02", "04", "06", "07", "08", "10", "11", "12"]
+
+[[parent_overrides]]
+codes = ["10", "04", "06"]
+parent_code = "city-barber"
+
+[[parent_overrides]]
+codes = ["02"]
+parent_code = "city-lagun"
+
+[[parent_overrides]]
+codes = ["11"]
+parent_code = "city-sintwillibrordus"
+
+[[parent_overrides]]
+codes = ["07", "08"]
+parent_code = "city-soto"
+
+[[parent_overrides]]
+codes = ["12"]
+parent_code = "city-teracora"
+
+[[parent_overrides]]
+codes = ["01"]
+parent_code = "city-westpunt"

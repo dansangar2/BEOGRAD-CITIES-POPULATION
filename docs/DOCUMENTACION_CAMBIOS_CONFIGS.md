@@ -362,3 +362,212 @@ Daniel pidió:
 - `node --check ciudades_del_mundo/static/ciudades_del_mundo/app.js`.
 - Revisión visual del DOCX actualizado tras renderizarlo a PNG.
 
+
+---
+
+## Entrega 5 - España uniprovincial y nueva tanda Balcanes/Europa del Este/Caribe
+
+Fecha documentada: 2026-06-08.
+
+### Petición recibida
+
+Daniel indicó un comportamiento raro en España: las localidades de una CCAA uniprovincial, como `/spain/localities/asturias/`, no se estaban populando igual que una provincia de CCAA pluriprovincial, como `/spain/localities/almeria/`, aunque el HTML tiene la misma estructura. También pidió continuar el scraping con Montenegro, Bosnia, Kosovo, Macedonia del Norte, Bulgaria, Rumanía, Albania, Polonia y Cuba.
+
+### Diagnóstico para España
+
+Los dos HTML de prueba tienen el mismo patrón: `table#tl` contiene municipios y `table#ts` contiene localidades con `radm` hacia el municipio. El scraper aislado resolvía correctamente padres en ambos casos:
+
+- `/spain/localities/almeria/`: localidades L4 con padre municipio L3.
+- `/spain/localities/asturias/`: localidades L4 con padre municipio L3.
+
+El ajuste aplicado fue de configuración: las localidades de comunidades uniprovinciales se movieron al mismo bloque TOML que el resto de provincias. Así se evita que el pipeline trate de forma distinta páginas con la misma vista.
+
+### Cambios de scraper reutilizables
+
+Se añadió `status_levels` a `ScrapingPageConfig`.
+
+Uso previsto:
+
+```toml
+status_levels = { AReg = 1, ADist = 2, Cant = 2 }
+```
+
+Este hint permite que una misma tabla `tl` con varias clases de entidad asigne niveles distintos según la columna `Status`, sin introducir ramas por país. Se usa para Bosnia, donde `/bosnia/cities/` mezcla entidades federativas, distrito autónomo y cantones.
+
+También se cambió el parser `double` para leer todos los `tbody` directos de una tabla, no solo el primero. Esto conserva los casos anteriores y permite páginas como Bosnia, donde CityPopulation reparte la misma tabla en varios cuerpos.
+
+Además se corrigió la detección de raíz sintética para URLs terminadas en `/admin/`: ahora `/poland/dolnoslaskie/admin/` se asocia con `dolnoslaskie`, no con el segmento genérico `admin`. Esto evita reparentados erróneos cuando hay varias páginas regionales `/admin/`.
+
+### Configuraciones TOML actualizadas
+
+Se actualizaron las semillas TOML de:
+
+- `spain.toml`
+- `montenegro.toml`
+- `bosnia.toml`
+- `kosovo.toml`
+- `northmacedonia.toml`
+- `bulgaria.toml`
+- `romania.toml`
+- `albania.toml`
+- `poland.toml`
+- `cuba.toml`
+
+### Niveles configurados en esta entrega
+
+| Configuración | Niveles |
+| --- | --- |
+| Montenegro | 0 País, 1 Municipio, 2 Pueblo/Asentamiento |
+| Bosnia y Herzegovina | 0 País, 1 Entidad federativa, 2 Cantón/Distrito/Entidad, 3 Municipio, 4 Localidad |
+| Kosovo | 0 País, 1 Distrito/Cantón, 2 Municipio |
+| Macedonia del Norte | 0 País, 1 Región, 2 Municipio, 3 Localidad |
+| Bulgaria | 0 País, 1 Provincia, 2 Municipio, 3 Pueblo/Asentamiento |
+| Rumanía | 0 País, 1 Región de desarrollo, 2 Condado, 3 Comuna/Ciudad |
+| Albania | 0 País, 1 Prefectura, 2 Municipio, 3 Unidad municipal |
+| Polonia | 0 País, 1 Voivodato, 2 Condado, 3 Comuna, 4 Lugar/Localidad |
+| Cuba | 0 País, 1 Provincia, 2 Municipio, 3 Lugar/Pueblo |
+
+### Decisiones especiales
+
+- Montenegro usa `/montenegro/towns/` como `double`, no como `table`, para evitar que el total nacional del `tfoot` desplace municipios y pueblos a niveles incorrectos.
+- Bosnia usa `/bosnia/cities/` para país, entidades federativas, distrito y cantones; `status_levels` diferencia `AReg`, `ADist` y `Cant`. Las páginas por entidad/cantón se anclan en L2 y aportan municipios L3/localidades L4.
+- Rumanía usa `/romania/localities/{condado}/` persistiendo `tl` como comunas/ciudades L3; `ts` queda fuera porque el alcance pedido llega hasta comuna.
+- Polonia mantiene `/poland/{voivodeship}/admin/` para comunas L3; `/poland/{voivodeship}/` se usa para lugares urbanos L4 y `/poland/localities/{urbancounty}/` para localidades L4 usando comunas como contexto.
+- Cuba cambia las páginas provinciales a `table` con raíz provincial L1, municipios L2 y asentamientos L3.
+
+### Validación ejecutada
+
+Se ejecutó:
+
+```bash
+python -m compileall -q ciudades_del_mundo
+PYTHONPATH=. python -m unittest ciudades_del_mundo.tests.test_scraping_admin -v
+```
+
+Resultado: OK, 13 tests.
+
+También se validaron todas las semillas TOML con `tomllib` + `parse_pages`, y se probaron los 20 HTML de esta tanda contra sus páginas configuradas.
+
+No se pudo ejecutar la suite completa Django ni `manage.py check` porque el entorno no tiene instalado `django`.
+
+---
+
+## Corrección puntual - capitales/distritos, Curazao, San Bartolomé y banderas
+
+Fecha documentada: 2026-06-08.
+
+### Petición recibida
+
+Daniel indicó varios ajustes tras la quinta tanda:
+
+- Budapest no debe quedar al mismo nivel que sus distritos; la ciudad completa debe ir primero y sus distritos debajo.
+- Bratislava y Košice en Eslovaquia tenían el mismo problema.
+- Aruba no debe poner ciudades por encima de las regiones, por lo que se mantiene la jerarquía previa: regiones L1, ciudades/áreas urbanas L2 y zonas L3.
+- Curazao estaba perdiendo muchos geozones.
+- En San Bartolomé, la capital Gustavia debe asignarse a `Centre`.
+- Varias configuraciones no mostraban bandera de país o de región: Bélgica, Austria, Chequia, Eslovaquia, Malta, Curazao, San Martín neerlandés, Liechtenstein, Wallis y Futuna y San Bartolomé.
+
+### Cambios aplicados
+
+#### Hungría - Budapest
+
+En `hungary.toml`, la regla `[[cities]]` de Budapest mantiene ahora las filas fuente de sus distritos:
+
+```toml
+keep_communes = true
+```
+
+Resultado esperado:
+
+- L1: Budapest como entidad de rango condado (`County-Level City`).
+- L2: Budapest como ciudad completa configurada.
+- L3: Budapest I a Budapest XXIII como distritos de la ciudad completa.
+
+#### Eslovaquia - Bratislava y Košice
+
+En `slovakia.toml`, las ciudades configuradas pasan a usar el código de la ciudad completa de CityPopulation:
+
+- Bratislava: `528000`.
+- Košice: `599000`.
+
+Se elimina el esquema de `child_id` y se usa `keep_communes = true`, de forma que los distritos urbanos pasan a ser hijos de la ciudad completa:
+
+- L2: Bratislava / Košice como ciudad.
+- L3: distritos urbanos como subdivisiones de esa ciudad.
+
+#### Aruba
+
+Se conserva la configuración de la entrega anterior que respeta la jerarquía solicitada inicialmente:
+
+- L1: regiones censales.
+- L2: ciudades/áreas urbanas.
+- L3: zonas.
+
+No se invierte el orden ciudades/regiones.
+
+#### Curazao
+
+El problema de Curazao se trató como colisión de identificadores y falta de IDs estables en varias filas de `/curacao/cities/`:
+
+- `/curacao/admin/` conserva todos los geozones y vecindades.
+- `/curacao/cities/` se mantiene como página declarada, pero sus filas se dejan fuera de persistencia directa porque varias filas de `Places` no tienen identificador estable y otras reutilizan identificadores de geozone/vecindad.
+- Se declaran contenedores sintéticos L1 para los lugares principales: Willemstad, Barber, Lagun, Sint Willibrordus, Soto, Tera Cora, Westpunt y Grote Berg.
+- Se reparentan los geozones L2 bajo esos contenedores. Los geozones no rurales pasan bajo Willemstad; los rurales conocidos pasan bajo su lugar correspondiente.
+
+Validación puntual:
+
+- Se preservan 64 geozones L2 desde `/curacao/admin/`.
+- Se añaden 8 contenedores sintéticos L1.
+- Ejemplos: `Asiento -> city-willemstad`, `Barber/Flip/Leliënberg -> city-barber`, `Lagun -> city-lagun`, `Tera Cora -> city-teracora`, `Westpunt -> city-westpunt`.
+
+#### San Bartolomé
+
+En `saintbarthelemy.toml`, se añade un `parent_overrides` para que Gustavia quede debajo de `Centre`:
+
+```toml
+[[parent_overrides]]
+codes = ["25266"]
+parent_code = "8446"
+```
+
+Resultado esperado:
+
+- L1: `Centre`.
+- L2: `Gustavia`, con padre `Centre`.
+
+#### Banderas y assets visuales
+
+Se añadieron fallbacks explícitos en `[visual_assets.flag]` para:
+
+- Bélgica.
+- Austria.
+- República Checa.
+- Eslovaquia.
+- Malta.
+- Curazao.
+- Sint Maarten.
+- Liechtenstein.
+- Wallis y Futuna.
+- Saint-Barthélemy.
+
+En Bélgica también se añadieron banderas de región mediante `[[visual_assets.admin_areas]]` para:
+
+- `BE-VLG`: Flemish Region.
+- `BE-WAL`: Walloon Region.
+- `04000`: Région de Bruxelles-Capitale.
+
+### Validación ejecutada
+
+Se ejecutó:
+
+```bash
+python -m compileall -q ciudades_del_mundo
+PYTHONPATH=. python -m unittest ciudades_del_mundo.tests.test_scraping_admin -v
+node --check ciudades_del_mundo/static/ciudades_del_mundo/app.js
+```
+
+Resultado: OK, 13 tests.
+
+También se validaron todas las semillas TOML con `tomllib` + `parse_pages`, y se hicieron comprobaciones puntuales de jerarquía para Budapest, Bratislava, Curazao y San Bartolomé usando los HTML disponibles.
+
+No se pudo ejecutar la suite completa Django ni `manage.py check` porque el entorno no tiene instalado `django`.

@@ -1,30 +1,38 @@
 {% extends "ciudades_del_mundo/base.html" %}
 {% load i18n %}
 
-{% block title %}{% if mode == "new" %}{% trans "Nueva configuración" %}{% else %}{% blocktrans with slug=slug %}Editar {{ slug }}{% endblocktrans %}{% endif %} - {% trans "Ciudades del Mundo" %}{% endblock %}
+{% block title %}{% if mode == "new" %}{% trans "Nueva configuración" %}{% else %}{% blocktrans with slug=slug %}Configuración {{ slug }}{% endblocktrans %}{% endif %} - {% trans "Ciudades del Mundo" %}{% endblock %}
 
 {% block content %}
 <section class="page-head compact">
   <div>
-    <p class="eyebrow">{% trans "Scraping y ciudades unificadas" %}</p>
-    <h1>{% if mode == "new" %}{% trans "Nueva configuración" %}{% else %}{{ slug }}.toml{% endif %}</h1>
+    <p class="eyebrow">{% trans "Scraping" %}</p>
+    <h1>{% if mode == "new" %}{% trans "Nueva configuración" %}{% else %}{% blocktrans with slug=slug %}Configuración {{ slug }}{% endblocktrans %}{% endif %}</h1>
   </div>
-  <a class="button secondary" href="{% url 'ciudades_del_mundo:config_list' %}">{% trans "Volver" %}</a>
+  <div class="button-row config-form-header-actions">
+    {% if mode == "edit" %}
+    <form method="post" action="{% url 'ciudades_del_mundo:config_export_toml' slug %}" data-config-export-form data-action-label="{% trans 'Exportar TOML' %}" data-exporting-label="{% trans 'Exportando TOML...' %}" data-export-success-label="{% trans 'TOML exportado correctamente.' %}" data-export-error-label="{% trans 'No se pudo exportar el TOML.' %}">
+      {% csrf_token %}
+      <button type="submit" class="secondary">{% trans "Exportar TOML" %}</button>
+    </form>
+    {% endif %}
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:config_list' %}">{% trans "Volver" %}</a>
+  </div>
 </section>
 
-<section class="config-editor" data-config-editor data-mode="{{ mode }}" data-slug="{{ slug }}" data-generate-url="{% if mode == 'edit' %}{% url 'ciudades_del_mundo:config_generate_base' slug %}{% endif %}" data-source-entities-url="{% if mode == 'edit' %}{% url 'ciudades_del_mundo:config_source_entities' slug %}{% endif %}" data-empty-label="{% trans 'Sin datos' %}" data-loading-label="{% trans 'Cargando datos...' %}" data-error-label="{% trans 'No se pudieron cargar las entidades.' %}">
+<section class="config-editor" data-config-editor data-mode="{{ mode }}" data-slug="{{ slug }}" data-generate-url="{% if mode == 'edit' %}{% url 'ciudades_del_mundo:config_generate_base' slug %}{% endif %}" data-source-entities-url="{% if mode == 'edit' %}{% url 'ciudades_del_mundo:config_source_entities' slug %}{% endif %}" data-empty-label="{% trans 'Sin datos' %}" data-loading-label="{% trans 'Cargando datos...' %}" data-error-label="{% trans 'No se pudieron cargar las entidades.' %}" data-save-label="{% trans 'Guardar configuración' %}" data-saving-label="{% trans 'Guardando configuración...' %}" data-save-success-label="{% trans 'Configuración guardada correctamente.' %}" data-save-error-label="{% trans 'No se pudo guardar la configuración.' %}" data-pending-label="{% trans 'Por Validar' %}" data-running-label="{% trans 'En ejecución' %}" data-queued-label="{% trans 'En cola' %}" data-succeeded-label="{% trans 'Correcto' %}" data-failed-label="{% trans 'Fallo' %}" data-cancelled-label="{% trans 'Cancelado' %}" data-log-label="{% trans 'Ver registro' %}" data-validating-label="{% trans 'Validando' %}" data-validated-label="{% trans 'Validado' %}" data-populating-label="{% trans 'Populando' %}" data-populated-label="{% trans 'Populado' %}" data-clearing-label="{% trans 'Limpiando' %}" data-invalid-label="{% trans 'Fallo' %}" data-task-success-label="{% trans 'Tarea finalizada correctamente.' %}" data-task-error-label="{% trans 'La tarea ha fallado.' %}" data-scrape-success-label="{% trans 'Scraping finalizado correctamente.' %}" data-scrape-error-label="{% trans 'El scraping ha fallado.' %}" data-validate-success-label="{% trans 'Validación finalizada correctamente.' %}" data-validate-error-label="{% trans 'La validación ha fallado.' %}" data-clear-success-label="{% trans 'Limpieza finalizada correctamente.' %}" data-clear-error-label="{% trans 'La limpieza ha fallado.' %}" data-repopulate-label="{% trans 'Re-popular' %}">
   <div class="config-tabs" role="tablist" aria-label="{% trans 'Modos de configuración' %}">
     <button type="button" class="config-tab is-active" data-config-tab="manual" role="tab" aria-selected="true">{% trans "Manual" %}</button>
     <button type="button" class="config-tab" data-config-tab="file" role="tab" aria-selected="false">{% trans "Archivo" %}</button>
     <button type="button" class="config-tab" data-config-tab="scraping" role="tab" aria-selected="false">{% trans "Scrapping" %}</button>
-    <button type="button" class="config-tab config-tab-ai" data-config-tab="ai" role="tab" aria-selected="false"><span aria-hidden="true">🤖</span> <span class="rainbow-text">{% trans "IA" %}</span></button>
+    {# HABILITAR-COMENTARIOS-SCRAPING-IA: quitar hidden/data-config-disabled-tab cuando se reactive la sección IA. #}
+    <button type="button" class="config-tab config-tab-ai" data-config-tab="ai" data-config-disabled-tab="true" role="tab" aria-selected="false" hidden aria-hidden="true"><span aria-hidden="true">🤖</span> <span class="rainbow-text">{% trans "IA" %}</span></button>
   </div>
 
   <div class="config-tab-panel is-active" data-config-panel="manual" role="tabpanel">
-    <form class="panel form-panel config-manual-form" method="post">
+    <form class="panel form-panel config-manual-form" method="post" data-config-editor-form="manual">
       {% csrf_token %}
       <input type="hidden" name="editor_mode" value="manual">
-      <input type="hidden" name="selected_city_entities" data-selected-city-entities value="{{ manual_selected_ids_json }}">
       {% if mode == "new" %}
       <label>
         Slug
@@ -34,10 +42,6 @@
 
       <div class="form-grid compact-form-grid">
         <label>
-          {% trans "Nombre" %}
-          <input name="manual_name" value="{{ manual.name }}" placeholder="Spain">
-        </label>
-        <label>
           {% trans "Código de país" %}
           <input name="manual_country_code" value="{{ manual.country_code }}" placeholder="{{ slug }}">
         </label>
@@ -45,126 +49,373 @@
           {% trans "Subdivisión legal" %}
           <input type="number" min="0" max="5" name="manual_legal_subdivision" value="{{ manual.legal_subdivision }}">
         </label>
+        <label>
+          {% trans "Wikidata del país" %}
+          <input name="manual_wikidata_id" value="{{ manual.wikidata_id }}" placeholder="Q262">
+        </label>
       </div>
 
       <div class="section-title">
-        <h2>{% trans "Rutas de scrapeo" %}</h2>
-        <button type="button" class="secondary" data-add-page-row>{% trans "Añadir línea" %}</button>
+        <h2>{% trans "Páginas" %}</h2>
+        <button type="button" class="secondary" data-add-page-row>{% trans "Añadir" %}</button>
       </div>
-      <p class="muted">{% trans "Formato: NV - URL - Tipo Scrapeo. Puedes usar rutas relativas de CityPopulation o URLs completas." %}</p>
+      <p class="muted">{% trans "Cada fila equivale a un bloque [[pages]] del TOML. La base https://www.citypopulation.de/en/ se aplica automáticamente; escribe cada ruta relativa en su propia caja de texto. Usa / para la página raíz del país." %}</p>
+      <details class="field-help technical-field-help">
+        <summary>{% trans "Qué hace técnicamente cada campo" %}</summary>
+        <dl>
+          <dt>{% trans "Fuente" %}</dt>
+          <dd>{% trans "Selecciona el scraper que interpretará la página: admin para tablas jerárquicas admin1/admin2, table para páginas con raíz y tablas tl/ts, double para páginas con tablas padre/hija, cities para páginas de ciudades y auto para detectar la estructura automáticamente." %}</dd>
+          <dt>{% trans "Ruta" %}</dt>
+          <dd>{% trans "Ruta relativa dentro de CityPopulation. No incluye la base fija. Si hay varias cajas de ruta en la misma fila, se guardan como un array path en TOML." %}</dd>
+          <dt>{% trans "Nivel mínimo" %}</dt>
+          <dd>{% trans "Nivel administrativo donde se ancla la página. A partir de este valor se calculan los niveles de la raíz y de las tablas salvo que table_levels los fuerce." %}</dd>
+          <dt>{% trans "Incluir raíz" %}</dt>
+          <dd>{% trans "Permite guardar o descartar la entidad raíz detectada en la página. Es útil para evitar duplicados cuando la raíz ya viene de otra página." %}</dd>
+          <dt>{% trans "Incluir tablas" %}</dt>
+          <dd>{% trans "Limita qué tablas se persisten. Una tabla no incluida puede seguir usándose como contexto para enlazar padres." %}</dd>
+          <dt>{% trans "Niveles de tabla" %}</dt>
+          <dd>{% trans "Fuerza niveles concretos por tabla, por ejemplo ts = 4 o admin2 = 3, cuando la estructura HTML no coincide exactamente con la jerarquía deseada." %}</dd>
+          <dt>{% trans "ROOT" %}</dt>
+          <dd>{% trans "Sobrescribe datos de la raíz: nivel, código, nombre, padre o tipo administrativo." %}</dd>
+          <dt>{% trans "Niveles por estado" %}</dt>
+          <dd>{% trans "Reasigna el nivel según el tipo detectado en la fila, útil cuando una tabla mezcla tipos administrativos distintos." %}</dd>
+        </dl>
+      </details>
       <div class="table-wrap subtle manual-pages-wrap">
-        <table class="compact-table manual-pages-table">
+        <table class="compact-table manual-pages-table config-pages-toml-table">
           <thead>
             <tr>
-              <th>{% trans "NV" %}</th>
-              <th>URL</th>
-              <th>{% trans "Tipo Scrapeo" %}</th>
+              <th>{% trans "Principal" %}</th>
+              <th>{% trans "Otros campos" %}</th>
+              <th>{% trans "ROOT" %}</th>
               <th>{% trans "Acciones" %}</th>
             </tr>
           </thead>
           <tbody data-manual-pages>
             {% for page in manual.pages %}
             <tr>
-              <td><input type="number" min="0" max="5" name="page_level" value="{{ page.lowest_level }}"></td>
-              <td><input name="page_url" value="{{ page.path }}" placeholder="admin"></td>
-              <td>
-                <select name="page_source">
-                  {% for value, label in scrape_types %}
-                  <option value="{{ value }}" {% if page.source == value %}selected{% endif %}>{{ label }}</option>
-                  {% endfor %}
-                </select>
+              <td class="manual-principal-cell">
+                <div class="manual-principal-stack">
+                  <label class="manual-mini-field manual-source-field">
+                    <span>{% trans "Fuente" %}</span>
+                    <select name="page_source" aria-label="{% trans 'Fuente' %}">
+                      {% for value, label in scrape_types %}
+                      <option value="{{ value }}" {% if page.source == value %}selected{% endif %}>{{ value }}</option>
+                      {% endfor %}
+                    </select>
+                  </label>
+                  <div class="page-path-cell">
+                    <div class="manual-mini-label">{% trans "Ruta" %}</div>
+                    <div class="page-path-list" data-page-path-list>
+                      {% for path in page.paths %}
+                      <div class="page-path-row" data-page-path-row>
+                        <input type="text" data-page-path-input value="{{ path }}" placeholder="admin" aria-label="{% trans 'Ruta' %}">
+                        <button type="button" class="quiet danger-text" data-remove-page-path aria-label="{% trans 'Quitar ruta' %}">×</button>
+                      </div>
+                      {% empty %}
+                      <div class="page-path-row" data-page-path-row>
+                        <input type="text" data-page-path-input value="" placeholder="admin" aria-label="{% trans 'Ruta' %}">
+                        <button type="button" class="quiet danger-text" data-remove-page-path aria-label="{% trans 'Quitar ruta' %}">×</button>
+                      </div>
+                      {% endfor %}
+                    </div>
+                    <input type="hidden" name="page_path" value="{{ page.paths_text }}" data-page-path-hidden>
+                    <button type="button" class="secondary mini-button" data-add-page-path>{% trans "Añadir ruta" %}</button>
+                  </div>
+                </div>
               </td>
-              <td><button type="button" class="quiet danger-text" data-remove-page-row>{% trans "Quitar" %}</button></td>
+              <td class="manual-other-fields-cell">
+                <div class="manual-field-stack manual-field-stack-five">
+                  <label class="manual-mini-field">
+                    <span>{% trans "Nivel mínimo" %}</span>
+                    <input type="number" min="0" max="5" name="page_lowest_level" value="{{ page.lowest_level }}" placeholder="0">
+                  </label>
+                  <label class="manual-mini-field">
+                    <span>{% trans "Incluir raíz" %}</span>
+                    <select name="page_include_root">
+                      <option value="" {% if not page.include_root %}selected{% endif %}>—</option>
+                      <option value="true" {% if page.include_root == 'true' %}selected{% endif %}>true</option>
+                      <option value="false" {% if page.include_root == 'false' %}selected{% endif %}>false</option>
+                    </select>
+                  </label>
+                  <label class="manual-mini-field">
+                    <span>{% trans "Incluir tablas" %}</span>
+                    <input name="page_include_tables" value="{{ page.include_tables }}" placeholder="ts, tl">
+                  </label>
+                  <label class="manual-mini-field">
+                    <span>{% trans "Niveles de tabla" %}</span>
+                    <input name="page_table_levels" value="{{ page.table_levels }}" placeholder="ts = 3, tl = 2">
+                  </label>
+                  <label class="manual-mini-field">
+                    <span>{% trans "Niveles por estado" %}</span>
+                    <input name="page_status_levels" value="{{ page.status_levels }}" placeholder="AReg = 1, Cant = 2">
+                  </label>
+                </div>
+              </td>
+              <td class="manual-root-fields-cell">
+                <div class="manual-field-stack manual-field-stack-five toml-root-fields">
+                  <label class="manual-mini-field">
+                    <span>{% trans "Nivel" %}</span>
+                    <input name="page_root_level" value="{{ page.root_level }}" placeholder="root_level">
+                  </label>
+                  <label class="manual-mini-field">
+                    <span>{% trans "Código" %}</span>
+                    <input name="page_root_code" value="{{ page.root_code }}" placeholder="root_code">
+                  </label>
+                  <label class="manual-mini-field">
+                    <span>{% trans "Nombre" %}</span>
+                    <input name="page_root_name" value="{{ page.root_name }}" placeholder="root_name">
+                  </label>
+                  <label class="manual-mini-field">
+                    <span>{% trans "Código padre" %}</span>
+                    <input name="page_root_parent_code" value="{{ page.root_parent_code }}" placeholder="root_parent_code">
+                  </label>
+                  <label class="manual-mini-field">
+                    <span>{% trans "Tipo entidad" %}</span>
+                    <input name="page_root_entity_type" value="{{ page.root_entity_type }}" placeholder="root_entity_type">
+                  </label>
+                </div>
+              </td>
+              <td class="manual-actions-cell"><button type="button" class="quiet danger-text" data-remove-page-row>{% trans "Quitar" %}</button></td>
             </tr>
             {% empty %}
             <tr>
-              <td><input type="number" min="0" max="5" name="page_level" value="0"></td>
-              <td><input name="page_url" value="admin" placeholder="admin"></td>
-              <td>
-                <select name="page_source">
-                  {% for value, label in scrape_types %}
-                  <option value="{{ value }}" {% if value == 'admin' %}selected{% endif %}>{{ label }}</option>
-                  {% endfor %}
-                </select>
+              <td class="manual-principal-cell">
+                <div class="manual-principal-stack">
+                  <label class="manual-mini-field manual-source-field">
+                    <span>{% trans "Fuente" %}</span>
+                    <select name="page_source" aria-label="{% trans 'Fuente' %}">
+                      {% for value, label in scrape_types %}
+                      <option value="{{ value }}" {% if value == 'admin' %}selected{% endif %}>{{ value }}</option>
+                      {% endfor %}
+                    </select>
+                  </label>
+                  <div class="page-path-cell">
+                    <div class="manual-mini-label">{% trans "Ruta" %}</div>
+                    <div class="page-path-list" data-page-path-list>
+                      <div class="page-path-row" data-page-path-row>
+                        <input type="text" data-page-path-input value="admin" placeholder="admin" aria-label="{% trans 'Ruta' %}">
+                        <button type="button" class="quiet danger-text" data-remove-page-path aria-label="{% trans 'Quitar ruta' %}">×</button>
+                      </div>
+                    </div>
+                    <input type="hidden" name="page_path" value="admin" data-page-path-hidden>
+                    <button type="button" class="secondary mini-button" data-add-page-path>{% trans "Añadir ruta" %}</button>
+                  </div>
+                </div>
               </td>
-              <td><button type="button" class="quiet danger-text" data-remove-page-row>{% trans "Quitar" %}</button></td>
+              <td class="manual-other-fields-cell">
+                <div class="manual-field-stack manual-field-stack-five">
+                  <label class="manual-mini-field">
+                    <span>{% trans "Nivel mínimo" %}</span>
+                    <input type="number" min="0" max="5" name="page_lowest_level" value="0" placeholder="0">
+                  </label>
+                  <label class="manual-mini-field">
+                    <span>{% trans "Incluir raíz" %}</span>
+                    <select name="page_include_root">
+                      <option value="" selected>—</option>
+                      <option value="true">true</option>
+                      <option value="false">false</option>
+                    </select>
+                  </label>
+                  <label class="manual-mini-field">
+                    <span>{% trans "Incluir tablas" %}</span>
+                    <input name="page_include_tables" placeholder="ts, tl">
+                  </label>
+                  <label class="manual-mini-field">
+                    <span>{% trans "Niveles de tabla" %}</span>
+                    <input name="page_table_levels" placeholder="ts = 3, tl = 2">
+                  </label>
+                  <label class="manual-mini-field">
+                    <span>{% trans "Niveles por estado" %}</span>
+                    <input name="page_status_levels" placeholder="AReg = 1, Cant = 2">
+                  </label>
+                </div>
+              </td>
+              <td class="manual-root-fields-cell">
+                <div class="manual-field-stack manual-field-stack-five toml-root-fields">
+                  <label class="manual-mini-field">
+                    <span>{% trans "Nivel" %}</span>
+                    <input name="page_root_level" placeholder="root_level">
+                  </label>
+                  <label class="manual-mini-field">
+                    <span>{% trans "Código" %}</span>
+                    <input name="page_root_code" placeholder="root_code">
+                  </label>
+                  <label class="manual-mini-field">
+                    <span>{% trans "Nombre" %}</span>
+                    <input name="page_root_name" placeholder="root_name">
+                  </label>
+                  <label class="manual-mini-field">
+                    <span>{% trans "Código padre" %}</span>
+                    <input name="page_root_parent_code" placeholder="root_parent_code">
+                  </label>
+                  <label class="manual-mini-field">
+                    <span>{% trans "Tipo entidad" %}</span>
+                    <input name="page_root_entity_type" placeholder="root_entity_type">
+                  </label>
+                </div>
+              </td>
+              <td class="manual-actions-cell"><button type="button" class="quiet danger-text" data-remove-page-row>{% trans "Quitar" %}</button></td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
 
-      <div class="section-title spaced-title">
-        <h2>{% trans "Unificación de ciudad" %}</h2>
+
+      <div class="section-title">
+        <div>
+          <h2>{% trans "Escudos y banderas" %}</h2>
+          <p class="muted">{% trans "La populación usa una única búsqueda masiva en Wikidata. Después de popular por primera vez, usa esta subsección para reasignar manualmente banderas o escudos que hayan quedado mal asignados." %}</p>
+          <p class="muted asset-legend">
+            <span style="background:#fff3cd;color:#5f4700;padding:0.1rem 0.35rem;border-radius:999px;">{% trans "Amarillo: sin bandera" %}</span>
+            <span style="background:#ffe0b2;color:#7a3f00;padding:0.1rem 0.35rem;border-radius:999px;">{% trans "Naranja: sin escudo" %}</span>
+            <span style="background:#f8d7da;color:#842029;padding:0.1rem 0.35rem;border-radius:999px;">{% trans "Rojo: sin bandera ni escudo" %}</span>
+            <span style="color:#b42318;">{% trans "Recursos en rojo: aún no asignados a ningún registro" %}</span>
+          </p>
+        </div>
+        <button type="button" class="secondary" data-add-asset-override-row {% if not manual.asset_options.enabled %}disabled{% endif %}>{% trans "Añadir corrección" %}</button>
       </div>
-      <p class="muted">{% trans "Opcional. Mueve entidades scrapeadas a la tabla derecha para crear una ciudad unificada; si no hay selección, se ignora." %}</p>
+
       <div class="form-grid compact-form-grid">
         <label>
-          {% trans "Ciudad unificada" %}
-          <input name="city_name" value="{{ manual.city.name }}" placeholder="Ciudad">
-        </label>
-        <label>
-          ID
-          <input name="city_id" value="{{ manual.city.id }}" placeholder="ciudad">
-        </label>
-        <label>
-          {% trans "Nivel" %}
-          <select name="city_level">
-            <option value="">{% trans "Automático" %}</option>
-            {% for level in city_level_choices %}
-            <option value="{{ level.value }}" {% if level.selected %}selected{% endif %}>{{ level.value }}</option>
-            {% endfor %}
+          {% trans "Buscar recursos del país en Wikidata" %}
+          <select name="visual_asset_bulk_country_wikidata">
+            <option value="true" {% if manual.visual_assets.bulk_country_wikidata != 'false' %}selected{% endif %}>{% trans "Sí" %}</option>
+            <option value="false" {% if manual.visual_assets.bulk_country_wikidata == 'false' %}selected{% endif %}>{% trans "No" %}</option>
           </select>
         </label>
         <label>
-          {% trans "Tipo" %}
-          <input name="city_type" value="{{ manual.city.type }}" placeholder="City">
+          {% trans "Exigir assets para completar" %}
+          <select name="visual_asset_strict_required">
+            <option value="true" {% if manual.visual_assets.strict_required != 'false' %}selected{% endif %}>{% trans "Sí" %}</option>
+            <option value="false" {% if manual.visual_assets.strict_required == 'false' %}selected{% endif %}>{% trans "No" %}</option>
+          </select>
+        </label>
+        <label>
+          {% trans "Tipos requeridos" %}
+          <input name="visual_asset_required_kinds" value="{{ manual.visual_assets.required_kinds|default:'flag, coat' }}" placeholder="flag, coat">
+        </label>
+        <label>
+          {% trans "Niveles requeridos" %}
+          <input name="visual_asset_required_levels" value="{{ manual.visual_assets.required_levels }}" placeholder="{% trans 'Vacío = todos' %}">
         </label>
       </div>
 
-      <div class="dual-table-transfer" data-city-transfer>
-        <div class="transfer-panel">
-          <h3>{% trans "Entidades disponibles" %}</h3>
-          <div class="transfer-filters">
-            <label>
-              {% trans "Nivel" %}
-              <select data-transfer-filter="level" data-require-value="true">
-                {% for level in source_level_choices %}
-                <option value="{{ level.value }}">{{ level.label }}</option>
-                {% endfor %}
-              </select>
-            </label>
-            <label>{% trans "Nombre" %}<input type="search" data-transfer-filter="name" placeholder="{% trans 'Nombre' %}"></label>
-            <label>
-              {% trans "Padre" %}
-              <select data-transfer-filter="parent" data-select2 data-placeholder="{% trans 'Padre' %}" data-empty-option="{% trans 'Todos' %}">
-                <option value="">{% trans "Todos" %}</option>
-              </select>
-            </label>
-          </div>
-          <div class="table-wrap subtle transfer-table-wrap">
-            <table class="compact-table">
-              <thead><tr><th>{% trans "Nivel" %}</th><th>{% trans "Nombre" %}</th><th>{% trans "Padre" %}</th><th></th></tr></thead>
-              <tbody data-transfer-available></tbody>
-            </table>
-          </div>
-        </div>
-        <div class="transfer-panel">
-          <h3>{% trans "Entidades a unificar" %}</h3>
-          <div class="transfer-filters transfer-filters-placeholder" aria-hidden="true"></div>
-          <div class="table-wrap subtle transfer-table-wrap">
-            <table class="compact-table">
-              <thead><tr><th>{% trans "Nivel" %}</th><th>{% trans "Nombre" %}</th><th>{% trans "Padre" %}</th><th></th></tr></thead>
-              <tbody data-transfer-selected></tbody>
-            </table>
-          </div>
-        </div>
+      {% if not manual.asset_options.enabled %}
+      <p class="muted">{% trans "Las correcciones manuales se activarán cuando este país se haya populado al menos una vez." %}</p>
+      {% endif %}
+
+      <template data-asset-assignment-row-template>
+        <tr>
+          <td>
+            <select name="asset_assignment_level" data-asset-assignment-level {% if not manual.asset_options.enabled %}disabled{% endif %}>
+              <option value="">{% trans "Nivel" %}</option>
+              {% for level in manual.asset_options.levels %}
+              <option value="{{ level.value }}">{{ level.label }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td>
+            <select name="asset_assignment_entity_id" data-asset-assignment-entity {% if not manual.asset_options.enabled %}disabled{% endif %}>
+              <option value="">{% trans "Entidad" %}</option>
+              {% for entity in manual.asset_options.entities %}
+              <option value="{{ entity.id }}" data-level="{{ entity.level }}" data-status="{{ entity.status }}" title="{{ entity.status_label }}" {% if entity.status == 'missing_flag' %}style="background:#fff3cd;color:#5f4700;"{% elif entity.status == 'missing_coat' %}style="background:#ffe0b2;color:#7a3f00;"{% elif entity.status == 'missing_both' %}style="background:#f8d7da;color:#842029;"{% endif %}>{{ entity.label }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td>
+            <select name="asset_assignment_flag_qid" {% if not manual.asset_options.enabled %}disabled{% endif %}>
+              <option value="">{% trans "Sin cambio" %}</option>
+              {% for asset in manual.asset_options.flags %}
+              <option value="{{ asset.value }}" {% if not asset.assigned %}style="color:#b42318;"{% endif %}>{{ asset.label }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td>
+            <select name="asset_assignment_coat_qid" {% if not manual.asset_options.enabled %}disabled{% endif %}>
+              <option value="">{% trans "Sin cambio" %}</option>
+              {% for asset in manual.asset_options.coats %}
+              <option value="{{ asset.value }}" {% if not asset.assigned %}style="color:#b42318;"{% endif %}>{{ asset.label }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td>
+            <select name="asset_assignment_replace_existing" {% if not manual.asset_options.enabled %}disabled{% endif %}>
+              <option value="true" selected>{% trans "Sí" %}</option>
+              <option value="false">{% trans "No" %}</option>
+            </select>
+          </td>
+          <td><button type="button" class="quiet danger-text" data-remove-asset-override-row {% if not manual.asset_options.enabled %}disabled{% endif %}>{% trans "Quitar" %}</button></td>
+        </tr>
+      </template>
+
+      <div class="table-wrap subtle manual-asset-overrides-wrap">
+        <table class="compact-table manual-asset-overrides-table">
+          <thead>
+            <tr>
+              <th>{% trans "Nivel" %}</th>
+              <th>{% trans "Entidad" %}</th>
+              <th>{% trans "Bandera" %}</th>
+              <th>{% trans "Escudo" %}</th>
+              <th>{% trans "Reemplazar" %}</th>
+              <th>{% trans "Acciones" %}</th>
+            </tr>
+          </thead>
+          <tbody data-manual-asset-overrides>
+            {% for assignment in manual.asset_overrides %}
+            <tr>
+              <td>
+                <select name="asset_assignment_level" data-asset-assignment-level {% if not manual.asset_options.enabled %}disabled{% endif %}>
+                  <option value="">{% trans "Nivel" %}</option>
+                  {% for level in manual.asset_options.levels %}
+                  <option value="{{ level.value }}" {% if assignment.level == level.value %}selected{% endif %}>{{ level.label }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td>
+                <select name="asset_assignment_entity_id" data-asset-assignment-entity {% if not manual.asset_options.enabled %}disabled{% endif %}>
+                  <option value="">{% trans "Entidad" %}</option>
+                  {% for entity in manual.asset_options.entities %}
+                  <option value="{{ entity.id }}" data-level="{{ entity.level }}" data-status="{{ entity.status }}" title="{{ entity.status_label }}" {% if assignment.entity_id == entity.id %}selected{% endif %} {% if entity.status == 'missing_flag' %}style="background:#fff3cd;color:#5f4700;"{% elif entity.status == 'missing_coat' %}style="background:#ffe0b2;color:#7a3f00;"{% elif entity.status == 'missing_both' %}style="background:#f8d7da;color:#842029;"{% endif %}>{{ entity.label }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td>
+                <select name="asset_assignment_flag_qid" {% if not manual.asset_options.enabled %}disabled{% endif %}>
+                  <option value="">{% trans "Sin cambio" %}</option>
+                  {% for asset in manual.asset_options.flags %}
+                  <option value="{{ asset.value }}" {% if assignment.flag_qid == asset.value %}selected{% endif %} {% if not asset.assigned %}style="color:#b42318;"{% endif %}>{{ asset.label }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td>
+                <select name="asset_assignment_coat_qid" {% if not manual.asset_options.enabled %}disabled{% endif %}>
+                  <option value="">{% trans "Sin cambio" %}</option>
+                  {% for asset in manual.asset_options.coats %}
+                  <option value="{{ asset.value }}" {% if assignment.coat_qid == asset.value %}selected{% endif %} {% if not asset.assigned %}style="color:#b42318;"{% endif %}>{{ asset.label }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td>
+                <select name="asset_assignment_replace_existing" {% if not manual.asset_options.enabled %}disabled{% endif %}>
+                  <option value="true" {% if assignment.replace_existing != 'false' %}selected{% endif %}>{% trans "Sí" %}</option>
+                  <option value="false" {% if assignment.replace_existing == 'false' %}selected{% endif %}>{% trans "No" %}</option>
+                </select>
+              </td>
+              <td><button type="button" class="quiet danger-text" data-remove-asset-override-row {% if not manual.asset_options.enabled %}disabled{% endif %}>{% trans "Quitar" %}</button></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
 
       <div class="actions">
         <button type="submit">{% trans "Guardar" %}</button>
         {% if mode == "edit" %}
         <button type="submit" class="secondary" formaction="{% url 'ciudades_del_mundo:start_config_task' slug 'validate' %}" formmethod="post" data-config-action="validate" data-action-label="{% trans 'Validar' %}">{% trans "Validar" %}</button>
+        <button type="submit" formaction="{% url 'ciudades_del_mundo:start_config_task' slug 'scrape' %}" formmethod="post" data-config-action="scrape" data-action-label="{% if config_workflow.status_filter == 'populated' %}{% trans 'Re-popular' %}{% else %}{% trans 'Popular' %}{% endif %}">{% if config_workflow.status_filter == 'populated' %}{% trans "Re-popular" %}{% else %}{% trans "Popular" %}{% endif %}</button>
+        <button type="submit" class="secondary danger-text" formaction="{% url 'ciudades_del_mundo:start_config_task' slug 'clear' %}" formmethod="post" data-config-action="clear" data-action-label="{% trans 'Limpiar' %}">{% trans "Limpiar" %}</button>
         {% endif %}
       </div>
     </form>
@@ -175,7 +426,7 @@
       <strong>{% trans "Aviso" %}</strong>
       <p>{% trans "Editar el archivo a mano es potente, pero conviene saber TOML/Python del proyecto para no romper la configuración. Antes de guardar se validará; si falla, verás un aviso." %}</p>
     </section>
-    <form class="panel form-panel" method="post" data-raw-config-form>
+    <form class="panel form-panel" method="post" data-raw-config-form data-config-editor-form="file">
       {% csrf_token %}
       <input type="hidden" name="editor_mode" value="file">
       {% if mode == "new" %}
@@ -192,6 +443,8 @@
         <button type="submit">{% trans "Guardar" %}</button>
         {% if mode == "edit" %}
         <button type="submit" class="secondary" formaction="{% url 'ciudades_del_mundo:start_config_task' slug 'validate' %}" formmethod="post" data-config-action="validate" data-action-label="{% trans 'Validar' %}">{% trans "Validar" %}</button>
+        <button type="submit" formaction="{% url 'ciudades_del_mundo:start_config_task' slug 'scrape' %}" formmethod="post" data-config-action="scrape" data-action-label="{% if config_workflow.status_filter == 'populated' %}{% trans 'Re-popular' %}{% else %}{% trans 'Popular' %}{% endif %}">{% if config_workflow.status_filter == 'populated' %}{% trans "Re-popular" %}{% else %}{% trans "Popular" %}{% endif %}</button>
+        <button type="submit" class="secondary danger-text" formaction="{% url 'ciudades_del_mundo:start_config_task' slug 'clear' %}" formmethod="post" data-config-action="clear" data-action-label="{% trans 'Limpiar' %}">{% trans "Limpiar" %}</button>
         {% endif %}
       </div>
     </form>
@@ -202,7 +455,7 @@
       <div class="section-title">
         <div>
           <h2>{% trans "Generar base desde CityPopulation" %}</h2>
-          <p class="muted">{% blocktrans with slug=slug|default:'spain' %}Busca rutas en https://www.citypopulation.de/en/{{ slug }}/ y crea una base de configuración editable.{% endblocktrans %}</p>
+          <p class="muted">{% blocktrans with slug=slug|default:'spain' %}Entra en https://www.citypopulation.de/en/{{ slug }}/, comprueba las páginas candidatas y genera un TOML de scraping más fiable para guardarlo en la BBDD.{% endblocktrans %}</p>
         </div>
         <button type="button" data-generate-config {% if mode == "new" %}disabled{% endif %}>{% trans "Generar" %}</button>
       </div>
@@ -210,27 +463,18 @@
         {% trans "Proceso" %}
         <textarea class="task-console" data-generate-log readonly placeholder="{% trans 'Aquí aparecerá el proceso.' %}"></textarea>
       </label>
-      <form method="post" data-generated-config-form>
-        {% csrf_token %}
-        <input type="hidden" name="editor_mode" value="file">
-        {% if mode == "new" %}
-        <label>
-          Slug
-          <input name="slug" value="{{ slug }}" placeholder="nuevo_pais" required>
-        </label>
-        {% endif %}
+      <div class="panel form-panel generated-config-preview" data-generated-config-form>
         <label>
           TOML
-          <textarea name="content" spellcheck="false" data-generated-config>{{ content }}</textarea>
+          <textarea spellcheck="false" data-generated-config readonly>{{ content }}</textarea>
         </label>
-        <div class="actions">
-          <button type="submit">{% trans "Guardar" %}</button>
-        </div>
-      </form>
+        <p class="muted">{% trans "La sección Scrapping solo genera y previsualiza la configuración. Para guardar, abre Manual o Archivo y pulsa Guardar desde esa pestaña." %}</p>
+      </div>
     </section>
   </div>
 
-  <div class="config-tab-panel" data-config-panel="ai" role="tabpanel" hidden>
+  {# HABILITAR-COMENTARIOS-SCRAPING-IA: panel IA oculto temporalmente; no eliminar la estructura. #}
+  <div class="config-tab-panel" data-config-panel="ai" role="tabpanel" hidden aria-hidden="true">
     <section class="panel ai-config-panel" data-ai-enabled="{{ ai_enabled|yesno:'true,false' }}">
       <div class="section-title">
         <div>
@@ -279,6 +523,5 @@
     </section>
   </div>
 
-  <script type="application/json" data-source-entities-json>{{ source_entities_json|safe }}</script>
 </section>
 {% endblock %}

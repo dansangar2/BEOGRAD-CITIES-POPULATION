@@ -43,4 +43,4 @@ district_types = ["City District"]
 level = 2
 type = "City"
 from = { 1 = ["Budapest"] }
-keep_communes = false
+keep_communes = true
