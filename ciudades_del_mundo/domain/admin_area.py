@@ -29,6 +29,7 @@ class ScrapedAdminArea:
     pop_latest_date: date | str | None = None
     last_census_year: int | None = None
     url: str | None = None
+    data_wd: str = ""
     city_merge_status: int = CITY_MERGE_NONE
     annotations: str = ""
 

@@ -83,4 +83,5 @@ class CityPopulationInfoSectionScraper(BaseCityPopulationScraper):
             pop_latest_date=parsed.pop_latest_date,
             last_census_year=parsed.last_census_year,
             url=parsed.url,
+            data_wd=parsed.data_wd,
         )

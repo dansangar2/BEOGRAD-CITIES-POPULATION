@@ -184,6 +184,31 @@
     border-color: #ef4444;
   }
 
+  .configs-page-grid .config-table .config-error-code {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 0.35rem;
+    padding: 0.05rem 0.28rem;
+    border-radius: 999px;
+    background: rgba(127, 29, 29, 0.1);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.72em;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: help;
+  }
+
+
+  .configs-page-grid .config-table .config-error-code.config-code-warning {
+    background: rgba(245, 158, 11, 0.16);
+    color: #92400e;
+  }
+
+  .configs-page-grid .config-table .config-error-code.config-code-success {
+    background: rgba(22, 163, 74, 0.14);
+    color: #166534;
+  }
+
   .configs-page-grid .config-table .status.config-status-populating {
     background: #dbeafe;
     color: #1e40af;
@@ -254,7 +279,7 @@
 {% endif %}
 
 <div class="configs-page-grid">
-  <section class="panel config-list-panel" data-config-table data-empty-label="{% trans 'No hay datos' %}" data-pending-label="{% trans 'Por Validar' %}" data-running-label="{% trans 'En ejecución' %}" data-queued-label="{% trans 'En cola' %}" data-succeeded-label="{% trans 'Correcto' %}" data-failed-label="{% trans 'Fallo' %}" data-cancelled-label="{% trans 'Cancelado' %}" data-started-label="{% trans 'Tarea lanzada' %}" data-finished-label="{% trans 'Tarea finalizada' %}" data-updating-label="{% trans 'Actualizando tabla' %}" data-log-label="{% trans 'Ver registro' %}" data-validating-label="{% trans 'Validando' %}" data-validated-label="{% trans 'Validado' %}" data-populating-label="{% trans 'Populando' %}" data-populated-label="{% trans 'Populado' %}" data-clearing-label="{% trans 'Limpiando' %}" data-invalid-label="{% trans 'Fallo' %}" data-task-success-label="{% trans 'Tarea finalizada correctamente.' %}" data-task-error-label="{% trans 'La tarea ha fallado.' %}" data-scrape-success-label="{% trans 'Scraping finalizado correctamente.' %}" data-scrape-error-label="{% trans 'El scraping ha fallado.' %}" data-validate-success-label="{% trans 'Validación finalizada correctamente.' %}" data-validate-error-label="{% trans 'La validación ha fallado.' %}" data-clear-success-label="{% trans 'Limpieza finalizada correctamente.' %}" data-clear-error-label="{% trans 'La limpieza ha fallado.' %}" data-repopulate-label="{% trans 'Re-popular' %}">
+  <section class="panel config-list-panel" data-config-table data-hide-status-code="1" data-empty-label="{% trans 'No hay datos' %}" data-pending-label="{% trans 'Por Validar' %}" data-running-label="{% trans 'En ejecución' %}" data-queued-label="{% trans 'En cola' %}" data-succeeded-label="{% trans 'Correcto' %}" data-failed-label="{% trans 'Fallo' %}" data-cancelled-label="{% trans 'Cancelado' %}" data-started-label="{% trans 'Tarea lanzada' %}" data-finished-label="{% trans 'Tarea finalizada' %}" data-updating-label="{% trans 'Actualizando tabla' %}" data-log-label="{% trans 'Ver registro' %}" data-validating-label="{% trans 'Validando' %}" data-validated-label="{% trans 'Validado' %}" data-populating-label="{% trans 'Populando' %}" data-populated-label="{% trans 'Populado' %}" data-clearing-label="{% trans 'Limpiando' %}" data-invalid-label="{% trans 'Fallo' %}" data-task-success-label="{% trans 'Tarea finalizada correctamente.' %}" data-task-error-label="{% trans 'La tarea ha fallado.' %}" data-scrape-success-label="{% trans 'Scraping finalizado correctamente.' %}" data-scrape-error-label="{% trans 'El scraping ha fallado.' %}" data-validate-success-label="{% trans 'Validación finalizada correctamente.' %}" data-validate-error-label="{% trans 'La validación ha fallado.' %}" data-clear-success-label="{% trans 'Limpieza finalizada correctamente.' %}" data-clear-error-label="{% trans 'La limpieza ha fallado.' %}" data-repopulate-label="{% trans 'Re-popular' %}">
     <form class="filters advanced-filters async-table-form config-table-filter-form" method="get" data-dynamic-filter="1" data-client-side-filter="1" data-target="#config-table-panel" data-url="{{ config_table_url }}" data-defer-bootstrap="{% if not config_bootstrap_status.ready %}1{% else %}0{% endif %}" data-loading="{% trans 'Cargando tabla...' %}" data-error="{% trans 'La tabla no se pudo cargar. Reintenta en unos segundos.' %}">
       <label>
         {% trans "País o código" %}

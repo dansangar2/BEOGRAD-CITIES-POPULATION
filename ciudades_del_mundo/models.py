@@ -51,6 +51,7 @@ class AdminArea(models.Model):
     pop_latest_date  = models.DateField(null=True, blank=True)
     last_census_year = models.IntegerField(null=True, blank=True)
     url              = models.URLField(max_length=500, null=True, blank=True)
+    data_wd          = models.CharField(max_length=40, blank=True, default="", db_index=True)
     annotations      = models.TextField(blank=True, default="", verbose_name="Anotaciones")
 
     # --- NUEVOS CAMPOS ---
@@ -86,6 +87,7 @@ class AdminArea(models.Model):
             models.Index(fields=["name"]),
             models.Index(fields=["parent", "city_merge_status"], name="adminarea_parent_merge_idx"),
             models.Index(fields=["entity_type"]),  # útil para filtrar por tipo
+            models.Index(fields=["country_code", "data_wd"], name="adminarea_country_datawd_idx"),
         ]
 
     def __str__(self):

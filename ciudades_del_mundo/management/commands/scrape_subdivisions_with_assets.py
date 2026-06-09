@@ -9,15 +9,59 @@ from pathlib import Path
 from urllib.parse import quote, unquote, urlencode
 from urllib.request import Request, urlopen
 
+from bs4 import BeautifulSoup
+
 from django.core.management import BaseCommand, CommandError, call_command
 from django.db import OperationalError, close_old_connections, connection, transaction
 from django.utils import timezone
 
 from ciudades_del_mundo.infrastructure.scraping import PythonScrapingConfigRepository
+from ciudades_del_mundo.services.config_asset_overrides import load_config_asset_overrides
 from ciudades_del_mundo.services.visual_assets import (
     visual_asset_tables_exist,
 )
 from ciudades_del_mundo.web.task_progress import write_config_progress
+
+
+SCRAPE_ERROR_CODES = {
+    "validation": "SCR-VAL-001",
+    "data": "SCR-DATA-001",
+    "assets_bulk": "SCR-ASSET-001",
+    "assets_unassigned": "SCR-ASSET-002",
+    "assets_unassigned_warning": "SCR-ASSET-W001",
+    "success": "SCR-SUCCESS-001",
+    "assets_table": "SCR-ASSET-003",
+    "database": "SCR-DB-001",
+    "network": "SCR-NET-001",
+    "clear": "SCR-CLEAR-001",
+    "unknown": "SCR-UNKNOWN",
+}
+
+
+def _coded_message(code: str, message: str) -> str:
+    text = str(message or "").strip()
+    if text.startswith(str(code)):
+        return text
+    return f"{code}: {text}" if text else str(code)
+
+
+def _error_code_for_exception(exc: Exception) -> str:
+    text_raw = str(exc or "")
+    for code in SCRAPE_ERROR_CODES.values():
+        if code in text_raw:
+            return code
+    text = text_raw.casefold()
+    if "quedan" in text and "recursos visuales" in text and "sin asignar" in text:
+        return SCRAPE_ERROR_CODES["assets_unassigned"]
+    if "tabla de assets visuales" in text:
+        return SCRAPE_ERROR_CODES["assets_table"]
+    if "búsqueda masiva wikidata" in text or "busqueda masiva wikidata" in text or "consultas bulk" in text:
+        return SCRAPE_ERROR_CODES["assets_bulk"]
+    if "too many sql variables" in text or "database is locked" in text or "sqlite" in text:
+        return SCRAPE_ERROR_CODES["database"]
+    if "timed out" in text or "timeout" in text or "http error" in text or "bad gateway" in text:
+        return SCRAPE_ERROR_CODES["network"]
+    return SCRAPE_ERROR_CODES["unknown"]
 
 
 class Command(BaseCommand):
@@ -129,21 +173,20 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         slug = options["slug"]
-        write_config_progress(slug, "populating", detail="Scrapeando datos")
         try:
             config = PythonScrapingConfigRepository().get(slug)
             country_code = str(config.country_code or slug)
             page_workers = max(1, int(options.get("page_workers") or 1))
             ai_limit = max(1, int(options.get("ai_limit") or 1))
-            download_assets = bool(options.get("download_assets")) and not bool(options.get("no_download_assets"))
             config_data = _config_data_for_slug(slug)
             asset_settings = _visual_asset_settings(config_data)
+            warning_detail = ""
 
             if options.get("clear_first"):
                 write_config_progress(slug, "clearing", detail="Limpiando datos anteriores")
                 self._write(f"[limpiar] {slug}: limpiando datos existentes antes de re-popular...")
-                self._run_with_sqlite_retry(lambda: call_command("clear_config_data", country_code))
-                write_config_progress(slug, "populating", detail="Scrapeando datos")
+                self._run_with_sqlite_retry(lambda: call_command("clear_config_data_with_assets", country_code))
+            write_config_progress(slug, "populating", detail="Scrapeando datos")
 
             # Fase 1: popular datos. Los assets se buscan despues para mantener
             # separado el scrapeo de datos de la busqueda de banderas/escudos.
@@ -154,6 +197,16 @@ class Command(BaseCommand):
                     slug,
                     page_workers=page_workers,
                     resume=bool(options.get("resume")),
+                    # Importante: en este comando los assets NO se siembran durante
+                    # el scraping de páginas. Primero se persisten las entidades de
+                    # CityPopulation con su data_wd y después una segunda fase resuelve
+                    # banderas/escudos en Wikidata usando esos QIDs en lotes pequeños.
+                    seed_assets_from_pages=False,
+                    no_download_assets=bool(options.get("no_download_assets")),
+                    download_assets=False,
+                    skip_subdivision_assets=True,
+                    asset_subdivision_levels="",
+                    max_individual_wikidata_lookups=0,
                     ai_enrich=bool(options.get("ai_enrich")),
                     ai_languages=options.get("ai_languages") or "",
                     ai_translate_area_names=bool(options.get("ai_translate_area_names")),
@@ -161,25 +214,64 @@ class Command(BaseCommand):
                 )
             )
 
+            # Tras importar datos, intenta rescatar de CityPopulation el Wikidata ID
+            # de la entidad raíz del país/territorio. La fase de assets sigue
+            # separada y se ejecuta después, pero usa este QID como raíz cuando
+            # CityPopulation lo expone.
+            citypopulation_country_qid = _citypopulation_country_wikidata_id(
+                config,
+                slug=slug,
+                country_code=country_code,
+                config_data=config_data,
+                logger=self._write,
+            )
+
             if options.get("skip_assets"):
                 self._write("[assets] omitido por --skip-assets")
-                write_config_progress(slug, "populated")
+                write_config_progress(
+                    slug,
+                    "populated",
+                    detail=_coded_message(SCRAPE_ERROR_CODES["success"], "Scraping completado correctamente."),
+                )
                 return
             if not visual_asset_tables_exist():
-                raise CommandError("La tabla de assets visuales no existe. Ejecuta migraciones.")
+                raise CommandError(_coded_message(SCRAPE_ERROR_CODES["assets_table"], "La tabla de assets visuales no existe. Ejecuta migraciones."))
 
-            # Fase 2: buscar y registrar banderas/escudos. Se usa una sola
-            # estrategia para no duplicar trabajo: consulta masiva Wikidata del país.
-            write_config_progress(slug, "populating", detail="Buscando banderas y escudos")
-            self._write(f"[assets] {slug}: fase 2/2, búsqueda masiva Wikidata...")
-            if options.get("skip_subdivision_assets"):
-                self._write("[assets] subdivisiones omitidas por --skip-subdivision-assets")
-            elif asset_settings["bulk_country_wikidata"] and not options.get("skip_country_bulk_assets"):
+            # Fase 2: buscar y registrar banderas/escudos por data_wd.
+            # No se usa una consulta SPARQL gigante por país: se toman los QIDs ya
+            # scrapeados desde CityPopulation y se resuelven por lotes con wbgetentities.
+            write_config_progress(slug, "populating", detail="Buscando banderas y escudos por data_wd")
+            self._write(f"[assets] {slug}: fase 2/2, resolviendo Wikidata por data_wd...")
+            self._run_with_sqlite_retry(
+                lambda: _assign_wikidata_assets_from_scraped_data_wd(
+                    slug,
+                    country_code,
+                    config_data=config_data,
+                    country_wikidata_id=citypopulation_country_qid,
+                    required_kinds=asset_settings["required_kinds"],
+                    levels=[] if options.get("skip_subdivision_assets") else _levels_from_cli_or_config(
+                        options.get("subdivision_asset_levels") or "",
+                        asset_settings["required_levels"],
+                    ),
+                    include_subdivisions=not bool(options.get("skip_subdivision_assets")),
+                    logger=self._write,
+                )
+            )
+            self._run_with_sqlite_retry(
+                lambda: _mirror_country_assets_to_root_admin_areas(
+                    country_code,
+                    logger=self._write,
+                )
+            )
+
+            if asset_settings.get("legacy_country_bulk_wikidata") and not options.get("skip_country_bulk_assets"):
+                self._write(f"[assets] {slug}: fallback legado de búsqueda masiva Wikidata activado por configuración...")
                 self._run_with_sqlite_retry(
                     lambda: _assign_bulk_country_wikidata_assets(
                         slug,
                         country_code,
                         config_data=config_data,
+                        country_wikidata_id=citypopulation_country_qid,
                         required_kinds=asset_settings["required_kinds"],
                         levels=_levels_from_cli_or_config(
                             options.get("subdivision_asset_levels") or "",
@@ -188,14 +280,6 @@ class Command(BaseCommand):
                         logger=self._write,
                     )
                 )
-                self._run_with_sqlite_retry(
-                    lambda: _mirror_country_assets_to_root_admin_areas(
-                        country_code,
-                        logger=self._write,
-                    )
-                )
-            else:
-                self._write("[assets] búsqueda masiva Wikidata omitida")
 
             self._run_with_sqlite_retry(
                 lambda: _apply_configured_wikidata_asset_overrides(
@@ -216,7 +300,12 @@ class Command(BaseCommand):
                     )
                 )
                 if missing_required_assets:
-                    raise CommandError(_missing_asset_error_message(missing_required_assets))
+                    warning_detail = _coded_message(
+                        SCRAPE_ERROR_CODES["assets_unassigned_warning"],
+                        _missing_asset_warning_message(missing_required_assets),
+                    )
+                    self._write(f"[assets][warning] {warning_detail}")
+                    write_config_progress(slug, "populated", detail=warning_detail)
 
             if options.get("ai_enrich"):
                 self._write(f"[ai] {country_code}: describiendo assets visuales...")
@@ -230,9 +319,16 @@ class Command(BaseCommand):
                     )
                 )
         except Exception as exc:
-            write_config_progress(slug, "failed", detail=str(exc))
+            code = _error_code_for_exception(exc)
+            coded_detail = _coded_message(code, str(exc))
+            write_config_progress(slug, "failed", detail=coded_detail)
+            if isinstance(exc, CommandError) and not str(exc).startswith(code):
+                raise CommandError(coded_detail) from exc
             raise
-        write_config_progress(slug, "populated")
+        if warning_detail:
+            write_config_progress(slug, "populated", detail=warning_detail)
+        else:
+            write_config_progress(slug, "populated", detail=_coded_message(SCRAPE_ERROR_CODES["success"], "Scraping completado correctamente."))
 
 
 def _apply_configured_wikidata_asset_overrides(slug: str, country_code: str, *, config_data: dict | None = None, logger=None) -> int:
@@ -274,7 +370,12 @@ def _apply_configured_wikidata_asset_overrides(slug: str, country_code: str, *, 
             continue
 
         kinds = _override_kinds(override)
-        replace_existing = bool(override.get("replace_existing") or override.get("force"))
+        if "replace_existing" in override:
+            replace_existing = _config_bool(override.get("replace_existing"), default=True)
+        elif "force" in override:
+            replace_existing = _config_bool(override.get("force"), default=True)
+        else:
+            replace_existing = True
         for area in areas:
             area_count = 0
             for kind in kinds:
@@ -307,8 +408,24 @@ def _wikidata_asset_overrides_from_config(slug: str, *, config_data: dict | None
         or []
     )
     if isinstance(raw, dict):
-        return [raw]
-    return [item for item in raw if isinstance(item, dict)]
+        overrides = [raw]
+    else:
+        overrides = [item for item in raw if isinstance(item, dict)]
+
+    # Corrections saved through /configs/{country}/ are persisted in SQL so they
+    # survive refreshes and can be applied even if the TOML file is deleted.
+    for row in load_config_asset_overrides(slug):
+        entity_id = str(row.get("entity_id") or "").strip()
+        level = row.get("level")
+        for kind, qid_key in (("flag", "flag_qid"), ("coat", "coat_qid")):
+            qid = str(row.get(qid_key) or "").strip()
+            if not entity_id or not qid:
+                continue
+            override = {"ids": [entity_id], "wikidata_id": qid, "kinds": [kind]}
+            if str(level or "").strip() != "":
+                override["level"] = level
+            overrides.append(override)
+    return overrides
 
 
 def _config_data_for_slug(slug: str) -> dict:
@@ -344,7 +461,11 @@ def _visual_asset_settings(config_data: dict) -> dict:
         except (TypeError, ValueError):
             continue
     return {
+        # Por defecto ya no se usa el SPARQL masivo por país: los assets se
+        # asignan por data_wd con consultas wbgetentities por lotes. El fallback
+        # legado queda disponible solo si se activa explícitamente en TOML.
         "bulk_country_wikidata": _config_bool(raw.get("bulk_country_wikidata"), default=True),
+        "legacy_country_bulk_wikidata": _config_bool(raw.get("legacy_country_bulk_wikidata"), default=False),
         "strict_required": _config_bool(raw.get("strict_required"), default=True),
         "required_kinds": required_kinds or ["flag", "coat"],
         "required_levels": required_levels,
@@ -379,11 +500,258 @@ def _levels_from_cli_or_config(raw_levels: str, config_levels: list[int]) -> lis
     return levels or list(config_levels or [])
 
 
+def _asset_subdivision_levels_for_scrape(raw_levels: str, config_levels: list[int]) -> str:
+    """Return the level filter expected by scrape_subdivisions page-asset seeding.
+
+    Empty string intentionally means all scraped subdivision levels. When the
+    config declares required_levels, reuse them so page-derived assets and the
+    final strict check operate on the same level scope.
+    """
+    levels = _levels_from_cli_or_config(raw_levels, config_levels)
+    return ",".join(str(level) for level in levels) if levels else ""
+
+
+
+
+def _citypopulation_country_wikidata_id(config, *, slug: str, country_code: str, config_data: dict, logger=None) -> str:
+    """Try to read the country/territory Wikidata QID from CityPopulation HTML.
+
+    Data scraping remains phase 1. This helper runs after that phase and before
+    Wikidata bulk assets so the asset search can use the exact country root that
+    CityPopulation associates with the page, instead of relying only on TOML or
+    a later Wikidata name search.
+    """
+    stored_qid = _country_root_data_wd(country_code)
+    if stored_qid:
+        _log_asset_mirror(logger, f"[assets] {country_code}: Wikidata ID leído del campo data_wd={stored_qid}")
+        return stored_qid
+
+    expected_names = _citypopulation_country_expected_names(slug, country_code, config_data)
+    for url in _citypopulation_country_qid_candidate_urls(config, config_data, slug=slug):
+        try:
+            html = _fetch_citypopulation_html(url)
+        except Exception as exc:
+            _log_asset_mirror(logger, f"[assets] {country_code}: no se pudo leer CityPopulation para Wikidata ID ({url}: {exc})")
+            continue
+        qid = _country_wikidata_id_from_citypopulation_html(html, expected_names)
+        if qid:
+            _log_asset_mirror(logger, f"[assets] {country_code}: Wikidata ID leído de CityPopulation={qid} ({url})")
+            return qid
+    _log_asset_mirror(logger, f"[assets] {country_code}: CityPopulation no expuso Wikidata ID de país; se usará fallback")
+    return ""
+
+
+def _citypopulation_country_expected_names(slug: str, country_code: str, config_data: dict) -> set[str]:
+    values = {
+        str(slug or ""),
+        str(country_code or ""),
+        str(country_code or "").replace("_", " ").replace("-", " "),
+        str(config_data.get("name") or ""),
+        str(config_data.get("country_name") or ""),
+        str(config_data.get("label") or ""),
+    }
+    return {_normalized_text(value) for value in values if _normalized_text(value)}
+
+
+def _citypopulation_country_qid_candidate_urls(config, config_data: dict, *, slug: str) -> list[str]:
+    base_url = str(getattr(config, "base_url", "") or "").strip()
+    if not base_url:
+        return []
+
+    candidates: list[tuple[int, str]] = []
+
+    def add(priority: int, path: str = "") -> None:
+        normalized_path = _citypopulation_path_for_slug(slug, path, base_url=base_url)
+        url = _citypopulation_join_url(base_url, normalized_path)
+        if url:
+            candidates.append((priority, url))
+
+    # The country root page is the safest source for the country/territory QID.
+    # Repository configs use a generic base URL, so the root path must include
+    # the slug (for example /en/cuba/), not just /en/.
+    add(10, "")
+
+    for index, page in enumerate(config_data.get("pages") or []):
+        if not isinstance(page, dict):
+            continue
+        source = str(page.get("source") or "").strip().casefold()
+        lowest_level = page.get("lowest_level")
+        try:
+            lowest_level_int = int(lowest_level)
+        except (TypeError, ValueError):
+            lowest_level_int = 999
+        priority = 50 + index
+        if source == "infosection":
+            priority = 20 + index
+        elif lowest_level_int == 0:
+            priority = 30 + index
+        for path in _citypopulation_page_paths(page.get("path")):
+            add(priority, path)
+
+    # Some repository implementations have the expanded page objects. These
+    # paths are already normalized with the slug by parse_pages(), so the helper
+    # below leaves them unchanged.
+    for index, page in enumerate(getattr(config, "pages", []) or []):
+        path = str(getattr(page, "path", "") or "").strip()
+        source = str(getattr(page, "html_format", "") or "").strip().casefold()
+        try:
+            lowest_level_int = int(getattr(page, "lowest_level", 999))
+        except (TypeError, ValueError):
+            lowest_level_int = 999
+        priority = 80 + index
+        if source == "infosection":
+            priority = 25 + index
+        elif lowest_level_int == 0:
+            priority = 35 + index
+        add(priority, path)
+
+    urls: list[str] = []
+    seen = set()
+    for _, url in sorted(candidates, key=lambda item: item[0]):
+        if url not in seen:
+            urls.append(url)
+            seen.add(url)
+    return urls[:12]
+
+
+def _citypopulation_path_for_slug(slug: str, path: str = "", *, base_url: str = "") -> str:
+    slug = str(slug or "").strip("/")
+    path = str(path or "").strip("/")
+    if path.startswith(("http://", "https://")):
+        return path
+    if not slug:
+        return path
+
+    base_tail = str(base_url or "").rstrip("/").rsplit("/", 1)[-1].casefold()
+    base_already_points_to_slug = bool(base_tail and base_tail == slug.casefold())
+    if base_already_points_to_slug:
+        if not path or path == slug:
+            return ""
+        if path.startswith(f"{slug}/"):
+            return path.split("/", 1)[1]
+        return path
+
+    if not path:
+        return slug
+    if path == slug or path.startswith(f"{slug}/"):
+        return path
+    return f"{slug}/{path}"
+
+def _citypopulation_page_paths(raw_path) -> list[str]:
+    if raw_path is None or raw_path == "":
+        return [""]
+    if isinstance(raw_path, (list, tuple, set)):
+        return [str(item or "").strip() for item in raw_path if str(item or "").strip()]
+    return [str(raw_path or "").strip()]
+
+
+def _citypopulation_join_url(base_url: str, path: str = "") -> str:
+    base_url = str(base_url or "").strip()
+    path = str(path or "").strip()
+    if not base_url:
+        return ""
+    if path.startswith("http://") or path.startswith("https://"):
+        return path
+    url = base_url.rstrip("/")
+    if path:
+        url = f"{url}/{path.strip('/')}"
+    return f"{url}/"
+
+
+def _fetch_citypopulation_html(url: str) -> str:
+    request = Request(
+        url,
+        headers={
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "User-Agent": "BEOGRAD-CITIES-POPULATION/1.0 citypopulation-country-qid",
+        },
+    )
+    with urlopen(request, timeout=20) as response:
+        return response.read().decode("utf-8", errors="replace")
+
+
+def _country_wikidata_id_from_citypopulation_html(html: str, expected_names: set[str]) -> str:
+    soup = BeautifulSoup(html or "", "html.parser")
+    candidates: list[tuple[int, str, str]] = []
+    for element in soup.select("[data-wd]"):
+        qid = _normalize_wikidata_id(element.get("data-wd"))
+        if not qid:
+            continue
+        text = element.get_text(" ", strip=True)
+        data_wiki = str(element.get("data-wiki") or "")
+        name_score = max(
+            _country_name_match_score(text, expected_names),
+            _country_name_match_score(data_wiki, expected_names),
+        )
+        # Never accept a QID as the country root only because it appears in a
+        # table footer/infosection/header. On pages like Malta, a child row can
+        # be structurally prominent and still be Gozo, not the country.
+        if not name_score:
+            continue
+
+        score = name_score
+        if element.find_parent("tfoot"):
+            score += 40
+        if element.find_parent(class_="infosection"):
+            score += 40
+        if element.find_parent("header") or element.find_parent("h1"):
+            score += 20
+        itemtype = " ".join(
+            str(node.get("itemtype") or "")
+            for node in [element, *element.find_parents(attrs={"itemtype": True})]
+        ).casefold()
+        if "country" in itemtype:
+            score += 30
+        candidates.append((score, qid, text or data_wiki))
+
+    if candidates:
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        return candidates[0][1]
+    return ""
+
+
+def _country_name_match_score(value, expected_names: set[str]) -> int:
+    normalized = _normalized_text(value)
+    if not normalized or not expected_names:
+        return 0
+    if normalized in expected_names:
+        return 140
+
+    compact = normalized.replace("-", " ")
+    if compact in expected_names:
+        return 130
+
+    for expected in expected_names:
+        if not expected:
+            continue
+        if compact == expected:
+            return 130
+        if compact in {f"republic of {expected}", f"state of {expected}", f"kingdom of {expected}"}:
+            return 125
+        suffixes = (
+            " republic",
+            " country",
+            " state",
+            " kingdom",
+            " nation",
+            " territory",
+            " federation",
+        )
+        if any(compact == f"{expected}{suffix}" for suffix in suffixes):
+            return 120
+        # Headings often read like "Cuba : Administrative Division". Accept
+        # only when the country name is the leading token, never when it appears
+        # in an arbitrary child label.
+        if compact.startswith(f"{expected} ") or compact.startswith(f"{expected}:"):
+            return 95
+    return 0
+
 def _assign_bulk_country_wikidata_assets(
     slug: str,
     country_code: str,
     *,
     config_data: dict | None = None,
+    country_wikidata_id: str = "",
     required_kinds: list[str] | None = None,
     levels: list[int] | None = None,
     logger=None,
@@ -402,10 +770,15 @@ def _assign_bulk_country_wikidata_assets(
         return 0
 
     data = config_data if isinstance(config_data, dict) else _config_data_for_slug(slug)
-    country_qid = _country_wikidata_id_for_bulk(country_code, data)
+    country_qid = _country_wikidata_id_for_bulk(
+        country_code,
+        data,
+        citypopulation_qid=country_wikidata_id,
+    )
     if not country_qid:
         _log_asset_mirror(logger, f"[assets] {country_code}: sin wikidata_id de país; búsqueda masiva omitida")
         return 0
+    _log_asset_mirror(logger, f"[assets] {country_code}: raíz Wikidata para búsqueda masiva={country_qid}")
 
     queryset = AdminArea.objects.filter(country_code=country_code).exclude(city_merge_status=3)
     level_filter = [int(level) for level in (levels or []) if str(level).strip() != ""]
@@ -416,27 +789,53 @@ def _assign_bulk_country_wikidata_assets(
         return 0
 
     area_index: dict[str, list] = {}
+    area_wikidata_index: dict[str, list] = {}
     for area in areas:
         for key in _area_asset_match_keys(area):
             area_index.setdefault(key, []).append(area)
+        qid = _normalize_wikidata_id(getattr(area, "data_wd", ""))
+        if qid and int(getattr(area, "level", -1) or -1) != 0:
+            area_wikidata_index.setdefault(qid, []).append(area)
 
-    try:
-        candidates = _wikidata_country_asset_candidates(country_qid)
-    except Exception as exc:
-        _log_asset_mirror(logger, f"[assets] {country_code}: búsqueda masiva Wikidata fallida ({exc})")
-        return 0
-
-    applied = 0
-    stored_resources = 0
-    matched_candidates = 0
     kind_filter = {kind for kind in (required_kinds or []) if kind in WIKIDATA_ASSET_PROPERTIES}
     if not kind_filter:
         kind_filter = {"flag", "coat"}
+
+    applied = _upsert_country_root_assets_from_wikidata(
+        country_code=country_code,
+        country_qid=country_qid,
+        kinds=sorted(kind_filter),
+        logger=logger,
+    )
+
+    try:
+        candidates = _wikidata_country_asset_candidates(country_qid, kinds=sorted(kind_filter), logger=logger)
+    except Exception as exc:
+        # Wikidata Query Service can return intermittent 504/timeout responses for
+        # country-wide scans. The data scrape has already succeeded, and the
+        # national assets above are read through the lighter EntityData endpoint,
+        # so a bulk outage must not fail the whole population command.
+        _log_asset_mirror(logger, f"[assets] {country_code}: búsqueda masiva Wikidata omitida por error temporal ({exc})")
+        return applied
+
+    stored_resources = 0
+    matched_candidates = 0
 
     for candidate in candidates:
         filenames = candidate.get("filenames") or {}
         candidate_qid = str(candidate.get("wikidata_id") or "")
         label = str(candidate.get("label") or candidate_qid)
+        if not candidate_qid or not filenames:
+            continue
+
+        matches = []
+        if candidate_qid != country_qid:
+            matches = _candidate_matching_admin_areas_by_wikidata_id(candidate_qid, area_wikidata_index)
+            if not matches:
+                matches = _candidate_matching_admin_areas(candidate, area_index)
+            if not matches:
+                continue
+
         for kind, filename in filenames.items():
             if kind not in kind_filter:
                 continue
@@ -464,15 +863,12 @@ def _assign_bulk_country_wikidata_assets(
                     kind=kind,
                     wikidata_id=candidate_qid,
                     commons_filename=filename,
-                    replace_existing=False,
+                    replace_existing=True,
                     source="wikidata_country_bulk",
                 )
             matched_candidates += 1
             continue
 
-        matches = _candidate_matching_admin_areas(candidate, area_index)
-        if not matches:
-            continue
         matched_candidates += 1
         for area in matches:
             for kind, filename in filenames.items():
@@ -483,19 +879,27 @@ def _assign_bulk_country_wikidata_assets(
                     kind=kind,
                     wikidata_id=candidate_qid,
                     commons_filename=filename,
-                    replace_existing=False,
+                    replace_existing=True,
                     source="wikidata_country_bulk",
                 )
     _log_asset_mirror(
         logger,
         f"[assets] {country_code}: búsqueda masiva Wikidata, candidatos={len(candidates)}, "
-        f"recursos guardados={stored_resources}, candidatos asignados={matched_candidates}, "
+        f"recursos relevantes guardados={stored_resources}, candidatos asignados={matched_candidates}, "
         f"assets nuevos/actualizados={applied}",
     )
     return applied
 
 
-def _country_wikidata_id_for_bulk(country_code: str, config_data: dict) -> str:
+def _country_wikidata_id_for_bulk(country_code: str, config_data: dict, *, citypopulation_qid: str = "") -> str:
+    qid = _normalize_wikidata_id(citypopulation_qid)
+    if qid:
+        return qid
+
+    qid = _country_root_data_wd(country_code)
+    if qid:
+        return qid
+
     qid = _normalize_wikidata_id(config_data.get("wikidata_id") or config_data.get("wikidata"))
     if qid:
         return qid
@@ -511,11 +915,399 @@ def _country_wikidata_id_for_bulk(country_code: str, config_data: dict) -> str:
     qid = _normalize_wikidata_id(row.get("wikidata_id") if row else "")
     if qid:
         return qid
-    return _wikidata_country_id_from_search(country_code)
+
+    for query in _country_wikidata_search_queries(country_code, config_data):
+        qid = _wikidata_country_id_from_search(query)
+        if qid:
+            return qid
+    return ""
 
 
-def _wikidata_country_id_from_search(country_code: str) -> str:
-    query = str(country_code or "").replace("_", " ").replace("-", " ").strip()
+def _country_root_data_wd(country_code: str) -> str:
+    try:
+        from ciudades_del_mundo.models import AdminArea
+    except Exception:  # pragma: no cover - startup/import edge case.
+        return ""
+    try:
+        row = (
+            AdminArea.objects.filter(country_code=country_code, level=0)
+            .exclude(data_wd="")
+            .order_by("parent_id", "id")
+            .values("data_wd")
+            .first()
+        )
+    except Exception:  # noqa: BLE001 - migrations may not have run yet.
+        return ""
+    return _normalize_wikidata_id(row.get("data_wd") if row else "")
+
+
+def _candidate_matching_admin_areas_by_wikidata_id(candidate_qid: str, area_wikidata_index: dict[str, list]) -> list:
+    qid = _normalize_wikidata_id(candidate_qid)
+    if not qid:
+        return []
+    matches = list(area_wikidata_index.get(qid, []) or [])
+    # Exact data-wd matches are safe. If duplicates exist, assign the same media
+    # to each duplicate local row because they intentionally point to one WD item.
+    return matches
+
+
+WIKIDATA_ENTITYDATA_BATCH_LIMIT = 50
+WIKIDATA_VALUES_SPARQL_BATCH_LIMIT = 1000
+
+
+
+def _assign_wikidata_assets_from_scraped_data_wd(
+    slug: str,
+    country_code: str,
+    *,
+    config_data: dict | None = None,
+    country_wikidata_id: str = "",
+    required_kinds: list[str] | None = None,
+    levels: list[int] | None = None,
+    include_subdivisions: bool = True,
+    logger=None,
+) -> int:
+    """Assign visual assets using the data_wd stored on AdminArea rows.
+
+    The sequence is intentionally two-phase:
+    1. CityPopulation has already populated AdminArea rows and their data_wd.
+    2. This function resolves those concrete QIDs with one/few Wikidata SPARQL
+       VALUES queries, asking only for the requested image properties.
+
+    That avoids country-wide scans, avoids name matching and also avoids dozens
+    of wbgetentities calls that can trigger HTTP 429. A row only receives a
+    flag/coat/seal when its own data_wd exposes the corresponding Wikidata
+    image property.
+    """
+    try:
+        from ciudades_del_mundo.models import AdminArea
+    except Exception:  # pragma: no cover - startup/import edge case.
+        return 0
+
+    data = config_data if isinstance(config_data, dict) else _config_data_for_slug(slug)
+    kind_filter = [kind for kind in (required_kinds or []) if kind in WIKIDATA_ASSET_PROPERTIES]
+    if not kind_filter:
+        kind_filter = ["flag", "coat"]
+
+    country_qid = _country_wikidata_id_for_bulk(
+        country_code,
+        data,
+        citypopulation_qid=country_wikidata_id,
+    )
+
+    applied = 0
+    if country_qid:
+        applied += _upsert_country_root_assets_from_wikidata(
+            country_code=country_code,
+            country_qid=country_qid,
+            kinds=kind_filter,
+            logger=logger,
+        )
+    else:
+        _log_asset_mirror(logger, f"[assets] {country_code}: sin data_wd de país; assets nacionales omitidos")
+
+    if not include_subdivisions:
+        _log_asset_mirror(logger, f"[assets] {country_code}: subdivisiones omitidas por --skip-subdivision-assets")
+        return applied
+
+    queryset = (
+        AdminArea.objects.filter(country_code=country_code)
+        .exclude(city_merge_status=3)
+        .exclude(data_wd="")
+        .exclude(level=0)
+    )
+    level_filter = [int(level) for level in (levels or []) if str(level).strip() != ""]
+    if level_filter:
+        queryset = queryset.filter(level__in=level_filter)
+
+    areas = list(queryset.order_by("level", "name", "id"))
+    qid_to_areas: dict[str, list] = {}
+    for area in areas:
+        qid = _normalize_wikidata_id(getattr(area, "data_wd", ""))
+        if qid:
+            qid_to_areas.setdefault(qid, []).append(area)
+
+    if not qid_to_areas:
+        _log_asset_mirror(logger, f"[assets] {country_code}: no hay subdivisiones con data_wd para asignar assets")
+        return applied
+
+    filenames_by_qid = _wikidata_visual_asset_filenames_for_ids(
+        list(qid_to_areas.keys()),
+        kinds=kind_filter,
+        logger=logger,
+    )
+
+    qids_with_assets = 0
+    area_assignments = 0
+    for qid, target_areas in qid_to_areas.items():
+        filenames = filenames_by_qid.get(qid, {})
+        if not filenames:
+            continue
+        qids_with_assets += 1
+        for area in target_areas:
+            for kind, filename in filenames.items():
+                if kind not in kind_filter or not filename:
+                    continue
+                applied += _upsert_wikidata_override_asset(
+                    area,
+                    kind=kind,
+                    wikidata_id=qid,
+                    commons_filename=filename,
+                    replace_existing=True,
+                    source="wikidata_data_wd",
+                )
+                area_assignments += 1
+
+    _log_asset_mirror(
+        logger,
+        f"[assets] {country_code}: data_wd procesados={len(qid_to_areas)}, "
+        f"qids con recursos={qids_with_assets}, asignaciones={area_assignments}, "
+        f"assets nuevos/actualizados={applied}",
+    )
+    return applied
+
+
+def _wikidata_visual_asset_filenames_for_ids(
+    wikidata_ids: list[str],
+    *,
+    kinds: list[str],
+    logger=None,
+) -> dict[str, dict[str, str]]:
+    """Read image claims for concrete QIDs with a small number of SPARQL calls.
+
+    The previous implementation used wbgetentities in batches of 50. That is
+    correct but too chatty for countries with many rows: Morocco generated 33
+    HTTP calls and Wikidata started returning 429. Here we already know the
+    exact QIDs from CityPopulation's data-wd, so the cheapest safe strategy is
+    a VALUES query over those QIDs asking only for P41/P94/P158/P242.
+    """
+    requested_kinds = [kind for kind in kinds if kind in WIKIDATA_ASSET_PROPERTIES]
+    if not requested_kinds:
+        requested_kinds = ["flag", "coat"]
+
+    qids: list[str] = []
+    seen = set()
+    for value in wikidata_ids:
+        qid = _normalize_wikidata_id(value)
+        if qid and qid not in seen:
+            qids.append(qid)
+            seen.add(qid)
+
+    if not qids:
+        return {}
+
+    try:
+        results = _wikidata_visual_asset_filenames_for_ids_via_values_sparql(
+            qids,
+            kinds=requested_kinds,
+            logger=logger,
+        )
+        _log_asset_mirror(
+            logger,
+            f"[assets] Wikidata VALUES: data_wd={len(qids)}, "
+            f"qids con recursos={len(results)}",
+        )
+        return results
+    except Exception as exc:
+        if len(qids) > 250:
+            _log_asset_mirror(
+                logger,
+                f"[assets] Wikidata VALUES fallido ({exc}); fallback EntityData omitido "
+                f"para evitar 429 con {len(qids)} data_wd",
+            )
+            return {}
+        _log_asset_mirror(
+            logger,
+            f"[assets] Wikidata VALUES fallido ({exc}); fallback EntityData por lotes",
+        )
+
+    return _wikidata_visual_asset_filenames_for_ids_via_entitydata(
+        qids,
+        kinds=requested_kinds,
+        logger=logger,
+    )
+
+
+def _wikidata_visual_asset_filenames_for_ids_via_values_sparql(
+    wikidata_ids: list[str],
+    *,
+    kinds: list[str],
+    logger=None,
+) -> dict[str, dict[str, str]]:
+    """Resolve flag/coat/seal for known QIDs through SPARQL VALUES chunks."""
+    requested_kinds = [kind for kind in kinds if kind in WIKIDATA_ASSET_PROPERTIES]
+    if not requested_kinds:
+        requested_kinds = ["flag", "coat"]
+
+    qids: list[str] = []
+    seen = set()
+    for value in wikidata_ids:
+        qid = _normalize_wikidata_id(value)
+        if qid and qid not in seen:
+            qids.append(qid)
+            seen.add(qid)
+
+    results: dict[str, dict[str, str]] = {}
+    if not qids:
+        return results
+
+    for start in range(0, len(qids), WIKIDATA_VALUES_SPARQL_BATCH_LIMIT):
+        batch = qids[start : start + WIKIDATA_VALUES_SPARQL_BATCH_LIMIT]
+        query = _wikidata_values_visual_assets_query(batch, requested_kinds)
+        payload = _wikidata_sparql_json(query, timeout=60, method="POST")
+        rows = payload.get("results", {}).get("bindings", []) or []
+
+        for binding in rows:
+            item_url = binding.get("item", {}).get("value", "")
+            qid = _normalize_wikidata_id(item_url.rsplit("/", 1)[-1])
+            kind = str(binding.get("kind", {}).get("value") or "").strip()
+            filename = _commons_filename_from_sparql_value(binding.get("asset", {}).get("value"))
+            if not qid or kind not in requested_kinds or not filename:
+                continue
+            results.setdefault(qid, {}).setdefault(kind, filename)
+
+        _log_asset_mirror(
+            logger,
+            f"[assets] Wikidata VALUES lote {start // WIKIDATA_VALUES_SPARQL_BATCH_LIMIT + 1}: "
+            f"qids={len(batch)}, filas={len(rows)}, con recursos={sum(1 for qid in batch if qid in results)}",
+        )
+
+    return results
+
+
+def _wikidata_values_visual_assets_query(wikidata_ids: list[str], kinds: list[str]) -> str:
+    qids = [qid for qid in (_normalize_wikidata_id(value) for value in wikidata_ids) if qid]
+    requested_kinds = [kind for kind in kinds if kind in WIKIDATA_ASSET_PROPERTIES]
+    if not qids or not requested_kinds:
+        return "SELECT ?item ?kind ?asset WHERE {} LIMIT 0"
+
+    values = " ".join(f"wd:{qid}" for qid in qids)
+    branches = []
+    for kind in requested_kinds:
+        property_id = WIKIDATA_ASSET_PROPERTIES[kind]
+        branches.append(
+            "{ "
+            f"?item wdt:{property_id} ?asset . "
+            f'BIND("{kind}" AS ?kind) '
+            "}"
+        )
+    union = "\n  UNION\n  ".join(branches)
+    return f"""
+SELECT ?item ?kind ?asset WHERE {{
+  VALUES ?item {{ {values} }}
+  {union}
+}}
+""".strip()
+
+
+def _wikidata_visual_asset_filenames_for_ids_via_entitydata(
+    wikidata_ids: list[str],
+    *,
+    kinds: list[str],
+    logger=None,
+) -> dict[str, dict[str, str]]:
+    """Fallback: read image claims for concrete QIDs through wbgetentities batches."""
+    requested_kinds = [kind for kind in kinds if kind in WIKIDATA_ASSET_PROPERTIES]
+    if not requested_kinds:
+        requested_kinds = ["flag", "coat"]
+    property_by_kind = {kind: WIKIDATA_ASSET_PROPERTIES[kind] for kind in requested_kinds}
+
+    qids: list[str] = []
+    seen = set()
+    for value in wikidata_ids:
+        qid = _normalize_wikidata_id(value)
+        if qid and qid not in seen:
+            qids.append(qid)
+            seen.add(qid)
+
+    results: dict[str, dict[str, str]] = {}
+    if not qids:
+        return results
+
+    for start in range(0, len(qids), WIKIDATA_ENTITYDATA_BATCH_LIMIT):
+        batch = qids[start : start + WIKIDATA_ENTITYDATA_BATCH_LIMIT]
+        try:
+            payload = _wikidata_entitydata_batch_json(batch)
+        except Exception as exc:
+            _log_asset_mirror(
+                logger,
+                f"[assets] Wikidata EntityData lote {start // WIKIDATA_ENTITYDATA_BATCH_LIMIT + 1}: fallido ({exc})",
+            )
+            time.sleep(1.25)
+            continue
+
+        entities = payload.get("entities", {}) or {}
+        for qid in batch:
+            claims = entities.get(qid, {}).get("claims", {}) or {}
+            filenames: dict[str, str] = {}
+            for kind, property_id in property_by_kind.items():
+                for claim in claims.get(property_id, []) or []:
+                    value = (
+                        claim.get("mainsnak", {})
+                        .get("datavalue", {})
+                        .get("value")
+                    )
+                    if value:
+                        filenames[kind] = str(value)
+                        break
+            if filenames:
+                results[qid] = filenames
+        _log_asset_mirror(
+            logger,
+            f"[assets] Wikidata EntityData lote {start // WIKIDATA_ENTITYDATA_BATCH_LIMIT + 1}: "
+            f"qids={len(batch)}, con recursos={sum(1 for qid in batch if qid in results)}",
+        )
+        time.sleep(0.35)
+
+    return results
+
+
+def _wikidata_entitydata_batch_json(wikidata_ids: list[str]) -> dict:
+    ids = [qid for qid in (_normalize_wikidata_id(value) for value in wikidata_ids) if qid]
+    if not ids:
+        return {"entities": {}}
+    url = "https://www.wikidata.org/w/api.php?" + urlencode(
+        {
+            "action": "wbgetentities",
+            "format": "json",
+            "ids": "|".join(ids),
+            "props": "claims",
+        }
+    )
+    request = Request(
+        url,
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "BEOGRAD-CITIES-POPULATION/1.0 data-wd-visual-assets",
+        },
+    )
+    with urlopen(request, timeout=30) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def _country_wikidata_search_queries(country_code: str, config_data: dict) -> list[str]:
+    values = [
+        config_data.get("name"),
+        config_data.get("country_name"),
+        config_data.get("label"),
+        str(country_code or "").replace("_", " ").replace("-", " "),
+        country_code,
+    ]
+    queries: list[str] = []
+    seen = set()
+    for value in values:
+        text = str(value or "").strip()
+        if not text:
+            continue
+        key = _normalized_text(text)
+        if key and key not in seen:
+            queries.append(text)
+            seen.add(key)
+    return queries
+
+
+def _wikidata_country_id_from_search(query: str) -> str:
+    query = str(query or "").strip()
     if not query:
         return ""
     url = "https://www.wikidata.org/w/api.php?" + urlencode(
@@ -523,7 +1315,7 @@ def _wikidata_country_id_from_search(country_code: str) -> str:
             "action": "wbsearchentities",
             "format": "json",
             "language": "en",
-            "limit": "3",
+            "limit": "8",
             "search": query,
         }
     )
@@ -539,61 +1331,179 @@ def _wikidata_country_id_from_search(country_code: str) -> str:
             payload = json.loads(response.read().decode("utf-8"))
     except Exception:
         return ""
-    for row in payload.get("search", []) or []:
+
+    rows = payload.get("search", []) or []
+    expected = _normalized_text(query)
+    first_qid = ""
+    for row in rows:
         qid = _normalize_wikidata_id(row.get("id"))
-        if qid:
+        if not qid:
+            continue
+        if not first_qid:
+            first_qid = qid
+        labels = [
+            row.get("label"),
+            row.get("description"),
+            *(row.get("aliases") or []),
+        ]
+        if any(_normalized_text(label) == expected for label in labels if label):
             return qid
-    return ""
+    return first_qid
 
 
-def _wikidata_country_asset_candidates(country_qid: str) -> list[dict]:
-    query = f"""
-SELECT ?item ?itemLabel ?flag ?coat ?seal ?locator WHERE {{
-  {{
-    VALUES ?item {{ wd:{country_qid} }}
-  }}
+def _upsert_country_root_assets_from_wikidata(
+    *,
+    country_code: str,
+    country_qid: str,
+    kinds: list[str],
+    logger=None,
+) -> int:
+    """Persist the national flag/coat/seal through Wikidata EntityData.
+
+    This endpoint is much lighter than the country-wide SPARQL scan. It gives
+    the country card and the level-0 AdminArea mirror useful assets even when
+    Wikidata Query Service is temporarily returning 504 for the bulk query.
+    """
+    country_qid = _normalize_wikidata_id(country_qid)
+    if not country_qid:
+        return 0
+    kind_filter = [kind for kind in kinds if kind in WIKIDATA_ASSET_PROPERTIES]
+    if not kind_filter:
+        kind_filter = ["flag", "coat"]
+    try:
+        filenames = _wikidata_visual_asset_filenames(country_qid)
+    except Exception as exc:
+        _log_asset_mirror(logger, f"[assets] {country_code}: assets nacionales Wikidata no disponibles ({exc})")
+        return 0
+
+    applied = 0
+    for kind in kind_filter:
+        filename = filenames.get(kind)
+        if not filename:
+            continue
+        applied += _upsert_visual_asset_row(
+            entity_type="country",
+            entity_key=country_code,
+            entity_name=country_code,
+            country_code=country_code,
+            kind=kind,
+            wikidata_id=country_qid,
+            commons_filename=filename,
+            replace_existing=True,
+            source="wikidata_country_direct",
+        )
+    if applied:
+        _log_asset_mirror(logger, f"[assets] {country_code}: assets nacionales Wikidata directos={applied}")
+    return applied
+
+
+def _wikidata_country_asset_candidates(country_qid: str, *, kinds: list[str] | None = None, logger=None) -> list[dict]:
+    """Return Wikidata candidates using small bulk queries grouped by asset kind.
+
+    The old query combined several OPTIONALs with class/property paths such as
+    P31/P279* and P131+/P361+. For Cuba this can timeout with HTTP 504 before
+    returning any data. This version starts from the concrete image property
+    (P41/P94/P158/P242) and only restricts by country through P17, plus the
+    country root itself. The local matcher still decides what is actually
+    assigned, so the query can stay broad without becoming fragile.
+    """
+    country_qid = _normalize_wikidata_id(country_qid)
+    if not country_qid:
+        return []
+
+    requested_kinds = [kind for kind in (kinds or []) if kind in WIKIDATA_ASSET_PROPERTIES]
+    if not requested_kinds:
+        requested_kinds = ["flag", "coat"]
+
+    candidates_by_qid: dict[str, dict] = {}
+
+    # Always seed the country itself without SPARQL. This is a cheap fallback
+    # and avoids losing the national flag/coat when the bulk endpoint is down.
+    try:
+        direct_filenames = _wikidata_visual_asset_filenames(country_qid)
+    except Exception as exc:
+        direct_filenames = {}
+        _log_asset_mirror(logger, f"[assets] Wikidata país {country_qid}: lectura directa fallida ({exc})")
+    direct_filenames = {
+        kind: filename
+        for kind, filename in (direct_filenames or {}).items()
+        if kind in requested_kinds and filename
+    }
+    if direct_filenames:
+        candidates_by_qid[country_qid] = {
+            "wikidata_id": country_qid,
+            "label": country_qid,
+            "filenames": dict(direct_filenames),
+        }
+
+    failed_kinds: list[str] = []
+    for kind in requested_kinds:
+        property_id = WIKIDATA_ASSET_PROPERTIES[kind]
+        query = f"""
+SELECT ?item ?itemLabel ?asset WHERE {{
+  {{ VALUES ?item {{ wd:{country_qid} }} }}
   UNION
-  {{
-    ?item wdt:P17 wd:{country_qid} .
-    ?item wdt:P31/wdt:P279* wd:Q56061 .
-  }}
-  OPTIONAL {{ ?item wdt:P41 ?flag . }}
-  OPTIONAL {{ ?item wdt:P94 ?coat . }}
-  OPTIONAL {{ ?item wdt:P158 ?seal . }}
-  OPTIONAL {{ ?item wdt:P242 ?locator . }}
-  FILTER(BOUND(?flag) || BOUND(?coat) || BOUND(?seal) || BOUND(?locator))
+  {{ ?item wdt:P17 wd:{country_qid} . }}
+  ?item wdt:{property_id} ?asset .
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "es,en,fr,ar,mul" . }}
 }}
-LIMIT 10000
+LIMIT 20000
 """.strip()
-    url = "https://query.wikidata.org/sparql?" + urlencode({"query": query, "format": "json"})
-    request = Request(
-        url,
-        headers={
-            "Accept": "application/sparql-results+json, application/json",
-            "User-Agent": "BEOGRAD-CITIES-POPULATION/1.0 country-visual-assets",
-        },
-    )
-    with urlopen(request, timeout=45) as response:
-        payload = json.loads(response.read().decode("utf-8"))
-
-    candidates = []
-    for binding in payload.get("results", {}).get("bindings", []) or []:
-        item_url = binding.get("item", {}).get("value", "")
-        wikidata_id = _normalize_wikidata_id(item_url.rsplit("/", 1)[-1])
-        if not wikidata_id:
+        try:
+            payload = _wikidata_sparql_json(query, timeout=45)
+        except Exception as exc:
+            failed_kinds.append(kind)
+            _log_asset_mirror(logger, f"[assets] Wikidata {kind}: consulta masiva fallida ({exc})")
             continue
-        label = str(binding.get("itemLabel", {}).get("value") or "").strip()
-        filenames = {}
-        for kind in WIKIDATA_ASSET_PROPERTIES:
-            raw = binding.get(kind, {}).get("value")
-            filename = _commons_filename_from_sparql_value(raw)
-            if filename:
-                filenames[kind] = filename
-        if filenames:
-            candidates.append({"wikidata_id": wikidata_id, "label": label, "filenames": filenames})
-    return candidates
 
+        rows = payload.get("results", {}).get("bindings", []) or []
+        for binding in rows:
+            item_url = binding.get("item", {}).get("value", "")
+            wikidata_id = _normalize_wikidata_id(item_url.rsplit("/", 1)[-1])
+            if not wikidata_id:
+                continue
+            filename = _commons_filename_from_sparql_value(binding.get("asset", {}).get("value"))
+            if not filename:
+                continue
+            label = str(binding.get("itemLabel", {}).get("value") or wikidata_id).strip()
+            candidate = candidates_by_qid.setdefault(
+                wikidata_id,
+                {"wikidata_id": wikidata_id, "label": label, "filenames": {}},
+            )
+            if label and candidate.get("label") == wikidata_id:
+                candidate["label"] = label
+            candidate.setdefault("filenames", {})[kind] = filename
+        _log_asset_mirror(logger, f"[assets] Wikidata {kind}: recursos candidatos={len(rows)}")
+
+    if failed_kinds:
+        # Do not raise here. A total bulk failure should degrade to the direct
+        # country assets and manual overrides, not invalidate the data scrape.
+        _log_asset_mirror(
+            logger,
+            "[assets] Wikidata: consultas bulk fallidas=" + ", ".join(failed_kinds),
+        )
+
+    return list(candidates_by_qid.values())
+
+def _wikidata_sparql_json(query: str, *, timeout: int = 90, method: str = "GET") -> dict:
+    headers = {
+        "Accept": "application/sparql-results+json, application/json",
+        "User-Agent": "BEOGRAD-CITIES-POPULATION/1.0 country-visual-assets",
+    }
+    method_normalized = str(method or "GET").upper()
+    if method_normalized == "POST":
+        data = urlencode({"query": query, "format": "json"}).encode("utf-8")
+        request = Request(
+            "https://query.wikidata.org/sparql",
+            data=data,
+            headers={**headers, "Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+    else:
+        url = "https://query.wikidata.org/sparql?" + urlencode({"query": query, "format": "json"})
+        request = Request(url, headers=headers)
+    with urlopen(request, timeout=timeout) as response:
+        return json.loads(response.read().decode("utf-8"))
 
 def _commons_filename_from_sparql_value(value) -> str:
     text = str(value or "").strip()
@@ -607,15 +1517,40 @@ def _commons_filename_from_sparql_value(value) -> str:
 
 
 def _candidate_matching_admin_areas(candidate: dict, area_index: dict[str, list]) -> list:
-    matches = []
+    """Return safe local matches for a Wikidata visual-asset candidate.
+
+    Bulk Wikidata is intentionally conservative here. Names such as
+    "Malta", "Murcia" or "Zaragoza" can exist at several levels in the
+    same country tree. Assigning a visual asset to every name match causes
+    wrong flags/coats. If a candidate label resolves to more than one local
+    AdminArea, or only to the country/root area, the candidate is left
+    unassigned so it can be corrected explicitly from the asset-corrections
+    section.
+    """
+    exact_matches = []
     seen = set()
+    ambiguous = False
+
     for key in _name_match_variants(candidate.get("label")):
-        for area in area_index.get(key, []) or []:
-            area_id = str(getattr(area, "id", ""))
-            if area_id and area_id not in seen:
-                matches.append(area)
-                seen.add(area_id)
-    return matches
+        areas = list(area_index.get(key, []) or [])
+        # Country/root rows receive the national assets through the explicit
+        # country branch and the root mirror. Do not let subdivision candidates
+        # overwrite them just because their label is equal to the country name.
+        areas = [area for area in areas if int(getattr(area, "level", -1) or -1) != 0]
+        if not areas:
+            continue
+        if len(areas) > 1:
+            ambiguous = True
+            continue
+        area = areas[0]
+        area_id = str(getattr(area, "id", ""))
+        if area_id and area_id not in seen:
+            exact_matches.append(area)
+            seen.add(area_id)
+
+    if ambiguous:
+        return []
+    return exact_matches
 
 
 def _area_asset_match_keys(area) -> set[str]:
@@ -640,56 +1575,88 @@ def _name_match_variants(value) -> set[str]:
 
 
 def _missing_required_visual_assets(country_code: str, *, kinds: list[str], levels: list[int]) -> list[dict]:
-    try:
-        from ciudades_del_mundo.models import AdminArea
-    except Exception:  # pragma: no cover - startup/import edge case.
-        return []
+    """Return bulk Wikidata resources that were found but not assigned.
+
+    The strict check is about the resource pool generated by the country-level
+    bulk search: every flag/coat resource found for the country should be used
+    at least once by a country or AdminArea row. It must not require every
+    scraped locality to have its own flag/coat, because countries such as Spain
+    can have tens of thousands of locality rows and SQLite cannot handle one
+    enormous IN query.
+    """
     kinds = [kind for kind in kinds if kind in WIKIDATA_ASSET_PROPERTIES]
     if not kinds:
         return []
-    queryset = AdminArea.objects.filter(country_code=country_code).exclude(city_merge_status=3)
-    if levels:
-        queryset = queryset.filter(level__in=levels)
-    areas = list(queryset.order_by("level", "name", "id"))
-    if not areas:
-        return []
-    area_ids = [str(area.id) for area in areas]
-    placeholders = ", ".join(["%s"] * len(area_ids))
+
     kind_placeholders = ", ".join(["%s"] * len(kinds))
-    existing = set()
     sql = f"""
-        SELECT entity_key, kind, commons_filename, remote_url, local_path, local_exists
-        FROM {VISUAL_ASSET_TABLE}
-        WHERE entity_type = %s
-          AND entity_key IN ({placeholders})
-          AND kind IN ({kind_placeholders})
+        SELECT
+            resources.entity_key,
+            resources.entity_name,
+            resources.kind,
+            resources.wikidata_id,
+            resources.commons_filename
+        FROM {VISUAL_ASSET_TABLE} resources
+        WHERE resources.entity_type = %s
+          AND resources.country_code = %s
+          AND resources.kind IN ({kind_placeholders})
+          AND (
+              resources.commons_filename <> ''
+              OR resources.remote_url <> ''
+              OR resources.local_path <> ''
+              OR resources.local_exists
+          )
+          AND NOT EXISTS (
+              SELECT 1
+              FROM {VISUAL_ASSET_TABLE} assigned
+              WHERE assigned.country_code = resources.country_code
+                AND assigned.kind = resources.kind
+                AND assigned.entity_type IN ('country', 'admin_area')
+                AND assigned.wikidata_id = resources.wikidata_id
+                AND assigned.commons_filename = resources.commons_filename
+                AND (
+                    assigned.commons_filename <> ''
+                    OR assigned.remote_url <> ''
+                    OR assigned.local_path <> ''
+                    OR assigned.local_exists
+                )
+              LIMIT 1
+          )
+        ORDER BY resources.entity_name, resources.kind, resources.wikidata_id
     """
     with connection.cursor() as cursor:
-        cursor.execute(sql, ["admin_area", *area_ids, *kinds])
-        for row in _dictfetchall(cursor):
-            if _visual_asset_row_has_image(row):
-                existing.add((str(row.get("entity_key")), str(row.get("kind"))))
+        cursor.execute(sql, ["wikidata_country_resource", country_code, *kinds])
+        rows = _dictfetchall(cursor)
+
     missing = []
-    for area in areas:
-        area_id = str(area.id)
-        for kind in kinds:
-            if (area_id, kind) not in existing:
-                missing.append({"id": area_id, "name": str(area.name or area_id), "level": area.level, "kind": kind})
+    for row in rows:
+        missing.append(
+            {
+                "id": str(row.get("entity_key") or row.get("wikidata_id") or ""),
+                "name": str(row.get("entity_name") or row.get("wikidata_id") or row.get("entity_key") or ""),
+                "level": "-",
+                "kind": str(row.get("kind") or ""),
+                "wikidata_id": str(row.get("wikidata_id") or ""),
+                "commons_filename": str(row.get("commons_filename") or ""),
+            }
+        )
     return missing
 
-
 def _missing_asset_error_message(missing: list[dict]) -> str:
+    return _missing_asset_warning_message(missing)
+
+
+def _missing_asset_warning_message(missing: list[dict]) -> str:
     sample = "; ".join(
-        f"{item['name']} (nivel {item['level']}, {item['kind']})"
+        f"{item['name']} ({item['kind']}, {item.get('wikidata_id') or item['id']})"
         for item in missing[:25]
     )
     extra = "" if len(missing) <= 25 else f"; +{len(missing) - 25} más"
     return (
-        f"Faltan {len(missing)} assets visuales requeridos: {sample}{extra}. "
-        "Corrige la asignación en la subsección Escudos y banderas con [[wikidata_asset_overrides]] "
-        "o desactiva strict_required en [visual_assets] si el país no tiene todos esos recursos."
+        f"Quedan {len(missing)} recursos visuales de Wikidata sin asignar: {sample}{extra}. "
+        "La población de datos se ha completado; revisa la subsección Escudos y banderas "
+        "si quieres asignarlos manualmente."
     )
-
 
 def _admin_areas_for_asset_override(AdminArea, country_code: str, override: dict) -> list:
     queryset = AdminArea.objects.filter(country_code=country_code).exclude(city_merge_status=3)

@@ -76,6 +76,7 @@ class DjangoAdminAreaRepository:
             "pop_latest_date",
             "last_census_year",
             "url",
+            "data_wd",
             "annotations",
             "updated_at",
         ]
@@ -263,6 +264,11 @@ class DjangoUnitOfWork:
         return transaction.atomic()
 
 
+def _normalize_data_wd(value: str | None) -> str:
+    text = str(value or "").strip().upper()
+    return text if re.fullmatch(r"Q\d+", text) else ""
+
+
 def _admin_area_from_entity(
     *,
     country_code: str,
@@ -287,6 +293,7 @@ def _admin_area_from_entity(
         pop_latest_date=_to_date(entity.pop_latest_date),
         last_census_year=entity.last_census_year,
         url=entity.url,
+        data_wd=_normalize_data_wd(entity.data_wd),
         annotations=entity.annotations or "",
         created_at=now,
         updated_at=now,

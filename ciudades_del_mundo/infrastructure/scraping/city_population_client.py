@@ -32,6 +32,7 @@ class CityPopulationEntity:
     parent_name: str | None
     country_code: str
     url: str | None
+    data_wd: str = ""
 
 
 class CityPopulationHtmlFetcher:
@@ -184,6 +185,7 @@ class CityPopulationClient:
             parent_name=None,
             country_code=country_code,
             url=self._row_url(tr, base_url),
+            data_wd=self._row_data_wd(main_td, tr),
         )
 
     def parse_tr_ts(
@@ -235,6 +237,7 @@ class CityPopulationClient:
             parent_name=None,
             country_code=country_code,
             url=self._row_url(tr, base_url),
+            data_wd=self._row_data_wd(main_td, tr),
         )
 
     def safe_float(self, value: Optional[str]) -> float | None:
@@ -320,6 +323,26 @@ class CityPopulationClient:
             if match:
                 return match.group(1)
         return None
+
+    def _row_data_wd(self, main_td: Tag, tr: Tag) -> str:
+        """Return the CityPopulation data-wd QID associated with a table row."""
+        for node in (main_td, tr):
+            qid = self._normalize_data_wd(node.get("data-wd") if node else "")
+            if qid:
+                return qid
+        for node in main_td.find_all(attrs={"data-wd": True}) if main_td else []:
+            qid = self._normalize_data_wd(node.get("data-wd"))
+            if qid:
+                return qid
+        for node in tr.find_all(attrs={"data-wd": True}) if tr else []:
+            qid = self._normalize_data_wd(node.get("data-wd"))
+            if qid:
+                return qid
+        return ""
+
+    def _normalize_data_wd(self, value: str | None) -> str:
+        text = str(value or "").strip().upper()
+        return text if re.fullmatch(r"Q\d+", text) else ""
 
     def _row_url(self, tr: Tag, base_url: str) -> str | None:
         sc_td = tr.find("td", class_="sc")

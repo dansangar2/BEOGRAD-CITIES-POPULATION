@@ -305,8 +305,12 @@ def ensure_visual_assets_for_admin_area(
     )
     query = _wikidata_query_for_area(area.name, country_root.name if country_root else area.country_code)
     configured_candidates = _configured_admin_area_visual_asset_candidates(area)
-    _asset_log(logger, f"[assets] admin_area:{area.id} busca Wikidata/Commons: {query}")
-    wikidata_id = _find_wikidata_id(query, country_code=area.country_code)
+    wikidata_id = _wikidata_qid(getattr(area, "data_wd", ""))
+    if wikidata_id:
+        _asset_log(logger, f"[assets] admin_area:{area.id} usa data_wd CityPopulation: {wikidata_id}")
+    else:
+        _asset_log(logger, f"[assets] admin_area:{area.id} busca Wikidata/Commons: {query}")
+        wikidata_id = _find_wikidata_id(query, country_code=area.country_code)
     descriptions: dict[str, dict] = {}
     candidates: dict[str, AssetCandidate] = {}
     if wikidata_id:
@@ -939,11 +943,33 @@ def _configured_country_wikidata_id(country_code: str) -> str:
         except (OperationalError, ProgrammingError):
             pass
 
+    db_qid = _admin_area_root_data_wd(country_code)
+    if db_qid:
+        return db_qid
+
     for config in configs:
         qid = _wikidata_qid(config.get("wikidata_id"))
         if qid:
             return qid
     return ""
+
+
+def _admin_area_root_data_wd(country_code: str) -> str:
+    try:
+        from ciudades_del_mundo.models import AdminArea
+    except Exception:  # pragma: no cover - startup/import edge case.
+        return ""
+    try:
+        row = (
+            AdminArea.objects.filter(country_code=country_code, level=0)
+            .exclude(data_wd="")
+            .order_by("parent_id", "id")
+            .values("data_wd")
+            .first()
+        )
+    except (OperationalError, ProgrammingError):
+        return ""
+    return _wikidata_qid(row.get("data_wd") if row else "")
 
 
 def _configured_country_visual_assets(country_code: str) -> dict[str, dict]:
@@ -1120,7 +1146,7 @@ def _load_admin_area_for_visual_config(entity_key: str):
     except Exception:  # pragma: no cover - startup/import edge case.
         return None
     try:
-        return AdminArea.objects.filter(id=entity_key).only("id", "country_code", "code", "name", "level").first()
+        return AdminArea.objects.filter(id=entity_key).only("id", "country_code", "code", "name", "level", "data_wd").first()
     except (OperationalError, ProgrammingError):
         return None
 
@@ -1223,7 +1249,12 @@ def _citypopulation_wikidata_ids(html: str) -> dict[str, str]:
 
 
 def _page_wikidata_id_for_entity(entity, page_wikidata_ids: dict[str, str]) -> str:
-    if not entity or not page_wikidata_ids:
+    if not entity:
+        return ""
+    data_wd = _wikidata_qid(getattr(entity, "data_wd", ""))
+    if data_wd:
+        return data_wd
+    if not page_wikidata_ids:
         return ""
     entity_id = str(getattr(entity, "id", "") or "")
     keys = [

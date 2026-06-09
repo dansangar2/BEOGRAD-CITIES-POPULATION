@@ -7,12 +7,17 @@ lowest_level = 0
 
 [[pages]]
 source = "table"
-path = ["andalucia", "aragon", "canarias", "castillalamancha", "castillayleon", "cataluna", "comunitatvalenciana", "extremadura", "galicia", "paisvasco", "larioja", "asturias", "cantabria", "illesbalears", "madrid", "murcia", "navarra"]
+path = ["andalucia", "aragon", "canarias", "castillalamancha", "castillayleon", "cataluna", "comunitatvalenciana", "extremadura", "galicia", "paisvasco", "larioja", "asturias", "cantabria", "illesbalears", "madrid", "murcia", "navarra", "ceuta", "melilla"]
 lowest_level = 1
 
 [[pages]]
-source = "double"
+source = "table"
 path = ["localities/acoruna", "localities/alava", "localities/albacete", "localities/alicante", "localities/almeria", "localities/avila", "localities/badajoz", "localities/barcelona", "localities/burgos", "localities/caceres", "localities/cadiz", "localities/castellon", "localities/ciudadreal", "localities/cordoba", "localities/cuenca", "localities/girona", "localities/granada", "localities/guadalajara", "localities/guipuzcoa", "localities/huelva", "localities/huesca", "localities/jaen", "localities/laspalmas", "localities/leon", "localities/lleida", "localities/lugo", "localities/malaga", "localities/ourense", "localities/palencia", "localities/pontevedra", "localities/salamanca", "localities/santacruzdetenerife", "localities/segovia", "localities/sevilla", "localities/soria", "localities/tarragona", "localities/teruel", "localities/toledo", "localities/valencia", "localities/valladolid", "localities/vizcaya", "localities/zamora", "localities/zaragoza", "localities/asturias", "localities/cantabria", "localities/illesbalears", "localities/larioja", "localities/madrid", "localities/murcia", "localities/navarra", "localities/ceuta", "localities/melilla"]
 lowest_level = 3
 include_tables = ["ts"]
 table_levels = { ts = 4 }
+
+[visual_assets]
+bulk_country_wikidata = true
+strict_required = true
+required_kinds = ["flag", "coat"]

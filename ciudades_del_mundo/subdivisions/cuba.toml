@@ -1,7 +1,9 @@
-name = "Cuba"
-country_code = "cuba"
-base_url = "https://www.citypopulation.de/en/"
 LEGAL_SUBDIVISION = 1
+
+[[pages]]
+source = "infosection"
+path = ["cities"]
+lowest_level = 0
 
 [[pages]]
 source = "admin"
@@ -10,31 +12,10 @@ lowest_level = 0
 
 [[pages]]
 source = "table"
-# Provincias L1, municipios L2 y lugares/pueblos L3.
-path = [
-  "pinardelrio",
-  "artemisa",
-  "lahabana",
-  "mayabeque",
-  "matanzas",
-  "cienfuegos",
-  "villaclara",
-  "sanctispiritus",
-  "ciegodeavila",
-  "camaguey",
-  "lastunas",
-  "holguin",
-  "granma",
-  "santiagodecuba",
-  "guantanamo",
-  "isladelajuventud",
-]
+path = ["pinardelrio", "artemisa", "lahabana", "mayabeque", "matanzas", "cienfuegos", "villaclara", "sanctispiritus", "ciegodeavila", "camaguey", "lastunas", "holguin", "granma", "santiagodecuba", "guantanamo", "isladelajuventud"]
 lowest_level = 1
 
-[[cities]]
-city = "La Habana"
-id = "857"
-district_types = ["Municipality"]
-level = 1
-type = "Municipality"
-from = { 1 = ["Ciudad de la Habana"] }
+[visual_assets]
+bulk_country_wikidata = true
+strict_required = true
+required_kinds = ["flag", "coat"]

@@ -11,6 +11,10 @@ from ciudades_del_mundo.infrastructure.django.admin_area_deletion import (
     AdminAreaDeletionProgress,
     delete_admin_area_country,
 )
+from ciudades_del_mundo.infrastructure.django.visual_asset_deletion import (
+    VisualAssetDeletionResult,
+    delete_visual_assets_for_country,
+)
 from ciudades_del_mundo.models import AdminArea, ScrapingConfig
 from ciudades_del_mundo.web.task_progress import write_config_progress
 
@@ -116,8 +120,25 @@ class Command(BaseCommand):
             }
         )
 
+        asset_result = VisualAssetDeletionResult()
         try:
             with transaction.atomic():
+                asset_result = delete_visual_assets_for_country(
+                    country_code,
+                    aliases=affected_slugs,
+                )
+                self._write(
+                    _(
+                        "Limpiando assets: country_code=%(country_code)s "
+                        "assets=%(assets)s traducciones_assets=%(translations)s archivos_media=%(files)s"
+                    )
+                    % {
+                        "country_code": country_code,
+                        "assets": asset_result.assets,
+                        "translations": asset_result.translations,
+                        "files": asset_result.local_files,
+                    }
+                )
                 total, deleted = _delete_admin_area_country(
                     country_code,
                     batch_size=batch_size,
@@ -132,5 +153,7 @@ class Command(BaseCommand):
 
         self._write(
             f"{_('Limpiar')}: country_code={country_code} "
-            f"configs={','.join(affected_slugs)} rows={total} deleted={deleted}"
+            f"configs={','.join(affected_slugs)} rows={total} deleted={deleted} "
+            f"assets={asset_result.assets} traducciones_assets={asset_result.translations} "
+            f"archivos_media={asset_result.local_files}"
         )

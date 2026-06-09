@@ -1,4 +1,9 @@
-"""Scraper for pages that expose two stacked table sections per territory."""
+"""Unified scraper for CityPopulation table-like pages.
+
+The historical ``table`` and ``double`` modes both parse the same CityPopulation
+``tl``/``ts`` tables.  The difference is now handled by page profile and
+configuration instead of separate parent-assignment code paths.
+"""
 
 from __future__ import annotations
 
@@ -22,6 +27,51 @@ from ciudades_del_mundo.infrastructure.scraping.page_types import (
 
 
 SHARED_POPULATION_ANNOTATION = "Comparte población con otras divisiones"
+
+
+def _normalize_data_wd(value: str | None) -> str:
+    text = str(value or "").strip().upper()
+    return text if re.fullmatch(r"Q\d+", text) else ""
+
+
+def _normalize_name_for_data_wd(value: str | None) -> str:
+    text = str(value or "").casefold().replace("_", " ").replace("-", " ")
+    text = re.sub(r"[^\w\s]", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _data_wd_name_score(value: str | None, expected: set[str]) -> int:
+    normalized = _normalize_name_for_data_wd(value)
+    if not normalized or not expected:
+        return 0
+    if normalized in expected:
+        return 100
+    for item in expected:
+        if normalized in {f"{item} republic", f"republic of {item}", f"state of {item}", f"kingdom of {item}"}:
+            return 95
+        if normalized.startswith(f"{item} ") or normalized.startswith(f"{item}:"):
+            return 70
+    return 0
+
+
+def _root_data_wd_from_soup(soup: BeautifulSoup, *, name: str, country_code: str) -> str:
+    expected = {_normalize_name_for_data_wd(name), _normalize_name_for_data_wd(country_code)} - {""}
+    candidates: list[tuple[int, str]] = []
+    for element in soup.select(".infosection [data-wd], header [data-wd], h1 [data-wd]"):
+        qid = _normalize_data_wd(element.get("data-wd"))
+        if not qid:
+            continue
+        score = max(
+            _data_wd_name_score(element.get_text(" ", strip=True), expected),
+            _data_wd_name_score(element.get("data-wiki"), expected),
+        )
+        if score:
+            candidates.append((score, qid))
+    if candidates:
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        return candidates[0][1]
+    section = soup.find(class_=lambda value: value and "infosection" in value)
+    return _normalize_data_wd(section.get("data-wd") if section else "")
 
 
 class CityPopulationDoubleScraper(BaseCityPopulationScraper):
@@ -70,12 +120,64 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
         should_include_tl = should_include_table(include_tables, "tl")
         should_include_ts = should_include_table(include_tables, "ts")
 
-        entities: list[ScrapedAdminArea] = [root] if root else []
-        parents_by_name: dict[str, ScrapedAdminArea] = {}
-        default_tl_level = level + (first_table_offset if first_table_offset is not None else int(root is not None))
-        tl_level = table_levels.get("tl", default_tl_level)
-
+        page_parent_context_slug = self._page_parent_context_slug(url, country_code)
         tl = soup.find("table", id="tl") if profile.has_tl else None
+        ts = soup.find("table", id="ts") if profile.has_ts else None
+        ts_has_radm = bool(profile.ts_has_radm) if ts else False
+        context_root = root or self._infosection_context_root(
+            soup=soup,
+            url=url,
+            country_code=country_code,
+            level=level,
+            page=page,
+            # Page-local roots are only needed when CityPopulation omits an
+            # administrative parent column.  Pages with both tl and ts usually
+            # carry the parent in the ts radm column and are linked later from
+            # the URL, so they must not be treated as single-root pages.
+            enabled=bool(ts and not tl and page_parent_context_slug),
+        )
+
+        parents_by_name: dict[str, ScrapedAdminArea] = {}
+        if first_table_offset is not None:
+            default_tl_level = level + first_table_offset
+        elif context_root is not None and tl is not None:
+            default_tl_level = int(context_root.level or level) + 1
+        elif tl is not None and page_parent_context_slug:
+            # ``source = table`` now also covers old double-like pages.  On
+            # contextual CityPopulation pages such as /spain/aragon/, the page
+            # itself represents the configured lowest_level and the first table
+            # contains its children, not another copy of the same level.
+            default_tl_level = int(level or 0) + 1
+        else:
+            default_tl_level = int(level or 0)
+        tl_level = table_levels.get("tl", default_tl_level)
+        ts_level: int | None = None
+        context_roots: list[ScrapedAdminArea] = [context_root] if context_root else []
+        if ts:
+            if context_root and not tl:
+                default_ts_level = int(context_root.level or 0) + 1
+                if not ts_has_radm and "ts" not in table_levels and self._table_has_single_self_child(ts, context_root.name):
+                    default_ts_level += 1
+            else:
+                default_ts_level = tl_level if profile.ts_uses_first_child_level else tl_level + 1
+            ts_level = table_levels.get("ts", default_ts_level)
+            if context_root and not tl and not ts_has_radm:
+                context_roots = self._context_root_chain(context_root, ts_level)
+
+        include_context_root = bool(context_root and (root or getattr(page, "include_root", True)))
+        # Even when include_root=false, emit page-local synthetic roots if they
+        # are necessary to bridge a level gap before the first table row.  The
+        # application post-processor rewrites these transient roots to existing
+        # same-name entities or deterministic equivalent-level rows.
+        emit_context_chain = bool(
+            context_roots
+            and context_roots[-1].level < (ts_level or context_roots[-1].level)
+            and not ts_has_radm
+            and len(context_roots) > 1
+        )
+
+        entities: list[ScrapedAdminArea] = list(context_roots) if (include_context_root or emit_context_chain) else []
+
         if tl:
             for entity in self._parse_table(
                 table=tl,
@@ -85,20 +187,22 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
                 parser="tl",
                 status_levels=status_levels,
             ):
-                if root:
-                    entity = replace(entity, parent_code=root.code)
-                elif entity.parent_code is None and entity.level > 0 and entity.code != country_code:
+                if context_root:
+                    entity = replace(entity, parent_code=context_root.code)
+                elif self._should_fallback_to_country_parent(
+                    entity,
+                    country_code=country_code,
+                    page_parent_context_slug=page_parent_context_slug,
+                ):
                     entity = replace(entity, parent_code=country_code)
                 if should_include_tl:
                     entities.append(entity)
                 for key in self._parent_lookup_keys(entity.name):
                     parents_by_name.setdefault(key, entity)
 
-        ts = soup.find("table", id="ts") if profile.has_ts else None
         if ts:
-            ts_has_radm = profile.ts_has_radm
-            default_ts_level = tl_level if profile.ts_uses_first_child_level else tl_level + 1
-            ts_level = table_levels.get("ts", default_ts_level)
+            assert ts_level is not None
+            context_parent = context_roots[-1] if context_roots else context_root
             for entity in self._parse_table(
                 table=ts,
                 country_code=country_code,
@@ -108,12 +212,143 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
                 parents_by_name=parents_by_name,
                 status_levels=status_levels,
             ):
-                if root and not ts_has_radm and entity.parent_code is None:
-                    entity = replace(entity, parent_code=root.code)
+                if context_parent and not ts_has_radm and entity.parent_code is None:
+                    entity = replace(entity, parent_code=context_parent.code)
+                elif self._should_fallback_to_country_parent(
+                    entity,
+                    country_code=country_code,
+                    page_parent_context_slug=page_parent_context_slug,
+                ):
+                    entity = replace(entity, parent_code=country_code)
                 if should_include_ts:
                     entities.append(entity)
 
         return entities
+
+    def _context_root_chain(self, context_root: ScrapedAdminArea, child_level: int | None) -> list[ScrapedAdminArea]:
+        """Return page-local roots needed to bridge missing equivalent levels.
+
+        Some CityPopulation pages describe a territory once in the infosection
+        but the only table row represents a deeper same-name administrative
+        role.  Keeping this generic lets pages like autonomous cities, island
+        territories or province-equivalent cities produce a homogeneous tree
+        without country-specific branches.
+        """
+        if child_level is None:
+            return [context_root]
+        try:
+            root_level = int(context_root.level or 0)
+            child_level = int(child_level)
+        except (TypeError, ValueError):
+            return [context_root]
+        if child_level <= root_level + 1:
+            return [context_root]
+
+        chain = [context_root]
+        for equivalent_level in range(root_level + 1, child_level):
+            previous = chain[-1]
+            chain.append(
+                replace(
+                    context_root,
+                    level=equivalent_level,
+                    parent_code=previous.code,
+                    entity_type=self._equivalent_entity_type(context_root.entity_type, equivalent_level),
+                    raw_entity_type=self._equivalent_entity_type(context_root.raw_entity_type or context_root.entity_type, equivalent_level),
+                )
+            )
+        return chain
+
+    def _equivalent_entity_type(self, value: str | None, level: int) -> str:
+        base = str(value or "Administrative area").strip() or "Administrative area"
+        if "equivalent" in base.casefold():
+            return base
+        return f"{base} equivalent L{level}"
+
+    def _table_has_single_self_child(self, table, root_name: str) -> bool:
+        """Return true when one row repeats the page root as a deeper child."""
+        root_key = self._normalize_name(root_name)
+        if not root_key:
+            return False
+        rows = []
+        for tbody in table.find_all("tbody", recursive=False):
+            rows.extend(tbody.find_all("tr", recursive=False))
+        if len(rows) != 1:
+            return False
+        name_cell = rows[0].find("td", class_=lambda value: value and "rname" in value.split())
+        if not name_cell:
+            return False
+        name_node = name_cell.find(attrs={"itemprop": "name"}) or name_cell.find("a") or name_cell
+        child_name = name_node.get_text(" ", strip=True)
+        return self._normalize_name(child_name) == root_key
+
+    def _infosection_context_root(
+        self,
+        *,
+        soup: BeautifulSoup,
+        url: str,
+        country_code: str,
+        level: int,
+        page=None,
+        enabled: bool = False,
+    ) -> ScrapedAdminArea | None:
+        """Return a page-local root parsed from CityPopulation's infosection.
+
+        Some pages, notably Spanish autonomous cities, expose a single ``ts``
+        table without a parent column.  The parent is the page itself and is
+        described in ``div.infosection`` as e.g. ``Ceuta (Autonomous City)``.
+        The root is intentionally emitted with ``code == country_code`` so the
+        application post-processor can replace it with the real same-name row
+        already scraped from the national admin page.
+        """
+        if not enabled:
+            return None
+        infoname = soup.select_one(".infosection .infoname")
+        text = infoname.get_text(" ", strip=True) if infoname else ""
+        text = re.sub(r"^Contents:\s*", "", text, flags=re.IGNORECASE).strip()
+        if not text:
+            header = soup.select_one("header.citypage h1")
+            text = header.get_text(" ", strip=True) if header else ""
+            if ":" in text:
+                text = text.split(":", 1)[-1].strip()
+        if not text:
+            return None
+
+        entity_type = ""
+        match = re.match(r"^(?P<name>.*?)\s*\((?P<type>[^)]*)\)\s*$", text)
+        if match:
+            name = match.group("name").strip()
+            entity_type = match.group("type").strip()
+        else:
+            name = text.strip()
+        if not name:
+            return None
+
+        root_level = getattr(page, "root_level", None)
+        try:
+            if root_level is not None:
+                root_level = int(root_level)
+            else:
+                table_levels = table_levels_for_page(page)
+                if "ts" in table_levels:
+                    root_level = max(0, int(table_levels["ts"]) - 1)
+                elif "/localities/" in str(url or "").casefold():
+                    root_level = max(0, int(level or 0) - 1)
+                else:
+                    root_level = int(level or 0)
+        except (TypeError, ValueError):
+            root_level = int(level or 0)
+        return ScrapedAdminArea(
+            code=country_code,
+            name=name,
+            level=root_level,
+            country_code=country_code,
+            entity_type=entity_type or None,
+            raw_entity_type=entity_type or None,
+            parent_code=country_code if root_level > 0 else None,
+            url=url,
+            data_wd=_root_data_wd_from_soup(soup, name=name, country_code=country_code),
+        )
+
 
     def _parse_table(
         self,
@@ -193,6 +428,7 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
                         pop_latest_date=parsed.pop_latest_date,
                         last_census_year=parsed.last_census_year,
                         url=parsed.url,
+                        data_wd=parsed.data_wd,
                         annotations=annotations,
                     )
                 )
@@ -325,6 +561,62 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
     def _normalize_name(self, value: str) -> str:
         return re.sub(r"\s+", " ", value).strip().casefold()
 
+    def _should_fallback_to_country_parent(
+        self,
+        entity: ScrapedAdminArea,
+        *,
+        country_code: str,
+        page_parent_context_slug: str,
+    ) -> bool:
+        """Return whether an unparented row should point to the country.
+
+        ``table`` and ``double`` pages are now parsed by the same logic.  When a
+        CityPopulation page is contextual, for example ``/spain/aragon/`` or
+        ``/spain/localities/ceuta/``, the correct parent is encoded in the URL
+        rather than in every row.  In those cases we deliberately leave
+        ``parent_code`` empty so the application-level URL inference can attach
+        the row to the matching previous-level entity.  Only non-contextual
+        pages, such as the country ``admin`` page, fall back to the country root.
+        """
+        return (
+            entity.parent_code is None
+            and entity.level > 0
+            and entity.code != country_code
+            and not page_parent_context_slug
+        )
+
+    def _page_parent_context_slug(self, url: str, country_code: str) -> str:
+        """Return the URL slug that identifies a page-local parent context.
+
+        This keeps ``table`` and ``double`` consistent: if a page path is scoped
+        to an already-scraped area, children without a ``radm`` parent cell are
+        not attached to the country prematurely.  Examples:
+
+        * ``/en/spain/aragon/`` -> ``aragon``
+        * ``/en/spain/localities/ceuta/`` -> ``ceuta``
+        * ``/en/spain/admin/`` -> ``""``
+        """
+        path_segments = [segment.strip() for segment in str(url or "").split("?")[0].rstrip("/").split("/") if segment.strip()]
+        if not path_segments:
+            return ""
+
+        normalized_country = str(country_code or "").strip().casefold()
+        segments = [segment.casefold() for segment in path_segments]
+        generic_segments = {"admin", "cities"}
+
+        # Prefer segments after the country code when the full URL is available.
+        start = 0
+        if normalized_country in segments:
+            start = segments.index(normalized_country) + 1
+        scoped_segments = segments[start:]
+        if not scoped_segments:
+            return ""
+
+        for segment in reversed(scoped_segments):
+            if segment and segment not in generic_segments and segment != normalized_country:
+                return segment
+        return ""
+
     def _parent_lookup_keys(self, value: str) -> tuple[str, ...]:
         """Return robust lookup aliases for parent names shown in ``radm`` cells.
 
@@ -354,3 +646,14 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
                     keys.append(key)
         return tuple(keys)
 
+
+
+class CityPopulationTableScraper(CityPopulationDoubleScraper):
+    """Compatibility alias for the unified CityPopulation table scraper.
+
+    ``source = "table"`` and ``source = "double"`` now share the same
+    parser.  Page profile detection, configured ``table_levels`` and URL-based
+    parent inference decide how each page is interpreted.
+    """
+
+    html_format = "table"

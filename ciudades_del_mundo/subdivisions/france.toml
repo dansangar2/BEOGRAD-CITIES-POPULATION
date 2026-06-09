@@ -1,40 +1,4 @@
-name = "France"
-country_code = "france"
-wikidata_id = "Q142"
-reset_before_import = true
 LEGAL_SUBDIVISION = 5
-
-# France is split by CityPopulation between Metropolitan France and the
-# overseas-department city pages. Keep one real tree:
-# France L0 -> Metropolitan/Overseas L1 -> Regions / overseas departments L2 ->
-# Departments L3 -> Arrondissements L4 -> Communes L5.
-
-[[synthetic_entities]]
-code = "METRO"
-name = "Metropolitan France"
-level = 1
-parent_code = "france"
-entity_type = "area"
-metric_source_parent_code = "METRO"
-metric_source_level = 2
-
-[[synthetic_entities]]
-code = "OVERSEAS"
-name = "Overseas France"
-level = 1
-parent_code = "france"
-entity_type = "area"
-metric_source_codes = ["GUF", "GLP", "MTQ", "MYT", "REU"]
-
-[[parent_overrides]]
-match_levels = [2]
-parent_code = "METRO"
-exclude_codes = ["METRO", "OVERSEAS"]
-
-[[parent_overrides]]
-codes = ["GUF", "GLP", "MTQ", "MYT", "REU"]
-level = 2
-parent_code = "OVERSEAS"
 
 [[pages]]
 source = "infosection"
@@ -57,104 +21,7 @@ table_levels = { admin1 = 3, admin2 = 4 }
 
 [[pages]]
 source = "table"
-path = [
-  "ain",
-  "aisne",
-  "allier",
-  "alpesdehauteprovence",
-  "alpesmaritimes",
-  "ardeche",
-  "ardennes",
-  "ariege",
-  "aube",
-  "aude",
-  "aveyron",
-  "basrhin",
-  "bouchesdurhone",
-  "calvados",
-  "cantal",
-  "charente",
-  "charentemaritime",
-  "cher",
-  "correze",
-  "corsedusud",
-  "cotedor",
-  "cotesdarmor",
-  "creuse",
-  "deuxsevres",
-  "dordogne",
-  "doubs",
-  "drome",
-  "essonne",
-  "eure",
-  "eureetloir",
-  "finistere",
-  "gard",
-  "gers",
-  "gironde",
-  "hautecorse",
-  "hautegaronne",
-  "hauteloire",
-  "hautemarne",
-  "hautesalpes",
-  "hautesaone",
-  "hautesavoie",
-  "hautespyrenees",
-  "hautevienne",
-  "hautrhin",
-  "hautsdeseine",
-  "herault",
-  "illeetvilaine",
-  "indre",
-  "indreetloire",
-  "isere",
-  "jura",
-  "landes",
-  "loire",
-  "loireatlantique",
-  "loiret",
-  "loiretcher",
-  "lot",
-  "lotetgaronne",
-  "lozere",
-  "maineetloire",
-  "manche",
-  "marne",
-  "mayenne",
-  "meurtheetmoselle",
-  "meuse",
-  "morbihan",
-  "moselle",
-  "nievre",
-  "nord",
-  "oise",
-  "orne",
-  "paris",
-  "pasdecalais",
-  "puydedome",
-  "pyreneesatlantiques",
-  "pyreneesorientales",
-  "rhone",
-  "saoneetloire",
-  "sarthe",
-  "savoie",
-  "seineetmarne",
-  "seinemaritime",
-  "seinesaintdenis",
-  "somme",
-  "tarn",
-  "tarnetgaronne",
-  "territoiredebelfort",
-  "valdemarne",
-  "valdoise",
-  "var",
-  "vaucluse",
-  "vendee",
-  "vienne",
-  "vosges",
-  "yonne",
-  "yvelines",
-]
+path = ["ain", "aisne", "allier", "alpesdehauteprovence", "alpesmaritimes", "ardeche", "ardennes", "ariege", "aube", "aude", "aveyron", "basrhin", "bouchesdurhone", "calvados", "cantal", "charente", "charentemaritime", "cher", "correze", "corsedusud", "cotedor", "cotesdarmor", "creuse", "deuxsevres", "dordogne", "doubs", "drome", "essonne", "eure", "eureetloir", "finistere", "gard", "gers", "gironde", "hautecorse", "hautegaronne", "hauteloire", "hautemarne", "hautesalpes", "hautesaone", "hautesavoie", "hautespyrenees", "hautevienne", "hautrhin", "hautsdeseine", "herault", "illeetvilaine", "indre", "indreetloire", "isere", "jura", "landes", "loire", "loireatlantique", "loiret", "loiretcher", "lot", "lotetgaronne", "lozere", "maineetloire", "manche", "marne", "mayenne", "meurtheetmoselle", "meuse", "morbihan", "moselle", "nievre", "nord", "oise", "orne", "paris", "pasdecalais", "puydedome", "pyreneesatlantiques", "pyreneesorientales", "rhone", "saoneetloire", "sarthe", "savoie", "seineetmarne", "seinemaritime", "seinesaintdenis", "somme", "tarn", "tarnetgaronne", "territoiredebelfort", "valdemarne", "valdoise", "var", "vaucluse", "vendee", "vienne", "vosges", "yonne", "yvelines"]
 lowest_level = 3
 table_levels = { tl = 4, ts = 5 }
 
@@ -162,43 +29,48 @@ table_levels = { tl = 4, ts = 5 }
 source = "cities"
 path = ["cities/guyane"]
 lowest_level = 2
+table_levels = { tl = 4, ts = 5 }
 root_code = "GUF"
 root_parent_code = "OVERSEAS"
 root_entity_type = "Overseas Department"
-table_levels = { tl = 4, ts = 5 }
 
 [[pages]]
 source = "cities"
 path = ["cities/guadeloupe"]
 lowest_level = 2
+table_levels = { tl = 4, ts = 5 }
 root_code = "GLP"
 root_parent_code = "OVERSEAS"
 root_entity_type = "Overseas Department"
-table_levels = { tl = 4, ts = 5 }
 
 [[pages]]
 source = "cities"
 path = ["cities/martinique"]
 lowest_level = 2
+table_levels = { tl = 4, ts = 5 }
 root_code = "MTQ"
 root_parent_code = "OVERSEAS"
 root_entity_type = "Overseas Department"
-table_levels = { tl = 4, ts = 5 }
 
 [[pages]]
 source = "cities"
 path = ["cities/mayotte"]
 lowest_level = 2
+table_levels = { tl = 4, ts = 5 }
 root_code = "MYT"
 root_parent_code = "OVERSEAS"
 root_entity_type = "Overseas Department"
-table_levels = { tl = 4, ts = 5 }
 
 [[pages]]
 source = "cities"
 path = ["cities/reunion"]
 lowest_level = 2
+table_levels = { tl = 4, ts = 5 }
 root_code = "REU"
 root_parent_code = "OVERSEAS"
 root_entity_type = "Overseas Department"
-table_levels = { tl = 4, ts = 5 }
+
+[visual_assets]
+bulk_country_wikidata = true
+strict_required = true
+required_kinds = ["flag", "coat"]

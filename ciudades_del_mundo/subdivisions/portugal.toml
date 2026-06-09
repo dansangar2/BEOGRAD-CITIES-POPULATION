@@ -16,8 +16,13 @@ path = ["acores/admin", "aveiro/admin", "beja/admin", "braga/admin", "braganca/a
 lowest_level = 1
 
 [[pages]]
-source = "double"
+source = "table"
 path = ["acores", "aveiro", "beja", "braga", "braganca", "castelobranco", "coimbra", "evora", "faro", "guarda", "leiria", "lisboa", "madeira", "portalegre", "porto", "santarem", "setubal", "vianadocastelo", "vilareal", "viseu"]
 lowest_level = 2
 include_tables = ["ts"]
 table_levels = { ts = 4 }
+
+[visual_assets]
+bulk_country_wikidata = true
+strict_required = true
+required_kinds = ["flag", "coat"]

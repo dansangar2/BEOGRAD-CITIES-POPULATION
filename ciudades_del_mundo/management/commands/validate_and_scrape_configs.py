@@ -7,6 +7,7 @@ import os
 from django.core.management import BaseCommand, call_command
 
 from ciudades_del_mundo.infrastructure.scraping import PythonScrapingConfigRepository
+from ciudades_del_mundo.models import AdminArea
 from ciudades_del_mundo.web.task_progress import write_config_progress
 
 
@@ -70,7 +71,13 @@ class Command(BaseCommand):
             self._write(f"[popular] ({index}/{len(slugs)}) {slug}")
             write_config_progress(slug, "validating")
             try:
+                config = repository.get(slug)
+                country_code = str(config.country_code or slug)
                 call_command("validate_subdivision_configs", slug)
+                if AdminArea.objects.filter(country_code=country_code).exists():
+                    write_config_progress(slug, "clearing", detail="Limpiando datos anteriores")
+                    self._write(f"[limpiar] {slug}: ya tenía datos; limpiando antes de popular...")
+                    call_command("clear_config_data_with_assets", country_code)
                 write_config_progress(slug, "populating")
                 call_command("scrape_subdivisions_with_assets", slug, **scrape_options)
             except Exception as exc:

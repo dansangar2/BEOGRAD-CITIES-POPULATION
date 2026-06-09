@@ -1,11 +1,5 @@
-name = "Netherlands"
-country_code = "netherlands"
-wikidata_id = "Q55"
-base_url = "https://www.citypopulation.de/en/"
-reset_before_import = true
 LEGAL_SUBDIVISION = 2
 
-# L0 country -> L1 provinces -> L2 municipalities -> L3 urban centers.
 [[pages]]
 source = "admin"
 path = ["admin"]
@@ -14,21 +8,13 @@ table_levels = { admin1 = 1, admin2 = 2 }
 
 [[pages]]
 source = "table"
-path = [
-  "drenthe",
-  "flevoland",
-  "friesland",
-  "gelderland",
-  "groningen",
-  "limburg",
-  "noordbrabant",
-  "noordholland",
-  "overijssel",
-  "utrecht",
-  "zeeland",
-  "zuidholland",
-]
+path = ["drenthe", "flevoland", "friesland", "gelderland", "groningen", "limburg", "noordbrabant", "noordholland", "overijssel", "utrecht", "zeeland", "zuidholland"]
 lowest_level = 1
 include_root = false
 include_tables = ["ts"]
 table_levels = { ts = 3 }
+
+[visual_assets]
+bulk_country_wikidata = true
+strict_required = true
+required_kinds = ["flag", "coat"]

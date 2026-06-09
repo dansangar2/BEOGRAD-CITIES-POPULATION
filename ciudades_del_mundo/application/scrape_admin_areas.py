@@ -432,6 +432,7 @@ def _apply_synthetic_entities(
                 pop_latest=pop_latest,
                 pop_latest_date=pop_latest_date,
                 url=str(spec.get("url") or "").strip(),
+                data_wd=str(spec.get("data_wd") or spec.get("data-wd") or "").strip(),
             )
         )
         existing_codes.add(code)
@@ -716,14 +717,19 @@ def _rewrite_synthetic_page_roots(
     country_code: str,
     entities: list[ScrapedAdminArea],
 ) -> list[ScrapedAdminArea]:
-    """Attach children of page-local synthetic roots to the real scraped root.
+    """Rewrite transient page-local roots produced by the table scraper.
 
-    Some CityPopulation pages for Spanish autonomous cities expose an
-    infosection root but no own admin code in the table. The generic root
-    parser therefore emits code == country_code at level > 0 (for example a
-    transient ``spain_spain`` Ceuta root). When the admin page already provided
-    the real same-level Ceuta/Melilla entity, keep that real code and point the
-    page children to it.
+    ``table`` can emit synthetic roots with ``code == country_code`` when a
+    CityPopulation page only describes the page territory in an infosection.
+    This function keeps the behaviour generic:
+
+    * if the same-name/same-level entity already exists, children are attached
+      to that real entity;
+    * if the same name exists only at a lower level, a deterministic
+      equivalent-level entity is created between the lower-level parent and the
+      deeper children.
+
+    That covers Ceuta/Melilla-style structures without hardcoding any country.
     """
     synthetic_roots = [
         entity
@@ -733,37 +739,106 @@ def _rewrite_synthetic_page_roots(
     if not synthetic_roots:
         return entities
 
+    real_entities = [
+        entity
+        for entity in entities
+        if entity.code != country_code and entity.level > 0
+    ]
     real_by_level_name: dict[tuple[int, str], ScrapedAdminArea] = {}
-    for entity in entities:
-        if entity.code == country_code or entity.level <= 0:
-            continue
-        real_by_level_name.setdefault((entity.level, _normalize_entity_name(entity.name)), entity)
+    real_by_name: dict[str, list[ScrapedAdminArea]] = {}
+    for entity in real_entities:
+        name_key = _normalize_entity_name(entity.name)
+        real_by_level_name.setdefault((entity.level, name_key), entity)
+        real_by_name.setdefault(name_key, []).append(entity)
 
-    aliases = []
+    used_codes = {entity.code for entity in entities if entity.code != country_code}
+    replacement_by_object: dict[int, ScrapedAdminArea] = {}
     for synthetic in synthetic_roots:
-        real = real_by_level_name.get((synthetic.level, _normalize_entity_name(synthetic.name)))
-        if not real:
+        name_key = _normalize_entity_name(synthetic.name)
+        exact = real_by_level_name.get((synthetic.level, name_key))
+        if exact:
+            replacement_by_object[id(synthetic)] = replace(
+                synthetic,
+                code=exact.code,
+                parent_code=exact.parent_code,
+                entity_type=exact.entity_type or synthetic.entity_type,
+                raw_entity_type=exact.raw_entity_type or synthetic.raw_entity_type,
+            )
             continue
-        aliases.append((synthetic, real))
-    if not aliases:
+
+        lower_parent = _closest_lower_same_name_parent(synthetic, real_by_name.get(name_key, []))
+        if lower_parent:
+            code = _unique_synthetic_equivalent_code(country_code, synthetic, lower_parent, used_codes)
+            used_codes.add(code)
+            replacement_by_object[id(synthetic)] = replace(
+                synthetic,
+                code=code,
+                parent_code=lower_parent.code,
+            )
+
+    if not replacement_by_object:
         return entities
+
+    parent_rewrites = sorted(
+        (
+            (synthetic, replacement_by_object[id(synthetic)])
+            for synthetic in synthetic_roots
+            if id(synthetic) in replacement_by_object
+        ),
+        key=lambda item: item[0].level,
+        reverse=True,
+    )
 
     updated = []
     for entity in entities:
-        replacement = entity
-        for synthetic, real in aliases:
-            if entity is synthetic:
-                replacement = replace(entity, code=real.code, parent_code=real.parent_code)
-                break
+        replacement = replacement_by_object.get(id(entity))
+        if replacement:
+            updated.append(replacement)
+            continue
+
+        next_entity = entity
+        for synthetic, synthetic_replacement in parent_rewrites:
             if (
                 entity.parent_code == country_code
                 and entity.level > synthetic.level
                 and _entity_belongs_to_page_root(entity, synthetic)
             ):
-                replacement = replace(entity, parent_code=real.code)
+                next_entity = replace(entity, parent_code=synthetic_replacement.code)
                 break
-        updated.append(replacement)
+        updated.append(next_entity)
     return updated
+
+
+def _closest_lower_same_name_parent(
+    synthetic: ScrapedAdminArea,
+    candidates: list[ScrapedAdminArea],
+) -> ScrapedAdminArea | None:
+    lower = [candidate for candidate in candidates if candidate.level < synthetic.level]
+    if not lower:
+        return None
+    best_level = max(candidate.level for candidate in lower)
+    best = [candidate for candidate in lower if candidate.level == best_level]
+    if len(best) != 1:
+        return None
+    return best[0]
+
+
+def _unique_synthetic_equivalent_code(
+    country_code: str,
+    synthetic: ScrapedAdminArea,
+    parent: ScrapedAdminArea,
+    used_codes: set[str],
+) -> str:
+    slug = _page_root_slug(synthetic.url) or _normalize_url_slug(synthetic.name) or "equivalent"
+    parent_part = re.sub(r"[^a-z0-9_]+", "_", str(parent.code or country_code).casefold()).strip("_")
+    slug_part = re.sub(r"[^a-z0-9_]+", "_", str(slug).casefold()).strip("_") or "equivalent"
+    base = f"{parent_part}_{slug_part}_l{int(synthetic.level)}"
+    code = base
+    counter = 2
+    while code in used_codes or code == country_code:
+        code = f"{base}_{counter}"
+        counter += 1
+    return code
 
 
 def _entity_belongs_to_page_root(entity: ScrapedAdminArea, root: ScrapedAdminArea) -> bool:
@@ -830,10 +905,18 @@ def _normalize_synthetic_country_parent_codes(
 
 
 def _infer_parent_codes_from_url_path(entities: list[ScrapedAdminArea]) -> list[ScrapedAdminArea]:
-    """Use CityPopulation URL path slugs to fill missing parent codes when unique."""
+    """Use CityPopulation URL path slugs to fill missing parent codes when unique.
+
+    The unified ``table``/``double`` scraper deliberately leaves contextual
+    rows unparented when CityPopulation encodes the parent in the page URL
+    rather than in every row URL.  Spain's autonomous cities are an example:
+    ``/localities/ceuta/`` contains the level-2 municipality ``Ceuta`` and the
+    parent level-1 autonomous city is also exposed elsewhere with the slug
+    ``ceuta``.  Prefer that more specific URL parent over the country fallback.
+    """
     slug_index: dict[tuple[str, int, str], set[str]] = {}
     for entity in entities:
-        slug = _entity_url_slug(entity.url)
+        slug = _entity_url_slug(entity.url) or _plain_entity_url_slug(entity.url)
         if not slug:
             continue
         key = (entity.country_code, entity.level, slug)
@@ -847,17 +930,20 @@ def _infer_parent_codes_from_url_path(entities: list[ScrapedAdminArea]) -> list[
 
     updated = []
     for entity in entities:
-        if entity.parent_code or entity.level <= 0:
+        if entity.level <= 0:
+            updated.append(entity)
+            continue
+        if entity.parent_code and entity.parent_code != entity.country_code:
             updated.append(entity)
             continue
 
-        parent_slug = _url_parent_slug(entity.url)
-        if not parent_slug:
-            updated.append(entity)
-            continue
-
-        parent_code = unique_codes.get((entity.country_code, entity.level - 1, parent_slug))
-        if not parent_code or parent_code == entity.code:
+        parent_code = None
+        for parent_slug in _url_parent_slug_candidates(entity.url):
+            parent_code = unique_codes.get((entity.country_code, entity.level - 1, parent_slug))
+            if parent_code and parent_code != entity.code:
+                break
+            parent_code = None
+        if not parent_code:
             updated.append(entity)
             continue
 
@@ -872,18 +958,41 @@ def _entity_url_slug(url: str | None) -> str | None:
     return _normalize_url_slug(segment.split("__", 1)[1])
 
 
-def _url_parent_slug(url: str | None) -> str | None:
+def _url_parent_slug_candidates(url: str | None) -> tuple[str, ...]:
     if not url:
-        return None
+        return ()
     path = urlparse(url).path
     segments = [segment for segment in path.split("/") if segment]
     if len(segments) < 2:
-        return None
+        return ()
+
+    candidates: list[str] = []
+    last_segment = segments[-1]
+    if "__" not in last_segment:
+        candidates.append(_normalize_url_slug(last_segment))
 
     parent_segment = segments[-2]
     if "__" in parent_segment:
         parent_segment = parent_segment.split("__", 1)[1]
-    return _normalize_url_slug(parent_segment)
+    candidates.append(_normalize_url_slug(parent_segment))
+
+    unique: list[str] = []
+    for candidate in candidates:
+        if candidate and candidate not in unique:
+            unique.append(candidate)
+    return tuple(unique)
+
+
+def _url_parent_slug(url: str | None) -> str | None:
+    candidates = _url_parent_slug_candidates(url)
+    return candidates[0] if candidates else None
+
+
+def _plain_entity_url_slug(url: str | None) -> str | None:
+    segment = _last_url_path_segment(url)
+    if not segment or "__" in segment:
+        return None
+    return _normalize_url_slug(segment)
 
 
 def _last_url_path_segment(url: str | None) -> str | None:

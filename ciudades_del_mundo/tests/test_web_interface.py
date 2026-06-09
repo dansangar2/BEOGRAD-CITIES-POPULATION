@@ -11,7 +11,13 @@ from django.test import TestCase
 from django.utils import timezone
 from django.utils import translation
 
-from ciudades_del_mundo.models import AdminArea, NuevoAdminArea, ScrapingConfig
+from ciudades_del_mundo.models import (
+    AdminArea,
+    NuevoAdminArea,
+    ScrapingConfig,
+    VisualAsset,
+    VisualAssetTranslation,
+)
 from ciudades_del_mundo.services.scraping_configs import upsert_scraping_config
 from ciudades_del_mundo.web.task_progress import task_progress_path
 from ciudades_del_mundo.web.tasks import ManagedTask, TaskManager, task_manager
@@ -1162,7 +1168,7 @@ lowest_level = 0
             self.assertEqual(response.status_code, 200)
             kwargs = start.call_args.kwargs
             self.assertEqual(kwargs["key"], f"clear-config:{slug}")
-            self.assertEqual(kwargs["args"], ["clear_config_data", slug])
+            self.assertEqual(kwargs["args"], ["clear_config_data_with_assets", slug])
             self.assertEqual(response.json()["label"], f"Limpiar: {slug}")
         finally:
             task_manager._recovery_done = original_recovery_done
@@ -1267,7 +1273,7 @@ lowest_level = 0
             self.assertEqual(response.status_code, 200)
             kwargs = start.call_args.kwargs
             self.assertEqual(kwargs["key"], f"clear-config:{slug}")
-            self.assertEqual(kwargs["args"], ["clear_config_data", country_code])
+            self.assertEqual(kwargs["args"], ["clear_config_data_with_assets", country_code])
             self.assertEqual(response.json()["label"], f"Limpiar: {slug}")
         finally:
             task_manager._recovery_done = original_recovery_done
@@ -1322,6 +1328,134 @@ lowest_level = 0
             self.assertFalse(summary["can_clear"])
         finally:
             task_manager._recovery_done = original_recovery_done
+
+    def test_clear_config_data_command_deletes_visual_assets_and_translations(self):
+        slug = "zztestclearassetslug"
+        country_code = "zzrealclearassetcountry"
+        upsert_scraping_config(
+            slug,
+            f"""
+name = "Clear Assets Test"
+country_code = "{country_code}"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        root = AdminArea.objects.create(
+            id=f"{country_code}_root",
+            country_code=country_code,
+            code="root",
+            name="Clear Assets Land",
+            level=0,
+        )
+        child = AdminArea.objects.create(
+            id=f"{country_code}_child",
+            country_code=country_code,
+            code="child",
+            name="Child",
+            level=1,
+            parent=root,
+        )
+        now = timezone.now()
+        country_asset = VisualAsset.objects.create(
+            entity_type="country",
+            entity_key=slug,
+            entity_name="Clear Assets Land",
+            country_code="",
+            kind="flag",
+            status="found",
+            created_at=now,
+            updated_at=now,
+        )
+        admin_asset = VisualAsset.objects.create(
+            entity_type="admin_area",
+            entity_key=child.id,
+            entity_name="Child",
+            country_code="",
+            kind="coat",
+            status="found",
+            created_at=now,
+            updated_at=now,
+        )
+        unrelated_asset = VisualAsset.objects.create(
+            entity_type="country",
+            entity_key="otherland",
+            entity_name="Otherland",
+            country_code="otherland",
+            kind="flag",
+            status="found",
+            created_at=now,
+            updated_at=now,
+        )
+        VisualAssetTranslation.objects.create(
+            asset=country_asset,
+            language="es",
+            title="Bandera",
+            created_at=now,
+            updated_at=now,
+        )
+        VisualAssetTranslation.objects.create(
+            asset=admin_asset,
+            language="es",
+            title="Escudo",
+            created_at=now,
+            updated_at=now,
+        )
+
+        call_command("clear_config_data", country_code)
+
+        self.assertFalse(VisualAsset.objects.filter(id__in=[country_asset.id, admin_asset.id]).exists())
+        self.assertEqual(VisualAssetTranslation.objects.count(), 0)
+        self.assertTrue(VisualAsset.objects.filter(id=unrelated_asset.id).exists())
+
+    def test_clear_config_data_command_deletes_local_visual_asset_files(self):
+        slug = "zztestclearmedia"
+        upsert_scraping_config(
+            slug,
+            """
+name = "Clear Media Test"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+lowest_level = 0
+""".strip() + "\n",
+        )
+        AdminArea.objects.create(
+            id=f"{slug}_root",
+            country_code=slug,
+            code="root",
+            name="Clear Media Land",
+            level=0,
+        )
+        with TemporaryDirectory() as tmpdir, self.settings(MEDIA_ROOT=Path(tmpdir)):
+            local_path = Path("visual_assets") / "flag" / slug / f"{slug}_flag.svg"
+            absolute_path = Path(tmpdir) / local_path
+            absolute_path.parent.mkdir(parents=True, exist_ok=True)
+            absolute_path.write_text("<svg></svg>", encoding="utf-8")
+            now = timezone.now()
+            VisualAsset.objects.create(
+                entity_type="country",
+                entity_key=slug,
+                entity_name="Clear Media Land",
+                country_code=slug,
+                kind="flag",
+                status="downloaded",
+                local_path=str(local_path),
+                local_exists=True,
+                created_at=now,
+                updated_at=now,
+            )
+
+            call_command("clear_config_data", slug)
+
+            self.assertFalse(absolute_path.exists())
+            self.assertEqual(VisualAsset.objects.filter(country_code=slug).count(), 0)
 
     def test_clear_config_data_command_accepts_country_code_not_only_slug(self):
         slug = "zztestclearcountryslug"

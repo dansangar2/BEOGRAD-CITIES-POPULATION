@@ -1,9 +1,11 @@
-name = "Gibraltar"
-country_code = "gibraltar"
-base_url = "https://www.citypopulation.de/en/"
 LEGAL_SUBDIVISION = 1
 
 [[pages]]
 source = "table"
 path = ["admin"]
 lowest_level = 0
+
+[visual_assets]
+bulk_country_wikidata = true
+strict_required = true
+required_kinds = ["flag", "coat"]

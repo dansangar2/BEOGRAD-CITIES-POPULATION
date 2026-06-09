@@ -102,6 +102,7 @@ class CityPopulationAdminScraper(BaseCityPopulationScraper):
                     pop_latest_date=parsed.pop_latest_date,
                     last_census_year=parsed.last_census_year,
                     url=parsed.url,
+                    data_wd=parsed.data_wd,
                 )
                 if root and entity.code == root.code and entity.level == root.level:
                     continue
@@ -167,6 +168,7 @@ class CityPopulationAdminScraper(BaseCityPopulationScraper):
             level=level,
             country_code=country_code,
             entity_type=entity_type,
+            data_wd=self._root_data_wd(section, name=name, country_code=country_code),
             area_km2=area_km2,
             density=density,
             pop_latest=pop_latest,
@@ -268,7 +270,56 @@ class CityPopulationAdminScraper(BaseCityPopulationScraper):
             pop_latest_date=parsed.pop_latest_date,
             last_census_year=parsed.last_census_year,
             url=parsed.url,
+            data_wd=parsed.data_wd,
         )
+
+    def _root_data_wd(self, section, *, name: str, country_code: str) -> str:
+        """Pick the data-wd that belongs to the infosection root, not a child row."""
+        expected = {self._normalize_data_wd_name(name), self._normalize_data_wd_name(country_code)} - {""}
+        candidates: list[tuple[int, str]] = []
+        for element in section.find_all(attrs={"data-wd": True}):
+            qid = self._normalize_data_wd_value(element.get("data-wd"))
+            if not qid:
+                continue
+            text = element.get_text(" ", strip=True)
+            data_wiki = str(element.get("data-wiki") or "")
+            score = max(
+                self._data_wd_name_score(text, expected),
+                self._data_wd_name_score(data_wiki, expected),
+            )
+            if element is section:
+                score += 30
+            if element.find_parent(class_="infoname") or "infoname" in (element.get("class") or []):
+                score += 20
+            if score > 0:
+                candidates.append((score, qid))
+        if not candidates:
+            qid = self._normalize_data_wd_value(section.get("data-wd"))
+            return qid
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        return candidates[0][1]
+
+    def _normalize_data_wd_value(self, value: str | None) -> str:
+        text = str(value or "").strip().upper()
+        return text if re.fullmatch(r"Q\d+", text) else ""
+
+    def _normalize_data_wd_name(self, value: str | None) -> str:
+        text = str(value or "").casefold().replace("_", " ").replace("-", " ")
+        text = re.sub(r"[^\w\s]", " ", text)
+        return re.sub(r"\s+", " ", text).strip()
+
+    def _data_wd_name_score(self, value: str | None, expected: set[str]) -> int:
+        normalized = self._normalize_data_wd_name(value)
+        if not normalized or not expected:
+            return 0
+        if normalized in expected:
+            return 100
+        for item in expected:
+            if normalized in {f"{item} republic", f"republic of {item}", f"state of {item}", f"kingdom of {item}"}:
+                return 95
+            if normalized.startswith(f"{item} ") or normalized.startswith(f"{item}:"):
+                return 70
+        return 0
 
     def _clean_root_name(self, value: str) -> str:
         return re.sub(r"^Contents:\s*", "", value).strip()

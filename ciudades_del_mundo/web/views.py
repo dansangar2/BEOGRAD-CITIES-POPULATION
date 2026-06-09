@@ -61,10 +61,97 @@ from ciudades_del_mundo.services.visual_assets import (
     commons_file_url,
     visual_asset_tables_exist,
 )
+from ciudades_del_mundo.services.config_asset_overrides import (
+    load_config_asset_overrides,
+    save_config_asset_overrides,
+)
+from ciudades_del_mundo.services.status_codes import (
+    get_program_message_catalog,
+    program_message_payload,
+)
 
 from .spain_translations import normalize_language_code, spain_entity_type, spain_name
 from .task_progress import read_task_config_progress
 from .tasks import task_manager
+
+
+
+
+def _program_code_catalog() -> dict:
+    return get_program_message_catalog()
+
+
+def _code_description(code: str) -> str:
+    return program_message_payload(code).get("description", "")
+
+
+def _code_severity(code: str) -> str:
+    return program_message_payload(code).get("severity", "")
+
+
+def _extract_status_code(text: str) -> str:
+    text = str(text or "")
+    catalog = _program_code_catalog()
+    for code in catalog:
+        if code and code in text:
+            return code
+    lowered = text.casefold()
+    if "quedan" in lowered and "recursos visuales" in lowered and "sin asignar" in lowered:
+        return "SCR-ASSET-W001" if "warning" in lowered or "aviso" in lowered else "SCR-ASSET-002"
+    if "tabla de assets visuales" in lowered:
+        return "SCR-ASSET-003"
+    if "búsqueda masiva wikidata" in lowered or "busqueda masiva wikidata" in lowered or "consultas bulk" in lowered:
+        return "SCR-ASSET-001"
+    if "too many sql variables" in lowered or "database is locked" in lowered or "sqlite" in lowered:
+        return "SCR-DB-001"
+    if "timed out" in lowered or "timeout" in lowered or "http error" in lowered or "bad gateway" in lowered:
+        return "SCR-NET-001"
+    return ""
+
+
+def _task_code_info(task, *, validation_error: str = "") -> dict:
+    status = str(getattr(task, "status", "") or "").strip().casefold() if task else ""
+    key = str(getattr(task, "key", "") or "").strip().casefold() if task else ""
+    code = _extract_status_code(validation_error)
+    output = ""
+    if task and (not code or status in {"succeeded", "failed", "cancelled"}):
+        try:
+            output = task_manager.output_tail_text(task)
+        except Exception:
+            output = ""
+        code = code or _extract_status_code(output)
+
+    if not code and status == "cancelled":
+        code = "SCR-CANCEL-001"
+    if not code and validation_error:
+        code = "SCR-VAL-001"
+    if not code and status == "failed":
+        if key.startswith("validate-config:"):
+            code = "SCR-VAL-001"
+        elif key.startswith("clear-config:"):
+            code = "SCR-CLEAR-001"
+        elif key.startswith("asset-corrections:"):
+            code = "SCR-ASSET-W001"
+        elif key.startswith("scrape:"):
+            code = "SCR-DATA-001"
+        else:
+            code = "SCR-UNKNOWN"
+    if not code and status == "succeeded" and key.startswith("scrape:"):
+        code = "SCR-SUCCESS-001"
+
+    payload = program_message_payload(code) if code else {"code": "", "severity": "", "message": "", "description": ""}
+    return {
+        "code": payload.get("code", ""),
+        "severity": payload.get("severity", ""),
+        "message": payload.get("message", ""),
+        "description": payload.get("description", ""),
+    }
+
+
+def _task_error_info(task, *, validation_error: str = "") -> dict:
+    # Backwards-compatible name: callers still use error_code/error_description
+    # fields, but the catalog can now return success and warning codes too.
+    return _task_code_info(task, validation_error=validation_error)
 
 
 CONFIG_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
@@ -489,6 +576,7 @@ def api_visual_assets(request, entity_type, entity_key):
 
 
 def _task_payload(task, *, include_output: bool = False) -> dict:
+    error_info = _task_error_info(task)
     payload = {
         "id": task.id,
         "key": task.key,
@@ -502,6 +590,10 @@ def _task_payload(task, *, include_output: bool = False) -> dict:
         "command": task.command_display,
         "detail_url": reverse("ciudades_del_mundo:task_detail", kwargs={"task_id": task.id}),
         "status_url": reverse("ciudades_del_mundo:task_status", kwargs={"task_id": task.id}),
+        "error_code": error_info["code"],
+        "error_severity": error_info.get("severity", ""),
+        "error_message": error_info.get("message", ""),
+        "error_description": error_info["description"],
     }
     if include_output:
         payload["output"] = task_manager.output_tail_text(task)
@@ -730,6 +822,7 @@ def config_new(request):
             content = _config_content_from_request(request, slug, default_content, existing=False)
             _validate_config_text(slug, content)
             upsert_scraping_config(slug, content)
+            _persist_manual_asset_overrides(slug, content)
         except ValueError as exc:
             if wants_json:
                 return JsonResponse({"ok": False, "error": str(exc)}, status=400)
@@ -766,6 +859,7 @@ def config_edit(request, slug):
             content = _config_content_from_request(request, slug, content, existing=True)
             _validate_config_text(slug, content)
             upsert_scraping_config(slug, content, source_path=config_record.source_path)
+            _persist_manual_asset_overrides(slug, content)
         except ValueError as exc:
             if wants_json:
                 return JsonResponse({"ok": False, "error": str(exc)}, status=400)
@@ -997,6 +1091,36 @@ def start_config_task(request, slug, action):
                 args = ["scrape_subdivisions_with_assets", slug, "--no-download-assets", "--page-workers=4"]
             else:
                 args = ["validate_and_scrape_configs", slug, "--no-download-assets", "--page-workers=4"]
+    elif action == "asset-corrections":
+        if int(row.get("rows") or 0) <= 0:
+            error = _("Primero debes popular el país antes de guardar correcciones de escudos y banderas.")
+            if wants_json:
+                return JsonResponse({"ok": False, "error": error}, status=400)
+            messages.info(request, error)
+            return HttpResponseRedirect(reverse("ciudades_del_mundo:config_edit", kwargs={"slug": slug}))
+        try:
+            config_record = _config_record(slug)
+            if config_record is None:
+                raise ValueError(_("No existe la configuracion '%(slug)s'.") % {"slug": slug})
+            content = _config_content_from_request(request, slug, config_record.content, existing=True)
+            _validate_config_text(slug, content)
+            upsert_scraping_config(slug, content, source_path=config_record.source_path)
+            _persist_manual_asset_overrides(slug, content)
+            export_scraping_configs_to_toml(force=True, slugs=[slug])
+        except ValueError as exc:
+            if wants_json:
+                return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+            messages.error(request, str(exc))
+            return HttpResponseRedirect(reverse("ciudades_del_mundo:config_edit", kwargs={"slug": slug}))
+        except Exception as exc:  # noqa: BLE001 - keep AJAX responses JSON.
+            error = _("No se pudieron guardar/exportar las correcciones: %(error)s") % {"error": exc}
+            if wants_json:
+                return JsonResponse({"ok": False, "error": error}, status=500)
+            messages.error(request, error)
+            return HttpResponseRedirect(reverse("ciudades_del_mundo:config_edit", kwargs={"slug": slug}))
+        key = f"asset-corrections:{slug}"
+        label = _("Guardar correcciones de assets: %(slug)s") % {"slug": slug}
+        args = ["apply_config_asset_overrides", slug]
     elif action == "clear":
         if not row.get("can_clear"):
             error = _("No hay datos")
@@ -1008,7 +1132,7 @@ def start_config_task(request, slug, action):
             return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
         key = f"clear-config:{slug}"
         label = f"{_('Limpiar')}: {slug}"
-        args = ["clear_config_data", row.get("country_code") or slug]
+        args = ["clear_config_data_with_assets", row.get("country_code") or slug]
     else:
         error = _("Acción de configuración no soportada.")
         if wants_json:
@@ -1059,6 +1183,8 @@ def _terminal_config_progress_status(task) -> str:
             return "validated"
         if key.startswith("clear-config:"):
             return "pending"
+        if key.startswith("asset-corrections:"):
+            return "populated"
     if status == "cancelled":
         return "cancelled"
     if status == "failed":
@@ -1118,6 +1244,14 @@ def task_status(request, task_id):
                     item["status"] = next_status
         if slug and not config_progress:
             config_progress = {slug: {"status": summary_status or terminal_status, "detail": ""}}
+    error_info = _task_error_info(task)
+    if error_info["code"] and isinstance(config_progress, dict):
+        for item in config_progress.values():
+            if isinstance(item, dict):
+                item.setdefault("error_code", error_info["code"])
+                item.setdefault("error_severity", error_info.get("severity", ""))
+                item.setdefault("error_message", error_info.get("message", ""))
+                item.setdefault("error_description", error_info["description"])
     payload = {
         "id": task.id,
         "label": task.label,
@@ -1126,6 +1260,10 @@ def task_status(request, task_id):
         "returncode": task.returncode,
         "detail_url": reverse("ciudades_del_mundo:task_detail", kwargs={"task_id": task.id}),
         "config_progress": config_progress,
+        "error_code": error_info["code"],
+        "error_severity": error_info.get("severity", ""),
+        "error_message": error_info.get("message", ""),
+        "error_description": error_info["description"],
     }
     if "since" in request.GET:
         try:
@@ -1154,6 +1292,7 @@ def config_summary(request, slug):
     task_display_status = row.get("task_display_status") or _config_task_display_status(task)
     status_filter = _config_row_status({**row, "task_display_status": task_display_status})
     workflow_row = _decorate_config_workflow_flags({**row, "task_display_status": task_display_status})
+    error_info = _task_error_info(task, validation_error=row.get("error") or "")
     return JsonResponse(
         {
             "slug": row["slug"],
@@ -1179,6 +1318,10 @@ def config_summary(request, slug):
             "can_resume": bool(workflow_row.get("can_resume")),
             "can_stop": bool(workflow_row.get("can_stop")),
             "error": row.get("error") or "",
+            "error_code": error_info["code"],
+            "error_severity": error_info.get("severity", ""),
+            "error_message": error_info.get("message", ""),
+            "error_description": error_info["description"],
         }
     )
 
@@ -1188,7 +1331,16 @@ def config_source_entities(request, slug):
     slug = _normalize_config_slug(slug)
     if not _config_exists(slug):
         raise Http404(_("No existe la configuracion '%(slug)s'.") % {"slug": slug})
-    entities = _source_entities_for_config(_config_country_code_for_slug(slug))
+    country_code = _config_country_code_for_slug(slug)
+    if request.GET.get("asset_options") == "1":
+        return JsonResponse(
+            _asset_assignment_options_payload(
+                country_code,
+                level=request.GET.get("level"),
+                entity_id=request.GET.get("entity_id"),
+            )
+        )
+    entities = _source_entities_for_config(country_code)
     level_rows = _source_level_filter_options(entities)
     entity_type_rows = _source_entity_type_filter_options(entities)
     parent_rows = _source_parent_filter_options(entities)
@@ -1849,6 +2001,7 @@ def task_detail(request, task_id):
     task = task_manager.get(task_id)
     if not task:
         raise Http404(_("Tarea no encontrada."))
+    task_code = _task_error_info(task)
     return render(
         request,
         "ciudades_del_mundo/task_detail.html",
@@ -1856,6 +2009,10 @@ def task_detail(request, task_id):
             "task": task,
             "task_output": task_manager.output_text(task),
             "task_output_offset": task_manager.output_offset(task),
+            "task_code": task_code,
+            "task_status_code": task_code.get("code", ""),
+            "task_status_code_description": task_code.get("description", ""),
+            "task_status_code_severity": task_code.get("severity", ""),
         },
     )
 
@@ -3029,11 +3186,28 @@ def _scrape_type_choices() -> list[tuple[str, str]]:
         ("admin", _("Admin")),
         ("auto", _("Auto")),
         ("table", _("Tabla")),
-        ("double", _("Doble")),
         ("cities", _("Ciudades")),
         ("infosection", _("Sección informativa")),
     ]
 
+
+
+
+def _normalize_page_source_for_form(value) -> str:
+    source = str(value or "admin").strip().lower()
+    if source == "double":
+        return "table"
+    return source or "admin"
+
+
+def _persist_manual_asset_overrides(slug: str, content: str) -> None:
+    try:
+        data = tomllib.loads(content or "")
+    except tomllib.TOMLDecodeError:
+        return
+    country_code = str(data.get("country_code") or slug or "").strip()
+    rows = _asset_assignment_rows_for_form(data, country_code=country_code)
+    save_config_asset_overrides(slug, country_code, rows)
 
 def _ai_provider_choices() -> list[tuple[str, str]]:
     labels = {
@@ -3058,7 +3232,7 @@ def _parse_config_editor_data(slug: str, content: str, *, asset_editor_enabled: 
             {
                 "paths": _page_paths_list_for_form(raw_paths),
                 "paths_text": _page_paths_text_for_form(raw_paths),
-                "source": str(page.get("source", page.get("html_format", "admin"))),
+                "source": _normalize_page_source_for_form(page.get("source", page.get("html_format", "admin"))),
                 "lowest_level": "" if page.get("lowest_level", page.get("level")) is None else str(page.get("lowest_level", page.get("level"))),
                 "include_root": "" if "include_root" not in page else _bool_text(page.get("include_root")),
                 "include_tables": _list_text_for_form(page.get("include_tables", page.get("tables"))),
@@ -3073,6 +3247,17 @@ def _parse_config_editor_data(slug: str, content: str, *, asset_editor_enabled: 
         )
     country_code = str(data.get("country_code") or slug or "")
     visual_assets = data.get("visual_assets") if isinstance(data.get("visual_assets"), dict) else {}
+    asset_overrides = _asset_assignment_rows_for_form(data, country_code=country_code)
+    persisted_asset_overrides = load_config_asset_overrides(slug) if slug else []
+    if persisted_asset_overrides:
+        asset_overrides = persisted_asset_overrides
+    selected_entity_ids = [row.get("entity_id") for row in asset_overrides if row.get("entity_id")]
+    selected_resource_qids = [
+        row.get(key)
+        for row in asset_overrides
+        for key in ("flag_qid", "coat_qid")
+        if row.get(key)
+    ]
     return {
         "country_code": country_code,
         "wikidata_id": str(data.get("wikidata_id") or ""),
@@ -3084,8 +3269,13 @@ def _parse_config_editor_data(slug: str, content: str, *, asset_editor_enabled: 
             "required_kinds": _list_text_for_form(visual_assets.get("required_kinds") or ["flag", "coat"]),
             "required_levels": _list_text_for_form(visual_assets.get("required_levels") or []),
         },
-        "asset_options": _asset_assignment_options_for_form(country_code, enabled=asset_editor_enabled),
-        "asset_overrides": _asset_assignment_rows_for_form(data, country_code=country_code),
+        "asset_options": _asset_assignment_options_for_form(
+            country_code,
+            enabled=asset_editor_enabled,
+            selected_entity_ids=selected_entity_ids,
+            selected_resource_qids=selected_resource_qids,
+        ),
+        "asset_overrides": asset_overrides,
     }
 
 
@@ -3116,7 +3306,6 @@ def _asset_assignment_rows_for_form(data: dict, *, country_code: str) -> list[di
                 "entity_id": entity_id,
                 "flag_qid": "",
                 "coat_qid": "",
-                "replace_existing": _bool_text(override.get("replace_existing") or override.get("force") or True),
             },
         )
         if level and not row.get("level"):
@@ -3165,29 +3354,103 @@ def _asset_assignment_entity_id_from_override(override: dict, *, country_code: s
     return ""
 
 
-def _asset_assignment_options_for_form(country_code: str, *, enabled: bool) -> dict:
+def _asset_assignment_options_for_form(
+    country_code: str,
+    *,
+    enabled: bool,
+    selected_entity_ids: list[str] | None = None,
+    selected_resource_qids: list[str] | None = None,
+) -> dict:
+    """Return only the data needed to render the first asset editor paint.
+
+    Large countries can have tens of thousands of AdminArea rows. The edit page
+    must not load every entity and every resource just because the user enters
+    /configs/{pais}/. Full lists are now requested on demand through
+    config_source_entities?asset_options=1, filtered by level and selected
+    entity.
+    """
     base = {"enabled": bool(enabled), "levels": [], "entities": [], "flags": [], "coats": []}
     if not enabled or not country_code:
         return base
+    base["levels"] = _asset_assignment_level_options(country_code)
+    entity_ids = [str(value) for value in (selected_entity_ids or []) if str(value or "").strip()]
+    qids = [str(value) for value in (selected_resource_qids or []) if str(value or "").strip()]
+    if entity_ids:
+        base["entities"] = _asset_assignment_entity_options(country_code, entity_ids=entity_ids)
+    if qids:
+        resources = _country_asset_resource_options(country_code, selected_qids=qids)
+        base["flags"] = resources.get("flag", [])
+        base["coats"] = resources.get("coat", [])
+    return base
+
+
+def _asset_assignment_options_payload(country_code: str, *, level: str | None = None, entity_id: str | None = None) -> dict:
+    """Payload used by the correction editor to load options lazily."""
+    enabled = bool(country_code and _visible_admin_areas().filter(country_code__iexact=country_code).exists())
+    payload = {"enabled": enabled, "levels": [], "entities": [], "flags": [], "coats": []}
+    if not enabled:
+        return payload
+    payload["levels"] = _asset_assignment_level_options(country_code)
+    if level is not None and str(level).strip() != "":
+        payload["entities"] = _asset_assignment_entity_options(country_code, level=level)
+    selected_entity_id = str(entity_id or "").strip()
+    if selected_entity_id:
+        resources = _country_asset_resource_options(country_code, entity_id=selected_entity_id)
+        payload["flags"] = resources.get("flag", [])
+        payload["coats"] = resources.get("coat", [])
+    return payload
+
+
+def _asset_assignment_level_options(country_code: str) -> list[dict[str, str]]:
+    if not country_code:
+        return []
     try:
-        areas = list(
+        rows = (
             _visible_admin_areas()
-            .filter(country_code=country_code)
+            .filter(country_code__iexact=country_code)
+            .values("level")
+            .annotate(total=Count("id"))
+            .order_by("level")
+        )
+        return [
+            {"value": str(row["level"]), "label": _("Nivel %(level)s (%(count)s)") % {"level": row["level"], "count": row["total"]}}
+            for row in rows
+        ]
+    except (OperationalError, ProgrammingError, ValueError):
+        return []
+
+
+def _asset_assignment_entity_options(
+    country_code: str,
+    *,
+    level: str | int | None = None,
+    entity_ids: list[str] | None = None,
+) -> list[dict[str, str]]:
+    if not country_code:
+        return []
+    try:
+        queryset = (
+            _visible_admin_areas()
+            .filter(country_code__iexact=country_code)
             .order_by("level", "name", "id")
             .only("id", "name", "level", "code")
         )
-    except (OperationalError, ProgrammingError):
-        return base
+        ids = [int(value) for value in (entity_ids or []) if str(value or "").isdigit()]
+        if ids:
+            queryset = queryset.filter(id__in=ids)
+        elif level is not None and str(level).strip() != "":
+            queryset = queryset.filter(level=int(level))
+        else:
+            return []
+        areas = list(queryset)
+    except (OperationalError, ProgrammingError, TypeError, ValueError):
+        return []
     if not areas:
-        return base
+        return []
 
-    area_ids = [str(area.id) for area in areas]
-    assets_by_entity = _admin_area_asset_kind_map(area_ids)
-    counts: dict[int, int] = {}
+    assets_by_entity = _admin_area_asset_kind_map([str(area.id) for area in areas])
     entities = []
     for area in areas:
-        level = int(area.level or 0)
-        counts[level] = counts.get(level, 0) + 1
         kinds = assets_by_entity.get(str(area.id), set())
         has_flag = "flag" in kinds
         has_coat = "coat" in kinds
@@ -3201,22 +3464,13 @@ def _asset_assignment_options_for_form(country_code: str, *, enabled: bool) -> d
         entities.append(
             {
                 "id": str(area.id),
-                "level": str(level),
+                "level": str(int(area.level or 0)),
                 "label": _area_display_name(area),
                 "status": status,
                 "status_label": _asset_entity_status_label(status),
             }
         )
-    base["levels"] = [
-        {"value": str(level), "label": _("Nivel %(level)s (%(count)s)") % {"level": level, "count": counts[level]}}
-        for level in sorted(counts)
-    ]
-    base["entities"] = entities
-    resources = _country_asset_resource_options(country_code)
-    base["flags"] = resources.get("flag", [])
-    base["coats"] = resources.get("coat", [])
-    return base
-
+    return entities
 
 def _asset_entity_status_label(status: str) -> str:
     if status == "missing_both":
@@ -3231,31 +3485,61 @@ def _asset_entity_status_label(status: str) -> str:
 def _admin_area_asset_kind_map(area_ids: list[str]) -> dict[str, set[str]]:
     if not area_ids or not visual_asset_tables_exist():
         return {}
-    placeholders = ", ".join(["%s"] * len(area_ids))
+    area_ids = [str(area_id) for area_id in area_ids if str(area_id or "").strip()]
     result: dict[str, set[str]] = {}
+    # SQLite has a hard limit on the number of SQL variables per statement.
+    # Large countries such as Spain can have tens of thousands of AdminArea rows,
+    # so the asset lookup must be split into small IN() batches. Keep the batch
+    # intentionally low because some local SQLite builds are compiled with a
+    # lower SQLITE_MAX_VARIABLE_NUMBER than the common 999/32766 defaults.
+    batch_size = 100
     with connection.cursor() as cursor:
-        cursor.execute(
-            f"""
-                SELECT entity_key, kind, commons_filename, remote_url, local_path, local_exists
-                FROM ciudades_del_mundo_visual_asset
-                WHERE entity_type = %s
-                  AND entity_key IN ({placeholders})
-                  AND kind IN (%s, %s)
-            """,
-            ["admin_area", *area_ids, "flag", "coat"],
-        )
-        for row in _dictfetchall(cursor):
-            if _visual_asset_row_has_image(row):
-                result.setdefault(str(row.get("entity_key")), set()).add(str(row.get("kind")))
+        for start in range(0, len(area_ids), batch_size):
+            batch = area_ids[start : start + batch_size]
+            if not batch:
+                continue
+            placeholders = ", ".join(["%s"] * len(batch))
+            cursor.execute(
+                f"""
+                    SELECT entity_key, kind, commons_filename, remote_url, local_path, local_exists
+                    FROM ciudades_del_mundo_visual_asset
+                    WHERE entity_type = %s
+                      AND entity_key IN ({placeholders})
+                      AND kind IN (%s, %s)
+                """,
+                ["admin_area", *batch, "flag", "coat"],
+            )
+            for row in _dictfetchall(cursor):
+                if _visual_asset_row_has_image(row):
+                    result.setdefault(str(row.get("entity_key")), set()).add(str(row.get("kind")))
     return result
 
 
-def _country_asset_resource_options(country_code: str) -> dict[str, list[dict[str, object]]]:
+def _country_asset_resource_options(
+    country_code: str,
+    *,
+    entity_id: str | None = None,
+    selected_qids: list[str] | None = None,
+) -> dict[str, list[dict[str, object]]]:
     result = {"flag": [], "coat": []}
-    if not visual_asset_tables_exist():
+    if not country_code or not visual_asset_tables_exist():
         return result
-    assigned = set()
+
+    selected_qids_set = {str(value) for value in (selected_qids or []) if str(value or "").strip()}
+    selected_area = None
+    current_entity_qids: set[str] = set()
+    entity_id = str(entity_id or "").strip()
+    if entity_id:
+        try:
+            selected_area = _visible_admin_areas().filter(country_code__iexact=country_code, id=int(entity_id)).only(
+                "id", "name", "code", "level"
+            ).first()
+        except (OperationalError, ProgrammingError, TypeError, ValueError):
+            selected_area = None
+
     resources: dict[tuple[str, str], dict[str, object]] = {}
+    assigned: set[tuple[str, str]] = set()
+    rows: list[dict] = []
     with connection.cursor() as cursor:
         cursor.execute(
             """
@@ -3264,25 +3548,37 @@ def _country_asset_resource_options(country_code: str) -> dict[str, list[dict[st
                 WHERE country_code = %s
                   AND kind IN (%s, %s)
                   AND wikidata_id <> ''
+                  AND (
+                    entity_type = %s
+                    OR entity_type = %s
+                    OR (entity_type = %s AND entity_key = %s)
+                  )
                 ORDER BY kind, entity_name, commons_filename
             """,
-            [country_code, "flag", "coat"],
+            [country_code, "flag", "coat", "wikidata_country_resource", "country", "admin_area", entity_id],
         )
-        for row in _dictfetchall(cursor):
-            if not _visual_asset_row_has_image(row):
-                continue
-            kind = str(row.get("kind") or "")
-            qid = str(row.get("wikidata_id") or "")
-            if kind not in result or not qid:
-                continue
-            key = (kind, qid)
-            if str(row.get("entity_type") or "") in {"admin_area", "country"}:
-                assigned.add(key)
-            label = str(row.get("entity_name") or "").strip() or qid
-            filename = str(row.get("commons_filename") or "").strip()
-            if filename and filename not in label:
-                label = f"{label} — {filename}"
-            resources.setdefault(key, {"value": qid, "label": label, "assigned": False})
+        rows = _dictfetchall(cursor)
+
+    for row in rows:
+        if not _visual_asset_row_has_image(row):
+            continue
+        kind = str(row.get("kind") or "")
+        qid = str(row.get("wikidata_id") or "")
+        if kind not in result or not qid:
+            continue
+        key = (kind, qid)
+        if str(row.get("entity_type") or "") in {"admin_area", "country"}:
+            assigned.add(key)
+            if not entity_id or str(row.get("entity_key") or "") == entity_id:
+                current_entity_qids.add(qid)
+        if entity_id and not _asset_resource_matches_selected_entity(row, selected_area, selected_qids_set | current_entity_qids):
+            continue
+        label = str(row.get("entity_name") or "").strip() or qid
+        filename = str(row.get("commons_filename") or "").strip()
+        if filename and filename not in label:
+            label = f"{label} — {filename}"
+        resources.setdefault(key, {"value": qid, "label": label, "assigned": False})
+
     for key, option in resources.items():
         option["assigned"] = key in assigned
         result[key[0]].append(option)
@@ -3290,6 +3586,27 @@ def _country_asset_resource_options(country_code: str) -> dict[str, list[dict[st
         result[kind].sort(key=lambda item: (bool(item.get("assigned")), str(item.get("label") or "").casefold()))
     return result
 
+
+def _asset_resource_matches_selected_entity(row: dict, area, forced_qids: set[str]) -> bool:
+    qid = str(row.get("wikidata_id") or "")
+    if qid and qid in forced_qids:
+        return True
+    if str(row.get("entity_type") or "") == "admin_area":
+        return True
+    if area is None:
+        return False
+    needles = set()
+    for value in (getattr(area, "name", ""), getattr(area, "official_name", ""), getattr(area, "code", "")):
+        needles.update(_name_match_variants(value))
+    haystack_values = [
+        row.get("entity_name"),
+        row.get("commons_filename"),
+        row.get("entity_key"),
+    ]
+    haystack = " ".join(_normalized_text(value) for value in haystack_values if str(value or "").strip())
+    if not haystack:
+        return False
+    return any(needle and (needle in haystack or haystack in needle) for needle in needles)
 
 def _list_from_value(value) -> list[str]:
     if value is None or value == "":
@@ -3573,8 +3890,6 @@ def _render_config_from_manual_post(slug: str, post) -> str:
         if override.get("level") is not None:
             lines.append(f"level = {int(override['level'])}")
         lines.append(f"wikidata_id = {_toml_string(override['wikidata_id'])}")
-        if override.get("replace_existing"):
-            lines.append("replace_existing = true")
         lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
@@ -3596,14 +3911,13 @@ def _manual_asset_overrides_from_post(post) -> list[dict]:
     entity_ids = post.getlist("asset_assignment_entity_id")
     flag_qids = post.getlist("asset_assignment_flag_qid")
     coat_qids = post.getlist("asset_assignment_coat_qid")
-    replace_flags = post.getlist("asset_assignment_replace_existing")
 
     rows = []
     for index, values in enumerate(
-        zip_longest(levels, entity_ids, flag_qids, coat_qids, replace_flags, fillvalue=""),
+        zip_longest(levels, entity_ids, flag_qids, coat_qids, fillvalue=""),
         start=1,
     ):
-        raw_level, raw_entity_id, raw_flag_qid, raw_coat_qid, raw_replace = values
+        raw_level, raw_entity_id, raw_flag_qid, raw_coat_qid = values
         entity_id = str(raw_entity_id or "").strip()
         flag_qid = str(raw_flag_qid or "").strip()
         coat_qid = str(raw_coat_qid or "").strip()
@@ -3618,7 +3932,6 @@ def _manual_asset_overrides_from_post(post) -> list[dict]:
                 level_value = int(level)
             except (TypeError, ValueError) as exc:
                 raise ValueError(_("El nivel de la corrección de assets %(index)s debe ser numérico.") % {"index": index}) from exc
-        replace_existing = _form_bool(raw_replace, default=True)
         for kind, qid in (("flag", flag_qid), ("coat", coat_qid)):
             if not qid:
                 continue
@@ -3626,7 +3939,6 @@ def _manual_asset_overrides_from_post(post) -> list[dict]:
                 "ids": [entity_id],
                 "wikidata_id": qid,
                 "kinds": [kind],
-                "replace_existing": replace_existing,
             }
             if level_value is not None:
                 row["level"] = level_value
@@ -3701,7 +4013,7 @@ def _manual_pages_from_post(post) -> list[dict]:
         paths = _page_paths_from_text(raw_paths)
         if not paths:
             continue
-        source = str(source or "").strip() or "admin"
+        source = _normalize_page_source_for_form(source)
         try:
             level_int = int(raw_level or 0)
         except (TypeError, ValueError) as exc:
@@ -4314,12 +4626,12 @@ def _generated_page_from_citypopulation_probe(
             include_tables = ("ts",)
             table_levels = (("ts", max(lowest_level + 1, 4)),)
         if source == "admin":
-            source = "double"
+            source = "table"
     elif category == "regional_detail" and f"{probe.path}/admin" in candidate_paths and probe.profile.has_ts:
         include_tables = ("ts",)
         table_levels = (("ts", max(lowest_level + 2, 4)),)
         if source == "admin":
-            source = "double"
+            source = "table"
     elif category == "regional_cities" and probe.profile.has_ts and probe.profile.has_tl:
         include_tables = ("ts",)
         table_levels = (("ts", max(lowest_level + 2, 4)),)
@@ -4343,11 +4655,11 @@ def _citypopulation_source_for_probe(probe: CityPopulationPageProbe) -> str:
     preferred = probe.profile.preferred_html_format
     path = probe.path.casefold()
     category = probe.category
-    if category in {"main_cities", "regional_cities"} and preferred in {"table", "double", "infosection"}:
+    if category in {"main_cities", "regional_cities"} and preferred in {"table", "infosection"}:
         return "cities"
-    if path.startswith("cities/") and preferred in {"table", "double", "infosection"}:
+    if path.startswith("cities/") and preferred in {"table", "infosection"}:
         return "cities"
-    return preferred if preferred in {"admin", "table", "double", "cities", "infosection"} else "auto"
+    return _normalize_page_source_for_form(preferred) if preferred in {"admin", "table", "double", "cities", "infosection"} else "auto"
 
 
 def _citypopulation_lowest_level_for_probe(
@@ -4576,6 +4888,11 @@ def _config_task_key_for_row(row: dict) -> str:
 def _decorate_config_workflow_flags(row: dict) -> dict:
     status = _config_row_status(row)
     row["status_filter"] = status
+    error_info = _task_error_info(row.get("active_task"), validation_error=row.get("error") or "")
+    row["error_code"] = error_info["code"]
+    row["error_severity"] = error_info.get("severity", "")
+    row["error_message"] = error_info.get("message", "")
+    row["error_description"] = error_info["description"]
     row["can_validate"] = _can_validate_config_row(row, status)
     row["can_scrape"] = _can_scrape_config_row(row, status)
     row["can_resume"] = False
@@ -4699,6 +5016,8 @@ def _config_task_display_status(task) -> str:
             return "validated"
         if key.startswith("clear-config:"):
             return "pending"
+        if key.startswith("asset-corrections:"):
+            return "populated"
     if status in {"running", "queued"}:
         if key.startswith("scrape:"):
             return "populating"

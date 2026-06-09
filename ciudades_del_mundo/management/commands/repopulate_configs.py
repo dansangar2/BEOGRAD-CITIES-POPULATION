@@ -92,7 +92,7 @@ class Command(BaseCommand):
             if _country_has_scraped_data(country_code):
                 write_config_progress(slug, "clearing", detail="Limpiando datos anteriores")
                 self._write(f"[limpiar] {slug}: ya tenía datos; limpiando antes de re-popular...")
-                self._run_with_sqlite_retry(lambda: call_command("clear_config_data", country_code))
+                self._run_with_sqlite_retry(lambda: call_command("clear_config_data_with_assets", country_code))
             else:
                 self._write(f"[limpiar] {slug}: no había datos previos que limpiar.")
 

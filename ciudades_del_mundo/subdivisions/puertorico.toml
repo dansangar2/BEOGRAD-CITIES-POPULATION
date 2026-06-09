@@ -1,3 +1,4 @@
+
 [[pages]]
 source = "infosection"
 path = ["cities"]
@@ -7,3 +8,13 @@ lowest_level = 0
 source = "table"
 path = ["admin"]
 lowest_level = 1
+
+[[pages]]
+source = "table"
+path = ["towns"]
+lowest_level = 1
+
+[visual_assets]
+bulk_country_wikidata = true
+strict_required = true
+required_kinds = ["flag", "coat"]
