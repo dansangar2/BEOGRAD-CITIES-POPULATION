@@ -676,10 +676,12 @@
     }
     panel.dataset.taskDetailBound = "1";
     var statusUrl = panel.dataset.statusUrl || "";
-    if (!statusUrl || panel.dataset.active !== "1") {
+    if (!statusUrl) {
       return;
     }
     var stopped = false;
+
+    bindTaskCancelForm(panel);
 
     function poll() {
       if (stopped || !document.body.contains(panel)) {
@@ -700,7 +702,53 @@
           window.setTimeout(poll, TASK_DETAIL_POLL_MS * 2);
         });
     }
-    window.setTimeout(poll, TASK_DETAIL_POLL_MS);
+    window.setTimeout(poll, 0);
+  }
+
+  function bindTaskCancelForm(panel) {
+    var form = panel ? panel.querySelector("[data-task-cancel-form]") : document.querySelector("[data-task-cancel-form]");
+    if (!form || form.dataset.taskCancelBound === "1") {
+      return;
+    }
+    form.dataset.taskCancelBound = "1";
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var button = event.submitter || form.querySelector("button[type='submit']");
+      var previousText = button ? button.textContent : "";
+      var toast = createConfigToast("Cancelación", "Cancelación solicitada...", panel || document.body);
+      if (button) {
+        button.disabled = true;
+        button.textContent = "Cancelando...";
+      }
+      fetch(form.action || window.location.href, {
+        method: "POST",
+        body: new FormData(form),
+        credentials: "same-origin",
+        headers: {
+          "Accept": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+          "X-CSRFToken": csrfFromForm(form)
+        }
+      }).then(parseJsonResponseText).then(function (data) {
+        setConfigToastStatus(toast, "running", data.message || "Cancelación solicitada.");
+        if (data.status_url) {
+          panel.dataset.statusUrl = data.status_url;
+        }
+        updateTaskDetailFromPayload(panel, data);
+        panel.dataset.active = data.is_active ? "1" : "0";
+      }).catch(function (error) {
+        setConfigToastStatus(toast, "failed", error.message || "No se pudo cancelar la tarea.");
+        toast.element.classList.add("is-error");
+        scheduleConfigToastDismiss(toast, CONFIG_TOAST_DONE_VISIBLE_MS);
+      }).finally(function () {
+        if (button) {
+          button.disabled = false;
+          if (previousText) {
+            button.textContent = previousText;
+          }
+        }
+      });
+    });
   }
 
   function taskTableMarker(target) {
@@ -2373,27 +2421,37 @@
   }
 
   function renderCountryTablePanel(panel, data, labels, baseUrl, target, areaStack) {
+    var levels = data.levels || [];
+    var levelLabel = null;
+    if (levels.length > 1) {
+      levelLabel = document.createElement("label");
+      levelLabel.textContent = labels.levelLabel;
+      var levelSelect = document.createElement("select");
+      levels.forEach(function (level) {
+        var option = document.createElement("option");
+        option.value = level.value;
+        option.textContent = level.label + (level.entity_type ? " \u00b7 " + level.entity_type : "");
+        option.selected = String(level.value) === String(data.selected_level);
+        levelSelect.appendChild(option);
+      });
+      levelSelect.addEventListener("change", function () {
+        loadCountryTableOnly(panel, baseUrl, levelSelect.value, target);
+      });
+      levelLabel.appendChild(levelSelect);
+    }
+    if (levelLabel) {
+      var levelControls = document.createElement("div");
+      levelControls.className = "country-level-controls";
+      levelControls.appendChild(levelLabel);
+      panel.appendChild(levelControls);
+    }
+
     var heading = document.createElement("h2");
     heading.textContent = labels.tableTitle;
     panel.appendChild(heading);
 
     var controls = document.createElement("div");
     controls.className = "country-table-controls";
-
-    var levelLabel = document.createElement("label");
-    levelLabel.textContent = labels.levelLabel;
-    var levelSelect = document.createElement("select");
-    (data.levels || []).forEach(function (level) {
-      var option = document.createElement("option");
-      option.value = level.value;
-      option.textContent = level.label + (level.entity_type ? " \u00b7 " + level.entity_type : "");
-      option.selected = String(level.value) === String(data.selected_level);
-      levelSelect.appendChild(option);
-    });
-    levelSelect.addEventListener("change", function () {
-      loadCountryTableOnly(panel, baseUrl, levelSelect.value, target);
-    });
-    levelLabel.appendChild(levelSelect);
 
     var filterLabel = document.createElement("label");
     filterLabel.textContent = labels.filterLabel;
@@ -2414,7 +2472,6 @@
     });
     pageSizeLabel.appendChild(pageSizeSelect);
 
-    controls.appendChild(levelLabel);
     controls.appendChild(filterLabel);
     panel.appendChild(controls);
 
@@ -3398,6 +3455,19 @@
     });
   }
 
+  function statsChildGroupsFromCountry(data) {
+    var groups = (data.first_order && data.first_order.child_groups) || [];
+    if (Array.isArray(groups) && groups.length) {
+      return groups.map(function (group) {
+        return {
+          label: group.label || null,
+          children: group.children || []
+        };
+      });
+    }
+    return [{ label: null, children: statsChildRowsFromCountry(data) }];
+  }
+
   function normalizedEntityType(value) {
     var text = String(value || "").trim();
     if (text.normalize) {
@@ -3842,18 +3912,35 @@
         basicPanel.dataset.loading = target.dataset.loading || "";
         renderCountryGeneralPanel(basicPanel, data, labels);
 
-        var firstLevelPanel = document.createElement("article");
-        firstLevelPanel.className = "panel stats-country-first-level-panel";
-
         var stack = document.createElement("div");
         stack.className = "stats-area-stack";
 
-        renderStatsChildrenPanel(firstLevelPanel, null, statsChildRowsFromCountry(data), labels, function (item) {
-          loadStatsAreaDetail(stack, item.detail_url, labels, target, 0);
-        });
-
+        var childGroups = statsChildGroupsFromCountry(data);
+        var splitChildren = childGroups.length > 1;
         grid.appendChild(basicPanel);
-        grid.appendChild(firstLevelPanel);
+        if (splitChildren) {
+          grid.classList.add("stats-area-detail-grid", "has-split-children");
+          basicPanel.classList.add("stats-area-basic-panel", "stats-area-basic-panel--span-split");
+          var childrenStack = document.createElement("div");
+          childrenStack.className = "stats-area-child-groups-stack";
+          childGroups.forEach(function (group) {
+            var childPanel = document.createElement("article");
+            childPanel.className = "panel stats-country-first-level-panel";
+            renderStatsChildrenPanel(childPanel, group.label || null, group.children || [], labels, function (item) {
+              loadStatsAreaDetail(stack, item.detail_url, labels, target, 0);
+            });
+            childrenStack.appendChild(childPanel);
+          });
+          grid.appendChild(childrenStack);
+        } else {
+          var firstLevelPanel = document.createElement("article");
+          firstLevelPanel.className = "panel stats-country-first-level-panel";
+          renderStatsChildrenPanel(firstLevelPanel, null, childGroups[0] ? childGroups[0].children : [], labels, function (item) {
+            loadStatsAreaDetail(stack, item.detail_url, labels, target, 0);
+          });
+          grid.appendChild(firstLevelPanel);
+        }
+
         target.appendChild(grid);
         target.appendChild(stack);
         target.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -5547,6 +5634,110 @@
     });
   }
 
+
+  function manualPageCheckboxValue(row, name, fallback) {
+    var hidden = row ? row.querySelector('[name="' + name + '"][data-checkbox-fallback]') : null;
+    if (hidden) {
+      var label = hidden.closest(".manual-mini-check");
+      var toggle = label ? label.querySelector("[data-checkbox-toggle]") : null;
+      if (toggle) {
+        hidden.value = toggle.checked ? "true" : "false";
+      }
+      return String(hidden.value || (fallback ? "true" : "false")).toLowerCase() === "true";
+    }
+    return Boolean(fallback);
+  }
+
+  function manualPageRepeatValue(row, name) {
+    var field = row ? row.querySelector('[name="' + name + '"]') : null;
+    if (!field) {
+      return null;
+    }
+    var value = String(field.value || "").trim();
+    if (value === "") {
+      return null;
+    }
+    var parsed = parseInt(value, 10);
+    if (!Number.isFinite(parsed) || parsed <= 1) {
+      return null;
+    }
+    return parsed;
+  }
+
+  function syncManualPagesJson(form) {
+    if (!form || !form.matches || !form.matches(".config-manual-form")) {
+      return;
+    }
+    var target = form.querySelector("[data-manual-pages-json]");
+    if (!target) {
+      target = document.createElement("input");
+      target.type = "hidden";
+      target.name = "pages_json";
+      target.setAttribute("data-manual-pages-json", "");
+      form.appendChild(target);
+    }
+    var pages = [];
+    var tbody = form.querySelector("[data-manual-pages]");
+    if (!tbody) {
+      target.value = "[]";
+      return;
+    }
+    Array.prototype.slice.call(tbody.querySelectorAll("tr")).forEach(function (row) {
+      bindCheckboxFallbacks(row);
+      syncPagePathHidden(row);
+      var sourceField = row.querySelector('[name="page_source"]');
+      var source = sourceField ? String(sourceField.value || "cities").toLowerCase() : "cities";
+      if (["cities", "admin", "citiesadmin"].indexOf(source) === -1) {
+        source = "cities";
+      }
+      var paths = pagePathValuesFromRow(row);
+      if (!paths.length) {
+        return;
+      }
+      var levelField = row.querySelector('[name="page_force_highest_level"], [name="page_lowest_level"], [name="page_level"]');
+      var levelText = levelField ? String(levelField.value || "").trim() : "";
+      var parentLevelField = row.querySelector('[name="page_parent_level"]');
+      var parentLevelText = parentLevelField ? String(parentLevelField.value || "").trim() : "";
+      var page = {
+        source: source,
+        path: paths,
+        sum_to_root: manualPageCheckboxValue(row, "page_sum_to_root", false),
+        include: {
+          infosection: manualPageCheckboxValue(row, "page_include_infosection", true)
+        }
+      };
+      if (levelText !== "") {
+        page.force_highest_level = levelText;
+      }
+      if (parentLevelText !== "") {
+        page.parent_level = parentLevelText;
+      }
+      var repeat = {};
+      var repeatInfosection = manualPageRepeatValue(row, "page_repeat_infosection");
+      if (repeatInfosection !== null) {
+        repeat.infosection = repeatInfosection;
+      }
+      page.include.major_subdivision = manualPageCheckboxValue(row, "page_include_major_subdivision", true);
+      if (source === "admin" || source === "citiesadmin") {
+        page.include.minor_subdivision = manualPageCheckboxValue(row, "page_include_minor_subdivision", true);
+      }
+      if (source === "cities" || source === "citiesadmin") {
+        page.include.cities = manualPageCheckboxValue(row, "page_include_cities", true);
+      }
+      var repeatMajor = manualPageRepeatValue(row, "page_repeat_major_subdivision");
+      var repeatMinor = manualPageRepeatValue(row, "page_repeat_minor_subdivision");
+      var repeatCities = manualPageRepeatValue(row, "page_repeat_cities");
+      if (repeatMajor !== null) { repeat.major_subdivision = repeatMajor; }
+      if (repeatMinor !== null) { repeat.minor_subdivision = repeatMinor; }
+      if (repeatCities !== null) { repeat.cities = repeatCities; }
+      if (Object.keys(repeat).length) {
+        page.repeat = repeat;
+      }
+      pages.push(page);
+    });
+    target.value = JSON.stringify(pages);
+  }
+
   function activeConfigTabName(editor) {
     var active = editor ? editor.querySelector("[data-config-tab].is-active") : null;
     return active ? active.dataset.configTab || "" : "";
@@ -5570,6 +5761,7 @@
         button.textContent = editor.dataset.savingLabel;
       }
     }
+    syncManualPagesJson(form);
     fetch(form.action || window.location.href, {
       method: "POST",
       body: new FormData(form),
@@ -5619,6 +5811,7 @@
     editor.dataset.configSubmitGuardsReady = "true";
     editor.querySelectorAll("[data-config-editor-form]").forEach(function (form) {
       form.addEventListener("submit", function (event) {
+        syncManualPagesJson(form);
         var formMode = form.dataset.configEditorForm || "";
         var activeMode = activeConfigTabName(editor);
         if (activeMode !== formMode) {
@@ -5644,6 +5837,47 @@
     });
   }
 
+  function setConfigEditorLoading(editor, loading, message, isError) {
+    var overlay = editor ? editor.querySelector("[data-config-editor-loading]") : null;
+    if (!editor || !overlay) {
+      return;
+    }
+    editor.classList.toggle("is-loading", Boolean(loading));
+    editor.classList.toggle("is-loading-error", Boolean(isError));
+    overlay.hidden = !loading && !isError;
+    overlay.classList.toggle("is-error", Boolean(isError));
+    overlay.classList.toggle("is-active", Boolean(loading || isError));
+    var text = overlay.querySelector("span:last-child");
+    if (text && message) {
+      text.textContent = message;
+    }
+  }
+
+  function loadConfigEditorData(editor) {
+    if (!editor || editor.dataset.editorDataLoaded === "1" || !editor.dataset.editorDataUrl) {
+      setConfigEditorLoading(editor, false);
+      return;
+    }
+    editor.dataset.editorDataLoaded = "1";
+    setConfigEditorLoading(editor, true, editor.dataset.loadingLabel || "Cargando datos...");
+    fetch(editor.dataset.editorDataUrl, {
+      headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
+      credentials: "same-origin"
+    }).then(parseJsonResponse).then(function (data) {
+      if (!data || data.ok === false) {
+        throw new Error(editor.dataset.errorLabel || "No se pudieron cargar los datos.");
+      }
+      updateConfigEditorFromGeneratedContent(editor, data.content || "", data.manual || null);
+      setConfigEditorLoading(editor, false);
+    }).catch(function (error) {
+      // The server-rendered form remains usable if dynamic hydration fails.
+      setConfigEditorLoading(editor, true, (error && error.message) || editor.dataset.errorLabel || "No se pudieron cargar los datos.", true);
+      window.setTimeout(function () {
+        setConfigEditorLoading(editor, false);
+      }, 3500);
+    });
+  }
+
   function initConfigEditor(root) {
     initConfigTabs(root);
     (root || document).querySelectorAll("[data-config-editor]").forEach(function (editor) {
@@ -5665,6 +5899,7 @@
         initCityTransfer(editor, sourceEntities);
         initConfigGenerator(editor);
         initAiLoginLinks(editor);
+        loadConfigEditorData(editor);
       } catch (error) {
         window.console && window.console.error && window.console.error("Error inicializando configuraci\u00f3n", error);
       }
@@ -5942,6 +6177,65 @@
     });
   }
 
+  function syncCheckboxFallback(toggle) {
+    if (!toggle) {
+      return;
+    }
+    var label = toggle.closest(".manual-mini-check");
+    var hidden = label ? label.querySelector("[data-checkbox-fallback]") : null;
+    if (hidden) {
+      hidden.value = toggle.checked ? "true" : "false";
+      hidden.dispatchEvent(new Event("input", { bubbles: true }));
+      hidden.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+
+  function bindCheckboxFallbacks(row) {
+    if (!row) {
+      return;
+    }
+    row.querySelectorAll("[data-checkbox-toggle]").forEach(function (toggle) {
+      if (toggle.dataset.checkboxBound !== "1") {
+        toggle.dataset.checkboxBound = "1";
+        toggle.addEventListener("change", function () {
+          syncCheckboxFallback(toggle);
+        });
+      }
+      syncCheckboxFallback(toggle);
+    });
+  }
+
+  function updatePageConfigVisibility(row) {
+    if (!row) {
+      return;
+    }
+    var sourceSelect = row.querySelector('[name="page_source"]');
+    var source = sourceSelect ? String(sourceSelect.value || "cities").toLowerCase() : "cities";
+    row.querySelectorAll("[data-source-only]").forEach(function (element) {
+      var allowed = String(element.dataset.sourceOnly || "").toLowerCase().split(/[\s,]+/).filter(Boolean);
+      var visible = !allowed.length || allowed.indexOf(source) !== -1;
+      element.hidden = !visible;
+      element.classList.toggle("is-hidden", !visible);
+    });
+  }
+
+  function setCheckboxFallbackField(row, name, value) {
+    var hidden = row ? row.querySelector('[name="' + name + '"][data-checkbox-fallback]') : null;
+    if (!hidden) {
+      return false;
+    }
+    var boolValue = String(value === undefined || value === null || value === "" ? "false" : value).toLowerCase() === "true";
+    hidden.value = boolValue ? "true" : "false";
+    var label = hidden.closest(".manual-mini-check");
+    var toggle = label ? label.querySelector("[data-checkbox-toggle]") : null;
+    if (toggle) {
+      toggle.checked = boolValue;
+    }
+    hidden.dispatchEvent(new Event("input", { bubbles: true }));
+    hidden.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  }
+
   function bindManualPageRow(row, tbody) {
     if (!row) {
       return;
@@ -5957,6 +6251,15 @@
       });
     }
     bindPagePathControls(row);
+    bindCheckboxFallbacks(row);
+    var sourceSelect = row.querySelector('[name="page_source"]');
+    if (sourceSelect && sourceSelect.dataset.sourceVisibilityBound !== "1") {
+      sourceSelect.dataset.sourceVisibilityBound = "1";
+      sourceSelect.addEventListener("change", function () {
+        updatePageConfigVisibility(row);
+      });
+    }
+    updatePageConfigVisibility(row);
     bindManualPageDrag(row, tbody);
   }
 
@@ -5968,18 +6271,32 @@
       if (field.matches("[data-page-path-input]")) {
         return;
       }
-      if (field.name === "page_lowest_level" || field.name === "page_level") {
-        field.value = "0";
+      if (field.name === "page_force_highest_level" || field.name === "page_lowest_level" || field.name === "page_level" || field.name === "page_parent_level" || field.name.indexOf("page_repeat_") === 0) {
+        field.value = "";
+      } else if (field.matches("[data-checkbox-fallback]")) {
+        field.value = field.name === "page_sum_to_root" ? "false" : "true";
       } else {
         field.value = "";
       }
     });
     row.querySelectorAll("select").forEach(function (select) {
-      select.value = select.name === "page_source" ? "admin" : "";
+      if (select.name === "page_source") {
+        select.value = "admin";
+      } else {
+        select.value = "";
+      }
+    });
+    row.querySelectorAll("[data-checkbox-toggle]").forEach(function (toggle) {
+      var label = toggle.closest(".manual-mini-check");
+      var hidden = label ? label.querySelector("[data-checkbox-fallback]") : null;
+      toggle.checked = !(hidden && hidden.name === "page_sum_to_root");
+      syncCheckboxFallback(toggle);
     });
     row.dataset.pagePathReady = "false";
     setPagePathBoxes(row, [""]);
     bindPagePathControls(row);
+    bindCheckboxFallbacks(row);
+    updatePageConfigVisibility(row);
   }
 
   function initManualPages(editor) {
@@ -6384,6 +6701,9 @@
 
 
   function setManualPageField(row, name, value) {
+    if (setCheckboxFallbackField(row, name, value)) {
+      return;
+    }
     var field = row ? row.querySelector('[name="' + name + '"]') : null;
     if (!field) {
       return;
@@ -6393,11 +6713,18 @@
     field.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
-  function manualPageValue(page, key) {
-    if (!page || page[key] === undefined || page[key] === null) {
-      return "";
+  function manualPageValue(page, key, fallback) {
+    if (!page || page[key] === undefined || page[key] === null || page[key] === "") {
+      return fallback === undefined ? "" : fallback;
     }
     return page[key];
+  }
+
+  function setManualPageInputField(row, name, value) {
+    var field = row ? row.querySelector('[name="' + name + '"]') : null;
+    if (field) {
+      field.value = value === undefined || value === null ? "" : String(value);
+    }
   }
 
   function updateManualConfigForm(editor, manual) {
@@ -6408,21 +6735,17 @@
     }
     var country = form.querySelector('[name="manual_country_code"]');
     var legalSubdivision = form.querySelector('[name="manual_legal_subdivision"]');
-    var wikidataId = form.querySelector('[name="manual_wikidata_id"]');
     if (country) {
       country.value = manual.country_code || "";
     }
     if (legalSubdivision) {
       legalSubdivision.value = manual.legal_subdivision || "";
     }
-    if (wikidataId) {
-      wikidataId.value = manual.wikidata_id || "";
-    }
     updateManualVisualAssetsForm(form, manual.visual_assets || {});
     updateManualAssetOverridesForm(form, manual.asset_overrides || []);
     var pages = Array.isArray(manual.pages) ? manual.pages : [];
     if (!pages.length) {
-      pages = [{ source: "admin", paths: ["admin"], lowest_level: "0" }];
+      pages = [{ source: "admin", paths: ["admin"], force_highest_level: "" }];
     }
     while (tbody.querySelectorAll("tr").length < pages.length) {
       var template = tbody.querySelector("tr");
@@ -6444,28 +6767,36 @@
     Array.prototype.slice.call(tbody.querySelectorAll("tr")).forEach(function (row, index) {
       var page = pages[index] || {};
       var source = row.querySelector('[name="page_source"]');
-      var lowest = row.querySelector('[name="page_lowest_level"], [name="page_level"]');
+      var lowest = row.querySelector('[name="page_force_highest_level"], [name="page_lowest_level"], [name="page_level"]');
+      var parentLevel = row.querySelector('[name="page_parent_level"]');
       if (source) {
-        source.value = page.source || "admin";
-        if (source.value !== (page.source || "admin")) {
-          source.value = "auto";
+        var nextSource = page.source || "admin";
+        source.value = nextSource;
+        if (source.value !== nextSource) {
+          source.value = "cities";
         }
       }
       if (lowest) {
-        lowest.value = page.lowest_level === undefined || page.lowest_level === null ? "0" : String(page.lowest_level);
+        var forcedLevel = page.force_highest_level;
+        lowest.value = forcedLevel === undefined || forcedLevel === null ? "" : String(forcedLevel);
       }
-      setManualPageField(row, "page_include_root", manualPageValue(page, "include_root"));
-      setManualPageField(row, "page_include_tables", manualPageValue(page, "include_tables"));
-      setManualPageField(row, "page_table_levels", manualPageValue(page, "table_levels"));
-      setManualPageField(row, "page_status_levels", manualPageValue(page, "status_levels"));
-      setManualPageField(row, "page_root_level", manualPageValue(page, "root_level"));
-      setManualPageField(row, "page_root_code", manualPageValue(page, "root_code"));
-      setManualPageField(row, "page_root_name", manualPageValue(page, "root_name"));
-      setManualPageField(row, "page_root_parent_code", manualPageValue(page, "root_parent_code"));
-      setManualPageField(row, "page_root_entity_type", manualPageValue(page, "root_entity_type"));
+      if (parentLevel) {
+        var forcedParentLevel = page.parent_level;
+        parentLevel.value = forcedParentLevel === undefined || forcedParentLevel === null ? "" : String(forcedParentLevel);
+      }
+      setCheckboxFallbackField(row, "page_include_infosection", manualPageValue(page, "include_infosection", "true"));
+      setCheckboxFallbackField(row, "page_include_major_subdivision", manualPageValue(page, "include_major_subdivision", manualPageValue(page, "include_admin1", "true")));
+      setCheckboxFallbackField(row, "page_include_minor_subdivision", manualPageValue(page, "include_minor_subdivision", manualPageValue(page, "include_admin2", "true")));
+      setCheckboxFallbackField(row, "page_include_cities", manualPageValue(page, "include_cities", "true"));
+      setCheckboxFallbackField(row, "page_sum_to_root", manualPageValue(page, "sum_to_root", "false"));
+      setManualPageInputField(row, "page_repeat_infosection", manualPageValue(page, "repeat_infosection", ""));
+      setManualPageInputField(row, "page_repeat_major_subdivision", manualPageValue(page, "repeat_major_subdivision", manualPageValue(page, "repeat_admin1", "")));
+      setManualPageInputField(row, "page_repeat_minor_subdivision", manualPageValue(page, "repeat_minor_subdivision", manualPageValue(page, "repeat_admin2", "")));
+      setManualPageInputField(row, "page_repeat_cities", manualPageValue(page, "repeat_cities", ""));
       var paths = Array.isArray(page.paths) && page.paths.length ? page.paths : splitPagePathsText(page.paths_text || "");
       setPagePathBoxes(row, paths.length ? paths : [""]);
       bindManualPageRow(row, tbody);
+      updatePageConfigVisibility(row);
     });
   }
 
@@ -6962,14 +7293,21 @@
   function ensureRepeatedManualRows(form, values) {
     var expected = Math.max(
       (values.page_level || []).length,
+      (values.page_force_highest_level || []).length,
+      (values.page_parent_level || []).length,
       (values.page_lowest_level || []).length,
       (values.page_url || []).length,
       (values.page_path || []).length,
       (values.page_source || []).length,
-      (values.page_include_root || []).length,
-      (values.page_include_tables || []).length,
-      (values.page_table_levels || []).length,
-      (values.page_status_levels || []).length
+      (values.page_include_infosection || []).length,
+      (values.page_include_major_subdivision || []).length,
+      (values.page_include_minor_subdivision || []).length,
+      (values.page_include_cities || []).length,
+      (values.page_sum_to_root || []).length,
+      (values.page_repeat_infosection || []).length,
+      (values.page_repeat_major_subdivision || []).length,
+      (values.page_repeat_minor_subdivision || []).length,
+      (values.page_repeat_cities || []).length
     );
     if (expected <= 1) {
       return;

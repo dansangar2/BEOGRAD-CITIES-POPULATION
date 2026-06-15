@@ -1588,3 +1588,8 @@ msgstr "Es gibt keine verfügbaren Konfigurationen zum Populieren."
 
 msgid "Popular configuraciones disponibles (%(count)s)"
 msgstr "Verfügbare Konfigurationen populieren (%(count)s)"
+msgid "Sumar al padre"
+msgstr "Zum übergeordneten Element addieren"
+
+msgid "Los checkboxes dependen de la fuente seleccionada. Sumar al padre agrega población y área de esa página al padre enlazado."
+msgstr "Die Kontrollkästchen hängen von der ausgewählten Quelle ab. Zum übergeordneten Element addieren fügt Bevölkerung und Fläche dieser Seite dem verknüpften Elternknoten hinzu."

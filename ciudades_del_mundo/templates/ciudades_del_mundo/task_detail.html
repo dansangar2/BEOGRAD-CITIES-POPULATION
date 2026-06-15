@@ -4,6 +4,7 @@
 {% block title %}{% blocktrans with task_id=task.id %}Tarea {{ task_id }}{% endblocktrans %} - {% trans "Ciudades del Mundo" %}{% endblock %}
 
 {% block content %}
+<div class="task-detail-page">
 <section class="page-head compact" data-task-detail data-status-url="{% url 'ciudades_del_mundo:task_status' task.id %}" data-log-offset="{{ task_output_offset|default:0 }}" data-active="{% if task.is_active %}1{% else %}0{% endif %}" data-running-label="{% trans 'running' %}" data-queued-label="{% trans 'queued' %}" data-succeeded-label="{% trans 'succeeded' %}" data-failed-label="{% trans 'failed' %}" data-cancelled-label="{% trans 'cancelled' %}">
   <div>
     <p class="eyebrow">{% blocktrans with task_id=task.id %}Tarea {{ task_id }}{% endblocktrans %}</p>
@@ -32,4 +33,5 @@
   <h2>{% trans "Salida" %}</h2>
   <pre class="console task-console" data-task-log><code data-task-log-output>{% if task_output %}{{ task_output }}{% else %}{% trans "Sin salida todavia." %}{% endif %}</code></pre>
 </section>
+</div>
 {% endblock %}

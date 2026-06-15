@@ -1,9 +1,11 @@
 LEGAL_SUBDIVISION = 1
 
+scrape_schema_version = 2
+
 [[pages]]
-source = "table"
+source = "cities"
 path = ["admin"]
-lowest_level = 0
+include = { infosection = true, major_subdivision = true, cities = true }
 
 [visual_assets]
 bulk_country_wikidata = true

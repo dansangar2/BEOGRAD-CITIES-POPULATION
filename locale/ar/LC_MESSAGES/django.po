@@ -1576,3 +1576,8 @@ msgstr "لا توجد إعدادات متاحة للتعبئة."
 
 msgid "Popular configuraciones disponibles (%(count)s)"
 msgstr "تعبئة الإعدادات المتاحة (%(count)s)"
+msgid "Sumar al padre"
+msgstr "أضف إلى الأصل"
+
+msgid "Los checkboxes dependen de la fuente seleccionada. Sumar al padre agrega población y área de esa página al padre enlazado."
+msgstr "تعتمد خانات الاختيار على المصدر المحدد. يضيف خيار أضف إلى الأصل عدد السكان والمساحة من هذه الصفحة إلى الأصل المرتبط."

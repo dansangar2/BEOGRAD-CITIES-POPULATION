@@ -1,0 +1,37 @@
+{% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Nuevo pais - Ciudades del Mundo" %}{% endblock %}
+
+{% block content %}
+<section class="page-head compact">
+  <div>
+    <p class="eyebrow">{% trans "Nuevos paises" %}</p>
+    <h1>{% trans "Crear pais" %}</h1>
+  </div>
+  <a class="button secondary" href="{% url 'ciudades_del_mundo:new_country_list' %}">{% trans "Volver" %}</a>
+</section>
+
+<form class="panel form-panel" method="post">
+  {% csrf_token %}
+  <label>
+    Slug
+    <input name="slug" value="{{ form.slug }}" required>
+  </label>
+  <label>
+    {% trans "Nombre" %}
+    <input name="name" value="{{ form.name }}" required>
+  </label>
+  <label>
+    {% trans "Pais fuente" %}
+    <input name="source_country_code" value="{{ form.source_country_code }}">
+  </label>
+  <label>
+    {% trans "Descripcion" %}
+    <textarea name="description" rows="5">{{ form.description }}</textarea>
+  </label>
+  <div class="actions">
+    <button type="submit">{% trans "Crear" %}</button>
+  </div>
+</form>
+{% endblock %}

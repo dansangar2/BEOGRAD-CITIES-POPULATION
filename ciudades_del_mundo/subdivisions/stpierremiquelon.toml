@@ -5,12 +5,9 @@ reset_before_import = true
 LEGAL_SUBDIVISION = 1
 
 # L0 collectivity -> L1 communes. The territory row is page context only.
+scrape_schema_version = 2
+
 [[pages]]
 source = "cities"
 path = [""]
-lowest_level = 0
-root_code = "stpierremiquelon"
-root_name = "Saint-Pierre and Miquelon"
-root_entity_type = "Overseas Collectivity"
-include_tables = ["ts"]
-table_levels = { tl = 0, ts = 1 }
+include = { infosection = true, major_subdivision = true, cities = true }

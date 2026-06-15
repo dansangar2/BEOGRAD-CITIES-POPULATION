@@ -1,0 +1,72 @@
+{% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Configuracion de pais nuevo" %} - {% trans "Ciudades del Mundo" %}{% endblock %}
+
+{% block content %}
+<section class="page-head compact">
+  <div>
+    <p class="eyebrow">{{ country.name }}</p>
+    <h1>
+      {% if config %}
+      {{ config.name }}
+      {% else %}
+      {% trans "Nueva configuracion" %}
+      {% endif %}
+    </h1>
+  </div>
+  <div class="actions">
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:new_country_detail' country.slug %}">{% trans "Volver" %}</a>
+    {% if config %}
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:new_country_config_view' country.slug config.slug %}">{% trans "Vista" %}</a>
+    {% endif %}
+  </div>
+</section>
+
+<section class="editor-layout">
+  <form class="panel form-panel" method="post">
+    {% csrf_token %}
+    {% if not config %}
+    <label>
+      Slug
+      <input name="slug" value="{{ form.slug }}" required>
+    </label>
+    {% endif %}
+    <label>
+      {% trans "Nombre" %}
+      <input name="name" value="{{ form.name }}" required>
+    </label>
+    <label>
+      {% trans "Pais fuente" %}
+      <input name="source_country_code" value="{{ form.source_country_code }}">
+    </label>
+    <label>
+      {% trans "Codigo derivado" %}
+      <input name="derived_country_code" value="{{ form.derived_country_code }}">
+    </label>
+    <label class="checkbox-row">
+      <input type="checkbox" name="is_active" value="1" {% if form.is_active %}checked{% endif %}>
+      <span>{% trans "Activa" %}</span>
+    </label>
+    <label>
+      TOML
+      <textarea name="content" spellcheck="false">{{ form.content }}</textarea>
+    </label>
+    <div class="actions">
+      <button type="submit">{% trans "Guardar" %}</button>
+    </div>
+  </form>
+
+  <aside class="panel help-panel">
+    <h2>{% trans "Modelo base" %}</h2>
+    <p>{% trans "Esta configuracion guarda la seleccion de subdivisiones fuente y el codigo del pais derivado. El constructor final se conectara sobre este TOML." %}</p>
+    <pre><code>kind = "derived_country_config"
+groups = []
+
+[selection]
+include_codes = []
+include_levels = []
+group_slugs = []</code></pre>
+  </aside>
+</section>
+{% endblock %}

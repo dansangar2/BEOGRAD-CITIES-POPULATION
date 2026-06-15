@@ -5,5 +5,6 @@ __pycache__/
 *.py[cod]
 .web_*
 media/
-ciudades_del_mundo/historical_divisions/
-ciudades_del_mundo/new_subdivisions/
+ciudades_del_mundo/historical_divisions_old/
+ciudades_del_mundo/new_subdivisions_old/
+ciudades_del_mundo/html/

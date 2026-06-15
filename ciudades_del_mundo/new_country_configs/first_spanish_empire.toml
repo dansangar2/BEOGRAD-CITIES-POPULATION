@@ -1,0 +1,2251 @@
+schema_version = 1
+kind = "derived_country_config"
+slug = "first_spanish_empire"
+name = "First Spanish Empire"
+source_python = "ciudades_del_mundo/new_subdivisions/first_spanish_empire.py"
+country = "first_spanish_empire"
+source_country_code = ""
+derived_country_code = "first_spanish_empire"
+groups = []
+
+[selection]
+include_codes = []
+include_levels = []
+group_slugs = []
+
+[legacy]
+assignments_json = '''
+{
+  "M_BARCELONA": [
+    "Barcelona",
+    "L'Hospitalet de Llobregat",
+    "Badalona",
+    "Santa Coloma de Gramenet",
+    "Sant Cugat del Vallès",
+    "Cornellà de Llobregat",
+    "Sant Boi de Llobregat",
+    "Castelldefels",
+    "Viladecans",
+    "El Prat de Llobregat",
+    "Cerdanyola del Vallès",
+    "Gavà",
+    "Esplugues de Llobregat",
+    "Sant Feliu de Llobregat",
+    "Ripollet",
+    "Sant Adrià de Besòs",
+    "Montcada i Reixac",
+    "Sant Joan Despí",
+    "Barberà del Vallès",
+    "Sant Vicenç dels Horts",
+    "Sant Andreu de la Barca",
+    "Molins de Rei",
+    "Sant Just Desvern",
+    "Corbera de Llobregat",
+    "Badia del Vallès",
+    "Castellbisbal",
+    "Montgat",
+    "Pallejà",
+    "Cervelló",
+    "Tiana",
+    "Santa Coloma de Cervelló",
+    "Begues",
+    "Torrelles de Llobregat",
+    "Sant Climent de Llobregat",
+    "El Papiol",
+    "La Palma de Cervelló"
+  ],
+  "M_MADRID": [
+    "Madrid",
+    "Alcobendas",
+    "Alcorcón",
+    "Boadilla del Monte",
+    "Brunete",
+    "Colmenar Viejo",
+    "Coslada",
+    "Getafe",
+    "Leganés",
+    "Majadahonda",
+    "Mejorada del Campo",
+    "Paracuellos de Jarama",
+    "Pinto",
+    "Pozuelo de Alarcón",
+    "Rivas-Vaciamadrid",
+    "Las Rozas de Madrid",
+    "San Fernando de Henares",
+    "San Sebastián de los Reyes",
+    "Torrejón de Ardoz",
+    "Tres Cantos",
+    "Velilla de San Antonio",
+    "Villanueva de la Cañada",
+    "Villanueva del Pardillo",
+    "Villaviciosa de Odón"
+  ],
+  "BURGOS_A_VITORIA": [
+    "Condado de Treviño",
+    "La Puebla de Arganzón"
+  ],
+  "CANTABRIA_A_VITORIA": [
+    "Valle de Villaverde"
+  ],
+  "GERONA_A_TERRASA": [
+    "Les Llosses"
+  ],
+  "VALENCIA_A_TERUEL": [
+    "Ademuz",
+    "Torrebaja",
+    "Castielfabib",
+    "Casas Altas",
+    "Casas Bajas",
+    "Puebla de San Miguel",
+    "Vallanca"
+  ],
+  "CIUDAD_REAL_A_TOLEDO": [
+    "Anchuras"
+  ],
+  "PALENCIA_A_BURGOS": [
+    "Berzosilla",
+    "Villodrigo"
+  ],
+  "VALLADOLID_A_ZAMORA": [
+    "Roales de Campos",
+    "Quintanilla del Molar"
+  ],
+  "NAVARRA_A_ZARAGOZA": [
+    "Petilla de Aragón"
+  ],
+  "AVEIRO_A_OPORTO": [
+    "Arouca",
+    "Castelo de Paiva",
+    "Espinho",
+    "Santa Maria da Feira"
+  ],
+  "VISEU_A_OPORTO": [
+    "Cinfães",
+    "Resende"
+  ],
+  "VISEU_A_VILA_REAL": [
+    "Armamar",
+    "Lamego",
+    "São João da Pesqueira",
+    "Tabuaço"
+  ],
+  "GUARDA_A_VILA_REAL": [
+    "Vila Nova de Foz Côa"
+  ],
+  "COIMBRA_A_VISEO": [
+    "Oliveira do Hospital",
+    "Tábua"
+  ],
+  "COIMBRA_A_CASTELO_BRANCO": [
+    "Pampilhosa da Serra"
+  ],
+  "SANTAREM_A_COIMBRA": [
+    "Ourém"
+  ],
+  "SANTAREM_A_CASTELO_BRANCO": [
+    "Mação"
+  ],
+  "LEIRIA_A_LISBOA": [
+    "Alcobaça",
+    "Bombarral",
+    "Caldas da Rainha",
+    "Marinha Grande",
+    "Nazaré",
+    "Óbidos",
+    "Peniche",
+    "Porto de Mós"
+  ],
+  "LISBOA_A_SANTAREM": [
+    "Arruda dos Vinhos",
+    "Azambuja",
+    "Vila Franca de Xira"
+  ],
+  "SETUBAL_A_BEJA": [
+    "Alcácer do Sal",
+    "Grândola",
+    "Santiago do Cacém",
+    "Sines"
+  ],
+  "PORTALEGRE_A_SATAREM": [
+    "Ponte de Sor"
+  ],
+  "GERONA_A_PERPINHAN": [
+    "Llívia"
+  ],
+  "ARIANA_A_TUNEZ": [
+    "Ariana",
+    "La Soukra",
+    "Raoued",
+    "Mnihla"
+  ],
+  "MANOUBA_A_TUNEZ": [
+    "Douar Hicher",
+    "Den Den",
+    "Manouba",
+    "Oued Ellil"
+  ],
+  "BEN_AROUS_A_TUNEZ": [
+    "Ben Arous",
+    "Mégrine",
+    "Radès",
+    "Ezzahra",
+    "Hammam Lif",
+    "Hammam Chott",
+    "Bou Mhel El Bassatine",
+    "El Mourouj",
+    "Naassen",
+    "Fouchana",
+    "Mohamedia"
+  ],
+  "CALTANISSETTA_A_PALERMO": [
+    "Resuttano"
+  ],
+  "PALERMO_A_CALTANISSETTA": [
+    "Bisacquino"
+  ],
+  "CASERTA_A_NAPOLES": [
+    "Villa Literno",
+    "Casal di Principe",
+    "San Cipriano d'Aversa",
+    "Casapesenna",
+    "Villa di Briano",
+    "Casaluce",
+    "Frignano",
+    "San Marcellino",
+    "Trentola Ducenta",
+    "Aversa",
+    "Teverola",
+    "Carinaro",
+    "Gricignano di Aversa",
+    "Cesa",
+    "Sant'Arpino",
+    "Succivo",
+    "Orta di Atella",
+    "Marcianise",
+    "Capodrise",
+    "Portico di Caserta",
+    "Macerata Campania",
+    "Curti",
+    "San Tammaro",
+    "Santa Maria Capua Vetere",
+    "San Prisco",
+    "Casapulla",
+    "Casagiove",
+    "Caserta",
+    "San Nicola la Strada",
+    "San Marco Evangelista",
+    "Maddaloni"
+  ],
+  "AVELLINO_A_NAPOLES": [
+    "Mugnano del Cardinale",
+    "Avella",
+    "Baiano",
+    "Sperone"
+  ],
+  "SALERMO_A_NAPOLES": [
+    "Sarno",
+    "San Valentino Torio",
+    "San Marzano sul Sarno",
+    "Angri",
+    "Pagani",
+    "Nocera Inferiore",
+    "Nocera Superiore",
+    "Roccapiemonte",
+    "Castel San Giorgio",
+    "Siano",
+    "Mercato San Severino"
+  ],
+  "FLORENCIA_A_RAVENA": [
+    "Badia Tedalda",
+    "Sestino"
+  ],
+  "MILAN_A_PAVIA": [
+    "San Colombano al Lambro"
+  ],
+  "ESCANHOS": {
+    "nivel": 3,
+    "escanhos": 1000,
+    "min": 1
+  }
+}
+'''
+python = '''
+from ciudades_del_mundo.models import NuevoAdminArea
+
+M_BARCELONA = [
+    
+        "Barcelona", "L'Hospitalet de Llobregat", "Badalona", "Santa Coloma de Gramenet",
+        "Sant Cugat del Vallès", "Cornellà de Llobregat", "Sant Boi de Llobregat",
+        "Castelldefels", "Viladecans", "El Prat de Llobregat", "Cerdanyola del Vallès",
+        "Gavà", "Esplugues de Llobregat", "Sant Feliu de Llobregat", "Ripollet", 
+        "Sant Adrià de Besòs", "Montcada i Reixac", "Sant Joan Despí", "Barberà del Vallès", 
+        "Sant Vicenç dels Horts", "Sant Andreu de la Barca", "Molins de Rei", "Sant Just Desvern", 
+        "Corbera de Llobregat", "Badia del Vallès", "Castellbisbal" , "Montgat", "Pallejà", "Cervelló", 
+        "Tiana", "Santa Coloma de Cervelló", "Begues", "Torrelles de Llobregat", "Sant Climent de Llobregat", 
+        "El Papiol", "La Palma de Cervelló"
+        
+    ]
+
+M_MADRID = [
+    
+        "Madrid", "Alcobendas", "Alcorcón", "Boadilla del Monte", "Brunete", "Colmenar Viejo", "Coslada", "Getafe", 
+        "Leganés", "Majadahonda", "Mejorada del Campo", "Paracuellos de Jarama", "Pinto", "Pozuelo de Alarcón", "Rivas-Vaciamadrid",
+        "Las Rozas de Madrid", "San Fernando de Henares", "San Sebastián de los Reyes", "Torrejón de Ardoz", "Tres Cantos",
+        "Velilla de San Antonio", "Villanueva de la Cañada", "Villanueva del Pardillo", "Villaviciosa de Odón"
+    ]
+
+BURGOS_A_VITORIA =      ["Condado de Treviño", "La Puebla de Arganzón"]
+CANTABRIA_A_VITORIA =   ["Valle de Villaverde"]
+GERONA_A_TERRASA =      ["Les Llosses"]
+VALENCIA_A_TERUEL =     ["Ademuz", "Torrebaja", "Castielfabib", "Casas Altas", "Casas Bajas", "Puebla de San Miguel", "Vallanca"]
+CIUDAD_REAL_A_TOLEDO =  ["Anchuras"]
+PALENCIA_A_BURGOS =     ["Berzosilla", "Villodrigo"]
+VALLADOLID_A_ZAMORA =   ["Roales de Campos", "Quintanilla del Molar"]
+NAVARRA_A_ZARAGOZA =    ["Petilla de Aragón"]
+
+AVEIRO_A_OPORTO = ["Arouca", "Castelo de Paiva", "Espinho", "Santa Maria da Feira"]
+VISEU_A_OPORTO = ["Cinfães", "Resende"]
+VISEU_A_VILA_REAL = ["Armamar", "Lamego", "São João da Pesqueira", "Tabuaço"]
+GUARDA_A_VILA_REAL = ["Vila Nova de Foz Côa"]
+COIMBRA_A_VISEO = ["Oliveira do Hospital", "Tábua"]
+COIMBRA_A_CASTELO_BRANCO = ["Pampilhosa da Serra"]
+SANTAREM_A_COIMBRA = ["Ourém"]
+SANTAREM_A_CASTELO_BRANCO = ["Mação"]
+LEIRIA_A_LISBOA = ["Alcobaça", "Bombarral", "Caldas da Rainha", "Marinha Grande", "Nazaré", "Óbidos", "Peniche", "Porto de Mós"]
+LISBOA_A_SANTAREM = ["Arruda dos Vinhos", "Azambuja", "Vila Franca de Xira"]
+SETUBAL_A_BEJA = ["Alcácer do Sal", "Grândola", "Santiago do Cacém", "Sines"]
+PORTALEGRE_A_SATAREM = ["Ponte de Sor"]
+
+GERONA_A_PERPINHAN = ["Llívia"]
+
+
+ARIANA_A_TUNEZ = ["Ariana", "La Soukra", "Raoued", "Mnihla"]
+MANOUBA_A_TUNEZ = ["Douar Hicher", "Den Den", "Manouba", "Oued Ellil"]
+BEN_AROUS_A_TUNEZ = ["Ben Arous", "Mégrine", "Radès", "Ezzahra", "Hammam Lif", "Hammam Chott", "Bou Mhel El Bassatine", "El Mourouj", "Naassen", "Fouchana", "Mohamedia"]
+
+CALTANISSETTA_A_PALERMO = ["Resuttano"]
+PALERMO_A_CALTANISSETTA = ["Bisacquino"]
+
+CASERTA_A_NAPOLES = [
+    "Villa Literno", "Casal di Principe", "San Cipriano d'Aversa",
+    "Casapesenna", "Villa di Briano", "Casaluce", "Frignano", "San Marcellino", "Trentola Ducenta", 
+    "Aversa", "Teverola", "Carinaro", "Gricignano di Aversa", "Cesa", 
+    "Sant'Arpino", "Succivo", "Orta di Atella", "Marcianise", "Capodrise", "Portico di Caserta", 
+    "Macerata Campania", "Curti", "San Tammaro", "Santa Maria Capua Vetere", "San Prisco", "Casapulla", 
+    "Casagiove", "Caserta", "San Nicola la Strada", "San Marco Evangelista", "Maddaloni"
+]
+
+AVELLINO_A_NAPOLES = ["Mugnano del Cardinale", "Avella", "Baiano", "Sperone"]
+
+SALERMO_A_NAPOLES = ["Sarno", "San Valentino Torio", "San Marzano sul Sarno", "Angri", "Pagani", "Nocera Inferiore", "Nocera Superiore", "Roccapiemonte", "Castel San Giorgio", "Siano", "Mercato San Severino"]
+
+FLORENCIA_A_RAVENA = ["Badia Tedalda", "Sestino"]
+MILAN_A_PAVIA = ["San Colombano al Lambro"]
+
+DIVISIONS = [
+        {
+            "name": "Latinos",
+            "code": "LAT",
+            "entity_type": "Región cultural",
+            "capitals": ["Roma"],
+            "childs": [
+                {
+                    "name": "España",
+                    "code": "ESP",
+                    "entity_type": "Prefectura",
+                    "capitals": ["Madrid"],
+                    "childs": [
+                        {
+                            "name": "Albacete",
+                            "code": "ALB",
+                            "entity_type": "Provincia",
+                            "capitals": ["Albacete"],
+                            "spec": {2:{"spain": "Albacete"}}
+                        }, 
+                        {
+                            "name": "Alicante",
+                            "code": "ALI",
+                            "entity_type": "Provincia",
+                            "capitals": ["Alicant"],
+                            "spec": {2:{"spain": "Alicante"}}
+                        }, 
+                        {
+                            "name": "Almería",
+                            "code": "ALM",
+                            "entity_type": "Provincia",
+                            "capitals": ["Almería"],
+                            "spec": {2:{"spain": "Almería"}}
+                        }, 
+                        {
+                            "name": "Ávila",
+                            "code": "AVI",
+                            "entity_type": "Provincia",
+                            "capitals": ["Ávila"],
+                            "spec": {2:{"spain": "Ávila"}}
+                        }, 
+                        {
+                            "name": "Badajoz",
+                            "code": "BAD",
+                            "entity_type": "Provincia",
+                            "capitals": ["Badajoz"],
+                            "spec": {2:{"spain": "Badajoz"}}
+                        }, 
+                        {
+                            "name": "Baleares",
+                            "code": "BAL",
+                            "entity_type": "Provincia Insular",
+                            "capitals": ["Palma"],
+                            "spec": {2:{"spain": "Illes Balears"}}
+                        }, 
+                        {
+                            "name": "Barcelona",
+                            "code": "BAR",
+                            "entity_type": "Provincia Metropolitana",
+                            "capitals": ["Barcelona"],
+                            "spec": {3:{"spain": M_BARCELONA}}
+                        }, 
+                        {
+                            "name": "Burgos",
+                            "code": "BUR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Burgos"],
+                            "spec": {2:{"spain": "Burgos"}, 3:{"spain": PALENCIA_A_BURGOS}, "restar":{3:{"spain": BURGOS_A_VITORIA}}}
+                        }, 
+                        {
+                            "name": "Cáceres",
+                            "code": "CAC",
+                            "entity_type": "Provincia",
+                            "capitals": ["Cáceres"],
+                            "spec": {2:{"spain": "Cáceres"}}
+                        }, 
+                        {
+                            "name": "Cádiz",
+                            "code": "CAD",
+                            "entity_type": "Provincia",
+                            "capitals": ["Cádiz"],
+                            "spec": {1:{"gibraltar": "gibraltar"}, 2:{"spain": ["Cádiz"]}}
+                        }, 
+                        {
+                            "name": "Castellón",
+                            "code": "CAS",
+                            "entity_type": "Provincia",
+                            "capitals": ["Castelló de la Plana"],
+                            "spec": {2:{"spain": "Castellón"}}
+                        }, 
+                        {
+                            "name": "Ciudad Real",
+                            "code": "CRE",
+                            "entity_type": "Provincia",
+                            "capitals": ["Ciudad Real"],
+                            "spec": {2:{"spain": "Ciudad Real"}, "restar":{3:{"spain": CIUDAD_REAL_A_TOLEDO}}}
+                        }, 
+                        {
+                            "name": "Córdoba",
+                            "code": "COR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Córdoba"],
+                            "spec": {2:{"spain": "Córdoba"}}
+                        }, 
+                        {
+                            "name": "Cuenca",
+                            "code": "CUE",
+                            "entity_type": "Provincia",
+                            "capitals": ["Cuenca"],
+                            "spec": {2:{"spain": "Cuenca"}}
+                        }, 
+                        {
+                            "name": "Gerona",
+                            "code": "GER",
+                            "entity_type": "Provincia",
+                            "capitals": ["Girona"],
+                            "spec": {2:{"spain": "Girona"}, "restar":{3:{"spain": GERONA_A_TERRASA + GERONA_A_PERPINHAN}}}
+                        }, 
+                        {
+                            "name": "Granada",
+                            "code": "GRA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Granada"],
+                            "spec": {2:{"spain": "Granada"}}
+                        }, 
+                        {
+                            "name": "Guadalajara",
+                            "code": "GUA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Guadalajara"],
+                            "spec": {2:{"spain": "Guadalajara"}}
+                        }, 
+                        {
+                            "name": "Huelva",
+                            "code": "HUE",
+                            "entity_type": "Provincia",
+                            "capitals": ["Huelva"],
+                            "spec": {2:{"spain": "Huelva"}}
+                        }, 
+                        {
+                            "name": "Huesca",
+                            "code": "HUS",
+                            "entity_type": "Provincia",
+                            "capitals": ["Huesca"],
+                            "spec": {2:{"spain": "Huesca"}}
+                        }, 
+                        {
+                            "name": "Jaén",
+                            "code": "JAE",
+                            "entity_type": "Provincia",
+                            "capitals": ["Jaén"],
+                            "spec": {2:{"spain": "Jaén"}}
+                        }, 
+                        {
+                            "name": "La Coruña",
+                            "code": "LCO",
+                            "entity_type": "Provincia",
+                            "capitals": ["A Coruña"],
+                            "spec": {2:{"spain": "A Coruña"}}
+                        }, 
+                        {
+                            "name": "León",
+                            "code": "LEO",
+                            "entity_type": "Provincia",
+                            "capitals": ["León"],
+                            "spec": {2:{"spain": "León"}}
+                        }, 
+                        {
+                            "name": "Lérida",
+                            "code": "LER",
+                            "entity_type": "Provincia",
+                            "capitals": ["Lleida"],
+                            "spec": {2:{"spain": "Lleida"}}
+                        }, 
+                        {
+                            "name": "Logroño",
+                            "code": "LOG",
+                            "entity_type": "Provincia",
+                            "capitals": ["Logroño"],
+                            "spec": {2:{"spain": "La Rioja"}}
+                        }, 
+                        {
+                            "name": "Lugo",
+                            "code": "LUG",
+                            "entity_type": "Provincia",
+                            "capitals": ["Lugo"],
+                            "spec": {2:{"spain": "Lugo"}}
+                        }, 
+                        {
+                            "name": "Madrid",
+                            "code": "MAD",
+                            "entity_type": "Provincia Metropolitana",
+                            "capitals": ["Madrid"],
+                            "spec": {3:{"spain": M_MADRID}}
+                        }, 
+                        {
+                            "name": "Málaga",
+                            "code": "MAL",
+                            "entity_type": "Provincia",
+                            "capitals": ["Málaga"],
+                            "spec": {2:{"spain": ["Málaga"]}}
+                        }, 
+                        {
+                            "name": "Móstoles",
+                            "code": "MOS",
+                            "entity_type": "Provincia",
+                            "capitals": ["Móstoles"],
+                            "spec": {2:{"spain": "Madrid"}, "restar":{3:{"spain": M_MADRID}}}
+                        }, 
+                        {
+                            "name": "Murcia",
+                            "code": "MUR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Murcia"],
+                            "spec": {2:{"spain": "Murcia"}}
+                        }, 
+                        {
+                            "name": "Orense",
+                            "code": "ORE",
+                            "entity_type": "Provincia",
+                            "capitals": ["Ourense"],
+                            "spec": {2:{"spain": "Ourense"}}
+                        }, 
+                        {
+                            "name": "Oviedo",
+                            "code": "OVI",
+                            "entity_type": "Provincia",
+                            "capitals": ["Oviedo"],
+                            "spec": {2:{"spain": "Asturias"}}
+                        }, 
+                        {
+                            "name": "Palencia",
+                            "code": "PAL",
+                            "entity_type": "Provincia",
+                            "capitals": ["Palencia"],
+                            "spec": {2:{"spain": "Palencia"}, "restar":{3:{"spain": PALENCIA_A_BURGOS}}}
+                        }, 
+                        {
+                            "name": "Pamplona",
+                            "code": "PAM",
+                            "entity_type": "Provincia",
+                            "capitals": ["Pamplona"],
+                            "spec": {2:{"spain": "Navarra"}, "restar":{3:{"spain": NAVARRA_A_ZARAGOZA}}}
+                        }, 
+                        {
+                            "name": "Pontevedra",
+                            "code": "PON",
+                            "entity_type": "Provincia",
+                            "capitals": ["Pontevedra"],
+                            "spec": {2:{"spain": "Pontevedra"}}
+                        }, 
+                        {
+                            "name": "Salamanca",
+                            "code": "SAL",
+                            "entity_type": "Provincia",
+                            "capitals": ["Salamanca"],
+                            "spec": {2:{"spain": "Salamanca"}}
+                        }, 
+                        {
+                            "name": "Santander",
+                            "code": "SAN",
+                            "entity_type": "Provincia",
+                            "capitals": ["Santander"],
+                            "spec": {2:{"spain": "Cantabria"}, "restar":{3:{"spain": CANTABRIA_A_VITORIA}}}
+                        }, 
+                        {
+                            "name": "Segovia",
+                            "code": "SEG",
+                            "entity_type": "Provincia",
+                            "capitals": ["Segovia"],
+                            "spec": {2:{"spain": "Segovia"}}
+                        }, 
+                        {
+                            "name": "Sevilla",
+                            "code": "SEV",
+                            "entity_type": "Provincia",
+                            "capitals": ["Sevilla"],
+                            "spec": {2:{"spain": "Sevilla"}}
+                        }, 
+                        {
+                            "name": "Soria",
+                            "code": "SOR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Soria"],
+                            "spec": {2:{"spain": "Soria"}}
+                        }, 
+                        {
+                            "name": "Tarragona",
+                            "code": "TAR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Tarragona"],
+                            "spec": {2:{"spain": "Tarragona"}}
+                        },
+                        {
+                            "name": "Terrasa",
+                            "code": "TER",
+                            "entity_type": "Provincia",
+                            "capitals": ["Terrassa"],
+                            "spec": {2:{"spain": "Barcelona"}, 3:{"spain": GERONA_A_TERRASA}, "restar":{3:{"spain": M_BARCELONA}}}
+                        },  
+                        {
+                            "name": "Teruel",
+                            "code": "TEU",
+                            "entity_type": "Provincia",
+                            "capitals": ["Teruel"],
+                            "spec": {2:{"spain": "Teruel"}, 3:{"spain": VALENCIA_A_TERUEL}}
+                        }, 
+                        {
+                            "name": "Toledo",
+                            "code": "TOL",
+                            "entity_type": "Provincia",
+                            "capitals": ["Toledo"],
+                            "spec": {2:{"spain": "Toledo"}, 3:{"spain": CIUDAD_REAL_A_TOLEDO}}
+                        }, 
+                        {
+                            "name": "Valencia",
+                            "code": "VAL",
+                            "entity_type": "Provincia",
+                            "capitals": ["Valencia"],
+                            "spec": {2:{"spain": "Valencia"}, "restar":{3:{"spain": VALENCIA_A_TERUEL}}}
+                        }, 
+                        {
+                            "name": "Valladolid",
+                            "code": "VAA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Valladolid"],
+                            "spec": {2:{"spain": "Valladolid"}, "restar":{3:{"spain": VALLADOLID_A_ZAMORA}}}
+                        }, 
+                        {
+                            "name": "Vitoria",
+                            "code": "VIT",
+                            "entity_type": "Provincia",
+                            "capitals": ["Vitoria-Gasteiz"],
+                            "spec": {2:{"spain": ["Araba", "Bizkaia", "Gipuzkoa"]}, 3:{"spain": BURGOS_A_VITORIA.extend(CANTABRIA_A_VITORIA)}}
+                        }, 
+                        {
+                            "name": "Zamora",
+                            "code": "ZAM",
+                            "entity_type": "Provincia",
+                            "capitals": ["Zamora"],
+                            "spec": {2:{"spain": "Zamora"}, 3:{"spain": VALLADOLID_A_ZAMORA}}
+                        }, 
+                        {
+                            "name": "Zaragoza",
+                            "code": "ZAR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Zaragoza"],
+                            "spec": {2:{"spain": "Zaragoza"}, 3:{"spain": NAVARRA_A_ZARAGOZA}}
+                        },
+                        {
+                            "name": "Beja",
+                            "code": "BEJ",
+                            "entity_type": "Provincia",
+                            "capitals": ["Beja"],
+                            "spec": {
+                                1: {"portugal": ["Beja"]},
+                                2: {"portugal": SETUBAL_A_BEJA},
+                            },
+                        },
+                        {
+                            "name": "Castelo Branco",
+                            "code": "CBR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Castelo Branco"],
+                            "spec": {
+                                1: {"portugal": ["Castelo Branco"]},
+                                2: {"portugal": COIMBRA_A_CASTELO_BRANCO + SANTAREM_A_CASTELO_BRANCO},
+                            },
+                        },
+                        {
+                            "name": "Coímbra",
+                            "code": "COI",
+                            "entity_type": "Provincia",
+                            "capitals": ["Coímbra"],
+                            "spec": {
+                                1: {"portugal": ["Coimbra", "Aveiro", "Leiría"]},
+                                2: {"portugal": (SANTAREM_A_COIMBRA)},
+                                "restar": {2: {"portugal": (COIMBRA_A_CASTELO_BRANCO + COIMBRA_A_VISEO + AVEIRO_A_OPORTO + LEIRIA_A_LISBOA)}},
+                            },
+                        },
+                        {
+                            "name": "Évora",
+                            "code": "EVO",
+                            "entity_type": "Provincia",
+                            "capitals": ["Évora"],
+                            "spec": {
+                                1: {"portugal": ["Évora", "Portalegre"]},
+                                "restar": {2:{"portugal": PORTALEGRE_A_SATAREM}}
+                            },
+                        },
+                        {
+                            "name": "Faro",
+                            "code": "FAR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Faro"],
+                            "spec": {
+                                1: {"portugal": ["Faro"]},
+                            },
+                        },
+                        {
+                            "name": "Lisboa",
+                            "code": "LIS",
+                            "entity_type": "Provincia",
+                            "capitals": ["Lisboa"],
+                            "spec": {
+                                1: {"portugal": ["Lisboa", "Setúbal"]},
+                                2: {"portugal": LEIRIA_A_LISBOA},
+                                "restar": {2: {"portugal": LISBOA_A_SANTAREM + SETUBAL_A_BEJA}}
+                            },
+                        },
+                        {
+                            "name": "Oporto",
+                            "code": "OPO",
+                            "entity_type": "Provincia",
+                            "capitals": ["Porto"],
+                            "spec": {
+                                1: {"portugal": ["Braga", "Porto", "Viana do Castelo"]},
+                                2: {"portugal": AVEIRO_A_OPORTO + VISEU_A_OPORTO},
+                            },
+                        },
+                        {
+                            "name": "Santarén",
+                            "code": "SAR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Santarém"],
+                            "spec": {
+                                1: {"portugal": "Santarém"},
+                                2: {"portugal": LISBOA_A_SANTAREM + PORTALEGRE_A_SATAREM},
+                                "restar": {2: {"portugal": SANTAREM_A_CASTELO_BRANCO + SANTAREM_A_COIMBRA}},
+                            },
+                        },
+                        {
+                            "name": "Villa Real",
+                            "code": "VRE",
+                            "entity_type": "Provincia",
+                            "capitals": ["Vila Real"],
+                            "spec": {
+                                1: {"portugal": ["Vila Real", "Bragança"]},
+                                2: {"portugal": VISEU_A_VILA_REAL + GUARDA_A_VILA_REAL},
+                            },
+                        },
+                        {
+                            "name": "Viseo",
+                            "code": "VIS",
+                            "entity_type": "Provincia",
+                            "capitals": ["Viseu"],
+                            "spec": {
+                                1: {"portugal": ["Viseu", "Guarda"]},
+                                2: {"portugal": COIMBRA_A_VISEO },
+                                "restar": {2: {"portugal": GUARDA_A_VILA_REAL + VISEU_A_VILA_REAL + VISEU_A_OPORTO}},
+                            },
+                        },
+                        {
+                            "name": "Perpiñán",
+                            "code": "PER",
+                            "entity_type": "Provincia",
+                            "capitals": ["Perpignan"],
+                            "spec": {
+                                1: {"andorra": "Andorra"},
+                                2: {"france": ["Pyrénées-Orientales"]},
+                                3: {"spain": GERONA_A_PERPINHAN },
+                            },
+                        },
+                    ]
+                },
+                {
+                    "name": "Italia",
+                    "code": "ITA",
+                    "entity_type": "Prefectura",
+                    "capitals": ["Roma"],
+                    "childs": [
+                        {
+                            "name": "Sácer",
+                            "code": "SAC",
+                            "entity_type": "Provincia Insular",
+                            "capitals": ["Sassari"],
+                            "spec": {2:{"italy": ["Sassari"]}}
+                        },
+                        {
+                            "name": "Núoro",
+                            "code": "NUO",
+                            "entity_type": "Provincia Insular",
+                            "capitals": ["Nuoro"],
+                            "spec": {2:{"italy": ["Oristano", "Nuoro"]}}
+                        },
+                        {
+                            "name": "Cagliari",
+                            "code": "CAG",
+                            "entity_type": "Provincia Insular",
+                            "capitals": ["Cagliari"],
+                            "spec": {2:{"italy": ["Sud Sardegna", "Cagliari"]}}
+                        },
+                        {
+                            "name": "Palermo",
+                            "code": "PAL",
+                            "entity_type": "Provincia",
+                            "capitals": ["Palermo"],
+                            "spec": {
+                                2:{"italy": ["Trapani", "Palermo", "Messina"]}, 
+                                3: {"italy": CALTANISSETTA_A_PALERMO},
+                                "restar": {3: {"italy": PALERMO_A_CALTANISSETTA}},
+                            }
+                        },
+                        {
+                            "name": "Caltanissetta",
+                            "code": "CAA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Caltanissetta"],
+                            "spec": {
+                                2:{"italy": ["Agrigento", "Caltanissetta", "Enna"]}, 
+                                3: {"italy": PALERMO_A_CALTANISSETTA},
+                                "restar": {3: {"italy": CALTANISSETTA_A_PALERMO}},
+                            }
+                        },
+                        {
+                            "name": "Catania",
+                            "code": "CAT",
+                            "entity_type": "Provincia",
+                            "capitals": ["Catania"],
+                            "spec": {2:{"italy": ["Catania", "Siracusa", "Ragusa"]}, 0: {"malta": ["malta"]}}
+                        },
+                        {
+                            "name": "Cosenza",
+                            "code": "COS",
+                            "entity_type": "Provincia",
+                            "capitals": ["Cosenza"],
+                            "spec": {2:{"italy": ["Cosenza", "Crotone"]}}
+                        },
+                        {
+                            "name": "Calabria",
+                            "code": "CAL",
+                            "entity_type": "Provincia",
+                            "capitals": ["Reggio di Calabria"],
+                            "spec": {2:{"italy": ["Reggio di Calabria", "Vibo Valentia", "Catanzaro"]}}
+                        },
+                        {
+                            "name": "Potenza",
+                            "code": "POT",
+                            "entity_type": "Provincia",
+                            "capitals": ["Potenza"],
+                            "spec": {1:{"italy": ["Basilicata"]}}
+                        },
+                        {
+                            "name": "Tarento",
+                            "code": "TAR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Taranto"],
+                            "spec": {2:{"italy": ["Lecce", "Brindisi", "Taranto"]}}
+                        },
+                        {
+                            "name": "Bari",
+                            "code": "BAR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Bari"],
+                            "spec": {2:{"italy": ["Bari", "Barletta-Andria-Trani"]}}
+                        },
+                        {
+                            "name": "Foggia",
+                            "code": "FOG",
+                            "entity_type": "Provincia",
+                            "capitals": ["Foggia"],
+                            "spec": {2:{"italy": ["Foggia"]}}
+                        },
+                        {
+                            "name": "Campobasso",
+                            "code": "CAM",
+                            "entity_type": "Provincia",
+                            "capitals": ["Campobasso"],
+                            "spec": {1:{"italy": ["Molise"]}}
+                        },
+                        {
+                            "name": "Nápoles",
+                            "code": "NAP",
+                            "entity_type": "Provincia Metropolitana",
+                            "capitals": ["Napoli"],
+                            "spec": {
+                                2: {"italy": ["Napoli"]},
+                                3: {"italy": CASERTA_A_NAPOLES + SALERMO_A_NAPOLES + AVELLINO_A_NAPOLES },
+                                "restar": {3: {"italy": CALTANISSETTA_A_PALERMO}},
+                            }
+                        },
+                        {
+                            "name": "Salerno",
+                            "code": "SAL",
+                            "entity_type": "Provincia",
+                            "capitals": ["Salerno"],
+                            "spec": {
+                                2:{"italy": ["Salerno"]},
+                                "restar": {3: {"italy": SALERMO_A_NAPOLES}},
+                            }
+                        },
+                        {
+                            "name": "Benevento",
+                            "code": "BEN",
+                            "entity_type": "Provincia",
+                            "capitals": ["Benevento"],
+                            "spec": {
+                                2:{"italy": ["Benevento", "Avellino", "Caserta"]},
+                                "restar": {3: {"italy": CASERTA_A_NAPOLES + AVELLINO_A_NAPOLES}},
+                            }
+                        },
+                        {
+                            "name": "Pescara",
+                            "code": "PES",
+                            "entity_type": "Provincia",
+                            "capitals": ["Pescara"],
+                            "spec": {2:{"italy": ["Chieti", "Pescara", "Teramo"]}}
+                        },
+                        {
+                            "name": "El Águila",
+                            "code": "EAG",
+                            "entity_type": "Provincia",
+                            "capitals": ["L'Aquila"],
+                            "spec": {2:{"italy": ["L'Aquila"]}}
+                        },
+                        {
+                            "name": "Roma",
+                            "code": "ROM",
+                            "entity_type": "Provincia Metropolitana",
+                            "capitals": ["Roma"],
+                            "spec": {2:{"italy": ["Roma"]}, 0: {"vaticancity": ["vaticancity"]}}
+                        },
+                        {
+                            "name": "Latina",
+                            "code": "LAT",
+                            "entity_type": "Provincia",
+                            "capitals": ["Latina"],
+                            "spec": {2:{"italy": ["Frosinone", "Latina"]}}
+                        },
+                        {
+                            "name": "Viterbo",
+                            "code": "VIT",
+                            "entity_type": "Provincia",
+                            "capitals": ["Viterbo"],
+                            "spec": {2:{"italy": ["Viterbo", "Rieti"]}}
+                        },
+                        {
+                            "name": "Perugia",
+                            "code": "PER",
+                            "entity_type": "Provincia",
+                            "capitals": ["Perugia"],
+                            "spec": {1:{"italy": ["Umbria"]}}
+                        },
+                        {
+                            "name": "Áscoli Piceno",
+                            "code": "API",
+                            "entity_type": "Provincia",
+                            "capitals": ["Ascoli Piceno"],
+                            "spec": {2:{"italy": ["Ascoli Piceno", "Fermo", "Macerata"]}}
+                        },
+                        {
+                            "name": "Ancona",
+                            "code": "ANC",
+                            "entity_type": "Provincia",
+                            "capitals": ["Ancona"],
+                            "spec": {2:{"italy": ["Pesaro e Urbino", "Ancona"]}}
+                        },
+                        {
+                            "name": "Grosseto",
+                            "code": "GRO",
+                            "entity_type": "Provincia",
+                            "capitals": ["Grosseto"],
+                            "spec": {2:{"italy": ["Grosseto", "Siena"]}}
+                        },
+                        {
+                            "name": "Pisa",
+                            "code": "PIS",
+                            "entity_type": "Provincia",
+                            "capitals": ["Pisa"],
+                            "spec": {2:{"italy": ["Livorno", "Pisa"]}}
+                        },
+                        {
+                            "name": "Florencia",
+                            "code": "FLO",
+                            "entity_type": "Provincia",
+                            "capitals": ["Firenze"],
+                            "spec": {2:{"italy": ["Firenze", "Arezzo"]}, "restar": {3: {"italy": FLORENCIA_A_RAVENA}}}
+                        },
+                        {
+                            "name": "Prato",
+                            "code": "PRA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Prato"],
+                            "spec": {2:{"italy": ["Prato", "Pistoia", "Lucca", "Massa-Carrara"]}}
+                        },
+                        {
+                            "name": "Ravena",
+                            "code": "RAV",
+                            "entity_type": "Provincia",
+                            "capitals": ["Ravenna"],
+                            "spec": {0:{"sanmarino": "sanmarino"}, 2:{"italy": ["Ravenna", "Forlì-Cesena", "Rimini"]}, 3: {"italy": FLORENCIA_A_RAVENA}}
+                        },
+                        {
+                            "name": "Bolonia",
+                            "code": "BOL",
+                            "entity_type": "Provincia",
+                            "capitals": ["Bologna"],
+                            "spec": {2:{"italy": ["Ferrara", "Bologna"]}}
+                        },
+                        {
+                            "name": "Módena",
+                            "code": "MOD",
+                            "entity_type": "Provincia",
+                            "capitals": ["Modena"],
+                            "spec": {2:{"italy": ["Modena", "Reggio nell'Emilia"]}}
+                        },
+                        {
+                            "name": "Parma",
+                            "code": "PAR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Parma"],
+                            "spec": {2:{"italy": ["Parma", "Piacenza"]}}
+                        },
+                        {
+                            "name": "Venecia",
+                            "code": "VEN",
+                            "entity_type": "Provincia",
+                            "capitals": ["Venezia"],
+                            "spec": {2:{"italy": ["Venezia", "Rovigo", "Padova"]}}
+                        },
+                        {
+                            "name": "Verona",
+                            "code": "VER",
+                            "entity_type": "Provincia",
+                            "capitals": ["Verona"],
+                            "spec": {2:{"italy": ["Verona", "Vicenza"]}}
+                        },
+                        {
+                            "name": "Treviso",
+                            "code": "TRV",
+                            "entity_type": "Provincia",
+                            "capitals": ["Treviso"],
+                            "spec": {2:{"italy": ["Belluno", "Treviso"]}}
+                        },
+                        {
+                            "name": "Trieste",
+                            "code": "TRI",
+                            "entity_type": "Provincia",
+                            "capitals": ["Trieste"],
+                            "spec": {1:{"italy": ["Friuli-Venezia Giulia"]}}
+                        },
+                        {
+                            "name": "Brescia",
+                            "code": "BRE",
+                            "entity_type": "Provincia",
+                            "capitals": ["Brescia"],
+                            "spec": {2:{"italy": ["Brescia", "Mantova"]}}
+                        },
+                        {
+                            "name": "Pavia",
+                            "code": "PAV",
+                            "entity_type": "Provincia",
+                            "capitals": ["Pavia"],
+                            "spec": {2:{"italy": ["Cremona", "Lodi", "Pavia"]}, 3: {"italy": MILAN_A_PAVIA}}
+                        },
+                        {
+                            "name": "Bergamo",
+                            "code": "BER",
+                            "entity_type": "Provincia",
+                            "capitals": ["Bergamo"],
+                            "spec": {2:{"italy": ["Bergamo", "Sondrio", "Lecco", "Como", "Varese"]}}
+                        },
+                        {
+                            "name": "Milán",
+                            "code": "MIL",
+                            "entity_type": "Provincia Metropolitana",
+                            "capitals": ["Milano"],
+                            "spec": {2:{"italy": ["Monza e della Brianza", "Milano"]}, "restar": {3: {"italy": MILAN_A_PAVIA}}}
+                        },
+                    ]
+                },
+                {
+                    "name": "Macaronesia",
+                    "code": "MAC",
+                    "entity_type": "Prefectura",
+                    "capitals": ["Las Palmas de Gran Canaria"],
+                    "childs": [
+                        {
+                            "name": "Canarias",
+                            "code": "CAN",
+                            "entity_type": "Provincia Insular",
+                            "capitals": ["Santa Cruz de Tenerife"],
+                            "spec": {2:{"spain": ["Santa Cruz de Tenerife", "Las Palmas"]}}
+                        },
+                        {
+                            "name": "Azores",
+                            "code": "AZO",
+                            "entity_type": "Provincia Insular",
+                            "capitals": ["Ponta Delgada"],
+                            "spec": {1: {"portugal": ["Açores"]},},
+                        },
+                        {
+                            "name": "Madeira",
+                            "code": "MAD",
+                            "entity_type": "Provincia Insular",
+                            "capitals": ["Funchal"],
+                            "spec": {
+                                1: {"portugal": ["Madeira"]},
+                            },
+                        }, 
+                        {
+                            "name": "Cabo Verde",
+                            "code": "CVE",
+                            "entity_type": "Provincia Insular",
+                            "capitals": ["Praia"],
+                            "forced_area_km2": 4033,
+                            "spec": {
+                                0: {"capeverde": ["Cape Verde"]},
+                            },
+                        }, 
+                    ]
+                },
+            ]
+        },
+        {
+            "name": "Árabes Bereberes",
+            "code": "BER",
+            "entity_type": "Región cultural",
+            "capitals": ["Tanger"],
+            "childs": [
+                {
+                    "name": "Mauretania",
+                    "code": "MAU",
+                    "entity_type": "Prefectura",
+                    "capitals": ["Tanger"],
+                    "childs": [
+                        # Anexión del Rif
+                        {
+                            "name": "Alhucemas",
+                            "code": "ALH",
+                            "entity_type": "Provincia",
+                            "capitals": ["Al Hoceïma"],
+                            "spec": {
+                                2: {"morocco": ["Al Hoceïma", "Chefchaouen"]},
+                            },
+                        },
+                        {
+                            "name": "Nador",
+                            "code": "NAD",
+                            "entity_type": "Provincia",
+                            "capitals": ["Nador"],
+                            "spec": {
+                                2: {"spain": ["Melilla"], "morocco": ["Nador", "Driouch"]},
+                            },
+                        }, 
+                        {
+                            "name": "Tánger",
+                            "code": "TAN",
+                            "entity_type": "Provincia",
+                            "capitals": ["Tanger"],
+                            "spec": {
+                                2:{
+                                    "spain": ["Ceuta"], 
+                                    "morocco": ["Tanger - Assilah", "Tétouan", "M'Diq - Fnideq", "Fahs - Anjra", "Larache"]
+                                }
+                            }
+                        },
+
+                        # Anexión del Marruecos
+                        {
+                            "name": "Agadir",
+                            "code": "AGA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Agadir"],
+                            "spec": {
+                                2: {"morocco": ["Agadir - Ida - Outanane", "Inezgane - Aït Melloul", "Chtouka - Aït Baha", "Tiznit"]},
+                            },
+                        },
+                        {
+                            "name": "Ben Guerir",
+                            "code": "BEG",
+                            "entity_type": "Provincia",
+                            "capitals": ["Ben Guerir"],
+                            "spec": {
+                                2: {"morocco": ["Rehamna", "El Kelaâ des Sraghna"]},
+                            },
+                        },
+                        {
+                            "name": "Béni Mellal",
+                            "code": "BEM",
+                            "entity_type": "Provincia",
+                            "capitals": ["Béni Mellal"],
+                            "spec": {
+                                2: {"morocco": ["Azilal", "Fquih Ben Salah", "Béni Mellal"]},
+                            },
+                        },
+                        {
+                            "name": "Berrechid",
+                            "code": "BER",
+                            "entity_type": "Provincia",
+                            "capitals": ["Berrechid"],
+                            "spec": {
+                                2: {"morocco": ["Berrechid", "Benslimane"]},
+                            },
+                        },
+                        {
+                            "name": "Casablanca",
+                            "code": "CAS",
+                            "entity_type": "Provincia Metropolitana",
+                            "capitals": ["Casablanca"],
+                            "spec": {
+                                2: {"morocco": ["Casablanca", "Nouaceur", "Médiouna", "Mohammédia"]},
+                            },
+                        },
+                        {
+                            "name": "El Yadida",
+                            "code": "EYA",
+                            "entity_type": "Provincia",
+                            "capitals": ["El Jadida"],
+                            "spec": {
+                                2: {"morocco": ["El Jadida", "Sidi Bennour"]},
+                            },
+                        },
+                        {
+                            "name": "Errachidia",
+                            "code": "ERR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Errachidia"],
+                            "spec": {
+                                2: {"morocco": ["Errachidia"]},
+                            },
+                        },
+                        {
+                            "name": "Essaouira",
+                            "code": "ESS",
+                            "entity_type": "Provincia",
+                            "capitals": ["Essaouira"],
+                            "spec": {
+                                2: {"morocco": ["Essaouira", "Chichaoua"]},
+                            },
+                        },
+                        {
+                            "name": "Fez",
+                            "code": "FEZ",
+                            "entity_type": "Provincia",
+                            "capitals": ["Fès"],
+                            "spec": {
+                                2: {"morocco": ["Fès", "Séfrou", "Moulay Yaâcoub"]},
+                            },
+                        },
+                        {
+                            "name": "Guelmim",
+                            "code": "GUE",
+                            "entity_type": "Provincia",
+                            "capitals": ["Guelmim"],
+                            "forced_area_km2": 11574+26600,
+                            "spec": {
+                                2: {"morocco": ["Guelmim", "Sidi Ifni"]},
+                            },
+                        },
+                        {
+                            "name": "Jouribga",
+                            "code": "JOU",
+                            "entity_type": "Provincia",
+                            "capitals": ["Khouribga"],
+                            "spec": {
+                                2: {"morocco": ["Khouribga", "Khénifra"]},
+                            },
+                        },
+                        {
+                            "name": "Kenitra",
+                            "code": "KEN",
+                            "entity_type": "Provincia",
+                            "capitals": ["Kénitra"],
+                            "spec": {
+                                2: {"morocco": ["Kénitra"]},
+                            },
+                        },
+                        {
+                            "name": "Marrakech",
+                            "code": "MAR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Marrakech"],
+                            "spec": {
+                                2: {"morocco": ["Marrakech", "Al Haouz"]},
+                            },
+                        },
+                        {
+                            "name": "Mequinez",
+                            "code": "MEQ",
+                            "entity_type": "Provincia",
+                            "capitals": ["Meknès"],
+                            "spec": {
+                                2: {"morocco": ["Meknès", "El Hajeb", "Ifrane"]},
+                            },
+                        },
+                        {
+                            "name": "Midelt",
+                            "code": "MID",
+                            "entity_type": "Provincia",
+                            "capitals": ["Midelt"],
+                            "spec": {
+                                2: {"morocco": ["Midelt"]},
+                            },
+                        },
+                        {
+                            "name": "Missour",
+                            "code": "MIS",
+                            "entity_type": "Provincia",
+                            "capitals": ["Missour"],
+                            "spec": {
+                                2: {"morocco": ["Boulemane"]},
+                            },
+                        },
+                        {
+                            "name": "Ouarzazate",
+                            "code": "OUA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Ouarzazate"],
+                            "spec": {
+                                2: {"morocco": ["Ouarzazate"]},
+                            },
+                        },
+                        {
+                            "name": "Tarudant",
+                            "code": "TAR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Taroudant"],
+                            "spec": {
+                                2: {"morocco": ["Taroudant"]},
+                            },
+                        },
+                        {
+                            "name": "Rabat",
+                            "code": "RAB",
+                            "entity_type": "Provincia",
+                            "capitals": ["Rabat"],
+                            "spec": {
+                                2: {"morocco": ["Rabat", "Salé", "Skhirate - Témara", "Khémisset"]},
+                            },
+                        },
+                        {
+                            "name": "Safi",
+                            "code": "SAF",
+                            "entity_type": "Provincia",
+                            "capitals": ["Safi"],
+                            "spec": {
+                                2: {"morocco": ["Safi", "Youssoufia"]},
+                            },
+                        },
+                        {
+                            "name": "Settat",
+                            "code": "SET",
+                            "entity_type": "Provincia",
+                            "capitals": ["Settat"],
+                            "spec": {
+                                2: {"morocco": ["Settat"]},
+                            },
+                        },
+                        {
+                            "name": "Tata",
+                            "code": "TAT",
+                            "entity_type": "Provincia",
+                            "capitals": ["Tata"],
+                            "spec": {
+                                2: {"morocco": ["Tata"]},
+                            },
+                        },
+                        {
+                            "name": "Taza",
+                            "code": "TAZ",
+                            "entity_type": "Provincia",
+                            "capitals": ["Taza"],
+                            "spec": {
+                                2: {"morocco": ["Taounate", "Taza"]},
+                            },
+                        },
+                        {
+                            "name": "Tinghir",
+                            "code": "TIN",
+                            "entity_type": "Provincia",
+                            "capitals": ["Tinghir"],
+                            "spec": {
+                                2: {"morocco": ["Tinghir"]},
+                            },
+                        },
+                        {
+                            "name": "Zagora",
+                            "code": "ZAG",
+                            "entity_type": "Porvincia",
+                            "capitals": ["Zagora"],
+                            "spec": {
+                                2: {"morocco": ["Zagora"]},
+                            },
+                        },
+
+                        ## ANEXIÓN OCCIDENTE ARGELINO
+                        {
+                            "name": "Buarfa",
+                            "code": "BUA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Bouarfa"],
+                            "spec": {
+                                2: {"morocco": ["Figuig"]},
+                            },
+                        },
+                        {
+                            "name": "El Bayadh",
+                            "code": "EBA",
+                            "entity_type": "Provincia",
+                            "capitals": ["El Bayadh"],
+                            "spec": {
+                                1: {"algeria": ["El Bayadh"]},
+                            },
+                        },
+                        {
+                            "name": "Mostaganem",
+                            "code": "MOS",
+                            "entity_type": "Provincia",
+                            "capitals": ["Mostaganem"],
+                            "spec": {
+                                1: {"algeria": ["Mostaganem", "Mascara"]},
+                            },
+                        },
+                        {
+                            "name": "Naamá",
+                            "code": "NAA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Naâma"],
+                            "spec": {
+                                1: {"algeria": ["Naâma"]},
+                            },
+                        },
+                        {
+                            "name": "Taurirt",
+                            "code": "TAU",
+                            "entity_type": "Provincia",
+                            "capitals": ["Taourirt"],
+                            "spec": {
+                                2: {"morocco": ["Taourirt", "Guercif"]},
+                            },
+                        },
+                        {
+                            "name": "Orán",
+                            "code": "ORA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Oran"],
+                            "spec": {
+                                1: {"algeria": ["Sidi Bel Abbès", "Aïn Témouchent", "Oran"]},
+                            },
+                        },
+                        {
+                            "name": "Saída",
+                            "code": "SAI",
+                            "entity_type": "Provincia",
+                            "capitals": ["Saïda"],
+                            "spec": {
+                                1: {"algeria": ["Saïda"]},
+                            },
+                        },
+                        {
+                            "name": "Tremecén",
+                            "code": "TRE",
+                            "entity_type": "Provincia",
+                            "capitals": ["Tlemcen"],
+                            "spec": {
+                                1: {"algeria": ["Tlemcen"]},
+                            },
+                        },
+                        {
+                            "name": "Uchda",
+                            "code": "UCH",
+                            "entity_type": "Provincia",
+                            "capitals": ["Oujda"],
+                            "spec": {
+                                2: {"morocco": ["Oujda - Angad", "Berkane", "Jerada"]},
+                            },
+                        },
+                    ]
+                },
+                #ANEXIÓN DEL RESTO DE ARGELIA Y TUNEZ
+                {
+                    "name": "África",
+                    "code": "AFR",
+                    "entity_type": "Prefectura",
+                    "capitals": ["Tunis"],
+                    "childs": [
+                        {
+                            "name": "Chlef",
+                            "code": "CHL",
+                            "entity_type": "Provincia",
+                            "capitals": ["Chlef"],
+                            "spec": {
+                                1: {"algeria": ["Relizane", "Chlef"]},
+                            },
+                        },
+                        {
+                            "name": "Tiaret",
+                            "code": "TIA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Tiaret"],
+                            "spec": {
+                                1: {"algeria": ["Tiaret"]},
+                            },
+                        },
+                        {
+                            "name": "Laghouat",
+                            "code": "LAG",
+                            "entity_type": "Provincia",
+                            "capitals": ["Laghouat"],
+                            "spec": {
+                                1: {"algeria": ["Laghouat"]},
+                            },
+                        },
+                        {
+                            "name": "Djelfa",
+                            "code": "DJE",
+                            "entity_type": "Provincia",
+                            "capitals": ["Djelfa"],
+                            "spec": {
+                                1: {"algeria": ["Djelfa"]},
+                            },
+                        },
+                        {
+                            "name": "Médea",
+                            "code": "MED",
+                            "entity_type": "Provincia",
+                            "capitals": ["Médéa"],
+                            "spec": {
+                                1: {"algeria": ["Médéa", "Blida"]},
+                            },
+                        },
+                        {
+                            "name": "Aín Defla",
+                            "code": "ADE",
+                            "entity_type": "Provincia",
+                            "capitals": ["Aïn Defla"],
+                            "spec": {
+                                1: {"algeria": ["Aïn Defla", "Tipaza", "Tissemsilt"]},
+                            },
+                        },
+                        {
+                            "name": "Alger",
+                            "code": "ALG",
+                            "entity_type": "Provincia Metropolitana",
+                            "capitals": ["El Djazaïr"],
+                            "spec": {
+                                1: {"algeria": ["El Djazaïr"]},
+                            },
+                        },
+                        {
+                            "name": "Tizi Uzu",
+                            "code": "TUZ",
+                            "entity_type": "Provincia",
+                            "capitals": ["Tizi Ouzou"],
+                            "spec": {
+                                1: {"algeria": ["Boumerdès", "Tizi Ouzou", "Bouira"]},
+                            },
+                        },
+                        {
+                            "name": "Sétif",
+                            "code": "SET",
+                            "entity_type": "Provincia",
+                            "capitals": ["Sétif"],
+                            "spec": {
+                                1: {"algeria": ["Béjaïa", "Sétif", "Bordj Bou Arreridj"]},
+                            },
+                        },
+                        {
+                            "name": "Skikda",
+                            "code": "SKI",
+                            "entity_type": "Provincia",
+                            "capitals": ["Skikda"],
+                            "spec": {
+                                1: {"algeria": ["Jijel", "Skikda"]},
+                            },
+                        },
+                        {
+                            "name": "Constantina",
+                            "code": "CON",
+                            "entity_type": "Provincia",
+                            "capitals": ["Constantine"],
+                            "spec": {
+                                1: {"algeria": ["Constantine", "Mila", "Oum El Bouaghi"]},
+                            },
+                        },
+                        {
+                            "name": "Añaba",
+                            "code": "ANA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Annaba"],
+                            "spec": {
+                                1: {"algeria": ["Annaba", "El Tarf", "Guelma", "Souk Ahras"]},
+                            },
+                        },
+                        {
+                            "name": "Msila",
+                            "code": "MSI",
+                            "entity_type": "Provincia",
+                            "capitals": ["M'Sila"],
+                            "spec": {
+                                1: {"algeria": ["M'Sila"]},
+                            },
+                        },
+                        {
+                            "name": "Batna",
+                            "code": "BAT",
+                            "entity_type": "Provincia",
+                            "capitals": ["Batna"],
+                            "spec": {
+                                1: {"algeria": ["Batna"]},
+                            },
+                        },
+                        {
+                            "name": "Biskra",
+                            "code": "BIS",
+                            "entity_type": "Provincia",
+                            "capitals": ["Biskra"],
+                            "spec": {
+                                1: {"algeria": ["Biskra"]},
+                            },
+                        },
+                        {
+                            "name": "Jenchela",
+                            "code": "JEN",
+                            "entity_type": "Provincia",
+                            "capitals": ["Khenchela"],
+                            "spec": {
+                                1: {"algeria": ["Khenchela"]},
+                            },
+                        },
+                        {
+                            "name": "Tébessa",
+                            "code": "TEB",
+                            "entity_type": "Provincia",
+                            "capitals": ["Tébessa"],
+                            "spec": {
+                                1: {"algeria": ["Tébessa"]},
+                            },
+                        },
+                        {
+                            "name": "Túnez",
+                            "code": "TUN",
+                            "entity_type": "Provincia Metropolitana",
+                            "capitals": ["Tunis"],
+                            "spec": {
+                                1: {"tunisia": ["Tunis"]}, 2: {"tunisia": ARIANA_A_TUNEZ + BEN_AROUS_A_TUNEZ + MANOUBA_A_TUNEZ}
+                            },
+                        },
+                        {
+                            "name": "Bizerta",
+                            "code": "BIZ",
+                            "entity_type": "Provincia",
+                            "capitals": ["Bizerte"],
+                            "spec": {
+                                1: {"tunisia": ["Bizerte", "Manouba", "Ariana", "Béja"]}, "restar": {2: {"tunisia": ARIANA_A_TUNEZ + MANOUBA_A_TUNEZ}}
+                            },
+                        },
+                        {
+                            "name": "Nabeul",
+                            "code": "NAB",
+                            "entity_type": "Provincia",
+                            "capitals": ["Nabeul"],
+                            "spec": {
+                                1: {"tunisia": ["Ben Arous", "Nabeul", "Zaghouan"]}, "restar": {2: {"tunisia": BEN_AROUS_A_TUNEZ}}
+                            },
+                        },
+                        {
+                            "name": "Jendouba",
+                            "code": "JED",
+                            "entity_type": "Provincia",
+                            "capitals": ["Jendouba"],
+                            "spec": {
+                                1: {"tunisia": ["Jendouba", "Kef"]}
+                            },
+                        },
+                        {
+                            "name": "Cairuán",
+                            "code": "CAI",
+                            "entity_type": "Provincia",
+                            "capitals": ["Kairouan"],
+                            "spec": {
+                                1: {"tunisia": ["Siliana", "Kairouan"]}
+                            },
+                        },
+                        {
+                            "name": "Susa",
+                            "code": "SUS",
+                            "entity_type": "Provincia",
+                            "capitals": ["Sousse"],
+                            "spec": {
+                                1: {"tunisia": ["Sousse", "Monastir", "Mahdia"]}
+                            },
+                        },
+                        {
+                            "name": "Sfax",
+                            "code": "SFA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Sfax"],
+                            "spec": {
+                                1: {"tunisia": ["Sfax"]}
+                            },
+                        },
+                        {
+                            "name": "Sidi Bouzid",
+                            "code": "SBO",
+                            "entity_type": "Provincia",
+                            "capitals": ["Sidi Bouzid"],
+                            "spec": {
+                                1: {"tunisia": ["Sidi Bouzid"]}
+                            },
+                        },
+                        {
+                            "name": "Kasserine",
+                            "code": "KAS",
+                            "entity_type": "Provincia",
+                            "capitals": ["Kasserine"],
+                            "spec": {
+                                1: {"tunisia": ["Kasserine"]}
+                            },
+                        },
+                        {
+                            "name": "Gafsa",
+                            "code": "GAF",
+                            "entity_type": "Provincia",
+                            "capitals": ["Gafsa"],
+                            "spec": {
+                                1: {"tunisia": ["Gafsa"]}
+                            },
+                        },
+                        {
+                            "name": "Tozeur",
+                            "code": "TOZ",
+                            "entity_type": "Provincia",
+                            "capitals": ["Tozeur"],
+                            "spec": {
+                                1: {"tunisia": ["Tozeur"]}
+                            },
+                        },
+                        {
+                            "name": "Kebili",
+                            "code": "KEB",
+                            "entity_type": "Provincia",
+                            "capitals": ["Kébili"],
+                            "spec": {
+                                1: {"tunisia": ["Kébili"]}
+                            },
+                        },
+                        {
+                            "name": "Gabes",
+                            "code": "GAB",
+                            "entity_type": "Provincia",
+                            "capitals": ["Gabès"],
+                            "spec": {
+                                1: {"tunisia": ["Gabès"]}
+                            },
+                        },
+                        {
+                            "name": "Medenine",
+                            "code": "MED",
+                            "entity_type": "Provincia",
+                            "capitals": ["Médenine"],
+                            "spec": {
+                                1: {"tunisia": ["Médenine"]}
+                            },
+                        },
+                    ]
+                },
+                {
+                    "name": "Sahara",
+                    "code": "SAH",
+                    "entity_type": "Prefectura",
+                    "capitals": ["Nouakchott"],
+                    "childs": [
+                        # Anexión del Sahara
+                        {
+                            "name": "Dajla",
+                            "code": "DAJ",
+                            "entity_type": "Provincia",
+                            "capitals": ["Dakhla"],
+                            "forced_area_km2": 43753+76948+65917,
+                            "spec": {
+                                2: {"westernsahara": ["Boujdour", "Oued Ed-Dahab", "Aousserd"]},
+                            },
+                        },
+                        {
+                            "name": "El Aiun",
+                            "code": "EAI",
+                            "entity_type": "Provincia",
+                            "capitals": ["Laâyoune"],
+                            "forced_area_km2": 10790+12270+61760,
+                            "spec": {
+                                2: {"westernsahara": ["Laâyoune", "Tarfaya", "Es Semara"]},
+                            },
+                        },
+                        {
+                            "name": "Tan-Tan",
+                            "code": "TAN",
+                            "entity_type": "Provincia",
+                            "capitals": ["Tan-Tan"],
+                            "forced_area_km2": 11574+26600,
+                            "spec": {
+                                2: {"morocco": ["Tan-Tan", "Assa-Zag"]},
+                            },
+                        },
+                        {
+                            "name": "Béchar",
+                            "code": "BEC",
+                            "entity_type": "Provincia",
+                            "capitals": ["Béchar"],
+                            "spec": {
+                                1: {"algeria": ["Béchar"]},
+                            },
+                        },
+                        {
+                            "name": "Tinduf",
+                            "code": "TIN",
+                            "entity_type": "Provincia",
+                            "capitals": ["Tindouf"],
+                            "spec": {
+                                1: {"algeria": ["Tindouf"]},
+                            },
+                        },
+                        {
+                            "name": "Nuadibú",
+                            "code": "NUA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Nouadhibou"],
+                            "spec": {
+                                1: {"mauritania": ["Dakhlet Nouadhibou", "Inchiri"]},
+                            },
+                        },
+                        {
+                            "name": "Nuakchot",
+                            "code": "NUK",
+                            "entity_type": "Provincia",
+                            "capitals": ["Nouakchott"],
+                            "spec": {
+                                1: {"mauritania": ["Trarza", "Nouakchott"]},
+                            },
+                        },
+                        {
+                            "name": "Brakna",
+                            "code": "BRA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Brakna"],
+                            "spec": {
+                                1: {"mauritania": ["Brakna"]},
+                            },
+                        },
+                        {
+                            "name": "Kaédi",
+                            "code": "KAE",
+                            "entity_type": "Provincia",
+                            "capitals": ["Kaédi"],
+                            "spec": {
+                                1: {"mauritania": ["Gorgol"]},
+                            },
+                        },
+                        {
+                            "name": "Sélibabi",
+                            "code": "SEL",
+                            "entity_type": "Provincia",
+                            "capitals": ["Sélibabi"],
+                            "spec": {
+                                1: {"mauritania": ["Guidimaka"]},
+                            },
+                        },
+                        {
+                            "name": "Kiffa",
+                            "code": "KIF",
+                            "entity_type": "Provincia",
+                            "capitals": ["Kiffa"],
+                            "spec": {
+                                1: {"mauritania": ["Assaba"]},
+                            },
+                        },
+                        {
+                            "name": "Aiún el Atrús",
+                            "code": "AEA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Aïoun El Atrouss"],
+                            "spec": {
+                                1: {"mauritania": ["Hodh El Gharbi"]},
+                            },
+                        },
+                        {
+                            "name": "Tiyikya",
+                            "code": "TIY",
+                            "entity_type": "Provincia",
+                            "capitals": ["Tidjikdja"],
+                            "spec": {
+                                1: {"mauritania": ["Tagant"]},
+                            },
+                        },
+                        {
+                            "name": "Néma",
+                            "code": "NEM",
+                            "entity_type": "Provincia",
+                            "capitals": ["Néma"],
+                            "spec": {
+                                1: {"mauritania": ["Hodh Ech Chargui"]},
+                            },
+                        },
+                        {
+                            "name": "Atar",
+                            "code": "ATA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Atar"],
+                            "spec": {
+                                1: {"mauritania": ["Adrar"]},
+                            },
+                        },
+                        {
+                            "name": "Zuérat",
+                            "code": "ZUE",
+                            "entity_type": "Provincia",
+                            "capitals": ["Zouérate"],
+                            "spec": {
+                                1: {"mauritania": ["Tiris Zemmour"]},
+                            },
+                        },
+                        {
+                            "name": "Tombuctú",
+                            "code": "TOM",
+                            "entity_type": "Provincia",
+                            "capitals": ["Tombouctou"],
+                            "spec": {
+                                1: {"mali": ["Tombouctou", "Gourma-Rharous"]},
+                            },
+                        },
+                        {
+                            "name": "Diré",
+                            "code": "DIR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Diré"],
+                            "spec": {
+                                1: {"mali": ["Diré", "Niafunké", "Goundam"]},
+                            },
+                        },
+                        {
+                            "name": "Gou",
+                            "code": "GOU",
+                            "entity_type": "Provincia",
+                            "capitals": ["Gao"],
+                            "spec": {
+                                1: {"mali": ["Tessalit", "Abeïbara", "Kidal", "Tin-Essako", "Bourem", "Ménaka", "Ansongo", "Gao"]},
+                            },
+                        },
+                        #SEGUNDA ANEXIÓN DE ARGELIA
+                        {
+                            "name": "El Oued",
+                            "code": "EOU",
+                            "entity_type": "Provincia",
+                            "capitals": ["El Oued"],
+                            "spec": {
+                                1: {"algeria": ["El Oued"]},
+                            },
+                        },
+                        {
+                            "name": "Adrar",
+                            "code": "ADR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Adrar"],
+                            "spec": {
+                                1: {"algeria": ["Adrar"]},
+                            },
+                        },
+                        {
+                            "name": "Gardaya",
+                            "code": "GAR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Ghardaïa"],
+                            "spec": {
+                                1: {"algeria": ["Ghardaïa"]},
+                            },
+                        },
+                        {
+                            "name": "Tamanrasset",
+                            "code": "TAM",
+                            "entity_type": "Provincia",
+                            "capitals": ["Tamanrasset"],
+                            "spec": {
+                                1: {"algeria": ["Tamanrasset"]},
+                            },
+                        },
+                        {
+                            "name": "Illizi",
+                            "code": "ILL",
+                            "entity_type": "Provincia",
+                            "capitals": ["Illizi"],
+                            "spec": {
+                                1: {"algeria": ["Illizi"]},
+                            },
+                        },
+                        {
+                            "name": "Uargla",
+                            "code": "UAR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Ouargla"],
+                            "spec": {
+                                1: {"algeria": ["Ouargla"]},
+                            },
+                        },
+                        # ANEXION DE TUNEZ
+                        {
+                            "name": "Tataouine",
+                            "code": "TAT",
+                            "entity_type": "Provincia",
+                            "capitals": ["Tataouine"],
+                            "spec": {
+                                1: {"tunisia": ["Tataouine"]},
+                            },
+                        },
+                    ]
+                },
+            ]
+        },
+        {
+            "name": "Árabes Africanos",
+            "code": "AFR",
+            "entity_type": "Region cultural",
+            "capitals": ["Ṭarābulus"],
+            "childs": [
+                {
+                    "name": "Libia",
+                    "code": "LIB",
+                    "entity_type": "Prefectura",
+                    "capitals": ["Ṭarābulus"],
+                    "childs": [
+                        # Anexión de Libia
+                        {
+                            "name": "Al Agelat",
+                            "code": "AAG",
+                            "entity_type": "Provincia",
+                            "capitals": ["Al-'Ajaylāt"],
+                            "spec": {
+                                2: {"libya": ["An-Nuqāṭ al-Khams"]},
+                            },
+                        },
+                        {
+                            "name": "Trípoli",
+                            "code": "TRI",
+                            "entity_type": "Provincia",
+                            "capitals": ["Ṭarābulus"],
+                            "spec": {
+                                2: {"libya": ["Az-Zāwiyah", "Al-Jifārah", "Ṭarābulus"]},
+                            },
+                        },
+                        {
+                            "name": "Al Khoms",
+                            "code": "AKH",
+                            "entity_type": "Provincia",
+                            "capitals": ["Al-Khums"],
+                            "spec": {
+                                2: {"libya": ["Al-Marqab"]},
+                            },
+                        },
+                        {
+                            "name": "Misurata",
+                            "code": "MIS",
+                            "entity_type": "Provincia",
+                            "capitals": ["Miṣrātah"],
+                            "spec": {
+                                2: {"libya": ["Miṣrātah"]},
+                            },
+                        },
+                        {
+                            "name": "Sirte",
+                            "code": "SIR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Surt"],
+                            "spec": {
+                                2: {"libya": ["Surt"]},
+                            },
+                        },
+                        {
+                            "name": "Ajdabiya",
+                            "code": "AJD",
+                            "entity_type": "Provincia",
+                            "capitals": ["Ajdābiyā"],
+                            "spec": {
+                                2: {"libya": ["Al-Wāḥat"]},
+                            },
+                        },
+                        {
+                            "name": "Bengasi",
+                            "code": "BEN",
+                            "entity_type": "Provincia",
+                            "capitals": ["Banghāzī"],
+                            "spec": {
+                                2: {"libya": ["Banghāzī"]},
+                            },
+                        },
+                        {
+                            "name": "Al Marj",
+                            "code": "AMA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Al-Marj"],
+                            "spec": {
+                                2: {"libya": ["Al-Marj"]},
+                            },
+                        },
+                        {
+                            "name": "Al Baida",
+                            "code": "ABA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Al-Bayḍā'"],
+                            "spec": {
+                                2: {"libya": ["Al-Jabal al-Akhdar"]},
+                            },
+                        },
+                    ]
+                },
+                {
+                    "name": "Sahara Oriental",
+                    "code": "SAO",
+                    "entity_type": "Prefectura",
+                    "capitals": ["Awbārī"],
+                    "childs": [
+                        {
+                            "name": "Derna",
+                            "code": "DER",
+                            "entity_type": "Provincia",
+                            "capitals": ["Darnah"],
+                            "spec": {
+                                2: {"libya": ["Darnah"]},
+                            },
+                        },
+                        {
+                            "name": "Tobruk",
+                            "code": "TOB",
+                            "entity_type": "Provincia",
+                            "capitals": ["Ṭubruq"],
+                            "spec": {
+                                2: {"libya": ["Al-Buṭnān"]},
+                            },
+                        },
+                        {
+                            "name": "Nalut",
+                            "code": "NAL",
+                            "entity_type": "Provincia",
+                            "capitals": ["Nālūt"],
+                            "spec": {
+                                2: {"libya": ["Nālūt"]},
+                            },
+                        },
+                        {
+                            "name": "Garian",
+                            "code": "GAR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Gharyān"],
+                            "spec": {
+                                2: {"libya": ["Al-Jabal al-Gharbi"]},
+                            },
+                        },
+                        {
+                            "name": "Ubari",
+                            "code": "UBA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Awbārī"],
+                            "spec": {
+                                2: {"libya": ["Ghāt", "Wādī ash-Shāṭī", "Wādī al-Ḥayāh"]},
+                            },
+                        },
+                        {
+                            "name": "Sabha",
+                            "code": "SAB",
+                            "entity_type": "Provincia",
+                            "capitals": ["Sabhā"],
+                            "spec": {
+                                2: {"libya": ["Sabhā"]},
+                            },
+                        },
+                        {
+                            "name": "Hun",
+                            "code": "HUN",
+                            "entity_type": "Provincia",
+                            "capitals": ["Hūn"],
+                            "spec": {
+                                2: {"libya": ["Al-Jufrah"]},
+                            },
+                        },
+                        {
+                            "name": "Murzuk",
+                            "code": "MUR",
+                            "entity_type": "Provincia",
+                            "capitals": ["Marzūq"],
+                            "spec": {
+                                2: {"libya": ["Marzūq"]},
+                            },
+                        },
+                        {
+                            "name": "Al Yauf",
+                            "code": "AYA",
+                            "entity_type": "Provincia",
+                            "capitals": ["Al-Jawf"],
+                            "spec": {
+                                2: {"libya": ["Al-Kufrah"]},
+                            },
+                        },
+                    ],
+                }
+            ]
+        }
+    ]
+
+ESCANHOS = {
+        "nivel": 3,  # ejemplo: nivel de las provincias
+        "escanhos": 1000,
+        "min": 1,
+    }
+
+#MUNICIPAL_LEVEL = {
+#    "first_spanish_empire": 3,
+#}
+'''

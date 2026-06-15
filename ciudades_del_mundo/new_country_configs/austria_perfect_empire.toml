@@ -1,0 +1,81 @@
+schema_version = 1
+kind = "derived_country_config"
+slug = "austria_perfect_empire"
+name = "Austria Perfect Empire"
+source_python = "ciudades_del_mundo/new_subdivisions/austria_perfect_empire.py"
+country = "austria_perfect_empire"
+source_country_code = ""
+derived_country_code = "austria_perfect_empire"
+groups = []
+
+[selection]
+include_codes = []
+include_levels = []
+group_slugs = []
+
+[legacy]
+assignments_json = '''
+{
+  "ESCANHOS": {
+    "nivel": 2,
+    "escanhos": 200,
+    "min": 1
+  }
+}
+'''
+python = '''
+from copy import deepcopy
+
+from ciudades_del_mundo.new_subdivisions.austria_empire import DIVISIONS as DIVA
+from ciudades_del_mundo.historical_divisions.espanha import *
+from ciudades_del_mundo.historical_divisions.italy import *
+from ciudades_del_mundo.historical_divisions.portugal import *
+
+def create_join() -> dict:
+    result = deepcopy(DIVA)
+    spain = [
+        {
+            "name": "Castilla",
+            "code": "CAS",
+            "entity_type": "Corona",
+            "capitals": ["Madrid"],
+            "childs": [
+                CASTILLA,
+                NAVARRA_A,
+            ]
+        },
+        {
+            "name": "Aragón",
+            "code": "ARA",
+            "entity_type": "Corona",
+            "capitals": ["Zaragoza", "Barcelona"],
+            "childs": [
+                ARAGON, 
+                CATALUNHA_A,
+                VALENCIA_A, 
+                MALLORCA,
+                CERDENHA,
+                SICILIA,
+            ]
+        },
+        {
+            "name": "Portugal",
+            "code": "POR",
+            "entity_type": "Reino",
+            "capitals": ["Lisboa"],
+            "childs": [
+                PORTUGAL
+            ]
+        }
+    ]
+    result.extend(spain)
+    return result
+
+DIVISIONS = create_join()
+
+ESCANHOS = {
+        "nivel": 2,  # provincias del imperio
+        "escanhos": 200,                        # total de escaños a repartir
+        "min": 1,                              # mínimo por provincia
+    }
+'''

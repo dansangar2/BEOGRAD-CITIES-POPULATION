@@ -16,6 +16,8 @@ from ciudades_del_mundo.domain import ScrapedAdminArea
 from ciudades_del_mundo.infrastructure.scraping.base import BaseCityPopulationScraper
 from ciudades_del_mundo.infrastructure.scraping.page_config import (
     include_tables_for_page,
+    repeated_infosection_roots,
+    repeat_count_for_page,
     should_include_table,
     status_levels_for_page,
     table_levels_for_page,
@@ -124,6 +126,7 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
         tl = soup.find("table", id="tl") if profile.has_tl else None
         ts = soup.find("table", id="ts") if profile.has_ts else None
         ts_has_radm = bool(profile.ts_has_radm) if ts else False
+        grouped_tl = self._is_grouped_adm_tl(tl) if tl else False
         context_root = root or self._infosection_context_root(
             soup=soup,
             url=url,
@@ -152,17 +155,25 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
             default_tl_level = int(level or 0)
         tl_level = table_levels.get("tl", default_tl_level)
         ts_level: int | None = None
-        context_roots: list[ScrapedAdminArea] = [context_root] if context_root else []
+        context_roots: list[ScrapedAdminArea] = (
+            repeated_infosection_roots(context_root, page=page, country_code=country_code, url=url)
+            if context_root
+            else []
+        )
         if ts:
             if context_root and not tl:
-                default_ts_level = int(context_root.level or 0) + 1
-                if not ts_has_radm and "ts" not in table_levels and self._table_has_single_self_child(ts, context_root.name):
-                    default_ts_level += 1
+                repeated_root_count = max(1, repeat_count_for_page(page, "infosection"))
+                default_ts_level = int(context_root.level or 0) + repeated_root_count
             else:
-                default_ts_level = tl_level if profile.ts_uses_first_child_level else tl_level + 1
+                if grouped_tl:
+                    # Hierarchical first table: infosection -> tl tbody.adm ->
+                    # tl tbody -> ts.  Therefore ``ts`` is two levels below
+                    # the first ``tl`` administrative group.
+                    default_ts_level = tl_level + 2
+                else:
+                    default_ts_level = tl_level if profile.ts_uses_first_child_level else tl_level + 1
             ts_level = table_levels.get("ts", default_ts_level)
-            if context_root and not tl and not ts_has_radm:
-                context_roots = self._context_root_chain(context_root, ts_level)
+            # Level bridging is now explicit through repeat = { infosection = N }.
 
         include_context_root = bool(context_root and (root or getattr(page, "include_root", True)))
         # Even when include_root=false, emit page-local synthetic roots if they
@@ -179,22 +190,45 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
         entities: list[ScrapedAdminArea] = list(context_roots) if (include_context_root or emit_context_chain) else []
 
         if tl:
-            for entity in self._parse_table(
-                table=tl,
-                country_code=country_code,
-                level=tl_level,
-                base_url=url,
-                parser="tl",
-                status_levels=status_levels,
-            ):
-                if context_root:
-                    entity = replace(entity, parent_code=context_root.code)
+            if grouped_tl:
+                tl_entities = self._parse_grouped_adm_tl(
+                    table=tl,
+                    country_code=country_code,
+                    adm_level=tl_level,
+                    child_level=table_levels.get("tl_child", tl_level + 1),
+                    root=context_root,
+                    base_url=url,
+                    status_levels=status_levels,
+                    parent_lookup_sink=parents_by_name,
+                )
+            else:
+                tl_entities = self._parse_table(
+                    table=tl,
+                    country_code=country_code,
+                    level=tl_level,
+                    base_url=url,
+                    parser="tl",
+                    status_levels=status_levels,
+                    parent_lookup_sink=parents_by_name,
+                )
+
+            for entity in tl_entities:
+                if not grouped_tl:
+                    if context_root:
+                        entity = replace(entity, parent_code=context_root.code)
+                    elif self._should_fallback_to_country_parent(
+                        entity,
+                        country_code=country_code,
+                        page_parent_context_slug=page_parent_context_slug,
+                    ):
+                        entity = replace(entity, parent_code=country_code)
                 elif self._should_fallback_to_country_parent(
                     entity,
                     country_code=country_code,
                     page_parent_context_slug=page_parent_context_slug,
                 ):
                     entity = replace(entity, parent_code=country_code)
+
                 if should_include_tl:
                     entities.append(entity)
                 for key in self._parent_lookup_keys(entity.name):
@@ -224,6 +258,163 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
                     entities.append(entity)
 
         return entities
+
+    def _is_grouped_adm_tl(self, table) -> bool:
+        """Return true for country ``cities`` pages whose first table is hierarchical.
+
+        Belgium-like pages expose the hierarchy inside one ``table#tl`` using
+        ``tbody.adm`` as the upper administrative group and the following plain
+        ``tbody`` blocks as its children.  This is deliberately structural, not
+        country-specific, so other countries with the same CityPopulation layout
+        work without changing their TOML, while ordinary ``tl``/``ts`` pages keep
+        the generic parser.
+        """
+        if not table:
+            return False
+        tbodies = table.find_all("tbody", recursive=False)
+        has_adm = any(self._tbody_is_adm_group(tbody) for tbody in tbodies)
+        has_child = any(not self._tbody_is_adm_group(tbody) for tbody in tbodies)
+        return bool(has_adm and has_child)
+
+    def _tbody_is_adm_group(self, tbody) -> bool:
+        return "adm" in {str(value).strip().casefold() for value in (tbody.get("class") or [])}
+
+    def _parse_grouped_adm_tl(
+        self,
+        *,
+        table,
+        country_code: str,
+        adm_level: int,
+        child_level: int,
+        root: ScrapedAdminArea | None,
+        base_url: str,
+        status_levels: dict[str, int] | None = None,
+        parent_lookup_sink: dict[str, ScrapedAdminArea] | None = None,
+    ) -> list[ScrapedAdminArea]:
+        """Parse ``infosection > tl tbody.adm > tl tbody`` hierarchies.
+
+        The method always builds the lookup context, even when ``tl`` is not
+        persisted by the page config, because ``table#ts`` may reference these
+        parents through ``data-admid``/``radm``.
+        """
+        last_pop_idx, last_pop_date = self._client.detect_last_visible_pop_column(table)
+        visible_pop_columns = self._client.visible_pop_columns(table)
+        last_year = self._client.year_from_date(last_pop_date)
+        default_entity_type = self._default_entity_type(table)
+        area_divisor = self._area_divisor(table)
+        status_levels = status_levels or {}
+
+        entities: list[ScrapedAdminArea] = []
+        reference_lookup: dict[str, ScrapedAdminArea] = {}
+        current_adm_parent: ScrapedAdminArea | None = None
+
+        def remember(entity: ScrapedAdminArea, tr) -> None:
+            for reference in self._tl_row_reference_values(entity, tr):
+                for key in self._reference_lookup_keys(reference):
+                    reference_lookup.setdefault(key, entity)
+                    if parent_lookup_sink is not None:
+                        parent_lookup_sink.setdefault(key, entity)
+            if parent_lookup_sink is not None:
+                for key in self._parent_lookup_keys(entity.name):
+                    parent_lookup_sink.setdefault(key, entity)
+
+        for tbody in table.find_all("tbody", recursive=False):
+            is_adm_group = self._tbody_is_adm_group(tbody)
+            row_level = adm_level if is_adm_group else child_level
+            for tr in tbody.find_all("tr", recursive=False):
+                parsed = self._client.parse_tr_tl(
+                    tr=tr,
+                    explicit_level=row_level,
+                    last_visible_pop_idx=last_pop_idx,
+                    last_visible_date=last_pop_date,
+                    default_last_census_year=last_year,
+                    country_code=country_code,
+                    base_url=base_url,
+                    default_entity_type=default_entity_type,
+                    area_divisor=area_divisor,
+                    visible_pop_columns=visible_pop_columns,
+                )
+                if not parsed:
+                    continue
+
+                entity_level = status_levels.get(str(parsed.entity_type or "").strip().casefold(), row_level)
+                parent_code = None
+                if is_adm_group:
+                    parent_code = root.code if root else None
+                else:
+                    parent = self._parent_from_tl_data_adm(tr, reference_lookup) or current_adm_parent
+                    parent_code = parent.code if parent else (root.code if root else None)
+
+                entity = ScrapedAdminArea(
+                    code=parsed.entity_id,
+                    name=parsed.name,
+                    level=entity_level,
+                    country_code=country_code,
+                    entity_type=parsed.entity_type,
+                    parent_code=parent_code,
+                    area_km2=parsed.area_km2,
+                    density=parsed.density,
+                    pop_latest=parsed.pop_latest,
+                    pop_latest_date=parsed.pop_latest_date,
+                    last_census_year=parsed.last_census_year,
+                    url=parsed.url,
+                    data_wd=parsed.data_wd,
+                )
+                entities.append(entity)
+                remember(entity, tr)
+                if is_adm_group:
+                    current_adm_parent = entity
+
+        return entities
+
+    def _parent_from_tl_data_adm(
+        self,
+        tr,
+        reference_lookup: dict[str, ScrapedAdminArea],
+    ) -> ScrapedAdminArea | None:
+        main_cell = self._client._main_name_cell(tr)
+        references = []
+        if main_cell and main_cell.get("data-adm"):
+            references.append(main_cell.get("data-adm"))
+        adm_cell = tr.find(["td", "th"], class_=lambda value: value and "radm" in value.split())
+        if adm_cell:
+            references.extend([adm_cell.get("data-admid"), adm_cell.get_text(" ", strip=True)])
+
+        for reference in references:
+            for key in self._reference_lookup_keys(reference):
+                parent = reference_lookup.get(key)
+                if parent:
+                    return parent
+        return None
+
+    def _tl_row_reference_values(self, entity: ScrapedAdminArea, tr) -> list[str]:
+        values = [entity.code, entity.name]
+        main_cell = self._client._main_name_cell(tr)
+        if main_cell:
+            raw_id = str(main_cell.get("id") or "").strip()
+            values.extend([raw_id, raw_id[1:] if raw_id.startswith("i") else raw_id])
+            values.extend([main_cell.get("data-adm"), main_cell.get("data-wiki")])
+            values.append(main_cell.get_text(" ", strip=True))
+        abbr_cell = tr.find(["td", "th"], class_=lambda value: value and "rabbr" in value.split())
+        if abbr_cell:
+            values.append(abbr_cell.get_text(" ", strip=True))
+        return [str(value).strip() for value in values if str(value or "").strip()]
+
+    def _reference_lookup_keys(self, value: str | None) -> tuple[str, ...]:
+        text = str(value or "").strip()
+        if not text:
+            return ()
+        keys = [text, text.casefold()]
+        normalized = self._normalize_name(text)
+        compact = re.sub(r"[\W_]+", "", normalized)
+        keys.extend([normalized, compact])
+        if text.startswith("i") and text[1:]:
+            keys.extend([text[1:], text[1:].casefold()])
+        unique: list[str] = []
+        for key in keys:
+            if key and key not in unique:
+                unique.append(key)
+        return tuple(unique)
 
     def _context_root_chain(self, context_root: ScrapedAdminArea, child_level: int | None) -> list[ScrapedAdminArea]:
         """Return page-local roots needed to bridge missing equivalent levels.
@@ -306,7 +497,7 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
         text = infoname.get_text(" ", strip=True) if infoname else ""
         text = re.sub(r"^Contents:\s*", "", text, flags=re.IGNORECASE).strip()
         if not text:
-            header = soup.select_one("header.citypage h1")
+            header = soup.select_one("header.citypage h1, header.cpage h1")
             text = header.get_text(" ", strip=True) if header else ""
             if ":" in text:
                 text = text.split(":", 1)[-1].strip()
@@ -322,6 +513,13 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
             name = text.strip()
         if not name:
             return None
+        if not entity_type:
+            description = soup.select_one("header.citypage [itemprop='description'], header.cpage [itemprop='description']")
+            description_text = description.get_text(" ", strip=True) if description else ""
+            suffix = f" of {name}"
+            if description_text.casefold().endswith(suffix.casefold()):
+                description_text = description_text[: -len(suffix)].strip()
+            entity_type = description_text
 
         root_level = getattr(page, "root_level", None)
         try:
@@ -360,6 +558,7 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
         parser: str,
         parents_by_name: dict[str, ScrapedAdminArea] | None = None,
         status_levels: dict[str, int] | None = None,
+        parent_lookup_sink: dict[str, ScrapedAdminArea] | None = None,
     ) -> list[ScrapedAdminArea]:
         last_pop_idx, last_pop_date = self._client.detect_last_visible_pop_column(table)
         visible_pop_columns = self._client.visible_pop_columns(table)
@@ -414,24 +613,28 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
                     continue
 
                 entity_level = status_levels.get(str(parsed.entity_type or "").strip().casefold(), level)
-                entities.append(
-                    ScrapedAdminArea(
-                        code=parsed.entity_id,
-                        name=parsed.name,
-                        level=entity_level,
-                        country_code=country_code,
-                        entity_type=parsed.entity_type,
-                        parent_code=parent_code,
-                        area_km2=parsed.area_km2,
-                        density=parsed.density,
-                        pop_latest=parsed.pop_latest,
-                        pop_latest_date=parsed.pop_latest_date,
-                        last_census_year=parsed.last_census_year,
-                        url=parsed.url,
-                        data_wd=parsed.data_wd,
-                        annotations=annotations,
-                    )
+                entity = ScrapedAdminArea(
+                    code=parsed.entity_id,
+                    name=parsed.name,
+                    level=entity_level,
+                    country_code=country_code,
+                    entity_type=parsed.entity_type,
+                    parent_code=parent_code,
+                    area_km2=parsed.area_km2,
+                    density=parsed.density,
+                    pop_latest=parsed.pop_latest,
+                    pop_latest_date=parsed.pop_latest_date,
+                    last_census_year=parsed.last_census_year,
+                    url=parsed.url,
+                    data_wd=parsed.data_wd,
+                    annotations=annotations,
                 )
+                if parser != "ts" and parent_lookup_sink is not None:
+                    lookup_name = getattr(parsed, "lookup_name", None) or parsed.name
+                    for alias in (lookup_name, parsed.name):
+                        for key in self._parent_lookup_keys(alias):
+                            parent_lookup_sink.setdefault(key, entity)
+                entities.append(entity)
 
         return entities
 
@@ -620,20 +823,14 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
     def _parent_lookup_keys(self, value: str) -> tuple[str, ...]:
         """Return robust lookup aliases for parent names shown in ``radm`` cells.
 
-        CityPopulation parent tables often include translations or legacy names
-        in brackets/parentheses (for example ``České Budějovice [ Budweis ]``
-        or ``Käerjeng ( Bascharage, Clemency )``), while child rows usually
-        refer to the shorter administrative name.  The aliases stay generic and
-        avoid country-specific branches by indexing both the full label and the
-        leading canonical label before bracketed qualifiers.
+        CityPopulation parent tables often include co-official names or
+        translations in brackets/parentheses (for example ``Xàbia (Jávea)``,
+        ``České Budějovice [ Budweis ]`` or ``Käerjeng (Bascharage, Clemency)``),
+        while child rows may reference any of those labels.  Index all visible
+        alternatives so locality rows can attach to their municipality before
+        falling back to URL/code inference.
         """
-        candidates = [value]
-        leading = re.split(r"\s*[\[(]", value, maxsplit=1)[0].strip()
-        if leading and leading != value:
-            candidates.append(leading)
-        without_brackets = re.sub(r"\s*[\[(][^\])]*[\])]", "", value).strip()
-        if without_brackets and without_brackets not in candidates:
-            candidates.append(without_brackets)
+        candidates = self._parent_name_aliases(value)
 
         keys: list[str] = []
         for candidate in candidates:
@@ -645,6 +842,40 @@ class CityPopulationDoubleScraper(BaseCityPopulationScraper):
                 if key and key not in keys:
                     keys.append(key)
         return tuple(keys)
+
+    def _parent_name_aliases(self, value: str) -> list[str]:
+        text = re.sub(r"\s+", " ", str(value or "")).strip()
+        if not text:
+            return []
+
+        aliases: list[str] = []
+
+        def add(raw: str) -> None:
+            item = re.sub(r"\s+", " ", raw).strip(" ,;/-")
+            if item and item not in aliases:
+                aliases.append(item)
+
+        add(text)
+
+        leading = re.split(r"\s*[\[(]", text, maxsplit=1)[0].strip()
+        add(leading)
+
+        # Keep the canonical label with all bracketed qualifiers removed.
+        add(re.sub(r"\s*[\[(][^\])]*[\])]", "", text).strip())
+
+        # Also index the qualifiers themselves.  This covers Spanish/Valencian
+        # co-official names such as ``Xàbia (Jávea)`` where the locality table
+        # uses ``Jávea`` in the hidden parent column.
+        for match in re.finditer(r"[\[(]([^\])]+)[\])]", text):
+            content = match.group(1).strip()
+            add(content)
+            for part in re.split(r"\s*(?:/|,|;)\s*", content):
+                add(part)
+
+        for part in re.split(r"\s*/\s*", text):
+            add(part)
+
+        return aliases
 
 
 

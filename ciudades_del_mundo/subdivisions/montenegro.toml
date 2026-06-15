@@ -3,13 +3,16 @@ country_code = "montenegro"
 base_url = "https://www.citypopulation.de/en/"
 LEGAL_SUBDIVISION = 1
 
-[[pages]]
-source = "infosection"
-path = ["cities"]
-lowest_level = 0
+scrape_schema_version = 2
 
 [[pages]]
-source = "double"
+source = "cities"
+path = ["cities"]
+include = { infosection = true, major_subdivision = false, cities = false }
+
+[[pages]]
+source = "cities"
 # Municipios L1 y pueblos/asentamientos L2.
 path = ["towns"]
-lowest_level = 1
+include = { infosection = true, major_subdivision = true, cities = true }
+force_highest_level = 1

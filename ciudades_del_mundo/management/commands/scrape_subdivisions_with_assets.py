@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import tomllib
 import unicodedata
@@ -18,6 +19,7 @@ from django.utils import timezone
 from ciudades_del_mundo.infrastructure.scraping import PythonScrapingConfigRepository
 from ciudades_del_mundo.services.config_asset_overrides import load_config_asset_overrides
 from ciudades_del_mundo.services.visual_assets import (
+    commons_visual_asset_candidate_for_name,
     visual_asset_tables_exist,
 )
 from ciudades_del_mundo.web.task_progress import write_config_progress
@@ -952,7 +954,7 @@ def _candidate_matching_admin_areas_by_wikidata_id(candidate_qid: str, area_wiki
 
 
 WIKIDATA_ENTITYDATA_BATCH_LIMIT = 50
-WIKIDATA_VALUES_SPARQL_BATCH_LIMIT = 1000
+WIKIDATA_VALUES_SPARQL_BATCH_LIMIT = 500
 
 
 
@@ -1019,6 +1021,7 @@ def _assign_wikidata_assets_from_scraped_data_wd(
     level_filter = [int(level) for level in (levels or []) if str(level).strip() != ""]
     if level_filter:
         queryset = queryset.filter(level__in=level_filter)
+    commons_fallback_levels = set(level_filter or [1])
 
     areas = list(queryset.order_by("level", "name", "id"))
     qid_to_areas: dict[str, list] = {}
@@ -1039,13 +1042,29 @@ def _assign_wikidata_assets_from_scraped_data_wd(
 
     qids_with_assets = 0
     area_assignments = 0
+    commons_fallbacks = 0
     for qid, target_areas in qid_to_areas.items():
         filenames = filenames_by_qid.get(qid, {})
-        if not filenames:
-            continue
-        qids_with_assets += 1
+        qid_has_assets = bool(filenames)
         for area in target_areas:
-            for kind, filename in filenames.items():
+            area_filenames = dict(filenames)
+            for kind in kind_filter:
+                if area_filenames.get(kind):
+                    continue
+                if int(getattr(area, "level", -1) or -1) not in commons_fallback_levels:
+                    continue
+                candidate = commons_visual_asset_candidate_for_name(
+                    str(getattr(area, "name", "") or ""),
+                    kind,
+                    wikidata_id=qid,
+                    fetch_metadata=False,
+                )
+                if candidate and candidate.commons_filename:
+                    area_filenames[kind] = candidate.commons_filename
+                    commons_fallbacks += 1
+            if area_filenames:
+                qid_has_assets = True
+            for kind, filename in area_filenames.items():
                 if kind not in kind_filter or not filename:
                     continue
                 applied += _upsert_wikidata_override_asset(
@@ -1054,15 +1073,17 @@ def _assign_wikidata_assets_from_scraped_data_wd(
                     wikidata_id=qid,
                     commons_filename=filename,
                     replace_existing=True,
-                    source="wikidata_data_wd",
+                    source="wikidata_data_wd" if filenames.get(kind) else "commons_search",
                 )
                 area_assignments += 1
+        if qid_has_assets:
+            qids_with_assets += 1
 
     _log_asset_mirror(
         logger,
         f"[assets] {country_code}: data_wd procesados={len(qid_to_areas)}, "
         f"qids con recursos={qids_with_assets}, asignaciones={area_assignments}, "
-        f"assets nuevos/actualizados={applied}",
+        f"fallbacks Commons={commons_fallbacks}, assets nuevos/actualizados={applied}",
     )
     return applied
 
@@ -1153,26 +1174,181 @@ def _wikidata_visual_asset_filenames_for_ids_via_values_sparql(
 
     for start in range(0, len(qids), WIKIDATA_VALUES_SPARQL_BATCH_LIMIT):
         batch = qids[start : start + WIKIDATA_VALUES_SPARQL_BATCH_LIMIT]
+        batch_number = start // WIKIDATA_VALUES_SPARQL_BATCH_LIMIT + 1
         query = _wikidata_values_visual_assets_query(batch, requested_kinds)
-        payload = _wikidata_sparql_json(query, timeout=60, method="POST")
-        rows = payload.get("results", {}).get("bindings", []) or []
+        try:
+            payload = _wikidata_sparql_json(query, timeout=60, method="POST")
+            rows = payload.get("results", {}).get("bindings", []) or []
+        except Exception as exc:
+            _log_asset_mirror(
+                logger,
+                f"[assets] Wikidata VALUES lote {batch_number}: fallido ({exc}); "
+                "fallback EntityData para este lote",
+            )
+            fallback = _wikidata_visual_asset_filenames_for_ids_via_entitydata(
+                batch,
+                kinds=requested_kinds,
+                logger=logger,
+            )
+            for qid, filenames in fallback.items():
+                results.setdefault(qid, {}).update(filenames)
+            continue
 
-        for binding in rows:
+        if not rows:
+            # Un lote vacío para cientos de QIDs suele indicar una respuesta
+            # incompleta/limitada de WDQS.  No descartes todo el país: repara
+            # únicamente este lote con EntityData, que lee los QIDs concretos.
+            _log_asset_mirror(
+                logger,
+                f"[assets] Wikidata VALUES lote {batch_number}: sin filas; fallback EntityData para este lote",
+            )
+            fallback = _wikidata_visual_asset_filenames_for_ids_via_entitydata(
+                batch,
+                kinds=requested_kinds,
+                logger=logger,
+            )
+            for qid, filenames in fallback.items():
+                results.setdefault(qid, {}).update(filenames)
+            continue
+
+        best_rows: dict[tuple[str, str], tuple[tuple[int, int, int, int], str]] = {}
+        for row_index, binding in enumerate(rows):
             item_url = binding.get("item", {}).get("value", "")
             qid = _normalize_wikidata_id(item_url.rsplit("/", 1)[-1])
             kind = str(binding.get("kind", {}).get("value") or "").strip()
             filename = _commons_filename_from_sparql_value(binding.get("asset", {}).get("value"))
             if not qid or kind not in requested_kinds or not filename:
                 continue
-            results.setdefault(qid, {}).setdefault(kind, filename)
+            score = _wikidata_asset_binding_score(binding, row_index, prefer_latest=(kind == "flag"))
+            key = (qid, kind)
+            if key not in best_rows or score > best_rows[key][0]:
+                best_rows[key] = (score, filename)
+
+        for (qid, kind), (_score, filename) in best_rows.items():
+            results.setdefault(qid, {})[kind] = filename
 
         _log_asset_mirror(
             logger,
-            f"[assets] Wikidata VALUES lote {start // WIKIDATA_VALUES_SPARQL_BATCH_LIMIT + 1}: "
+            f"[assets] Wikidata VALUES lote {batch_number}: "
             f"qids={len(batch)}, filas={len(rows)}, con recursos={sum(1 for qid in batch if qid in results)}",
         )
 
     return results
+
+
+def _wikidata_asset_binding_score(binding: dict, index: int, *, prefer_latest: bool = False) -> tuple[int, int, int, int]:
+    if not prefer_latest:
+        return (_wikidata_rank_value_score(binding.get("rank", {}).get("value", "")), 0, 0, -index)
+    end_score = _wikidata_binding_time_score(binding, "end")
+    date_score = max(
+        _wikidata_binding_time_score(binding, "start"),
+        _wikidata_binding_time_score(binding, "point"),
+        end_score,
+    )
+    return (
+        1 if not end_score else 0,
+        _wikidata_rank_value_score(binding.get("rank", {}).get("value", "")),
+        date_score,
+        -index,
+    )
+
+
+def _wikidata_rank_value_score(value: str) -> int:
+    text = str(value or "").casefold()
+    if "preferred" in text:
+        return 3
+    if "normal" in text:
+        return 2
+    if "deprecated" in text:
+        return 0
+    return 1
+
+
+def _wikidata_binding_time_score(binding: dict, key: str) -> int:
+    return _wikidata_time_sort_value((binding.get(key) or {}).get("value"))
+
+
+def _wikidata_claim_filename(claims, *, prefer_latest: bool = False) -> str:
+    valid_claims: list[tuple[int, dict, str]] = []
+    for index, claim in enumerate(claims or []):
+        if not isinstance(claim, dict):
+            continue
+        value = (
+            claim.get("mainsnak", {})
+            .get("datavalue", {})
+            .get("value")
+        )
+        filename = _commons_filename_from_sparql_value(value) if value else ""
+        if filename:
+            valid_claims.append((index, claim, filename))
+    if not valid_claims:
+        return ""
+    if prefer_latest:
+        valid_claims.sort(key=lambda item: _wikidata_claim_recency_score(item[1], item[0]), reverse=True)
+    else:
+        valid_claims.sort(key=lambda item: (_wikidata_claim_rank_score(item[1]), -item[0]), reverse=True)
+    return valid_claims[0][2]
+
+
+def _wikidata_claim_recency_score(claim: dict, index: int) -> tuple[int, int, int, int]:
+    end_dates = _wikidata_claim_time_values(claim, "P582")
+    date_score = max(
+        [
+            *_wikidata_claim_time_values(claim, "P580"),
+            *_wikidata_claim_time_values(claim, "P585"),
+            *_wikidata_claim_time_values(claim, "P571"),
+            *end_dates,
+        ]
+        or [0]
+    )
+    return (
+        1 if not end_dates else 0,
+        _wikidata_claim_rank_score(claim),
+        date_score,
+        -index,
+    )
+
+
+def _wikidata_claim_rank_score(claim: dict) -> int:
+    rank = str((claim or {}).get("rank") or "normal").casefold()
+    if rank == "preferred":
+        return 3
+    if rank == "normal":
+        return 2
+    if rank == "deprecated":
+        return 0
+    return 1
+
+
+def _wikidata_claim_time_values(claim: dict, property_id: str) -> list[int]:
+    values: list[int] = []
+    qualifiers = (claim or {}).get("qualifiers") or {}
+    for snak in qualifiers.get(property_id, []) or []:
+        raw_value = ((snak or {}).get("datavalue") or {}).get("value")
+        score = _wikidata_time_sort_value(raw_value)
+        if score:
+            values.append(score)
+    return values
+
+
+def _wikidata_time_sort_value(value) -> int:
+    if isinstance(value, dict):
+        value = value.get("time") or value.get("value") or ""
+    text = str(value or "").strip()
+    if not text:
+        return 0
+    match = re.search(r"([+-]?\d{1,9})(?:-(\d{2})(?:-(\d{2}))?)?", text)
+    if not match:
+        return 0
+    try:
+        year = int(match.group(1))
+        month = int(match.group(2) or 1)
+        day = int(match.group(3) or 1)
+    except ValueError:
+        return 0
+    if year <= 0:
+        return 0
+    return year * 10000 + max(1, min(month, 12)) * 100 + max(1, min(day, 31))
 
 
 def _wikidata_values_visual_assets_query(wikidata_ids: list[str], kinds: list[str]) -> str:
@@ -1187,13 +1363,18 @@ def _wikidata_values_visual_assets_query(wikidata_ids: list[str], kinds: list[st
         property_id = WIKIDATA_ASSET_PROPERTIES[kind]
         branches.append(
             "{ "
-            f"?item wdt:{property_id} ?asset . "
+            f"?item p:{property_id} ?statement . "
+            f"?statement ps:{property_id} ?asset . "
+            "OPTIONAL { ?statement wikibase:rank ?rank. } "
+            "OPTIONAL { ?statement pq:P580 ?start. } "
+            "OPTIONAL { ?statement pq:P585 ?point. } "
+            "OPTIONAL { ?statement pq:P582 ?end. } "
             f'BIND("{kind}" AS ?kind) '
             "}"
         )
     union = "\n  UNION\n  ".join(branches)
     return f"""
-SELECT ?item ?kind ?asset WHERE {{
+SELECT ?item ?kind ?asset ?rank ?start ?point ?end WHERE {{
   VALUES ?item {{ {values} }}
   {union}
 }}
@@ -1241,15 +1422,12 @@ def _wikidata_visual_asset_filenames_for_ids_via_entitydata(
             claims = entities.get(qid, {}).get("claims", {}) or {}
             filenames: dict[str, str] = {}
             for kind, property_id in property_by_kind.items():
-                for claim in claims.get(property_id, []) or []:
-                    value = (
-                        claim.get("mainsnak", {})
-                        .get("datavalue", {})
-                        .get("value")
-                    )
-                    if value:
-                        filenames[kind] = str(value)
-                        break
+                filename = _wikidata_claim_filename(
+                    claims.get(property_id, []) or [],
+                    prefer_latest=(kind == "flag"),
+                )
+                if filename:
+                    filenames[kind] = filename
             if filenames:
                 results[qid] = filenames
         _log_asset_mirror(
@@ -1440,11 +1618,16 @@ def _wikidata_country_asset_candidates(country_qid: str, *, kinds: list[str] | N
     for kind in requested_kinds:
         property_id = WIKIDATA_ASSET_PROPERTIES[kind]
         query = f"""
-SELECT ?item ?itemLabel ?asset WHERE {{
+SELECT ?item ?itemLabel ?asset ?rank ?start ?point ?end WHERE {{
   {{ VALUES ?item {{ wd:{country_qid} }} }}
   UNION
   {{ ?item wdt:P17 wd:{country_qid} . }}
-  ?item wdt:{property_id} ?asset .
+  ?item p:{property_id} ?statement .
+  ?statement ps:{property_id} ?asset .
+  OPTIONAL {{ ?statement wikibase:rank ?rank. }}
+  OPTIONAL {{ ?statement pq:P580 ?start. }}
+  OPTIONAL {{ ?statement pq:P585 ?point. }}
+  OPTIONAL {{ ?statement pq:P582 ?end. }}
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "es,en,fr,ar,mul" . }}
 }}
 LIMIT 20000
@@ -1457,7 +1640,8 @@ LIMIT 20000
             continue
 
         rows = payload.get("results", {}).get("bindings", []) or []
-        for binding in rows:
+        best_rows: dict[str, tuple[tuple[int, int, int, int], str, str]] = {}
+        for row_index, binding in enumerate(rows):
             item_url = binding.get("item", {}).get("value", "")
             wikidata_id = _normalize_wikidata_id(item_url.rsplit("/", 1)[-1])
             if not wikidata_id:
@@ -1466,9 +1650,14 @@ LIMIT 20000
             if not filename:
                 continue
             label = str(binding.get("itemLabel", {}).get("value") or wikidata_id).strip()
+            score = _wikidata_asset_binding_score(binding, row_index, prefer_latest=(kind == "flag"))
+            if wikidata_id not in best_rows or score > best_rows[wikidata_id][0]:
+                best_rows[wikidata_id] = (score, filename, label)
+
+        for wikidata_id, (_score, filename, label) in best_rows.items():
             candidate = candidates_by_qid.setdefault(
                 wikidata_id,
-                {"wikidata_id": wikidata_id, "label": label, "filenames": {}},
+                {"wikidata_id": wikidata_id, "label": label or wikidata_id, "filenames": {}},
             )
             if label and candidate.get("label") == wikidata_id:
                 candidate["label"] = label
@@ -1775,15 +1964,12 @@ def _wikidata_visual_asset_filenames(wikidata_id: str) -> dict[str, str]:
     claims = payload.get("entities", {}).get(wikidata_id, {}).get("claims", {})
     filenames = {}
     for kind, property_id in WIKIDATA_ASSET_PROPERTIES.items():
-        for claim in claims.get(property_id, []) or []:
-            value = (
-                claim.get("mainsnak", {})
-                .get("datavalue", {})
-                .get("value")
-            )
-            if value:
-                filenames[kind] = str(value)
-                break
+        filename = _wikidata_claim_filename(
+            claims.get(property_id, []) or [],
+            prefer_latest=(kind == "flag"),
+        )
+        if filename:
+            filenames[kind] = filename
     return filenames
 
 
@@ -1804,6 +1990,19 @@ def _upsert_visual_asset_row(
             SELECT id, commons_filename, remote_url, local_path, local_exists, status
             FROM {VISUAL_ASSET_TABLE}
             WHERE entity_type = %s AND entity_key = %s AND kind = %s
+            ORDER BY
+                CASE
+                    WHEN status IN ('downloaded', 'remote', 'found') THEN 3
+                    WHEN status = 'missing' THEN 0
+                    WHEN status = 'error' THEN 0
+                    ELSE 1
+                END DESC,
+                CASE
+                    WHEN remote_url <> '' OR commons_filename <> '' OR local_path <> '' OR local_exists THEN 1
+                    ELSE 0
+                END DESC,
+                updated_at DESC,
+                id DESC
             LIMIT 1
         """,
         [entity_type, entity_key, kind],

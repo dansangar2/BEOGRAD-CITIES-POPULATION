@@ -1,7 +1,7 @@
 """Admin site configuration for scraped and derived area models."""
 
 from django.contrib import admin
-from .models import AdminArea, NuevoAdminArea
+from .models import AdminArea, DerivedCountry, DerivedCountryConfig, NuevoAdminArea, SubdivisionGroup
 
 
 @admin.register(AdminArea)
@@ -43,3 +43,33 @@ class NuevoAdminAreaAdmin(admin.ModelAdmin):
     search_fields = ("id", "code", "name")
     ordering = ("country_code", "level", "name")
     raw_id_fields = ("parent", "depends_on", "most_populate_city")
+
+
+@admin.register(DerivedCountry)
+class DerivedCountryAdmin(admin.ModelAdmin):
+    """Back-office listing for derived-country containers."""
+
+    list_display = ("slug", "name", "source_country_code", "updated_at")
+    list_filter = ("source_country_code",)
+    search_fields = ("slug", "name", "description")
+    ordering = ("name", "slug")
+
+
+@admin.register(DerivedCountryConfig)
+class DerivedCountryConfigAdmin(admin.ModelAdmin):
+    """Back-office listing for TOML-backed derived-country variants."""
+
+    list_display = ("slug", "name", "country", "source_country_code", "derived_country_code", "is_active", "updated_at")
+    list_filter = ("country", "source_country_code", "is_active")
+    search_fields = ("slug", "name", "content", "derived_country_code")
+    ordering = ("country", "name", "slug")
+
+
+@admin.register(SubdivisionGroup)
+class SubdivisionGroupAdmin(admin.ModelAdmin):
+    """Back-office listing for reusable subdivision groups."""
+
+    list_display = ("slug", "name", "source_country_code", "updated_at")
+    list_filter = ("source_country_code",)
+    search_fields = ("slug", "name", "description", "content")
+    ordering = ("name", "slug")

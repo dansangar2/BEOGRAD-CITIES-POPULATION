@@ -1582,3 +1582,8 @@ msgstr "No hay configuraciones disponibles para popular."
 
 msgid "Popular configuraciones disponibles (%(count)s)"
 msgstr "Popular configuraciones disponibles (%(count)s)"
+msgid "Sumar al padre"
+msgstr "Sumar al padre"
+
+msgid "Los checkboxes dependen de la fuente seleccionada. Sumar al padre agrega población y área de esa página al padre enlazado."
+msgstr "Los checkboxes dependen de la fuente seleccionada. Sumar al padre agrega población y área de esa página al padre enlazado."

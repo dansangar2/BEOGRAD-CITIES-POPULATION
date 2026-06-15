@@ -1,15 +1,17 @@
+scrape_schema_version = 2
+
 [[pages]]
-source = "infosection"
+source = "cities"
 path = ["cities"]
-lowest_level = 0
+include = { infosection = true, major_subdivision = false, cities = false }
 
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+include = { infosection = true, admin1 = true, admin2 = true }
 
 [[pages]]
-source = "table"
+source = "cities"
 path = [
   "bjelovarbilogora",
   "brodposavina",
@@ -33,7 +35,6 @@ path = [
   "zadar",
   "zagreb",
 ]
-lowest_level = 1
+include = { infosection = true, major_subdivision = true, cities = true }
+force_highest_level = 1
 include_root = false
-include_tables = ["ts"]
-table_levels = { tl = 2, ts = 3 }

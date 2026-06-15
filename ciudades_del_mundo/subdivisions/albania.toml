@@ -3,13 +3,16 @@ country_code = "albania"
 base_url = "https://www.citypopulation.de/en/"
 LEGAL_SUBDIVISION = 3
 
+scrape_schema_version = 2
+
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+include = { infosection = true, admin1 = true, admin2 = true }
 
 [[pages]]
 source = "admin"
 # /mun/admin usa los municipios L2 como contexto para unidades municipales L3.
 path = ["mun/admin"]
-lowest_level = 1
+include = { infosection = true, admin1 = true, admin2 = true }
+force_highest_level = 1

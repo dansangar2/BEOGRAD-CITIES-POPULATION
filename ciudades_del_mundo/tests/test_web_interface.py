@@ -13,8 +13,11 @@ from django.utils import translation
 
 from ciudades_del_mundo.models import (
     AdminArea,
+    DerivedCountry,
+    DerivedCountryConfig,
     NuevoAdminArea,
     ScrapingConfig,
+    SubdivisionGroup,
     VisualAsset,
     VisualAssetTranslation,
 )
@@ -60,6 +63,60 @@ class _RecordingTaskManager(TaskManager):
 
     def _start_worker(self, task_id: str) -> None:
         self.started_workers.append(task_id)
+
+
+class DerivedSectionWebTests(TestCase):
+    def test_new_country_configuration_flow_persists_toml(self):
+        response = self.client.post(
+            "/new-countries/new/",
+            {
+                "slug": "testland",
+                "name": "Testland",
+                "source_country_code": "aa",
+                "description": "Demo",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        country = DerivedCountry.objects.get(slug="testland")
+        self.assertEqual(country.source_country_code, "aa")
+
+        response = self.client.post(
+            "/new-countries/testland/configs/new/",
+            {
+                "slug": "republic",
+                "name": "Republic",
+                "source_country_code": "aa",
+                "derived_country_code": "testland_republic",
+                "is_active": "1",
+                "content": 'kind = "derived_country_config"\n[selection]\ninclude_codes = []\n',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        config = DerivedCountryConfig.objects.get(country=country, slug="republic")
+        self.assertEqual(config.derived_country_code, "testland_republic")
+        self.assertIn('kind = "derived_country_config"', config.content)
+        self.assertEqual(self.client.get("/new-countries/testland/").status_code, 200)
+        self.assertEqual(self.client.get("/new-countries/testland/configs/republic/view/").status_code, 200)
+
+    def test_group_flow_persists_toml(self):
+        response = self.client.post(
+            "/groups/new/",
+            {
+                "slug": "historic_group",
+                "name": "Historic group",
+                "source_country_code": "aa",
+                "description": "Reusable",
+                "content": 'kind = "subdivision_group"\n[selection]\ninclude_codes = []\n',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        group = SubdivisionGroup.objects.get(slug="historic_group")
+        self.assertEqual(group.source_country_code, "aa")
+        self.assertEqual(self.client.get("/groups/").status_code, 200)
+        self.assertEqual(self.client.get("/groups/historic_group/").status_code, 200)
 
 
 class WebInterfaceHelperTests(TestCase):
@@ -142,7 +199,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """,
         )
 
@@ -427,7 +484,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         try:
@@ -503,7 +560,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         AdminArea.objects.create(
@@ -555,7 +612,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         try:
@@ -598,7 +655,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         try:
@@ -639,7 +696,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         try:
@@ -683,7 +740,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         try:
@@ -730,7 +787,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         try:
@@ -770,7 +827,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         try:
@@ -830,7 +887,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         try:
@@ -872,7 +929,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         try:
@@ -895,6 +952,63 @@ lowest_level = 0
         finally:
             task_manager._recovery_done = original_recovery_done
 
+    def test_config_import_toml_starts_background_sync_task(self):
+        original_recovery_done = task_manager._recovery_done
+        try:
+            task_manager._recovery_done = True
+            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+                start.return_value = _Object(
+                    id="import-toml-started",
+                    status=ManagedTask.Status.RUNNING,
+                )
+                response = self.client.post(
+                    "/configs/import-toml/",
+                    HTTP_ACCEPT="application/json",
+                    HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                )
+
+            self.assertEqual(response.status_code, 200)
+            kwargs = start.call_args.kwargs
+            self.assertEqual(kwargs["key"], "config-import:toml")
+            self.assertEqual(kwargs["args"], ["sync_scraping_configs", "--force"])
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
+    def test_bulk_popular_all_uses_country_workers(self):
+        original_recovery_done = task_manager._recovery_done
+        for slug in ("zztestbulkworkersa", "zztestbulkworkersb"):
+            upsert_scraping_config(
+                slug,
+                """
+name = "Bulk Workers Test"
+LEGAL_SUBDIVISION = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+force_highest_level = 0
+""".strip() + "\n",
+            )
+        try:
+            task_manager._recovery_done = True
+            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+                start.return_value = _Object(
+                    id="bulk-workers-started",
+                    status=ManagedTask.Status.RUNNING,
+                )
+                response = self.client.post(
+                    "/configs/all/task/scrape/",
+                    HTTP_ACCEPT="application/json",
+                    HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                )
+
+            self.assertEqual(response.status_code, 200)
+            kwargs = start.call_args.kwargs
+            self.assertEqual(kwargs["key"], "scrape:all")
+            self.assertEqual(kwargs["args"][-3:], ["--no-download-assets", "--page-workers=4", "--country-workers=2"])
+        finally:
+            task_manager._recovery_done = original_recovery_done
+
     def test_validated_popular_action_scrapes_directly(self):
         slug = "zztestvalidatedpopulardirect"
         original_recovery_done = task_manager._recovery_done
@@ -907,7 +1021,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         try:
@@ -955,7 +1069,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         ScrapingConfig.objects.filter(slug=slug).update(is_valid=False, validation_error="old failure")
@@ -981,7 +1095,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         AdminArea.objects.create(
@@ -1034,7 +1148,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         AdminArea.objects.create(
@@ -1084,7 +1198,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         AdminArea.objects.create(
@@ -1129,7 +1243,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         AdminArea.objects.create(
@@ -1185,7 +1299,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         AdminArea.objects.create(
@@ -1234,7 +1348,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         AdminArea.objects.create(
@@ -1290,7 +1404,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         record.is_valid = False
@@ -1342,7 +1456,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         root = AdminArea.objects.create(
@@ -1423,7 +1537,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         AdminArea.objects.create(
@@ -1470,7 +1584,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         AdminArea.objects.create(
@@ -1507,7 +1621,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         root = AdminArea.objects.create(
@@ -1579,7 +1693,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
             )
         try:
@@ -1629,7 +1743,7 @@ LEGAL_SUBDIVISION = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+force_highest_level = 0
 """.strip() + "\n",
         )
         root = AdminArea.objects.create(

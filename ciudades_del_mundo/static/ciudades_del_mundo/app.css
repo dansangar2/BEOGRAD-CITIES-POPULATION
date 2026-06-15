@@ -1112,6 +1112,28 @@ button.danger,
   align-items: start;
 }
 
+.definition-list {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 16px;
+  margin: 0 0 16px;
+}
+
+.definition-list dt {
+  color: var(--muted);
+}
+
+.definition-list dd {
+  margin: 0;
+}
+
+.checkbox-row {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+}
+
 .form-panel,
 .form-grid {
   display: grid;
@@ -1672,9 +1694,20 @@ label {
   grid-template-columns: minmax(110px, max-content) minmax(0, 1fr);
 }
 
+.country-level-controls {
+  display: flex;
+  justify-content: flex-start;
+  margin: 0 0 10px;
+}
+
+.country-level-controls label {
+  max-width: min(100%, 360px);
+  width: 100%;
+}
+
 .country-table-controls {
   display: grid;
-  grid-template-columns: minmax(130px, 180px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   margin: 14px 0;
 }
@@ -3065,22 +3098,12 @@ html[data-theme="rainbow"] .task-console {
   table-layout: fixed;
 }
 
-.config-pages-toml-table th:first-child,
-.config-pages-toml-table td:first-child {
-  width: 380px;
-}
-
-.config-pages-toml-table th:nth-child(2),
-.config-pages-toml-table td:nth-child(2),
-.config-pages-toml-table th:nth-child(3),
-.config-pages-toml-table td:nth-child(3) {
-  width: 235px;
-}
-
-.config-pages-toml-table th:last-child,
-.config-pages-toml-table td:last-child {
-  width: 92px;
-}
+/* Column widths for the v2 pages table are driven by the colgroup below. */
+.config-pages-toml-table col.manual-col-procedure { width: 20%; }
+.config-pages-toml-table col.manual-col-routes { width: 50%; }
+.config-pages-toml-table col.manual-col-config { width: 20%; }
+.config-pages-toml-table col.manual-col-force-level { width: 10%; }
+.config-pages-toml-table col.manual-col-actions { width: 20%; }
 
 .config-pages-toml-table th,
 .config-pages-toml-table td {
@@ -4044,4 +4067,583 @@ html[data-theme^="retro"] .knowledge-card {
 .advanced-scraping-field[hidden],
 .config-tab-ai[hidden] {
   display: none !important;
+}
+
+
+/* Config editor dynamic loading uses the same in-flow panel style as /countries. */
+.config-editor {
+  position: relative;
+}
+
+.config-editor-loading {
+  margin: 0 0 1rem;
+  min-height: 140px;
+}
+
+.config-editor.is-loading .config-tab-panel,
+.config-editor.is-loading .config-tabs {
+  display: none;
+}
+
+.config-editor-loading[hidden] {
+  display: none !important;
+}
+
+.config-editor-loading.is-error {
+  color: var(--danger);
+}
+
+.config-editor-loading.is-error .loading-spinner {
+  display: none;
+}
+
+/* Scraping config v2 compact page rows */
+.manual-pages-wrap {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.manual-pages-table.config-pages-toml-table {
+  min-width: 1320px;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.config-pages-toml-table col.manual-col-procedure { width: 20%; }
+.config-pages-toml-table col.manual-col-routes { width: 50%; }
+.config-pages-toml-table col.manual-col-config { width: 20%; }
+.config-pages-toml-table col.manual-col-force-level { width: 10%; }
+.config-pages-toml-table col.manual-col-actions { width: 20%; }
+
+.manual-procedure-cell,
+.manual-routes-cell,
+.manual-config-cell,
+.manual-force-level-cell,
+.manual-actions-cell {
+  vertical-align: top;
+}
+
+.manual-source-select,
+.manual-force-level-cell input {
+  width: 100%;
+}
+
+.manual-routes-cell .page-path-list {
+  height: auto;
+  max-height: calc((34px * 4) + (0.35rem * 3));
+  min-height: calc((34px * 4) + (0.35rem * 3));
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.manual-routes-cell .page-path-row {
+  grid-template-columns: minmax(430px, 1fr) auto;
+}
+
+.manual-force-level-cell input {
+  min-width: 0;
+}
+
+.manual-page-actions {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-start;
+}
+
+.manual-config-stack {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.manual-mini-check {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.45rem;
+  margin: 0;
+  min-height: 28px;
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+.manual-mini-check input[type="checkbox"] {
+  height: 1rem;
+  width: 1rem;
+  min-width: 1rem;
+}
+
+.manual-mini-check[hidden],
+.manual-mini-check.is-hidden {
+  display: none !important;
+}
+
+.manual-config-actions {
+  justify-content: flex-start;
+  margin-top: 0.65rem;
+}
+
+/* Keep task logs inside the page width. */
+.task-output-panel {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.task-output-panel p,
+.task-output-panel p code {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+pre.console.task-console,
+.task-console {
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  resize: vertical;
+  white-space: pre-wrap;
+  width: 100%;
+}
+
+.task-console code {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Fixed-height task detail layout: logs scroll inside the console instead of growing the page. */
+.task-detail-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: calc(100dvh - 150px);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.task-detail-page .page-head.compact {
+  flex: 0 0 auto;
+  min-height: auto;
+  padding: 4px 0 0;
+}
+
+.task-detail-page .metrics {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+.task-detail-page .task-output-panel {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.task-detail-page .task-output-panel > h2,
+.task-detail-page .task-output-panel > p {
+  flex: 0 0 auto;
+}
+
+.task-detail-page .task-output-panel > p {
+  margin: 8px 0 14px;
+}
+
+.task-detail-page pre.console.task-console,
+.task-detail-page .task-console {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  resize: none;
+}
+
+@media (max-height: 720px) {
+  .task-detail-page {
+    height: calc(100dvh - 118px);
+    gap: 10px;
+  }
+
+  .task-detail-page .metric {
+    padding: 10px 12px;
+  }
+
+  .task-detail-page .metric strong {
+    margin-top: 4px;
+    font-size: 20px;
+  }
+
+  .task-detail-page .task-output-panel {
+    padding: 12px;
+  }
+}
+
+/* Pages editor: compact v4 layout with explicit parent controls. */
+.manual-pages-table.config-pages-toml-table {
+  min-width: 1280px;
+}
+.config-pages-toml-table col.manual-col-procedure { width: 16%; }
+.config-pages-toml-table col.manual-col-routes { width: 34%; }
+.config-pages-toml-table col.manual-col-config { width: 34%; }
+.config-pages-toml-table col.manual-col-force-level { width: 12%; }
+.config-pages-toml-table col.manual-col-actions { width: 4%; }
+.config-pages-toml-table thead.sr-only {
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+}
+.manual-input-label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted, #64748b);
+}
+.manual-procedure-cell {
+  display: grid;
+  gap: 0.55rem;
+}
+.manual-routes-cell .page-path-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
+  min-height: calc((34px * 2) + 0.35rem);
+  max-height: calc((34px * 2) + 0.35rem);
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+.manual-routes-cell .page-path-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem;
+}
+.manual-config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem 0.65rem;
+  min-width: 0;
+}
+.manual-config-grid .manual-mini-check {
+  display: grid;
+  grid-template-columns: auto minmax(7rem, 1fr) minmax(4.5rem, 0.55fr);
+  align-items: center;
+  gap: 0.4rem;
+}
+.manual-config-grid .manual-mini-check:has([name="page_sum_to_root"]) {
+  grid-template-columns: auto 1fr;
+}
+.manual-force-level-cell {
+  display: grid;
+  gap: 0.55rem;
+}
+.manual-page-actions {
+  gap: 0.3rem;
+}
+
+
+/* Config pages editor: fixed 10/30/25/25/10 layout and overflow cleanup. */
+.manual-pages-wrap {
+  overflow-x: hidden;
+  overflow-y: visible;
+  max-width: 100%;
+}
+
+.manual-pages-table.config-pages-toml-table {
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.config-pages-toml-table col.manual-col-procedure { width: 10%; }
+.config-pages-toml-table col.manual-col-routes { width: 30%; }
+.config-pages-toml-table col.manual-col-config { width: 25%; }
+.config-pages-toml-table col.manual-col-force-level { width: 25%; }
+.config-pages-toml-table col.manual-col-actions { width: 10%; }
+
+.config-pages-toml-table th,
+.config-pages-toml-table td {
+  box-sizing: border-box;
+  overflow: visible;
+  padding-inline: 0.5rem;
+}
+
+.config-pages-toml-table input,
+.config-pages-toml-table select,
+.config-pages-toml-table button {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.manual-procedure-cell {
+  align-content: start;
+  border-bottom: 1px solid var(--line, #d7dde2);
+  display: grid;
+  gap: 0.5rem;
+}
+
+.manual-procedure-cell [data-add-page-path] {
+  justify-self: stretch;
+  min-height: 34px;
+  white-space: normal;
+}
+
+.manual-routes-cell .page-path-list {
+  align-items: start;
+  display: grid;
+  gap: 0.4rem 0.45rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-height: calc((36px * 2) + 0.4rem);
+  min-height: calc((36px * 2) + 0.4rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+  scrollbar-gutter: stable;
+}
+
+.manual-routes-cell .page-path-row {
+  align-items: center;
+  display: grid;
+  gap: 0.25rem;
+  grid-template-columns: minmax(0, 1fr) 1.8rem;
+  min-width: 0;
+}
+
+.manual-routes-cell .page-path-row input {
+  min-width: 0;
+  width: 100%;
+}
+
+.manual-routes-cell .page-path-row [data-remove-page-path] {
+  align-items: center;
+  display: inline-flex;
+  height: 32px;
+  justify-content: center;
+  line-height: 1;
+  min-width: 0;
+  padding: 0;
+  width: 1.8rem;
+}
+
+.manual-config-grid {
+  align-items: start;
+  display: grid;
+  gap: 0.45rem 0.55rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.manual-config-grid .manual-mini-check {
+  align-items: center;
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: 1rem minmax(0, 1fr) minmax(3.75rem, 0.72fr);
+  min-height: 34px;
+  min-width: 0;
+}
+
+.manual-config-grid .manual-mini-check > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manual-config-grid .manual-mini-check:has([name="page_sum_to_root"]) {
+  grid-template-columns: 1rem minmax(0, 1fr);
+}
+
+
+.manual-force-level-cell {
+  align-content: start;
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.manual-force-level-cell .manual-input-label {
+  min-width: 0;
+}
+
+.manual-page-actions {
+  align-items: stretch;
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: 2.1rem minmax(0, 1fr);
+  min-width: 0;
+}
+
+.manual-page-actions .manual-page-drag-handle,
+.manual-page-actions [data-remove-page-row] {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 34px;
+  width: 100%;
+}
+
+.manual-page-actions [data-remove-page-row] {
+  padding-inline: 0.25rem;
+  white-space: normal;
+}
+
+/* Keep table cells as table-cells so row separators remain continuous. */
+.config-pages-toml-table td.manual-procedure-cell,
+.config-pages-toml-table td.manual-force-level-cell,
+.config-pages-toml-table td.manual-actions-cell {
+  display: table-cell;
+}
+
+.manual-procedure-cell .manual-input-label {
+  display: grid;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.manual-force-level-cell .manual-input-label {
+  display: inline-grid;
+  gap: 0.25rem;
+  vertical-align: top;
+  width: calc(50% - 0.3rem);
+}
+
+.manual-force-level-cell .manual-input-label + .manual-input-label {
+  margin-left: 0.4rem;
+}
+
+
+/* Config editor layout refinement: 7/50/30/10/3 and stretched routes. */
+.manual-pages-wrap {
+  overflow-x: hidden;
+}
+
+.manual-pages-table.config-pages-toml-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.config-pages-toml-table col.manual-col-procedure { width: 7%; }
+.config-pages-toml-table col.manual-col-routes { width: 50%; }
+.config-pages-toml-table col.manual-col-config { width: 30%; }
+.config-pages-toml-table col.manual-col-force-level { width: 10%; }
+.config-pages-toml-table col.manual-col-actions { width: 3%; }
+
+.config-pages-toml-table td {
+  vertical-align: top;
+}
+
+.config-pages-toml-table td.manual-routes-cell {
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 0.5rem;
+  position: relative;
+  vertical-align: top;
+}
+
+.manual-routes-cell .page-path-list {
+  align-content: start;
+  display: grid;
+  gap: 0.4rem 0.45rem;
+  grid-auto-rows: minmax(34px, auto);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  inset: 0.5rem;
+  max-height: none;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 0.1rem;
+  position: absolute;
+  scrollbar-gutter: stable;
+}
+
+.manual-routes-cell .page-path-row {
+  align-items: center;
+  display: grid;
+  gap: 0.25rem;
+  grid-template-columns: minmax(0, 1fr) 1.65rem;
+  min-width: 0;
+}
+
+.manual-routes-cell .page-path-row input {
+  min-width: 0;
+  width: 100%;
+}
+
+.manual-routes-cell .page-path-row [data-remove-page-path] {
+  align-items: center;
+  display: inline-flex;
+  height: 32px;
+  justify-content: center;
+  line-height: 1;
+  min-width: 0;
+  padding: 0;
+  width: 1.65rem;
+}
+
+.manual-level-fields {
+  align-items: stretch;
+  display: grid;
+  gap: 0.45rem;
+  grid-template-columns: 1fr;
+  min-width: 0;
+}
+
+.manual-force-level-cell .manual-input-label,
+.manual-force-level-cell .manual-input-label + .manual-input-label {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  min-width: 0;
+  vertical-align: top;
+  width: 100%;
+}
+
+.manual-force-level-cell input {
+  min-width: 0;
+  width: 100%;
+}
+
+.manual-config-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.manual-page-actions {
+  align-items: stretch;
+  display: grid;
+  gap: 0.3rem;
+  grid-template-columns: 1fr;
+  min-width: 0;
+}
+
+.manual-page-actions .manual-page-drag-handle,
+.manual-page-actions [data-remove-page-row] {
+  align-items: center;
+  display: inline-flex;
+  font-size: 0.95rem;
+  justify-content: center;
+  min-height: 32px;
+  min-width: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.manual-procedure-cell [data-add-page-path] {
+  line-height: 1.1;
+  min-height: 34px;
+  padding-inline: 0.25rem;
+  white-space: normal;
 }

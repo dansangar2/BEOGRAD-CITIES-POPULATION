@@ -1,26 +1,28 @@
 LEGAL_SUBDIVISION = 3
 
+scrape_schema_version = 2
+
 [[pages]]
-source = "infosection"
+source = "cities"
 path = ["cities"]
-lowest_level = 0
+include = { infosection = true, major_subdivision = false, cities = false }
 
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+include = { infosection = true, admin1 = true, admin2 = true }
 
 [[pages]]
 source = "admin"
 path = ["acores/admin", "aveiro/admin", "beja/admin", "braga/admin", "braganca/admin", "castelobranco/admin", "coimbra/admin", "evora/admin", "faro/admin", "guarda/admin", "leiria/admin", "lisboa/admin", "madeira/admin", "portalegre/admin", "porto/admin", "santarem/admin", "setubal/admin", "vianadocastelo/admin", "vilareal/admin", "viseu/admin"]
-lowest_level = 1
+include = { infosection = true, admin1 = true, admin2 = true }
+force_highest_level = 1
 
 [[pages]]
-source = "table"
+source = "cities"
 path = ["acores", "aveiro", "beja", "braga", "braganca", "castelobranco", "coimbra", "evora", "faro", "guarda", "leiria", "lisboa", "madeira", "portalegre", "porto", "santarem", "setubal", "vianadocastelo", "vilareal", "viseu"]
-lowest_level = 2
-include_tables = ["ts"]
-table_levels = { ts = 4 }
+include = { infosection = true, major_subdivision = true, cities = true }
+force_highest_level = 2
 
 [visual_assets]
 bulk_country_wikidata = true

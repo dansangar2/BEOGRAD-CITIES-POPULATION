@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import csv
 from dataclasses import dataclass
 from itertools import zip_longest
 import json
@@ -21,8 +22,8 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db import OperationalError, ProgrammingError, connection
-from django.db.models import Count, Sum
-from django.http import Http404, HttpResponseRedirect, JsonResponse
+from django.db.models import Count, Q, Sum
+from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.translation import get_language
@@ -34,7 +35,15 @@ from ciudades_del_mundo.domain import (
     parse_entity_merges,
     parse_pages,
 )
-from ciudades_del_mundo.models import AdminArea, NuevoAdminArea, ScrapingConfig
+from ciudades_del_mundo.models import (
+    AdminArea,
+    DerivedCountry,
+    DerivedCountryConfig,
+    NuevoAdminArea,
+    ScrapingConfig,
+    SubdivisionGroup,
+    VisualAsset,
+)
 
 from ciudades_del_mundo.infrastructure.scraping.page_types import (
     CityPopulationPageProfile,
@@ -73,6 +82,9 @@ from ciudades_del_mundo.services.status_codes import (
 from .spain_translations import normalize_language_code, spain_entity_type, spain_name
 from .task_progress import read_task_config_progress
 from .tasks import task_manager
+
+
+COUNTRY_LEVEL_OPTION_CHILD_LIMIT = 150
 
 
 
@@ -217,23 +229,10 @@ class CityPopulationGeneratedPage:
     source: str
     lowest_level: int
     category: str = "other"
-    include_root: bool | None = None
-    include_tables: tuple[str, ...] = ()
-    table_levels: tuple[tuple[str, int], ...] = ()
-    status_levels: tuple[tuple[str, int], ...] = ()
-    root_level: int | None = None
-    root_code: str = ""
-    root_name: str = ""
-    root_parent_code: str = ""
-    root_entity_type: str = ""
-
-    @property
-    def table_levels_dict(self) -> dict[str, int]:
-        return dict(self.table_levels)
-
-    @property
-    def status_levels_dict(self) -> dict[str, int]:
-        return dict(self.status_levels)
+    include_infosection: bool = True
+    include_major_subdivision: bool = True
+    include_minor_subdivision: bool = True
+    include_cities: bool = True
 
 COUNTRY_NAME_ES_BY_CODE = {
     "afghanistan": "Afganistán",
@@ -736,6 +735,7 @@ def config_list(request):
         "config_validate_all_url": reverse("ciudades_del_mundo:start_all_config_task", kwargs={"action": "validate"}),
         "config_scrape_unpopulated_url": reverse("ciudades_del_mundo:start_all_config_task", kwargs={"action": "scrape-unpopulated"}),
         "config_scrape_all_url": reverse("ciudades_del_mundo:start_all_config_task", kwargs={"action": "scrape"}),
+        "config_import_toml_url": reverse("ciudades_del_mundo:config_import_toml"),
         "config_bootstrap_url": reverse("ciudades_del_mundo:config_bootstrap"),
         "config_bootstrap_status": bootstrap_status.as_dict(),
     }
@@ -806,11 +806,12 @@ def config_new(request):
     """Create a new SQL-backed scraping config."""
     wants_json = _wants_json(request)
     default_content = (
-        "LEGAL_SUBDIVISION = 2\n\n"
+        "LEGAL_SUBDIVISION = 2\n"
+        "scrape_schema_version = 2\n\n"
         "[[pages]]\n"
         'source = "admin"\n'
         'path = ["admin"]\n'
-        "lowest_level = 0\n"
+        'include = { infosection = true, major_subdivision = true, minor_subdivision = true }\n'
     )
     slug = ""
     content = default_content
@@ -881,6 +882,137 @@ def config_edit(request, slug):
     return render(request, "ciudades_del_mundo/config_form.html", _config_form_context("edit", slug, content, active_scrape))
 
 
+
+def config_export_data_csv(request, slug):
+    """Download all persisted AdminArea rows for this config/country as CSV."""
+    slug = _normalize_config_slug(slug)
+    config_record = _config_record(slug)
+    if config_record is None:
+        raise Http404(_("No existe la configuracion '%(slug)s'.") % {"slug": slug})
+
+    country_code = _config_country_code_for_slug(slug)
+    filename = f"{country_code or slug}_admin_areas.csv"
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response.write("\ufeff")
+
+    writer = csv.writer(response)
+    headers = [
+        "id",
+        "country_code",
+        "code",
+        "name",
+        "level",
+        "parent_id",
+        "parent_code",
+        "parent_name",
+        "parent_level",
+        "children_count",
+        "entity_type",
+        "raw_entity_type",
+        "city_merge_status",
+        "area_km2",
+        "density",
+        "pop_latest",
+        "pop_latest_date",
+        "last_census_year",
+        "url",
+        "data_wd",
+        "annotations",
+        "most_populate_city_id",
+        "flag_status",
+        "flag_wikidata_id",
+        "flag_commons_filename",
+        "flag_local_path",
+        "coat_status",
+        "coat_wikidata_id",
+        "coat_commons_filename",
+        "coat_local_path",
+        "created_at",
+        "updated_at",
+    ]
+    writer.writerow(headers)
+
+    areas = list(
+        AdminArea.objects.filter(country_code=country_code)
+        .select_related("parent", "most_populate_city")
+        .annotate(children_count=Count("children"))
+        .order_by("level", "parent_id", "name", "code")
+    )
+    assets_by_key = _config_export_asset_map(country_code)
+
+    for area in areas:
+        flag = assets_by_key.get(("admin_area", str(area.id), "flag"), {})
+        coat = assets_by_key.get(("admin_area", str(area.id), "coat"), {})
+        writer.writerow(
+            [
+                area.id,
+                area.country_code,
+                area.code,
+                area.name,
+                area.level,
+                area.parent_id or "",
+                area.parent.code if area.parent else "",
+                area.parent.name if area.parent else "",
+                area.parent.level if area.parent else "",
+                area.children_count,
+                area.entity_type or "",
+                area.raw_entity_type or "",
+                area.city_merge_status,
+                area.area_km2 if area.area_km2 is not None else "",
+                area.density if area.density is not None else "",
+                area.pop_latest if area.pop_latest is not None else "",
+                area.pop_latest_date.isoformat() if area.pop_latest_date else "",
+                area.last_census_year if area.last_census_year is not None else "",
+                area.url or "",
+                area.data_wd or "",
+                area.annotations or "",
+                area.most_populate_city_id or "",
+                flag.get("status", ""),
+                flag.get("wikidata_id", ""),
+                flag.get("commons_filename", ""),
+                flag.get("local_path", ""),
+                coat.get("status", ""),
+                coat.get("wikidata_id", ""),
+                coat.get("commons_filename", ""),
+                coat.get("local_path", ""),
+                area.created_at.isoformat(sep=" ", timespec="seconds") if area.created_at else "",
+                area.updated_at.isoformat(sep=" ", timespec="seconds") if area.updated_at else "",
+            ]
+        )
+    return response
+
+
+def _config_export_asset_map(country_code: str) -> dict[tuple[str, str, str], dict[str, str]]:
+    """Return visual assets keyed by (entity_type, entity_key, kind)."""
+    if not country_code or not visual_asset_tables_exist():
+        return {}
+    assets: dict[tuple[str, str, str], dict[str, str]] = {}
+    try:
+        queryset = VisualAsset.objects.filter(
+            country_code=country_code,
+            entity_type="admin_area",
+            kind__in=("flag", "coat"),
+        ).only(
+            "entity_type",
+            "entity_key",
+            "kind",
+            "status",
+            "wikidata_id",
+            "commons_filename",
+            "local_path",
+        )
+        for asset in queryset:
+            assets[(asset.entity_type, str(asset.entity_key), asset.kind)] = {
+                "status": asset.status or "",
+                "wikidata_id": asset.wikidata_id or "",
+                "commons_filename": asset.commons_filename or "",
+                "local_path": asset.local_path or "",
+            }
+    except (OperationalError, ProgrammingError):
+        return {}
+    return assets
+
 def config_export_toml(request, slug):
     """Export one SQL-backed config to ciudades_del_mundo/subdivisions/<slug>.toml."""
     wants_json = _wants_json(request)
@@ -914,6 +1046,65 @@ def config_export_toml(request, slug):
                 return JsonResponse({"ok": True, "message": message, "exported": False})
             messages.info(request, message)
     return redirect("ciudades_del_mundo:config_edit", slug=slug)
+
+
+def config_import_toml(request):
+    """Import bundled subdivision TOML files into SQL in a background task."""
+    wants_json = _wants_json(request)
+    if request.method != "POST":
+        if wants_json:
+            return JsonResponse({"ok": False, "error": _("Método no soportado.")}, status=405)
+        return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
+
+    if not _web_task_table_exists():
+        error = _(
+            "La tabla de tareas no existe todavía. Ejecuta 'py manage.py migrate' y recarga la página."
+        )
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=503)
+        messages.error(request, error)
+        return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
+    if not scraping_config_table_exists():
+        error = _("La tabla de configuraciones todavía no está disponible. Ejecuta 'py manage.py migrate'.")
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=503)
+        messages.error(request, error)
+        return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
+
+    label = _("Importar TOML de subdivisión")
+    try:
+        task = task_manager.start(
+            key="config-import:toml",
+            label=label,
+            args=["sync_scraping_configs", "--force"],
+        )
+    except (OperationalError, ProgrammingError) as exc:
+        error = _(
+            "No se pudo guardar la tarea en la base de datos. Ejecuta 'py manage.py migrate'. Detalle: %(error)s"
+        ) % {"error": exc}
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=503)
+        messages.error(request, error)
+        return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
+    except Exception as exc:  # noqa: BLE001 - AJAX must not receive a Django HTML debug page.
+        if wants_json:
+            return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+        raise
+
+    if wants_json:
+        return JsonResponse(
+            {
+                "ok": True,
+                "task_id": task.id,
+                "label": label,
+                "status": task.status,
+                "status_url": reverse("ciudades_del_mundo:task_status", kwargs={"task_id": task.id}),
+                "summary_url": "",
+                "detail_url": reverse("ciudades_del_mundo:task_detail", kwargs={"task_id": task.id}),
+            }
+        )
+    messages.info(request, _("Tarea lanzada: %(label)s.") % {"label": label})
+    return redirect("ciudades_del_mundo:task_detail", task_id=task.id)
 
 
 def start_all_config_task(request, action):
@@ -954,7 +1145,7 @@ def start_all_config_task(request, action):
             return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
         key = "scrape:unpopulated"
         label = _("Popular configuraciones no populadas (%(count)s)") % {"count": len(eligible_slugs)}
-        args = ["validate_and_scrape_configs", *eligible_slugs]
+        args = ["validate_and_scrape_configs", *eligible_slugs, "--no-download-assets", "--page-workers=4", "--country-workers=2"]
     elif action == "scrape":
         eligible_slugs = _eligible_config_slugs_for_bulk("scrape")
         if not eligible_slugs:
@@ -965,7 +1156,7 @@ def start_all_config_task(request, action):
             return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
         key = "scrape:all"
         label = _("Popular configuraciones disponibles (%(count)s)") % {"count": len(eligible_slugs)}
-        args = ["repopulate_configs", *eligible_slugs, "--no-download-assets", "--page-workers=4"]
+        args = ["repopulate_configs", *eligible_slugs, "--no-download-assets", "--page-workers=4", "--country-workers=2"]
     else:
         error = _("Acción de configuración no soportada.")
         if wants_json:
@@ -1084,7 +1275,7 @@ def start_config_task(request, slug, action):
         key = f"scrape:{slug}"
         if current_status == "populated":
             label = _("Re-popular datos: %(slug)s") % {"slug": slug}
-            args = ["scrape_subdivisions_with_assets", slug, "--clear-first", "--no-download-assets", "--page-workers=4"]
+            args = ["scrape_subdivisions_with_assets", slug, "--no-download-assets", "--page-workers=4"]
         else:
             label = _("Popular datos: %(slug)s") % {"slug": slug}
             if current_status == "validated":
@@ -1326,6 +1517,30 @@ def config_summary(request, slug):
     )
 
 
+def config_editor_data(request, slug):
+    """Return config content/manual data after the page shell has loaded."""
+    slug = _normalize_config_slug(slug)
+    record = _config_record(slug)
+    if not record:
+        if _wants_json(request):
+            return JsonResponse({"ok": False, "error": _("No existe la configuracion '%(slug)s'.") % {"slug": slug}}, status=404)
+        raise Http404(_("No existe la configuracion '%(slug)s'.") % {"slug": slug})
+    workflow = _decorate_config_workflow_flags(_config_summary_for_slug(slug))
+    asset_editor_enabled = bool(int(workflow.get("rows") or 0) > 0)
+    content = record.content or ""
+    return JsonResponse(
+        {
+            "ok": True,
+            "content": content,
+            "manual": _parse_config_editor_data(slug, content, asset_editor_enabled=asset_editor_enabled),
+            # Keep the editor-data endpoint fully JSON-serializable: workflow rows
+            # contain WebTask model instances used by server-rendered templates.
+            "workflow": _config_workflow_json_payload(workflow),
+        }
+    )
+
+
+
 def config_source_entities(request, slug):
     """Return populated source entities for the manual city-unification UI."""
     slug = _normalize_config_slug(slug)
@@ -1513,6 +1728,271 @@ def start_recipe_task(request, slug, action):
     task = task_manager.start(key=key, label=label, args=args)
     messages.info(request, _("Tarea lanzada: %(label)s.") % {"label": label})
     return redirect("ciudades_del_mundo:task_detail", task_id=task.id)
+
+
+def new_country_list(request):
+    """List derived-country containers and their editable TOML variants."""
+    countries = (
+        DerivedCountry.objects.annotate(config_count=Count("configs"))
+        .order_by("name", "slug")
+    )
+    return render(
+        request,
+        "ciudades_del_mundo/new_country_list.html",
+        {"countries": countries},
+    )
+
+
+def new_country_new(request):
+    """Create a derived-country container."""
+    form = {"slug": "", "name": "", "source_country_code": "", "description": ""}
+    if request.method == "POST":
+        form.update({key: request.POST.get(key, "") for key in form})
+        try:
+            slug = _normalize_recipe_slug(form["slug"])
+            if DerivedCountry.objects.filter(slug=slug).exists():
+                raise ValueError(_("Ya existe un pais nuevo con slug '%(slug)s'.") % {"slug": slug})
+            name = str(form["name"] or "").strip()
+            if not name:
+                raise ValueError(_("El nombre es obligatorio."))
+            country = DerivedCountry.objects.create(
+                slug=slug,
+                name=name,
+                source_country_code=str(form["source_country_code"] or "").strip().lower(),
+                description=str(form["description"] or "").strip(),
+            )
+        except ValueError as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, _("Pais nuevo '%(name)s' creado.") % {"name": country.name})
+            return redirect("ciudades_del_mundo:new_country_detail", country_slug=country.slug)
+    return render(request, "ciudades_del_mundo/new_country_form.html", {"form": form, "mode": "country"})
+
+
+def new_country_detail(request, country_slug):
+    """List configurations for one derived-country container."""
+    country = _derived_country_or_404(country_slug)
+    configs = country.configs.order_by("name", "slug")
+    rows = []
+    for config in configs:
+        built_code = config.derived_country_code or config.slug
+        root = NuevoAdminArea.objects.filter(country_code=built_code, parent__isnull=True).order_by("name").first()
+        rows.append(
+            {
+                "config": config,
+                "built_code": built_code,
+                "root": root,
+                "built_count": NuevoAdminArea.objects.filter(country_code=built_code).count(),
+            }
+        )
+    return render(
+        request,
+        "ciudades_del_mundo/new_country_detail.html",
+        {"country": country, "rows": rows},
+    )
+
+
+def new_country_config_new(request, country_slug):
+    """Create a TOML configuration for one derived country."""
+    country = _derived_country_or_404(country_slug)
+    form = {
+        "slug": "",
+        "name": "",
+        "source_country_code": country.source_country_code,
+        "derived_country_code": "",
+        "content": "",
+        "is_active": "1",
+    }
+    if request.method == "POST":
+        form.update({key: request.POST.get(key, "") for key in form})
+        try:
+            slug = _normalize_recipe_slug(form["slug"])
+            if country.configs.filter(slug=slug).exists():
+                raise ValueError(_("Ya existe una configuracion '%(slug)s' para este pais.") % {"slug": slug})
+            name = str(form["name"] or "").strip()
+            if not name:
+                raise ValueError(_("El nombre es obligatorio."))
+            derived_code = _normalize_recipe_slug(form["derived_country_code"] or slug)
+            content = str(form["content"] or "").strip() or _default_derived_country_toml(
+                country=country,
+                slug=slug,
+                name=name,
+                source_country_code=form["source_country_code"],
+                derived_country_code=derived_code,
+            )
+            _validate_plain_toml(content, expected_kind="derived_country_config")
+            config = DerivedCountryConfig.objects.create(
+                country=country,
+                slug=slug,
+                name=name,
+                source_country_code=str(form["source_country_code"] or "").strip().lower(),
+                derived_country_code=derived_code,
+                content=content,
+                is_active=bool(request.POST.get("is_active")),
+            )
+        except ValueError as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, _("Configuracion '%(slug)s' creada.") % {"slug": config.slug})
+            return redirect(
+                "ciudades_del_mundo:new_country_config_edit",
+                country_slug=country.slug,
+                config_slug=config.slug,
+            )
+    elif not form["content"]:
+        form["content"] = _default_derived_country_toml(
+            country=country,
+            slug="nueva_configuracion",
+            name="Nueva configuracion",
+            source_country_code=country.source_country_code,
+            derived_country_code="nueva_configuracion",
+        )
+    return render(
+        request,
+        "ciudades_del_mundo/new_country_config_form.html",
+        {"country": country, "form": form, "config": None},
+    )
+
+
+def new_country_config_edit(request, country_slug, config_slug):
+    """Edit one TOML-backed derived-country configuration."""
+    country = _derived_country_or_404(country_slug)
+    config = _derived_country_config_or_404(country, config_slug)
+    form = {
+        "slug": config.slug,
+        "name": config.name,
+        "source_country_code": config.source_country_code,
+        "derived_country_code": config.derived_country_code,
+        "content": config.content,
+        "is_active": "1" if config.is_active else "",
+    }
+    if request.method == "POST":
+        form.update({key: request.POST.get(key, "") for key in form})
+        try:
+            name = str(form["name"] or "").strip()
+            if not name:
+                raise ValueError(_("El nombre es obligatorio."))
+            derived_code = _normalize_recipe_slug(form["derived_country_code"] or config.slug)
+            content = str(form["content"] or "").strip()
+            _validate_plain_toml(content, expected_kind="derived_country_config")
+            config.name = name
+            config.source_country_code = str(form["source_country_code"] or "").strip().lower()
+            config.derived_country_code = derived_code
+            config.content = content
+            config.is_active = bool(request.POST.get("is_active"))
+            config.save()
+        except ValueError as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, _("Configuracion '%(slug)s' guardada.") % {"slug": config.slug})
+            return redirect(
+                "ciudades_del_mundo:new_country_config_edit",
+                country_slug=country.slug,
+                config_slug=config.slug,
+            )
+    return render(
+        request,
+        "ciudades_del_mundo/new_country_config_form.html",
+        {"country": country, "config": config, "form": form},
+    )
+
+
+def new_country_config_view(request, country_slug, config_slug):
+    """Show the built NuevoAdminArea tree attached to one derived-country config."""
+    country = _derived_country_or_404(country_slug)
+    config = _derived_country_config_or_404(country, config_slug)
+    built_code = config.derived_country_code or config.slug
+    root = NuevoAdminArea.objects.filter(country_code=built_code, parent__isnull=True).order_by("name").first()
+    stats = NuevoAdminArea.objects.filter(country_code=built_code).aggregate(
+        total=Count("id"),
+        population=Sum("pop_latest"),
+        seats=Sum("representatives"),
+    )
+    return render(
+        request,
+        "ciudades_del_mundo/new_country_config_view.html",
+        {"country": country, "config": config, "built_code": built_code, "root": root, "stats": stats},
+    )
+
+
+def group_list(request):
+    """List reusable TOML groups for historical/custom subdivisions."""
+    groups = SubdivisionGroup.objects.order_by("name", "slug")
+    return render(request, "ciudades_del_mundo/group_list.html", {"groups": groups})
+
+
+def group_new(request):
+    """Create a reusable subdivision group."""
+    form = {"slug": "", "name": "", "source_country_code": "", "description": "", "content": ""}
+    if request.method == "POST":
+        form.update({key: request.POST.get(key, "") for key in form})
+        try:
+            slug = _normalize_recipe_slug(form["slug"])
+            if SubdivisionGroup.objects.filter(slug=slug).exists():
+                raise ValueError(_("Ya existe un grupo '%(slug)s'.") % {"slug": slug})
+            name = str(form["name"] or "").strip()
+            if not name:
+                raise ValueError(_("El nombre es obligatorio."))
+            content = str(form["content"] or "").strip() or _default_group_toml(
+                slug=slug,
+                name=name,
+                source_country_code=form["source_country_code"],
+            )
+            _validate_plain_toml(content, expected_kind="subdivision_group")
+            group = SubdivisionGroup.objects.create(
+                slug=slug,
+                name=name,
+                source_country_code=str(form["source_country_code"] or "").strip().lower(),
+                description=str(form["description"] or "").strip(),
+                content=content,
+            )
+        except ValueError as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, _("Grupo '%(slug)s' creado.") % {"slug": group.slug})
+            return redirect("ciudades_del_mundo:group_edit", slug=group.slug)
+    elif not form["content"]:
+        form["content"] = _default_group_toml(
+            slug="nuevo_grupo",
+            name="Nuevo grupo",
+            source_country_code="",
+        )
+    return render(request, "ciudades_del_mundo/group_form.html", {"form": form, "group": None})
+
+
+def group_edit(request, slug):
+    """Edit a reusable subdivision group."""
+    slug = _normalize_recipe_slug(slug)
+    try:
+        group = SubdivisionGroup.objects.get(slug=slug)
+    except SubdivisionGroup.DoesNotExist as exc:
+        raise Http404(_("No existe el grupo '%(slug)s'.") % {"slug": slug}) from exc
+    form = {
+        "slug": group.slug,
+        "name": group.name,
+        "source_country_code": group.source_country_code,
+        "description": group.description,
+        "content": group.content,
+    }
+    if request.method == "POST":
+        form.update({key: request.POST.get(key, "") for key in form})
+        try:
+            name = str(form["name"] or "").strip()
+            if not name:
+                raise ValueError(_("El nombre es obligatorio."))
+            content = str(form["content"] or "").strip()
+            _validate_plain_toml(content, expected_kind="subdivision_group")
+            group.name = name
+            group.source_country_code = str(form["source_country_code"] or "").strip().lower()
+            group.description = str(form["description"] or "").strip()
+            group.content = content
+            group.save()
+        except ValueError as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, _("Grupo '%(slug)s' guardado.") % {"slug": group.slug})
+            return redirect("ciudades_del_mundo:group_edit", slug=group.slug)
+    return render(request, "ciudades_del_mundo/group_form.html", {"group": group, "form": form})
 
 
 def nuevo_area_list(request):
@@ -2019,11 +2499,37 @@ def task_detail(request, task_id):
 
 def task_cancel(request, task_id):
     """Cancel an active background task."""
+    wants_json = _wants_json(request)
     if request.method != "POST":
+        if wants_json:
+            return JsonResponse({"ok": False, "error": _("Método no permitido.")}, status=405)
         return redirect("ciudades_del_mundo:task_detail", task_id=task_id)
     task = task_manager.cancel(task_id)
-    if task:
-        messages.info(request, _("Cancelacion solicitada para '%(label)s'.") % {"label": task.label})
+    if not task:
+        if wants_json:
+            return JsonResponse({"ok": False, "error": _("Tarea no encontrada.")}, status=404)
+        return redirect("ciudades_del_mundo:task_detail", task_id=task_id)
+    message = _("Cancelacion solicitada para '%(label)s'.") % {"label": task.label}
+    if wants_json:
+        error_info = _task_error_info(task)
+        return JsonResponse(
+            {
+                "ok": True,
+                "message": message,
+                "id": task.id,
+                "label": task.label,
+                "status": task.status,
+                "is_active": task.is_active,
+                "returncode": task.returncode,
+                "detail_url": reverse("ciudades_del_mundo:task_detail", kwargs={"task_id": task.id}),
+                "status_url": reverse("ciudades_del_mundo:task_status", kwargs={"task_id": task.id}),
+                "error_code": error_info["code"],
+                "error_severity": error_info.get("severity", ""),
+                "error_message": error_info.get("message", ""),
+                "error_description": error_info["description"],
+            }
+        )
+    messages.info(request, message)
     return redirect("ciudades_del_mundo:task_detail", task_id=task_id)
 
 
@@ -2256,15 +2762,31 @@ def _area_country_root(area):
             .first()
         )
     if model is AdminArea:
-        return _visible_admin_areas().filter(country_code=country_code, level=0).order_by("name").first()
+        return _canonical_country_area(country_code)
     return model.objects.filter(country_code=country_code, level=0).order_by("name").first()
 
 
 def _canonical_country_area(country_code: str) -> AdminArea | None:
     roots = _visible_admin_areas().filter(country_code=country_code, level=0, parent__isnull=True)
+
+    # Prefer the explicit country row over other level-0 rows.  Some countries
+    # (France is the common case) scrape regions at level 0 from another page.
+    # If we only accepted a single root, the browser treated the actual country
+    # as another child row and rendered "France > France".
     preferred = roots.filter(code=country_code).order_by("name").first()
     if preferred:
         return preferred
+
+    infosection = roots.filter(annotations__icontains="CityPopulation section: infosection").order_by("name").first()
+    if infosection:
+        return infosection
+
+    wikidata_id = _wikidata_country_id(country_code)
+    if wikidata_id:
+        by_wikidata = roots.filter(data_wd=wikidata_id).order_by("name").first()
+        if by_wikidata:
+            return by_wikidata
+
     if roots.count() == 1:
         return roots.first()
     return None
@@ -2416,9 +2938,39 @@ def _country_detail_payload(country_code: str, selected_level: int | None = None
             "population_chart": _donut_payload(first_order, "pop_latest", population_total),
             "area_chart": _donut_payload(first_order, "area_km2", area_total),
             "cards": _first_order_cards(country_code, root, first_order, population_total, area_total),
+            "child_groups": _country_first_order_child_groups(country_code, root, first_order, population_total, area_total),
         },
     }
 
+
+
+def _country_first_order_child_groups(
+    country_code: str,
+    root: AdminArea | None,
+    children: list[AdminArea],
+    population_total,
+    area_total,
+) -> list[dict]:
+    """Return country-level child panels split by real child level.
+
+    The first country view uses a synthetic "first order" list that can mix
+    levels when CityPopulation exposes branches unevenly.  Grouping here keeps
+    Italy-like cases readable: one box per child level, while the country info
+    panel spans the full height in the frontend.
+    """
+    if not children:
+        return []
+    grouped: dict[int, list[AdminArea]] = {}
+    for child in children:
+        grouped.setdefault(child.level, []).append(child)
+    return [
+        {
+            "level": level,
+            "label": _admin_area_child_group_label(country_code, level),
+            "children": _admin_area_child_rows(rows, population_total, area_total),
+        }
+        for level, rows in sorted(grouped.items())
+    ]
 
 def _admin_area_detail_payload(area: AdminArea) -> dict:
     children = _admin_area_browser_children(area)
@@ -2601,22 +3153,50 @@ def _admin_area_detail_url(area: AdminArea) -> str:
 
 
 def _country_available_levels(country_code: str, root: AdminArea | None) -> list[dict]:
-    levels = (
+    levels = list(
         _visible_admin_areas().filter(country_code=country_code)
         .values_list("level", flat=True)
         .distinct()
         .order_by("level")
     )
+    level_values = [level for level in levels if not (root and level == root.level)]
+    first_level = level_values[0] if level_values else None
     rows = []
     for level in levels:
         if root and level == root.level:
             continue
+        level_rows = _visible_admin_areas().filter(country_code=country_code, level=level)
+        if root:
+            level_rows = level_rows.exclude(id=root.id)
+        child_counts = list(
+            level_rows.annotate(
+                visible_child_count=Count(
+                    "children",
+                    filter=~Q(children__city_merge_status=AdminArea.CityMergeStatus.SOURCE),
+                )
+            ).values_list("visible_child_count", flat=True)
+        )
+        max_children = max(child_counts or [0])
+        rows_with_children = sum(1 for count in child_counts if count > 0)
+        if level != first_level:
+            level_total = len(child_counts)
+            if rows_with_children <= 0 and level_total > COUNTRY_LEVEL_OPTION_CHILD_LIMIT:
+                continue
+            if (
+                rows_with_children > 0
+                and level_total > COUNTRY_LEVEL_OPTION_CHILD_LIMIT
+                and rows_with_children < max(2, level_total // 10)
+            ):
+                continue
         entity_types = _level_entity_types(country_code, level)
         rows.append(
             {
                 "value": level,
                 "label": _("Nivel %(level)s") % {"level": _display_level(level, root)},
                 "entity_type": ", ".join(entity_types[:3]),
+                "count": len(child_counts),
+                "max_children": max_children,
+                "rows_with_children": rows_with_children,
             }
         )
     return rows
@@ -3166,14 +3746,22 @@ def _config_form_context(mode: str, slug: str, content: str, active_task=None) -
         except (OperationalError, ProgrammingError):
             pass
     asset_editor_enabled = bool(mode == "edit" and int(workflow.get("rows") or 0) > 0)
-    parsed = _parse_config_editor_data(slug, content, asset_editor_enabled=asset_editor_enabled)
+    if mode == "edit":
+        # Render a light shell first; the full TOML/manual data is hydrated via
+        # config_editor_data so large configs do not block the initial page.
+        parsed = _parse_config_editor_data(slug, "", asset_editor_enabled=False)
+        rendered_content = ""
+    else:
+        parsed = _parse_config_editor_data(slug, content, asset_editor_enabled=asset_editor_enabled)
+        rendered_content = content
     return {
         "mode": mode,
         "slug": slug,
-        "content": content,
+        "content": rendered_content,
         "active_task": active_task,
         "config_workflow": workflow,
         "manual": parsed,
+        "editor_data_url": reverse("ciudades_del_mundo:config_editor_data", kwargs={"slug": slug}) if mode == "edit" and slug else "",
         "scrape_types": _scrape_type_choices(),
         "ai_enabled": AI_CONFIG_ENABLED,
         "ai_personal_login_enabled": AI_PERSONAL_LOGIN_ENABLED,
@@ -3183,21 +3771,17 @@ def _config_form_context(mode: str, slug: str, content: str, active_task=None) -
 
 def _scrape_type_choices() -> list[tuple[str, str]]:
     return [
-        ("admin", _("Admin")),
-        ("auto", _("Auto")),
-        ("table", _("Tabla")),
-        ("cities", _("Ciudades")),
-        ("infosection", _("Sección informativa")),
+        ("cities", _("Cities: infosection + subdivisión superior + ciudades")),
+        ("admin", _("Admin: infosection + subdivisión superior + subdivisión inferior")),
+        ("citiesadmin", _("CitiesAdmin: infosection + subdivisión superior + subdivisión inferior + ciudades")),
     ]
 
 
 
 
 def _normalize_page_source_for_form(value) -> str:
-    source = str(value or "admin").strip().lower()
-    if source == "double":
-        return "table"
-    return source or "admin"
+    source = str(value or "cities").strip().lower()
+    return source if source in {"cities", "admin", "citiesadmin"} else "cities"
 
 
 def _persist_manual_asset_overrides(slug: str, content: str) -> None:
@@ -3228,21 +3812,30 @@ def _parse_config_editor_data(slug: str, content: str, *, asset_editor_enabled: 
     pages = []
     for page in data.get("pages") or []:
         raw_paths = page.get("path")
+        include = page.get("include") if isinstance(page.get("include"), dict) else {}
+        include_infosection = include.get("infosection", True)
+        include_major = include.get("major_subdivision", include.get("admin1", True))
+        include_minor = include.get("minor_subdivision", include.get("admin2", True))
+        include_cities = include.get("cities", True)
+        force_level = page.get("force_highest_level")
+        parent_level = page.get("parent_level", page.get("force_parent_level"))
+        repeat = page.get("repeat") if isinstance(page.get("repeat"), dict) else {}
         pages.append(
             {
                 "paths": _page_paths_list_for_form(raw_paths),
                 "paths_text": _page_paths_text_for_form(raw_paths),
-                "source": _normalize_page_source_for_form(page.get("source", page.get("html_format", "admin"))),
-                "lowest_level": "" if page.get("lowest_level", page.get("level")) is None else str(page.get("lowest_level", page.get("level"))),
-                "include_root": "" if "include_root" not in page else _bool_text(page.get("include_root")),
-                "include_tables": _list_text_for_form(page.get("include_tables", page.get("tables"))),
-                "table_levels": _mapping_text_for_form(page.get("table_levels", page.get("levels"))),
-                "status_levels": _mapping_text_for_form(page.get("status_levels", page.get("entity_type_levels"))),
-                "root_level": "" if page.get("root_level") is None else str(page.get("root_level")),
-                "root_code": str(page.get("root_code") or ""),
-                "root_name": str(page.get("root_name") or ""),
-                "root_parent_code": str(page.get("root_parent_code") or ""),
-                "root_entity_type": str(page.get("root_entity_type") or ""),
+                "source": _normalize_page_source_for_form(page.get("source", "admin")),
+                "force_highest_level": "" if force_level is None else str(force_level),
+                "parent_level": "" if parent_level is None else str(parent_level),
+                "include_infosection": _bool_text(include_infosection),
+                "include_major_subdivision": _bool_text(include_major),
+                "include_minor_subdivision": _bool_text(include_minor),
+                "include_cities": _bool_text(include_cities),
+                "repeat_infosection": "" if repeat.get("infosection") is None else str(repeat.get("infosection")),
+                "repeat_major_subdivision": "" if repeat.get("major_subdivision", repeat.get("admin1")) is None else str(repeat.get("major_subdivision", repeat.get("admin1"))),
+                "repeat_minor_subdivision": "" if repeat.get("minor_subdivision", repeat.get("admin2")) is None else str(repeat.get("minor_subdivision", repeat.get("admin2"))),
+                "repeat_cities": "" if repeat.get("cities") is None else str(repeat.get("cities")),
+                "sum_to_root": _bool_text(page.get("sum_to_root", False)),
             }
         )
     country_code = str(data.get("country_code") or slug or "")
@@ -3820,32 +4413,33 @@ def _source_entity_type_filter_options(entities: list[dict]) -> list[dict]:
 def _config_content_from_request(request, slug: str, current_content: str, *, existing: bool) -> str:
     editor_mode = str(request.POST.get("editor_mode") or "file").strip().lower()
     if editor_mode == "manual":
-        return _render_config_from_manual_post(slug, request.POST)
+        return _render_config_from_manual_post(slug, request.POST, current_content=current_content)
     if editor_mode == "file":
         return request.POST.get("content", current_content)
     raise ValueError(_("La sección Scrapping solo genera una previsualización. Para guardar, abre Manual o Archivo."))
 
 
-def _render_config_from_manual_post(slug: str, post) -> str:
+def _render_config_from_manual_post(slug: str, post, *, current_content: str = "") -> str:
     country_code = (post.get("manual_country_code") or slug).strip() or slug
     legal_subdivision = (post.get("manual_legal_subdivision") or "").strip()
-    wikidata_id = (post.get("manual_wikidata_id") or "").strip()
     pages = _manual_pages_from_post(post)
     visual_assets = _manual_visual_assets_from_post(post)
     asset_overrides = _manual_asset_overrides_from_post(post)
     if not pages:
         raise ValueError(_("Debes indicar al menos una ruta de scrapeo."))
 
+    preserved = _preserved_manual_config_fragments(current_content)
     lines = []
     if country_code and country_code != slug:
         lines.append(f"country_code = {_toml_string(country_code)}")
-    if wikidata_id:
-        lines.append(f"wikidata_id = {_toml_string(wikidata_id)}")
     if legal_subdivision:
         try:
             lines.append(f"LEGAL_SUBDIVISION = {int(legal_subdivision)}")
         except (TypeError, ValueError) as exc:
             raise ValueError(_("La subdivisión legal debe ser numérica.")) from exc
+    lines.append("scrape_schema_version = 2")
+    if preserved["top_level"]:
+        lines.extend(preserved["top_level"])
     lines.append("")
 
     for page in pages:
@@ -3854,23 +4448,23 @@ def _render_config_from_manual_post(slug: str, post) -> str:
                 "[[pages]]",
                 f"source = {_toml_string(page['source'])}",
                 f"path = {_toml_array(page['path'])}",
-                f"lowest_level = {page['lowest_level']}",
             ]
         )
-        if page.get("include_root") is not None:
-            lines.append(f"include_root = {_toml_bool(page['include_root'])}")
-        if page.get("include_tables"):
-            lines.append(f"include_tables = {_toml_array(page['include_tables'])}")
-        if page.get("table_levels"):
-            lines.append(f"table_levels = {_toml_scalar_inline_table(page['table_levels'])}")
-        if page.get("status_levels"):
-            lines.append(f"status_levels = {_toml_scalar_inline_table(page['status_levels'])}")
-        if page.get("root_level") is not None:
-            lines.append(f"root_level = {page['root_level']}")
-        for key in ("root_code", "root_name", "root_parent_code", "root_entity_type"):
-            if page.get(key):
-                lines.append(f"{key} = {_toml_string(page[key])}")
+        if page.get("force_highest_level") is not None:
+            lines.append(f"force_highest_level = {page['force_highest_level']}")
+        if page.get("parent_level") is not None:
+            lines.append(f"parent_level = {page['parent_level']}")
+        if page.get("sum_to_root"):
+            lines.append("sum_to_root = true")
+        lines.append(f"include = {_toml_scalar_inline_table(page['include'])}")
+        if page.get("repeat"):
+            lines.append(f"repeat = {_toml_scalar_inline_table(page['repeat'])}")
         lines.append("")
+
+    if preserved["blocks"]:
+        lines.extend(preserved["blocks"])
+        if lines and lines[-1] != "":
+            lines.append("")
 
     if visual_assets:
         lines.append("[visual_assets]")
@@ -3893,6 +4487,80 @@ def _render_config_from_manual_post(slug: str, post) -> str:
         lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
+
+
+def _preserved_manual_config_fragments(content: str) -> dict[str, list[str]]:
+    """Keep TOML sections that the visual manual editor does not own.
+
+    The manual editor only edits the country identity fields, [[pages]],
+    [visual_assets] and explicit wikidata asset overrides.  Everything else
+    (representation, configured city merges, entity merges, runtime synthetic
+    rows, etc.) must survive a manual save/populate cycle.
+    """
+    managed_top_keys = {
+        "country_code",
+        "wikidata_id",
+        "LEGAL_SUBDIVISION",
+        "scrape_schema_version",
+        "base_url",
+    }
+    managed_tables = {
+        "pages",
+        "visual_assets",
+        "wikidata_asset_overrides",
+        "visual_asset_overrides",
+        "asset_overrides",
+    }
+    top_level: list[str] = []
+    blocks: list[str] = []
+    current_block: list[str] = []
+    current_header = ""
+
+    def flush_block() -> None:
+        nonlocal current_block, current_header
+        if not current_block:
+            return
+        header_name = _toml_header_name(current_header)
+        if header_name not in managed_tables:
+            while blocks and blocks[-1] == "" and current_block and current_block[0] == "":
+                current_block = current_block[1:]
+            blocks.extend(current_block)
+            if blocks and blocks[-1] != "":
+                blocks.append("")
+        current_block = []
+        current_header = ""
+
+    for raw_line in str(content or "").splitlines():
+        stripped = raw_line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            flush_block()
+            current_header = stripped
+            current_block = [raw_line]
+            continue
+        if current_block:
+            current_block.append(raw_line)
+            continue
+        if not stripped or stripped.startswith("#"):
+            if top_level and top_level[-1] != "":
+                top_level.append(raw_line)
+            continue
+        key = stripped.split("=", 1)[0].strip() if "=" in stripped else ""
+        if key and key not in managed_top_keys:
+            top_level.append(raw_line)
+    flush_block()
+
+    while top_level and top_level[-1] == "":
+        top_level.pop()
+    while blocks and blocks[-1] == "":
+        blocks.pop()
+    return {"top_level": top_level, "blocks": blocks}
+
+
+def _toml_header_name(header: str) -> str:
+    text = str(header or "").strip()
+    while text.startswith("[") and text.endswith("]"):
+        text = text[1:-1].strip()
+    return text.split(".", 1)[0].strip()
 
 
 def _manual_visual_assets_from_post(post) -> dict:
@@ -3963,19 +4631,130 @@ def _int_list_from_text(value: str | None, *, label: str) -> list[int]:
     return result
 
 
+
+def _manual_page_from_payload(raw_page: dict, *, index: int) -> dict:
+    if not isinstance(raw_page, dict):
+        raise ValueError(_("La página %(index)s no tiene un formato válido.") % {"index": index})
+    source = _normalize_page_source_for_form(raw_page.get("source"))
+    raw_paths = raw_page.get("path", raw_page.get("paths", []))
+    if isinstance(raw_paths, str):
+        paths = _page_paths_from_text(raw_paths)
+    elif isinstance(raw_paths, (list, tuple)):
+        paths = [str(item).strip() for item in raw_paths if str(item or "").strip()]
+    else:
+        paths = []
+    if not paths:
+        return {}
+    raw_level = str(raw_page.get("force_highest_level", "") or "").strip()
+    level_int = None
+    if raw_level:
+        try:
+            level_int = int(raw_level)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(_("El nivel forzado de la página %(index)s debe ser numérico.") % {"index": index}) from exc
+    raw_parent_level = str(raw_page.get("parent_level", raw_page.get("force_parent_level", "")) or "").strip()
+    parent_level_int = None
+    if raw_parent_level:
+        try:
+            parent_level_int = int(raw_parent_level)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(_("El padre forzado de la página %(index)s debe ser numérico.") % {"index": index}) from exc
+    include = raw_page.get("include") if isinstance(raw_page.get("include"), dict) else {}
+    page: dict[str, object] = {
+        "source": source,
+        "path": paths,
+        "sum_to_root": _form_bool(raw_page.get("sum_to_root"), default=False),
+    }
+    if level_int is not None:
+        page["force_highest_level"] = level_int
+    if parent_level_int is not None:
+        page["parent_level"] = parent_level_int
+    repeat = raw_page.get("repeat") if isinstance(raw_page.get("repeat"), dict) else {}
+    page["include"] = {
+        "infosection": _form_bool(include.get("infosection"), default=True),
+        "major_subdivision": _form_bool(include.get("major_subdivision", include.get("admin1")), default=True),
+    }
+    if source in {"admin", "citiesadmin"}:
+        page["include"]["minor_subdivision"] = _form_bool(
+            include.get("minor_subdivision", include.get("admin2")),
+            default=True,
+        )
+    if source in {"cities", "citiesadmin"}:
+        page["include"]["cities"] = _form_bool(include.get("cities"), default=True)
+    repeat_rows = _manual_repeat_dict(
+        infosection=repeat.get("infosection", raw_page.get("repeat_infosection")),
+        major_subdivision=repeat.get("major_subdivision", repeat.get("admin1", raw_page.get("repeat_major_subdivision"))),
+        minor_subdivision=repeat.get("minor_subdivision", repeat.get("admin2", raw_page.get("repeat_minor_subdivision"))),
+        cities=repeat.get("cities", raw_page.get("repeat_cities")),
+    )
+    if repeat_rows:
+        page["repeat"] = repeat_rows
+    return page
+
+
+def _manual_repeat_dict(**values) -> dict[str, int]:
+    repeats: dict[str, int] = {}
+    for key, value in values.items():
+        raw = str(value or "").strip()
+        if not raw:
+            continue
+        try:
+            parsed = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if parsed > 1:
+            repeats[key] = parsed
+    return repeats
+
+
+def _manual_pages_from_json(post) -> list[dict] | None:
+    raw = str(post.get("pages_json") or "").strip()
+    if not raw:
+        return None
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError(_("No se pudo leer la configuración de páginas enviada por el formulario.")) from exc
+    if not isinstance(payload, list):
+        raise ValueError(_("La configuración de páginas enviada por el formulario no es una lista válida."))
+
+    # La UI envía `pages_json` para conservar rutas múltiples y orden de filas.
+    # Si el navegador conserva una versión antigua del JS, ese JSON puede traer
+    # `source = cities` aunque el `<select name="page_source">` visible tenga
+    # `citiesadmin`. Por seguridad, el backend toma el procedimiento directamente
+    # del campo POST real, que es la fuente más fiable para este valor puntual.
+    source_overrides = [
+        _normalize_page_source_for_form(value)
+        for value in post.getlist("page_source")
+    ]
+
+    pages: list[dict] = []
+    for index, raw_page in enumerate(payload, start=1):
+        if isinstance(raw_page, dict) and index <= len(source_overrides):
+            raw_page = {**raw_page, "source": source_overrides[index - 1]}
+        page = _manual_page_from_payload(raw_page, index=index)
+        if page:
+            pages.append(page)
+    return pages
+
+
 def _manual_pages_from_post(post) -> list[dict]:
+    pages_from_json = _manual_pages_from_json(post)
+    if pages_from_json is not None:
+        return pages_from_json
     page_paths = post.getlist("page_path") or post.getlist("page_url")
     page_sources = post.getlist("page_source")
-    page_levels = post.getlist("page_lowest_level") or post.getlist("page_level")
-    include_roots = post.getlist("page_include_root")
-    include_tables = post.getlist("page_include_tables")
-    table_levels = post.getlist("page_table_levels")
-    status_levels = post.getlist("page_status_levels")
-    root_levels = post.getlist("page_root_level")
-    root_codes = post.getlist("page_root_code")
-    root_names = post.getlist("page_root_name")
-    root_parent_codes = post.getlist("page_root_parent_code")
-    root_entity_types = post.getlist("page_root_entity_type")
+    page_levels = post.getlist("page_force_highest_level")
+    page_parent_levels = post.getlist("page_parent_level")
+    include_infosections = post.getlist("page_include_infosection")
+    include_major_subdivisions = post.getlist("page_include_major_subdivision")
+    include_minor_subdivisions = post.getlist("page_include_minor_subdivision") or post.getlist("page_include_admin2")
+    include_cities = post.getlist("page_include_cities")
+    page_sum_to_roots = post.getlist("page_sum_to_root")
+    repeat_infosections = post.getlist("page_repeat_infosection")
+    repeat_major_subdivisions = post.getlist("page_repeat_major_subdivision")
+    repeat_minor_subdivisions = post.getlist("page_repeat_minor_subdivision") or post.getlist("page_repeat_admin2")
+    repeat_cities_values = post.getlist("page_repeat_cities")
 
     pages = []
     for index, values in enumerate(
@@ -3983,15 +4762,16 @@ def _manual_pages_from_post(post) -> list[dict]:
             page_sources,
             page_paths,
             page_levels,
-            include_roots,
-            include_tables,
-            table_levels,
-            status_levels,
-            root_levels,
-            root_codes,
-            root_names,
-            root_parent_codes,
-            root_entity_types,
+            page_parent_levels,
+            include_infosections,
+            include_major_subdivisions,
+            include_minor_subdivisions,
+            include_cities,
+            page_sum_to_roots,
+            repeat_infosections,
+            repeat_major_subdivisions,
+            repeat_minor_subdivisions,
+            repeat_cities_values,
             fillvalue="",
         ),
         start=1,
@@ -4000,52 +4780,57 @@ def _manual_pages_from_post(post) -> list[dict]:
             source,
             raw_paths,
             raw_level,
-            raw_include_root,
-            raw_include_tables,
-            raw_table_levels,
-            raw_status_levels,
-            raw_root_level,
-            root_code,
-            root_name,
-            root_parent_code,
-            root_entity_type,
+            raw_parent_level,
+            raw_include_infosection,
+            raw_include_major,
+            raw_include_minor,
+            raw_include_cities,
+            raw_sum_to_root,
+            raw_repeat_infosection,
+            raw_repeat_major,
+            raw_repeat_minor,
+            raw_repeat_cities,
         ) = values
         paths = _page_paths_from_text(raw_paths)
         if not paths:
             continue
         source = _normalize_page_source_for_form(source)
-        try:
-            level_int = int(raw_level or 0)
-        except (TypeError, ValueError) as exc:
-            raise ValueError(_("El lowest_level de la página %(index)s debe ser numérico.") % {"index": index}) from exc
-        page: dict[str, object] = {"source": source, "path": paths, "lowest_level": level_int}
-        include_root = _optional_bool(raw_include_root)
-        if include_root is not None:
-            page["include_root"] = include_root
-        parsed_include_tables = _list_from_text(raw_include_tables)
-        if parsed_include_tables:
-            page["include_tables"] = parsed_include_tables
-        parsed_table_levels = _int_mapping_from_text(raw_table_levels, label="table_levels")
-        if parsed_table_levels:
-            page["table_levels"] = parsed_table_levels
-        parsed_status_levels = _int_mapping_from_text(raw_status_levels, label="status_levels")
-        if parsed_status_levels:
-            page["status_levels"] = parsed_status_levels
-        root_level = str(raw_root_level or "").strip()
-        if root_level:
+        raw_level = str(raw_level or "").strip()
+        level_int = None
+        if raw_level:
             try:
-                page["root_level"] = int(root_level)
+                level_int = int(raw_level)
             except (TypeError, ValueError) as exc:
-                raise ValueError(_("root_level de la página %(index)s debe ser numérico.") % {"index": index}) from exc
-        for key, raw_value in {
-            "root_code": root_code,
-            "root_name": root_name,
-            "root_parent_code": root_parent_code,
-            "root_entity_type": root_entity_type,
-        }.items():
-            value = str(raw_value or "").strip()
-            if value:
-                page[key] = value
+                raise ValueError(_("El nivel forzado de la página %(index)s debe ser numérico.") % {"index": index}) from exc
+        raw_parent_level = str(raw_parent_level or "").strip()
+        parent_level_int = None
+        if raw_parent_level:
+            try:
+                parent_level_int = int(raw_parent_level)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(_("El padre forzado de la página %(index)s debe ser numérico.") % {"index": index}) from exc
+        page: dict[str, object] = {"source": source, "path": paths}
+        if level_int is not None:
+            page["force_highest_level"] = level_int
+        if parent_level_int is not None:
+            page["parent_level"] = parent_level_int
+        page["sum_to_root"] = _form_bool(raw_sum_to_root, default=False)
+        page["include"] = {
+            "infosection": _form_bool(raw_include_infosection, default=True),
+            "major_subdivision": _form_bool(raw_include_major, default=True),
+        }
+        if source in {"admin", "citiesadmin"}:
+            page["include"]["minor_subdivision"] = _form_bool(raw_include_minor, default=True)
+        if source in {"cities", "citiesadmin"}:
+            page["include"]["cities"] = _form_bool(raw_include_cities, default=True)
+        repeat_rows = _manual_repeat_dict(
+            infosection=raw_repeat_infosection,
+            major_subdivision=raw_repeat_major,
+            minor_subdivision=raw_repeat_minor,
+            cities=raw_repeat_cities,
+        )
+        if repeat_rows:
+            page["repeat"] = repeat_rows
         pages.append(page)
     return pages
 
@@ -4108,7 +4893,7 @@ def _list_from_text(value: str | None) -> list[str]:
         try:
             parsed = tomllib.loads(f"value = {text}\n").get("value")
         except tomllib.TOMLDecodeError as exc:
-            raise ValueError(_("include_tables debe ser una lista TOML válida o valores separados por comas.")) from exc
+            raise ValueError(_("La lista debe ser TOML válida o valores separados por comas.")) from exc
         raw_values = parsed if isinstance(parsed, list) else [parsed]
     else:
         raw_values = []
@@ -4151,7 +4936,7 @@ def _optional_bool(value: str | None) -> bool | None:
         return True
     if text in {"false", "0", "no"}:
         return False
-    raise ValueError(_("include_root debe ser true o false."))
+    raise ValueError(_("El valor booleano debe ser true o false."))
 
 
 def _bool_text(value) -> str:
@@ -4212,12 +4997,19 @@ def _toml_key(value: str) -> str:
     return _toml_string(text)
 
 
-def _toml_scalar_inline_table(mapping: dict[str, int]) -> str:
+def _toml_scalar_inline_table(mapping: dict[str, object]) -> str:
     if not mapping:
         return "{}"
     parts = []
     for key in sorted(mapping):
-        parts.append(f"{_toml_key(str(key))} = {int(mapping[key])}")
+        value = mapping[key]
+        if isinstance(value, bool):
+            rendered = _toml_bool(value)
+        elif isinstance(value, int):
+            rendered = str(value)
+        else:
+            rendered = _toml_string(str(value))
+        parts.append(f"{_toml_key(str(key))} = {rendered}")
     return "{ " + ", ".join(parts) + " }"
 
 
@@ -4591,15 +5383,10 @@ def _generated_pages_from_citypopulation_probes(
             spec.path,
             spec.source,
             spec.lowest_level,
-            spec.include_root,
-            spec.include_tables,
-            spec.table_levels,
-            spec.status_levels,
-            spec.root_level,
-            spec.root_code,
-            spec.root_name,
-            spec.root_parent_code,
-            spec.root_entity_type,
+            spec.include_infosection,
+            spec.include_major_subdivision,
+            spec.include_minor_subdivision,
+            spec.include_cities,
         )
         if key in seen:
             continue
@@ -4616,50 +5403,40 @@ def _generated_page_from_citypopulation_probe(
     source = _citypopulation_source_for_probe(probe)
     category = probe.category
     lowest_level = _citypopulation_lowest_level_for_probe(probe, candidate_paths=candidate_paths)
-    include_root: bool | None = None
-    include_tables: tuple[str, ...] = ()
-    table_levels: tuple[tuple[str, int], ...] = ()
+    include_infosection = True
+    include_major_subdivision = True
+    include_cities = True
 
     if category == "localities":
-        include_root = False
+        include_infosection = False
         if probe.profile.has_ts:
-            include_tables = ("ts",)
-            table_levels = (("ts", max(lowest_level + 1, 4)),)
-        if source == "admin":
-            source = "table"
-    elif category == "regional_detail" and f"{probe.path}/admin" in candidate_paths and probe.profile.has_ts:
-        include_tables = ("ts",)
-        table_levels = (("ts", max(lowest_level + 2, 4)),)
-        if source == "admin":
-            source = "table"
-    elif category == "regional_cities" and probe.profile.has_ts and probe.profile.has_tl:
-        include_tables = ("ts",)
-        table_levels = (("ts", max(lowest_level + 2, 4)),)
+            include_major_subdivision = False
+            include_cities = True
         if source == "admin":
             source = "cities"
-    elif source == "admin" and probe.profile.admin_levels and category == "main_admin":
-        table_levels = ()
-
+    elif category == "regional_detail" and f"{probe.path}/admin" in candidate_paths and probe.profile.has_ts:
+        include_major_subdivision = False
+        include_cities = True
+        if source == "admin":
+            source = "cities"
+    elif category == "regional_cities" and probe.profile.has_ts and probe.profile.has_tl:
+        include_major_subdivision = False
+        include_cities = True
+        if source == "admin":
+            source = "cities"
     return CityPopulationGeneratedPage(
         path=probe.path,
         source=source,
         lowest_level=lowest_level,
         category=category,
-        include_root=include_root,
-        include_tables=include_tables,
-        table_levels=table_levels,
+        include_infosection=include_infosection,
+        include_major_subdivision=include_major_subdivision,
+        include_minor_subdivision=include_minor_subdivision,
+        include_cities=include_cities,
     )
 
-
 def _citypopulation_source_for_probe(probe: CityPopulationPageProbe) -> str:
-    preferred = probe.profile.preferred_html_format
-    path = probe.path.casefold()
-    category = probe.category
-    if category in {"main_cities", "regional_cities"} and preferred in {"table", "infosection"}:
-        return "cities"
-    if path.startswith("cities/") and preferred in {"table", "infosection"}:
-        return "cities"
-    return _normalize_page_source_for_form(preferred) if preferred in {"admin", "table", "double", "cities", "infosection"} else "auto"
+    return "admin" if probe.profile.preferred_html_format == "admin" else "cities"
 
 
 def _citypopulation_lowest_level_for_probe(
@@ -4716,15 +5493,10 @@ def _render_citypopulation_generated_config(
             page.source,
             page.lowest_level,
             page.category,
-            page.include_root,
-            page.include_tables,
-            page.table_levels,
-            page.status_levels,
-            page.root_level,
-            page.root_code,
-            page.root_name,
-            page.root_parent_code,
-            page.root_entity_type,
+            page.include_infosection,
+            page.include_major_subdivision,
+            page.include_minor_subdivision,
+            page.include_cities,
         )
         grouped.setdefault(key, []).append(page.path)
         page_by_key[key] = page
@@ -4732,32 +5504,52 @@ def _render_citypopulation_generated_config(
     lines = [f"name = {_toml_string(name)}", f"country_code = {_toml_string(slug)}"]
     if legal_subdivision is not None:
         lines.append(f"LEGAL_SUBDIVISION = {int(legal_subdivision)}")
+    lines.append("scrape_schema_version = 2")
     lines.append("")
 
     for key in sorted(grouped, key=lambda item: _generated_page_sort_key(page_by_key[item])):
         page = page_by_key[key]
         paths = sorted(grouped[key], key=_natural_sort_text)
+        if page.source == "admin":
+            include = {
+                "infosection": bool(page.include_infosection),
+                "major_subdivision": bool(page.include_major_subdivision),
+                "minor_subdivision": bool(page.include_minor_subdivision),
+            }
+        elif page.source == "citiesadmin":
+            include = {
+                "infosection": bool(page.include_infosection),
+                "major_subdivision": bool(page.include_major_subdivision),
+                "minor_subdivision": bool(page.include_minor_subdivision),
+                "cities": bool(page.include_cities),
+            }
+        else:
+            include = {
+                "infosection": bool(page.include_infosection),
+                "major_subdivision": bool(page.include_major_subdivision),
+                "cities": bool(page.include_cities),
+            }
         lines.append("[[pages]]")
         lines.append(f"source = {_toml_string(page.source)}")
         lines.append(f"path = {_toml_array(paths)}")
-        lines.append(f"lowest_level = {int(page.lowest_level)}")
-        if page.include_root is not None:
-            lines.append(f"include_root = {_toml_bool(page.include_root)}")
-        if page.include_tables:
-            lines.append(f"include_tables = {_toml_array(page.include_tables)}")
-        if page.table_levels:
-            lines.append(f"table_levels = {_toml_scalar_inline_table(page.table_levels_dict)}")
-        if page.status_levels:
-            lines.append(f"status_levels = {_toml_scalar_inline_table(page.status_levels_dict)}")
-        if page.root_level is not None:
-            lines.append(f"root_level = {int(page.root_level)}")
-        for field_name in ("root_code", "root_name", "root_parent_code", "root_entity_type"):
-            value = getattr(page, field_name)
-            if value:
-                lines.append(f"{field_name} = {_toml_string(value)}")
+        if int(page.lowest_level) != _inferred_generated_page_level(slug, page.source, paths[0] if paths else ""):
+            lines.append(f"force_highest_level = {int(page.lowest_level)}")
+        lines.append(f"include = {_toml_scalar_inline_table(include)}")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
+
+
+def _inferred_generated_page_level(slug: str, source: str, path: str) -> int:
+    segments = [segment for segment in str(path or "").strip("/").split("/") if segment]
+    source = str(source or "").strip().lower()
+    if source == "admin":
+        return 0
+    if not segments or segments == ["cities"]:
+        return 0
+    if segments[0] in {"cities", "localities", "places", "towns"}:
+        return 1
+    return 1
 
 def _infer_citypopulation_legal_subdivision(
     pages: list[CityPopulationGeneratedPage],
@@ -4771,16 +5563,14 @@ def _infer_citypopulation_legal_subdivision(
     for page in pages:
         probe = probe_by_path.get(page.path)
         estimated = page.lowest_level
-        if page.table_levels:
-            estimated = max(estimated, *(level for _table, level in page.table_levels))
-        elif probe and probe.profile.admin_levels:
+        if probe and probe.profile.admin_levels:
             estimated = max(estimated, page.lowest_level + max(probe.profile.admin_levels))
         elif probe and probe.profile.has_tl and probe.profile.has_ts:
             estimated = max(estimated, page.lowest_level + 2)
         elif probe and (probe.profile.has_tl or probe.profile.has_ts):
             estimated = max(estimated, page.lowest_level + 1)
         max_level = max(max_level, estimated)
-        if page.category in {"localities", "regional_detail", "regional_cities"} and page.include_tables:
+        if page.category in {"localities", "regional_detail", "regional_cities"} and page.include_cities:
             has_locality_layer = True
     if max_level <= 0:
         return None
@@ -4902,6 +5692,35 @@ def _decorate_config_workflow_flags(row: dict) -> dict:
         task and getattr(task, "is_active", False)
     )
     return row
+
+
+def _config_workflow_json_payload(row: dict) -> dict:
+    """Return the config workflow fields that are safe to expose as JSON."""
+    task = row.get("active_task")
+    validate_task = row.get("validate_task")
+    scrape_task = row.get("scrape_task")
+    clear_task = row.get("clear_task")
+    return {
+        "status_filter": row.get("status_filter") or _config_row_status(row),
+        "task_status": row.get("task_display_status") or _config_task_display_status(task),
+        "task_is_active": bool(getattr(task, "is_active", False)) if task else False,
+        "task_url": reverse("ciudades_del_mundo:task_detail", kwargs={"task_id": task.id}) if task else "",
+        "validate_task_status": _config_task_display_status(validate_task),
+        "validate_task_is_active": bool(getattr(validate_task, "is_active", False)) if validate_task else False,
+        "scrape_task_status": _config_task_display_status(scrape_task),
+        "scrape_task_is_active": bool(getattr(scrape_task, "is_active", False)) if scrape_task else False,
+        "clear_task_status": _config_task_display_status(clear_task),
+        "clear_task_is_active": bool(getattr(clear_task, "is_active", False)) if clear_task else False,
+        "can_validate": bool(row.get("can_validate")),
+        "can_scrape": bool(row.get("can_scrape")),
+        "can_clear": bool(row.get("can_clear")),
+        "can_resume": bool(row.get("can_resume")),
+        "can_stop": bool(row.get("can_stop")),
+        "error_code": row.get("error_code") or "",
+        "error_severity": row.get("error_severity") or "",
+        "error_message": row.get("error_message") or "",
+        "error_description": row.get("error_description") or "",
+    }
 
 
 def _eligible_config_slugs_for_bulk(action: str) -> list[str]:
@@ -5353,6 +6172,86 @@ def _normalize_recipe_slug(value: str) -> str:
     return slug
 
 
+def _derived_country_or_404(slug: str) -> DerivedCountry:
+    try:
+        return DerivedCountry.objects.get(slug=_normalize_recipe_slug(slug))
+    except DerivedCountry.DoesNotExist as exc:
+        raise Http404(_("No existe el pais nuevo '%(slug)s'.") % {"slug": slug}) from exc
+
+
+def _derived_country_config_or_404(country: DerivedCountry, slug: str) -> DerivedCountryConfig:
+    try:
+        return country.configs.get(slug=_normalize_recipe_slug(slug))
+    except DerivedCountryConfig.DoesNotExist as exc:
+        raise Http404(_("No existe la configuracion '%(slug)s'.") % {"slug": slug}) from exc
+
+
+def _validate_plain_toml(content: str, *, expected_kind: str) -> dict:
+    try:
+        data = tomllib.loads(content or "")
+    except tomllib.TOMLDecodeError as exc:
+        raise ValueError(_("TOML invalido: %(error)s") % {"error": exc}) from exc
+    if not isinstance(data, dict):
+        raise ValueError(_("TOML invalido."))
+    kind = str(data.get("kind") or "").strip()
+    if kind and kind != expected_kind:
+        raise ValueError(_("El TOML debe usar kind = '%(kind)s'.") % {"kind": expected_kind})
+    return data
+
+
+def _toml_string(value: str) -> str:
+    return json.dumps(str(value or ""), ensure_ascii=False)
+
+
+def _default_derived_country_toml(
+    *,
+    country: DerivedCountry,
+    slug: str,
+    name: str,
+    source_country_code: str,
+    derived_country_code: str,
+) -> str:
+    source_country_code = str(source_country_code or "").strip().lower()
+    return "\n".join(
+        [
+            "schema_version = 1",
+            'kind = "derived_country_config"',
+            f"country = {_toml_string(country.slug)}",
+            f"slug = {_toml_string(slug)}",
+            f"name = {_toml_string(name)}",
+            f"source_country_code = {_toml_string(source_country_code)}",
+            f"derived_country_code = {_toml_string(derived_country_code)}",
+            "groups = []",
+            "",
+            "[selection]",
+            "# Futuro constructor: seleccionar AdminArea por codigos, niveles, nombres o grupos.",
+            "include_codes = []",
+            "include_levels = []",
+            "group_slugs = []",
+            "",
+        ]
+    )
+
+
+def _default_group_toml(*, slug: str, name: str, source_country_code: str) -> str:
+    return "\n".join(
+        [
+            "schema_version = 1",
+            'kind = "subdivision_group"',
+            f"slug = {_toml_string(slug)}",
+            f"name = {_toml_string(name)}",
+            f"source_country_code = {_toml_string(str(source_country_code or '').strip().lower())}",
+            "",
+            "[selection]",
+            "# Futuro uso: estas referencias podran alimentar configs de Nuevos paises.",
+            "include_codes = []",
+            "include_levels = []",
+            "include_names = []",
+            "",
+        ]
+    )
+
+
 def _config_record(slug: str) -> ScrapingConfig | None:
     if scraping_config_table_exists():
         return ScrapingConfig.objects.filter(slug=slug).first()
@@ -5422,7 +6321,11 @@ def _any_recipe_path(slug: str) -> Path:
 def _validate_config_text(slug: str, content: str) -> None:
     try:
         data = tomllib.loads(content)
-        pages = parse_pages(data.get("pages"), slug=slug)
+        pages = parse_pages(
+            data.get("pages"),
+            slug=slug,
+            schema_version=int(data.get("scrape_schema_version", 1)),
+        )
         if not pages:
             raise ValueError(_("La configuracion debe definir al menos una pagina."))
         RepresentationConfig.from_mapping(data.get("representation"))

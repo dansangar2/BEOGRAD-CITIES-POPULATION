@@ -9,20 +9,24 @@ from unittest.mock import patch
 
 from ciudades_del_mundo.domain import ScrapedAdminArea
 from ciudades_del_mundo.infrastructure.scraping.admin import CityPopulationAdminScraper
+from ciudades_del_mundo.models import AdminArea, VisualAsset
 from ciudades_del_mundo.services.visual_assets import (
     _asset_download_filename,
     _asset_download_url,
     _download_asset,
     _commons_filename_from_url,
     _first_local_asset_path,
+    _first_claim_filename,
     _kind_from_text,
     _local_asset_file_is_usable,
     _media_url,
     _safe_filename,
     _wikidata_candidates,
     commons_file_url,
+    commons_visual_asset_candidate_for_name,
     get_visual_assets_for_entity,
     seed_visual_assets_from_scraped_page,
+    share_visual_assets_for_country_admin_areas,
 )
 from ciudades_del_mundo.management.commands.scrape_subdivisions_with_assets import (
     Command as ScrapeWithAssetsCommand,
@@ -30,6 +34,8 @@ from ciudades_del_mundo.management.commands.scrape_subdivisions_with_assets impo
     _asset_subdivision_levels_for_scrape,
     _citypopulation_country_qid_candidate_urls,
     _country_wikidata_id_from_citypopulation_html,
+    _wikidata_visual_asset_filenames_for_ids,
+    _wikidata_visual_asset_filenames_for_ids_via_entitydata,
 )
 
 
@@ -54,6 +60,46 @@ class VisualAssetModelDeclarationTests(TestCase):
             translation_model._meta.get_field("asset").remote_field.model._meta.object_name,
             "VisualAsset",
         )
+
+
+class SharedVisualAssetTests(TestCase):
+    def test_share_visual_assets_for_country_admin_areas_copies_same_data_wd_assets(self):
+        AdminArea.objects.create(
+            id="spain_CEU",
+            country_code="spain",
+            code="CEU",
+            name="Ceuta",
+            level=1,
+            data_wd="Q5823",
+        )
+        AdminArea.objects.create(
+            id="spain_51",
+            country_code="spain",
+            code="51",
+            name="Ceuta",
+            level=2,
+            data_wd="Q5823",
+        )
+        VisualAsset.objects.create(
+            entity_type="admin_area",
+            entity_key="spain_CEU",
+            entity_name="Ceuta",
+            country_code="spain",
+            kind="flag",
+            wikidata_id="Q5823",
+            commons_filename="Flag of Ceuta.svg",
+            remote_url="https://commons.wikimedia.org/wiki/Special:FilePath/Flag%20of%20Ceuta.svg",
+            source="citypopulation",
+            status="found",
+        )
+
+        result = share_visual_assets_for_country_admin_areas("spain")
+
+        self.assertEqual(result.found, 1)
+        copied = VisualAsset.objects.get(entity_key="spain_51", kind="flag")
+        self.assertEqual(copied.commons_filename, "Flag of Ceuta.svg")
+        self.assertEqual(copied.wikidata_id, "Q5823")
+        self.assertEqual(copied.source, "shared-data-wd")
 
 
 class CityPopulationDataWdScrapingTests(TestCase):
@@ -295,6 +341,35 @@ class VisualAssetSeedingTests(TestCase):
         self.assertEqual(country_flag["wikidata_id"], "Q10")
         self.assertEqual(pinar_coat["wikidata_id"], "Q115119")
         self.assertEqual(pinar_coat["source"], "wikidata_data_wd")
+
+    def test_values_sparql_failure_falls_back_only_to_failed_entitydata_batch(self):
+        with (
+            patch(
+                "ciudades_del_mundo.management.commands.scrape_subdivisions_with_assets._wikidata_sparql_json",
+                side_effect=TimeoutError("WDQS timeout"),
+            ),
+            patch(
+                "ciudades_del_mundo.management.commands.scrape_subdivisions_with_assets._wikidata_entitydata_batch_json",
+                return_value={
+                    "entities": {
+                        "Q10313": {
+                            "claims": {
+                                "P94": [
+                                    {"mainsnak": {"datavalue": {"value": "Escudo de Donostia.svg"}}}
+                                ]
+                            }
+                        }
+                    }
+                },
+            ) as batch_json,
+        ):
+            filenames = _wikidata_visual_asset_filenames_for_ids(
+                ["Q10313"],
+                kinds=["coat"],
+            )
+
+        self.assertEqual(filenames["Q10313"]["coat"], "Escudo de Donostia.svg")
+        batch_json.assert_called_once()
 
     def test_asset_subdivision_levels_empty_means_all_levels(self):
         self.assertEqual(_asset_subdivision_levels_for_scrape("", []), "")
@@ -620,6 +695,31 @@ class VisualAssetSeedingTests(TestCase):
     def test_kind_detection_is_accent_insensitive(self):
         self.assertEqual(_kind_from_text("Escudó oficial"), "coat")
 
+    def test_commons_search_candidate_fills_missing_coat_by_entity_name(self):
+        def fake_fetch_json(url: str, *, timeout: int = 10):
+            if "commons.wikimedia.org/w/api.php" in url and "list=search" in url:
+                return {
+                    "query": {
+                        "search": [
+                            {"title": "File:Flag of Example Territory.svg"},
+                            {"title": "File:Coat of arms of Example Territory.svg"},
+                        ]
+                    }
+                }
+            return {}
+
+        with patch("ciudades_del_mundo.services.visual_assets._fetch_json", side_effect=fake_fetch_json):
+            candidate = commons_visual_asset_candidate_for_name(
+                "Example Territory",
+                "coat",
+                wikidata_id="Q123",
+            )
+
+        self.assertIsNotNone(candidate)
+        self.assertEqual(candidate.commons_filename, "Coat of arms of Example Territory.svg")
+        self.assertEqual(candidate.source, "commons_search")
+        self.assertEqual(candidate.wikidata_id, "Q123")
+
     def test_download_filename_uses_country_entity_and_kind(self):
         self.assertEqual(
             _asset_download_filename("flag", ("spain",), ".svg", acquired_date="20260604"),
@@ -701,6 +801,92 @@ class VisualAssetSeedingTests(TestCase):
                 _first_local_asset_path("flag", "country", "spain", country_code="spain"),
                 "visual_assets/flag/spain/spain_spain_flag.svg",
             )
+
+    def test_wikidata_candidates_flag_uses_current_or_newest_claim(self):
+        payload = {
+            "entities": {
+                "Q5050": {
+                    "claims": {
+                        "P41": [
+                            {
+                                "rank": "normal",
+                                "mainsnak": {
+                                    "snaktype": "value",
+                                    "datavalue": {"type": "string", "value": "Old historical flag.svg"},
+                                },
+                                "qualifiers": {
+                                    "P580": [{"datavalue": {"value": {"time": "+1900-01-01T00:00:00Z"}}}],
+                                    "P582": [{"datavalue": {"value": {"time": "+1931-01-01T00:00:00Z"}}}],
+                                },
+                            },
+                            {
+                                "rank": "normal",
+                                "mainsnak": {
+                                    "snaktype": "value",
+                                    "datavalue": {"type": "string", "value": "Current flag.svg"},
+                                },
+                                "qualifiers": {
+                                    "P580": [{"datavalue": {"value": {"time": "+1981-01-01T00:00:00Z"}}}],
+                                },
+                            },
+                        ],
+                    },
+                    "labels": {"en": {"value": "Example"}},
+                    "descriptions": {"en": {"value": "example entity"}},
+                }
+            }
+        }
+
+        with patch("ciudades_del_mundo.services.visual_assets._fetch_json", return_value=payload):
+            candidates, _descriptions = _wikidata_candidates(
+                "Q5050",
+                kinds=["flag"],
+                languages=("en",),
+            )
+
+        self.assertEqual(candidates["flag"].commons_filename, "Current flag.svg")
+
+    def test_wikidata_entitydata_bulk_flag_uses_current_or_newest_claim(self):
+        payload = {
+            "entities": {
+                "Q6060": {
+                    "claims": {
+                        "P41": [
+                            {
+                                "rank": "normal",
+                                "mainsnak": {
+                                    "datavalue": {"value": "Old historical flag.svg"},
+                                },
+                                "qualifiers": {
+                                    "P580": [{"datavalue": {"value": {"time": "+1900-01-01T00:00:00Z"}}}],
+                                    "P582": [{"datavalue": {"value": {"time": "+1931-01-01T00:00:00Z"}}}],
+                                },
+                            },
+                            {
+                                "rank": "normal",
+                                "mainsnak": {
+                                    "datavalue": {"value": "Current flag.svg"},
+                                },
+                                "qualifiers": {
+                                    "P580": [{"datavalue": {"value": {"time": "+1981-01-01T00:00:00Z"}}}],
+                                },
+                            },
+                        ],
+                    }
+                }
+            }
+        }
+
+        with patch(
+            "ciudades_del_mundo.management.commands.scrape_subdivisions_with_assets._wikidata_entitydata_batch_json",
+            return_value=payload,
+        ):
+            filenames = _wikidata_visual_asset_filenames_for_ids_via_entitydata(
+                ["Q6060"],
+                kinds=["flag"],
+            )
+
+        self.assertEqual(filenames["Q6060"]["flag"], "Current flag.svg")
 
     def test_wikidata_candidates_skip_empty_claims(self):
         payload = {

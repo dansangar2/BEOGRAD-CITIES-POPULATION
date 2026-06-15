@@ -1,0 +1,62 @@
+{% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Grupo" %} - {% trans "Ciudades del Mundo" %}{% endblock %}
+
+{% block content %}
+<section class="page-head compact">
+  <div>
+    <p class="eyebrow">{% trans "Grupos" %}</p>
+    <h1>
+      {% if group %}
+      {{ group.name }}
+      {% else %}
+      {% trans "Nuevo grupo" %}
+      {% endif %}
+    </h1>
+  </div>
+  <a class="button secondary" href="{% url 'ciudades_del_mundo:group_list' %}">{% trans "Volver" %}</a>
+</section>
+
+<section class="editor-layout">
+  <form class="panel form-panel" method="post">
+    {% csrf_token %}
+    {% if not group %}
+    <label>
+      Slug
+      <input name="slug" value="{{ form.slug }}" required>
+    </label>
+    {% endif %}
+    <label>
+      {% trans "Nombre" %}
+      <input name="name" value="{{ form.name }}" required>
+    </label>
+    <label>
+      {% trans "Pais fuente" %}
+      <input name="source_country_code" value="{{ form.source_country_code }}">
+    </label>
+    <label>
+      {% trans "Descripcion" %}
+      <textarea name="description" rows="4">{{ form.description }}</textarea>
+    </label>
+    <label>
+      TOML
+      <textarea name="content" spellcheck="false">{{ form.content }}</textarea>
+    </label>
+    <div class="actions">
+      <button type="submit">{% trans "Guardar" %}</button>
+    </div>
+  </form>
+
+  <aside class="panel help-panel">
+    <h2>{% trans "Uso futuro" %}</h2>
+    <p>{% trans "Los grupos guardan selecciones reutilizables de AdminArea para que una configuracion de nuevo pais pueda referenciarlas por slug." %}</p>
+    <pre><code>kind = "subdivision_group"
+
+[selection]
+include_codes = []
+include_levels = []
+include_names = []</code></pre>
+  </aside>
+</section>
+{% endblock %}

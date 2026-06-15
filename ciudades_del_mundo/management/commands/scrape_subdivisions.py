@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
+import threading
 import time
 
 from django.core.management.base import BaseCommand, CommandError
@@ -12,13 +14,11 @@ from django.db.utils import ProgrammingError
 
 from ciudades_del_mundo.application import CachedScrapePage, ScrapeAdminAreas
 from ciudades_del_mundo.infrastructure.django.admin_area_repository import DjangoAdminAreaRepository, DjangoUnitOfWork
+from ciudades_del_mundo.infrastructure.django.sqlite_write_lock import sqlite_write_lock_if_needed
 from ciudades_del_mundo.infrastructure.scraping import (
     CityPopulationAdminScraper,
-    CityPopulationAutoScraper,
     CityPopulationCitiesScraper,
-    CityPopulationDoubleScraper,
-    CityPopulationInfoSectionScraper,
-    CityPopulationStructuredTableScraper,
+    CityPopulationCitiesAdminScraper,
     PythonScrapingConfigRepository,
 )
 from ciudades_del_mundo.infrastructure.scraping.city_population_client import CityPopulationHtmlFetcher
@@ -37,6 +37,7 @@ from ciudades_del_mundo.services.scrape_resume import ScrapeResumeStore
 from ciudades_del_mundo.services.scraping_config_extensions import attach_runtime_config_extensions
 from ciudades_del_mundo.services.visual_assets import (
     seed_visual_assets_from_scraped_page,
+    share_visual_assets_for_country_admin_areas,
     visual_asset_tables_exist,
 )
 
@@ -45,8 +46,14 @@ class Command(BaseCommand):
     help = "Runs a CityPopulation scraping job from SQL ScrapingConfig rows."
 
     def _write(self, message, *, style=None):
-        self.stdout.write(style(message) if style else message)
-        self.stdout.flush()
+        lock = getattr(self, "_stdout_lock", None)
+        if lock is None:
+            self.stdout.write(style(message) if style else message)
+            self.stdout.flush()
+            return
+        with lock:
+            self.stdout.write(style(message) if style else message)
+            self.stdout.flush()
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -63,6 +70,15 @@ class Command(BaseCommand):
             help=(
                 "Número de páginas CityPopulation que se descargan en paralelo. "
                 "Usa 1 para modo secuencial exacto. Por defecto: %(default)s."
+            ),
+        )
+        parser.add_argument(
+            "--country-workers",
+            type=int,
+            default=_default_country_workers(),
+            help=(
+                "Numero de paises que se scrapean en paralelo. "
+                "Las escrituras SQLite se serializan. Por defecto: %(default)s."
             ),
         )
         parser.add_argument(
@@ -127,6 +143,8 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        self._stdout_lock = threading.Lock()
+        self._sqlite_write_lock = sqlite_write_lock_if_needed() or threading.Lock()
         countries = options["countries"]
         config_repository = PythonScrapingConfigRepository()
         configs = self._get_configs(config_repository, countries)
@@ -141,15 +159,62 @@ class Command(BaseCommand):
             if options.get("skip_subdivision_assets")
             else _parse_levels(options.get("asset_subdivision_levels") or "")
         )
+        country_workers = max(1, int(options.get("country_workers") or 1))
+        if country_workers > 1 and seed_assets:
+            raise CommandError(
+                "--country-workers > 1 no se combina con --seed-assets-from-pages; "
+                "los assets/Wikimedia se deben sembrar en ejecucion secuencial."
+            )
 
-        for config in configs:
+        if options["list_pages"] or country_workers == 1 or len(configs) <= 1:
+            for config in configs:
+                self._run_config(
+                    config,
+                    options,
+                    seed_assets=seed_assets,
+                    subdivision_levels=subdivision_levels,
+                )
+            return
+
+        self._write(
+            f"[scrape] Ejecutando {len(configs)} configuraciones con country-workers={country_workers} "
+            f"y page-workers={max(1, int(options.get('page_workers') or 1))}."
+        )
+        with ThreadPoolExecutor(max_workers=min(country_workers, len(configs))) as executor:
+            futures = {
+                executor.submit(
+                    self._run_config,
+                    config,
+                    options,
+                    seed_assets=seed_assets,
+                    subdivision_levels=subdivision_levels,
+                ): config
+                for config in configs
+            }
+            for future in as_completed(futures):
+                config = futures[future]
+                try:
+                    future.result()
+                except Exception as exc:
+                    raise CommandError(f"{config.slug}: {exc}") from exc
+
+    def _run_config(
+        self,
+        config,
+        options,
+        *,
+        seed_assets: bool,
+        subdivision_levels: tuple[int, ...] | None,
+    ) -> None:
+        close_old_connections()
+        try:
             if options["list_pages"]:
                 for page in config.pages:
                     self._write(
                         f"SCRAPE {config.slug} {page.html_format} L{page.lowest_level}: "
                         f"{build_page_url(config.base_url, page.path)}"
                     )
-                continue
+                return
 
             ai_service = self._ai_service(options) if options.get("ai_enrich") else None
             resume_store = _resume_store_for_config(config)
@@ -158,14 +223,11 @@ class Command(BaseCommand):
 
             use_case = ScrapeAdminAreas(
                 repository=DjangoAdminAreaRepository(),
-                unit_of_work=DjangoUnitOfWork(),
+                unit_of_work=DjangoUnitOfWork(self._sqlite_write_lock),
                 scrapers=[
                     CityPopulationAdminScraper(debug=options["debug"]),
-                    CityPopulationAutoScraper(debug=options["debug"]),
                     CityPopulationCitiesScraper(debug=options["debug"]),
-                    CityPopulationDoubleScraper(debug=options["debug"]),
-                    CityPopulationInfoSectionScraper(debug=options["debug"]),
-                    CityPopulationStructuredTableScraper(debug=options["debug"]),
+                    CityPopulationCitiesAdminScraper(debug=options["debug"]),
                 ],
                 on_page_start=lambda page: self._write(
                     f"SCRAPE {page.html_format} L{page.lowest_level}: {page.url}"
@@ -195,6 +257,7 @@ class Command(BaseCommand):
                 ),
                 page_workers=max(1, int(options.get("page_workers") or 1)),
                 html_fetcher=CityPopulationHtmlFetcher(debug=options["debug"]),
+                on_unlinked_entities=self._on_unlinked_entities,
             )
 
             try:
@@ -207,6 +270,13 @@ class Command(BaseCommand):
                 f"updated={result.updated}, deleted={result.deleted}",
                 style=self.style.SUCCESS,
             )
+            if seed_assets:
+                shared_assets = share_visual_assets_for_country_admin_areas(
+                    config.country_code,
+                    logger=self._write,
+                )
+                if shared_assets.found or shared_assets.errors:
+                    self._write(shared_assets.as_log_line(f"{config.slug}:shared-assets"))
             if ai_service:
                 stats = ai_service.translate_dynamic_texts(
                     country_code=config.country_code,
@@ -219,9 +289,26 @@ class Command(BaseCommand):
                     stats += ai_service.describe_missing_visual_assets(
                         country_code=config.country_code,
                         limit=max(1, int(options.get("ai_limit") or 1)),
-                    )
+                )
                 self._write(stats.as_log_line(f"[ai] {config.slug}:"))
             resume_store.clear()
+        finally:
+            close_old_connections()
+
+    def _on_unlinked_entities(self, config, entities) -> None:
+        self._write(
+            f"[vinculacion] {config.slug}: {len(entities)} entidades sin padre tras data-wd/id HTML/url; "
+            "quedan sueltas para revisar configuración o parser.",
+            style=self.style.WARNING,
+        )
+        for entity in entities:
+            self._write(
+                "[vinculacion] "
+                f"{config.slug}: sin padre code={entity.code!r} name={entity.name!r} "
+                f"level={entity.level} type={entity.entity_type!r} "
+                f"parent={entity.parent_code!r} data_wd={entity.data_wd!r} url={entity.url!r}",
+                style=self.style.WARNING,
+            )
 
     def _on_page_complete(
         self,
@@ -364,6 +451,14 @@ def _default_page_workers() -> int:
         return max(1, int(raw))
     except (TypeError, ValueError):
         return 4
+
+
+def _default_country_workers() -> int:
+    raw = os.environ.get("CIUDADES_SCRAPE_COUNTRY_WORKERS", "1")
+    try:
+        return max(1, int(raw))
+    except (TypeError, ValueError):
+        return 1
 
 
 def _parse_ai_languages(value: str) -> tuple[str, ...]:

@@ -46,7 +46,7 @@ class PythonScrapingConfigRepository:
 
     def _from_toml(self, slug: str, content: str) -> ScrapingJobConfig:
         data = tomllib.loads(content)
-        pages = parse_pages(data.get("pages"), slug=slug)
+        pages = parse_pages(data.get("pages"), slug=slug, schema_version=int(data.get("scrape_schema_version", 1)))
         if not pages:
             raise ValueError(f"Config '{slug}' must define at least one page.")
 

@@ -1,0 +1,38 @@
+{% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
+
+{% block title %}{{ config.name }} - {% trans "Vista" %}{% endblock %}
+
+{% block content %}
+<section class="page-head compact">
+  <div>
+    <p class="eyebrow">{{ country.name }}</p>
+    <h1>{{ config.name }}</h1>
+  </div>
+  <div class="actions">
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:new_country_detail' country.slug %}">{% trans "Volver" %}</a>
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:new_country_config_edit' country.slug config.slug %}">{% trans "Configuracion" %}</a>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>{% trans "Datos construidos" %}</h2>
+  <dl class="definition-list">
+    <dt>{% trans "Codigo derivado" %}</dt>
+    <dd><code>{{ built_code }}</code></dd>
+    <dt>{% trans "Filas" %}</dt>
+    <dd>{{ stats.total|default:"0" }}</dd>
+    <dt>{% trans "Poblacion agregada" %}</dt>
+    <dd>{{ stats.population|default:"-" }}</dd>
+    <dt>{% trans "Escanos" %}</dt>
+    <dd>{{ stats.seats|default:"-" }}</dd>
+  </dl>
+  {% if root %}
+  <p>
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:nuevo_area_detail' root.id %}">{% trans "Abrir vista de subdivisiones" %}</a>
+  </p>
+  {% else %}
+  <p class="muted">{% trans "Aun no hay datos NuevoAdminArea creados para este codigo derivado." %}</p>
+  {% endif %}
+</section>
+{% endblock %}

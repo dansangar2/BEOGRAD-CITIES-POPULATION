@@ -1582,3 +1582,8 @@ msgstr "There are no configurations available to populate."
 
 msgid "Popular configuraciones disponibles (%(count)s)"
 msgstr "Populate available configurations (%(count)s)"
+msgid "Sumar al padre"
+msgstr "Add to parent"
+
+msgid "Los checkboxes dependen de la fuente seleccionada. Sumar al padre agrega población y área de esa página al padre enlazado."
+msgstr "The checkboxes depend on the selected source. Add to parent adds that page's population and area to the linked parent."

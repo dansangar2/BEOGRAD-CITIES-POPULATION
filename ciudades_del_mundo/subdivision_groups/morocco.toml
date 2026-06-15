@@ -1,0 +1,78 @@
+schema_version = 1
+kind = "subdivision_group"
+slug = "morocco"
+name = "Morocco"
+source_python = "ciudades_del_mundo/historical_divisions/morocco.py"
+source_country_code = ""
+
+[selection]
+include_codes = []
+include_levels = []
+include_names = []
+
+[legacy]
+assignments_json = '''
+{
+  "CABO_JUBY": {
+    "name": "Cabo Juby",
+    "code": "CJU",
+    "entity_type": "Provincia",
+    "capitals": [
+      "Tarfaya"
+    ],
+    "forced_area_km2": 32875,
+    "spec": {
+      "2": {
+        "morocco": [
+          "Tan-Tan",
+          "Assa-Zag"
+        ],
+        "westernsahara": [
+          "Tarfaya"
+        ]
+      }
+    }
+  },
+  "IFNI": {
+    "name": "Ifni",
+    "code": "CJU",
+    "entity_type": "Provincia",
+    "capitals": [
+      "Sidi Ifni"
+    ],
+    "forced_area_km2": 1502,
+    "spec": {
+      "3": {
+        "morocco": [
+          "Sidi Ifni",
+          "Tioughza",
+          "Tnine Amellou",
+          "Mesti"
+        ]
+      }
+    }
+  }
+}
+'''
+python = '''
+CABO_JUBY = {
+    "name": "Cabo Juby",
+    "code": "CJU",
+    "entity_type": "Provincia",
+    "capitals": ["Tarfaya"],
+    "forced_area_km2": 32875,
+    "spec": {
+        2: {"morocco": ["Tan-Tan", "Assa-Zag"], "westernsahara": ["Tarfaya"]}
+    },
+}
+IFNI = {
+    "name": "Ifni",
+    "code": "CJU",
+    "entity_type": "Provincia",
+    "capitals": ["Sidi Ifni"],
+    "forced_area_km2": 1502,
+    "spec": {
+        3: {"morocco": ["Sidi Ifni", "Tioughza", "Tnine Amellou", "Mesti"]}
+    },
+}
+'''

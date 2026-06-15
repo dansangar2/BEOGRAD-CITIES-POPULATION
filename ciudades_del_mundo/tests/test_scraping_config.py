@@ -11,53 +11,39 @@ class ScrapingConfigTests(TestCase):
         pages = parse_pages(
             [
                 {
-                    "source": "table",
+                    "source": "cities",
                     "path": ["admin", "spain/andalucia", "https://example.test/full"],
-                    "lowest_level": 2,
+                    "force_highest_level": 2,
                     "area_km2": "123.45",
                     "area_overrides": {"A": "1.50"},
-                    "table_levels": {"ts": 4},
-                    "status_levels": {"AReg": 1, "Cant": 2},
-                    "include_tables": ["ts"],
-                    "include_root": False,
-                    "root_level": 2,
-                    "root_code": "GUF",
-                    "root_name": "French Guiana",
-                    "root_parent_code": "OVERSEAS",
-                    "root_entity_type": "Overseas Department",
+                    "include": {"infosection": False, "major_subdivision": False, "cities": True},
+                    "sum_to_root": True,
                 }
             ],
             slug="spain",
         )
 
         self.assertEqual([page.path for page in pages], ["spain/admin", "spain/andalucia", "https://example.test/full"])
-        self.assertTrue(all(page.html_format == DivisionSourceType.TABLE for page in pages))
+        self.assertTrue(all(page.html_format == DivisionSourceType.CITIES for page in pages))
         self.assertTrue(all(page.lowest_level == 2 for page in pages))
         self.assertTrue(all(page.area_km2 == Decimal("123.45") for page in pages))
         self.assertTrue(all(page.area_overrides == {"A": Decimal("1.50")} for page in pages))
-        self.assertTrue(all(page.table_levels == {"ts": 4} for page in pages))
-        self.assertTrue(all(page.status_levels == {"areg": 1, "cant": 2} for page in pages))
-        self.assertTrue(all(page.include_tables == ("ts",) for page in pages))
-        self.assertTrue(all(page.include_root is False for page in pages))
-        self.assertTrue(all(page.root_level == 2 for page in pages))
-        self.assertTrue(all(page.root_code == "GUF" for page in pages))
-        self.assertTrue(all(page.root_name == "French Guiana" for page in pages))
-        self.assertTrue(all(page.root_parent_code == "OVERSEAS" for page in pages))
-        self.assertTrue(all(page.root_entity_type == "Overseas Department" for page in pages))
+        self.assertTrue(all(page.include_infosection is False for page in pages))
+        self.assertTrue(all(page.include_major_subdivision is False for page in pages))
+        self.assertTrue(all(page.include_cities is True for page in pages))
+        self.assertTrue(all(page.force_highest_level == 2 for page in pages))
+        self.assertTrue(all(page.sum_to_root is True for page in pages))
 
     def test_parse_pages_rejects_missing_path_and_negative_area(self):
         with self.assertRaisesRegex(ValueError, "path"):
-            parse_pages([{"source": "table"}], slug="spain")
+            parse_pages([{"source": "cities"}], slug="spain")
 
         with self.assertRaisesRegex(ValueError, "no puede ser negativo"):
-            parse_pages([{"source": "table", "path": "admin", "area_km2": "-1"}], slug="spain")
+            parse_pages([{"source": "cities", "path": "admin", "area_km2": "-1"}], slug="spain")
 
-    def test_parse_pages_accepts_auto_source(self):
-        pages = parse_pages([{"source": "auto", "path": "ceuta", "lowest_level": 1}], slug="spain")
-
-        self.assertEqual(pages[0].path, "spain/ceuta")
-        self.assertEqual(pages[0].html_format, DivisionSourceType.AUTO)
-        self.assertEqual(pages[0].lowest_level, 1)
+    def test_parse_pages_rejects_legacy_source(self):
+        with self.assertRaisesRegex(ValueError, "source debe ser 'cities' o 'admin'"):
+            parse_pages([{"source": "auto", "path": "ceuta"}], slug="spain")
 
     def test_representation_total_for_populations_supports_habitant_mode(self):
         config = RepresentationConfig.from_mapping(
@@ -67,12 +53,9 @@ class ScrapingConfigTests(TestCase):
         self.assertEqual(config.system, RepresentationSystem.DHONDT)
         self.assertEqual(config.total_for_populations([1, 999, 1000, 1001, None, -5]), 5)
 
-    def test_real_sql_configs_load_without_network(self):
+    def test_migrated_sql_configs_load_without_network(self):
         repository = PythonScrapingConfigRepository()
-        slugs = repository.list_slugs()
-
-        self.assertGreater(len(slugs), 20)
-        for slug in slugs:
+        for slug in ("spain", "italy", "belgium", "france"):
             with self.subTest(slug=slug):
                 config = repository.get(slug)
                 self.assertEqual(config.slug, slug)

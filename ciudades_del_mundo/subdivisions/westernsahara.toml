@@ -1,14 +1,12 @@
 wikidata_id = "Q6250"
 LEGAL_SUBDIVISION = 1
 
+scrape_schema_version = 2
+
 [[pages]]
 source = "cities"
 path = [""]
-lowest_level = 0
-table_levels = { tl = 1, ts = 2 }
-root_code = "westernsahara"
-root_name = "Western Sahara"
-root_entity_type = "Territory"
+include = { infosection = true, major_subdivision = true, cities = true }
 
 [visual_assets]
 bulk_country_wikidata = true

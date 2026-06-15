@@ -1,4 +1,6 @@
+scrape_schema_version = 2
+
 [[pages]]
 source = "cities"
 path = [""]
-lowest_level = 0
+include = { infosection = true, major_subdivision = true, cities = true }

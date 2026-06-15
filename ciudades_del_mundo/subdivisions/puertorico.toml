@@ -1,18 +1,22 @@
 
+scrape_schema_version = 2
+
 [[pages]]
-source = "infosection"
+source = "cities"
 path = ["cities"]
-lowest_level = 0
+include = { infosection = true, major_subdivision = false, cities = false }
 
 [[pages]]
-source = "table"
+source = "cities"
 path = ["admin"]
-lowest_level = 1
+include = { infosection = true, major_subdivision = true, cities = true }
+force_highest_level = 1
 
 [[pages]]
-source = "table"
+source = "cities"
 path = ["towns"]
-lowest_level = 1
+include = { infosection = true, major_subdivision = true, cities = true }
+force_highest_level = 1
 
 [visual_assets]
 bulk_country_wikidata = true

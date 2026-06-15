@@ -3,10 +3,12 @@ country_code = "poland"
 base_url = "https://www.citypopulation.de/en/"
 LEGAL_SUBDIVISION = 3
 
+scrape_schema_version = 2
+
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+include = { infosection = true, admin1 = true, admin2 = true }
 
 [[pages]]
 source = "admin"
@@ -29,10 +31,11 @@ path = [
   "wielkopolskie/admin",
   "zachodniopomorskie/admin",
 ]
-lowest_level = 1
+include = { infosection = true, admin1 = true, admin2 = true }
+force_highest_level = 1
 
 [[pages]]
-source = "table"
+source = "cities"
 # Página de towns por voivodato; se persiste solo ts como lugar L4.
 path = [
   "dolnoslaskie",
@@ -52,14 +55,12 @@ path = [
   "wielkopolskie",
   "zachodniopomorskie",
 ]
-lowest_level = 1
-include_tables = ["ts"]
-table_levels = { tl = 2, ts = 4 }
+include = { infosection = true, major_subdivision = true, cities = true }
+force_highest_level = 1
 
 [[pages]]
-source = "double"
+source = "cities"
 # Localidades por subregión/urban county: comunas L3 como contexto y lugares L4.
 path = ["localities/jeleniogorski"]
-lowest_level = 3
-include_tables = ["ts"]
-table_levels = { ts = 4 }
+include = { infosection = true, major_subdivision = true, cities = true }
+force_highest_level = 3

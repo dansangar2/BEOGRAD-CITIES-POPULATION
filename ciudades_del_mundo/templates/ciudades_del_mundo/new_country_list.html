@@ -1,0 +1,43 @@
+{% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Nuevos paises - Ciudades del Mundo" %}{% endblock %}
+
+{% block content %}
+<section class="page-head compact">
+  <div>
+    <p class="eyebrow">{% trans "NuevoAdminArea" %}</p>
+    <h1>{% trans "Nuevos paises" %}</h1>
+  </div>
+  <a class="button secondary" href="{% url 'ciudades_del_mundo:new_country_new' %}">{% trans "Nuevo pais" %}</a>
+</section>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Slug</th>
+        <th>{% trans "Nombre" %}</th>
+        <th>{% trans "Pais fuente" %}</th>
+        <th>{% trans "Configuraciones" %}</th>
+        <th>{% trans "Acciones" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for country in countries %}
+      <tr>
+        <td><code>{{ country.slug }}</code></td>
+        <td>{{ country.name }}</td>
+        <td>{{ country.source_country_code|default:"-" }}</td>
+        <td>{{ country.config_count }}</td>
+        <td>
+          <a href="{% url 'ciudades_del_mundo:new_country_detail' country.slug %}">{% trans "Ver" %}</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">{% trans "No hay paises nuevos creados." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

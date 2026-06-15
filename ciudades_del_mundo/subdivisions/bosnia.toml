@@ -3,16 +3,16 @@ country_code = "bosnia"
 base_url = "https://www.citypopulation.de/en/"
 LEGAL_SUBDIVISION = 3
 
+scrape_schema_version = 2
+
 [[pages]]
 source = "cities"
 # País raíz + entidades/cantones mezclados en table#tl.
 path = ["cities"]
-lowest_level = 0
-include_tables = ["tl"]
-status_levels = { AReg = 1, ADist = 2, Cant = 2 }
+include = { infosection = true, major_subdivision = true, cities = true }
 
 [[pages]]
-source = "table"
+source = "cities"
 # Cantones/entidades L2, municipios L3 y localidades L4.
 path = [
   "brcko",
@@ -28,7 +28,8 @@ path = [
   "zapadnohercegovacki",
   "zenickodobojski",
 ]
-lowest_level = 2
+include = { infosection = true, major_subdivision = true, cities = true }
+force_highest_level = 2
 
 [[parent_overrides]]
 # Los cantones pertenecen a Federacija Bosna i Hercegovina.

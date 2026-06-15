@@ -32,6 +32,7 @@ class ScrapedAdminArea:
     data_wd: str = ""
     city_merge_status: int = CITY_MERGE_NONE
     annotations: str = ""
+    contributes_to_root: bool = False
 
     @property
     def id(self) -> str:

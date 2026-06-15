@@ -2,7 +2,7 @@ from decimal import Decimal
 import unittest
 
 from ciudades_del_mundo.application.scrape_admin_areas import CachedScrapePage, ScrapeAdminAreas
-from ciudades_del_mundo.domain import AdminAreaSummary, ScrapedAdminArea, ScrapingJobConfig, ScrapingPageConfig
+from ciudades_del_mundo.domain import AdminAreaSummary, ScrapedAdminArea, ScrapingJobConfig, ScrapingPageConfig, parse_pages
 
 
 class FakeScraper:
@@ -50,6 +50,567 @@ class FakeHtmlScraper(FakeScraper):
         )
 
 
+class SpainLocalityCodePrefixScraper(FakeScraper):
+    def scrape(self, base_url, country_code, page):
+        return [
+            ScrapedAdminArea(code="spain", name="Spain", level=0, country_code="spain"),
+            ScrapedAdminArea(code="03", name="Alicante", level=2, country_code="spain", parent_code="VC"),
+            ScrapedAdminArea(
+                code="03082",
+                name="Xàbia",
+                level=3,
+                country_code="spain",
+                parent_code="03",
+                data_wd="Q851020",
+                url="https://www.citypopulation.de/en/spain/comunitatvalenciana/alicante/03082__xàbia/",
+            ),
+            ScrapedAdminArea(
+                code="03083",
+                name="Xixona",
+                level=3,
+                country_code="spain",
+                parent_code="03",
+                url="https://www.citypopulation.de/en/spain/comunitatvalenciana/alicante/03083__xixona/",
+            ),
+            ScrapedAdminArea(
+                code="03082000202",
+                name="Alborada",
+                level=4,
+                country_code="spain",
+                parent_code="03083",
+                url="https://www.citypopulation.de/en/spain/localities/alicante/jávea/03082000202__alborada/",
+            ),
+        ]
+
+
+class OrphanFranceDepartmentScraper(FakeScraper):
+    def scrape(self, base_url, country_code, page):
+        return [
+            ScrapedAdminArea(code="france", name="France", level=0, country_code="france"),
+            ScrapedAdminArea(
+                code="france_guyane",
+                name="French Guiana",
+                level=1,
+                country_code="france",
+                parent_code=None,
+                data_wd="Q3769",
+            ),
+            ScrapedAdminArea(
+                code="france_guyane__repeat2",
+                name="French Guiana",
+                level=2,
+                country_code="france",
+                parent_code="france_guyane",
+                data_wd="Q3769",
+            ),
+        ]
+
+
+
+
+class FranceDepartmentDistrictScraper(FakeScraper):
+    def scrape(self, base_url, country_code, page):
+        return [
+            ScrapedAdminArea(code="france", name="France", level=0, country_code="france"),
+            ScrapedAdminArea(code="R84", name="Auvergne - Rhône - Alpes", level=1, country_code="france", parent_code="france", entity_type="Region"),
+            ScrapedAdminArea(code="01", name="Ain", level=2, country_code="france", parent_code="R84", entity_type="Department"),
+            # Scraped from /france/admin/: wrongly emitted at the department level, with no parent.
+            ScrapedAdminArea(
+                code="011",
+                name="Belley",
+                level=2,
+                country_code="france",
+                parent_code=None,
+                entity_type="Arrondissement",
+                url="https://www.citypopulation.de/en/france/admin/ain/011__belley/",
+            ),
+            # Scraped from a department cities page: it already points to the arrondissement,
+            # but must move down when the arrondissement is repaired.
+            ScrapedAdminArea(
+                code="01034",
+                name="Belley",
+                level=3,
+                country_code="france",
+                parent_code="011",
+                entity_type="Commune",
+                url="https://www.citypopulation.de/en/france/ain/belley/01034__belley/",
+            ),
+        ]
+
+
+class FranceScopedCodeOrphanDistrictScraper(FakeScraper):
+    def scrape(self, base_url, country_code, page):
+        return [
+            ScrapedAdminArea(code="france", name="France", level=0, country_code="france"),
+            ScrapedAdminArea(code="R75", name="Nouvelle-Aquitaine", level=1, country_code="france", parent_code="france", entity_type="Region"),
+            ScrapedAdminArea(code="17", name="Charente-Maritime", level=2, country_code="france", parent_code="R75", entity_type="Department"),
+            ScrapedAdminArea(
+                code="17_174",
+                name="Saintes",
+                level=1,
+                country_code="france",
+                parent_code=None,
+                entity_type="Arrondissement",
+                data_wd="Q702457",
+                url="https://www.citypopulation.de/en/france/charentemaritime/174__saintes/",
+            ),
+            ScrapedAdminArea(
+                code="17415",
+                name="Saintes",
+                level=2,
+                country_code="france",
+                parent_code="17_174",
+                entity_type="Commune",
+                url="https://www.citypopulation.de/en/france/charentemaritime/saintes/17415__saintes/",
+            ),
+        ]
+
+
+class FranceOverseasDepartmentDistrictScraper(FakeScraper):
+    def scrape(self, base_url, country_code, page):
+        return [
+            ScrapedAdminArea(code="france", name="France", level=0, country_code="france"),
+            ScrapedAdminArea(
+                code="france_guyane",
+                name="French Guiana",
+                level=1,
+                country_code="france",
+                parent_code="france",
+                data_wd="Q3769",
+                annotations="Raíz de página repetida",
+            ),
+            ScrapedAdminArea(
+                code="france_guyane__repeat2",
+                name="French Guiana",
+                level=2,
+                country_code="france",
+                parent_code="france_guyane",
+                data_wd="Q3769",
+                annotations="Raíz de página repetida; Duplicación explícita por página",
+            ),
+            ScrapedAdminArea(
+                code="1181",
+                name="Cayenne",
+                level=2,
+                country_code="france",
+                parent_code="france",
+                entity_type="Arr",
+                url="https://www.citypopulation.de/en/france/cities/guyane/#i1181",
+            ),
+            ScrapedAdminArea(
+                code="9124",
+                name="Cayenne",
+                level=3,
+                country_code="france",
+                parent_code="1181",
+                entity_type="Commune",
+                url="https://www.citypopulation.de/en/france/cities/guyane/#i9124",
+            ),
+        ]
+
+
+class FranceEssonneReunionCodeCollisionScraper(FakeScraper):
+    def scrape(self, base_url, country_code, page):
+        return [
+            ScrapedAdminArea(code="france", name="France", level=0, country_code="france"),
+            ScrapedAdminArea(
+                code="206",
+                name="Réunion",
+                level=1,
+                country_code="france",
+                parent_code="france",
+                data_wd="Q17070",
+                url="https://www.citypopulation.de/en/france/cities/reunion/",
+            ),
+            ScrapedAdminArea(
+                code="1177",
+                name="Saint-Denis",
+                level=3,
+                country_code="france",
+                parent_code="206",
+                url="https://www.citypopulation.de/en/france/cities/reunion/#i1177",
+            ),
+            ScrapedAdminArea(
+                code="9152",
+                name="Sainte-Marie",
+                level=4,
+                country_code="france",
+                parent_code="1177",
+                data_wd="Q662942",
+                url="https://www.citypopulation.de/en/france/cities/reunion/#i9152",
+                annotations="CityPopulation section: cities; Suma al padre",
+            ),
+            ScrapedAdminArea(
+                code="91",
+                name="Essonne",
+                level=2,
+                country_code="france",
+                parent_code="169",
+                data_wd="Q3368",
+                url="https://www.citypopulation.de/en/france/reg/admin/île_de_france/91__essonne/",
+            ),
+            ScrapedAdminArea(
+                code="912",
+                name="Évry",
+                level=3,
+                country_code="france",
+                parent_code="91",
+                data_wd="Q702873",
+                url="https://www.citypopulation.de/en/france/admin/essonne/912__évry/",
+            ),
+            ScrapedAdminArea(
+                code="91521",
+                name="Ris-Orangis",
+                level=4,
+                country_code="france",
+                parent_code="912",
+                data_wd="Q274237",
+                url="https://www.citypopulation.de/en/france/essonne/évry/91521__ris_orangis/",
+                annotations="CityPopulation section: cities",
+            ),
+        ]
+
+
+class FranceOverseasSameNameBlockAnchorScraper(FakeScraper):
+    def scrape(self, base_url, country_code, page):
+        mayotte_communes = [
+            ScrapedAdminArea(
+                code=f"YT-GT-{index:02}",
+                name=f"Mayotte Commune {index:02}",
+                level=4,
+                country_code="france",
+                parent_code="YT-GT",
+                entity_type="Commune",
+                url=f"https://www.citypopulation.de/en/france/cities/mayotte/#iYTGT{index:02}",
+                annotations="CityPopulation section: cities",
+            )
+            for index in range(1, 16)
+        ]
+        return [
+            ScrapedAdminArea(code="france", name="France", level=0, country_code="france"),
+            ScrapedAdminArea(
+                code="france_martinique",
+                name="Martinique",
+                level=1,
+                country_code="france",
+                parent_code="france",
+                url="https://www.citypopulation.de/en/france/cities/martinique/",
+            ),
+            ScrapedAdminArea(
+                code="france_martinique__repeat2",
+                name="Martinique",
+                level=2,
+                country_code="france",
+                parent_code="france_martinique",
+                url="https://www.citypopulation.de/en/france/cities/martinique/",
+            ),
+            ScrapedAdminArea(
+                code="MQ-SP",
+                name="Saint-Pierre",
+                level=3,
+                country_code="france",
+                parent_code="france_martinique__repeat2",
+                entity_type="Arrondissement",
+                url="https://www.citypopulation.de/en/france/cities/martinique/#iMQSP",
+                annotations="CityPopulation section: major_subdivision",
+            ),
+            ScrapedAdminArea(
+                code="MQ-97203",
+                name="Bellefontaine",
+                level=4,
+                country_code="france",
+                parent_code="MQ-SP",
+                entity_type="Commune",
+                url="https://www.citypopulation.de/en/france/cities/martinique/#i97203",
+                annotations="CityPopulation section: cities",
+            ),
+            ScrapedAdminArea(
+                code="france_reunion",
+                name="Reunion",
+                level=1,
+                country_code="france",
+                parent_code="france",
+                url="https://www.citypopulation.de/en/france/cities/reunion/",
+            ),
+            ScrapedAdminArea(
+                code="france_reunion__repeat2",
+                name="Reunion",
+                level=2,
+                country_code="france",
+                parent_code="france_reunion",
+                url="https://www.citypopulation.de/en/france/cities/reunion/",
+            ),
+            ScrapedAdminArea(
+                code="RE-SP",
+                name="Saint-Pierre",
+                level=3,
+                country_code="france",
+                parent_code="france_reunion__repeat2",
+                entity_type="Arrondissement",
+                url="https://www.citypopulation.de/en/france/cities/reunion/#iRESP",
+                annotations="CityPopulation section: major_subdivision",
+            ),
+            ScrapedAdminArea(
+                code="RE-97424",
+                name="Cilaos",
+                level=4,
+                country_code="france",
+                parent_code="RE-SP",
+                entity_type="Commune",
+                url="https://www.citypopulation.de/en/france/cities/reunion/#i97424",
+                annotations="CityPopulation section: cities",
+            ),
+            ScrapedAdminArea(
+                code="RE-97422",
+                name="Le Tampon",
+                level=4,
+                country_code="france",
+                parent_code="RE-SP",
+                entity_type="Commune",
+                url="https://www.citypopulation.de/en/france/cities/reunion/#i97422",
+                annotations="CityPopulation section: cities",
+            ),
+            ScrapedAdminArea(
+                code="france_guadeloupe",
+                name="Guadeloupe",
+                level=1,
+                country_code="france",
+                parent_code="france",
+                url="https://www.citypopulation.de/en/france/cities/guadeloupe/",
+            ),
+            ScrapedAdminArea(
+                code="france_guadeloupe__repeat2",
+                name="Guadeloupe",
+                level=2,
+                country_code="france",
+                parent_code="france_guadeloupe",
+                url="https://www.citypopulation.de/en/france/cities/guadeloupe/",
+            ),
+            ScrapedAdminArea(
+                code="GP-GT",
+                name="Grande-Terre",
+                level=3,
+                country_code="france",
+                parent_code="france_guadeloupe__repeat2",
+                entity_type="Island",
+                url="https://www.citypopulation.de/en/france/cities/guadeloupe/#iGPGT",
+                annotations="CityPopulation section: major_subdivision",
+            ),
+            ScrapedAdminArea(
+                code="GP-97101",
+                name="Les Abymes",
+                level=4,
+                country_code="france",
+                parent_code="GP-GT",
+                entity_type="Commune",
+                url="https://www.citypopulation.de/en/france/cities/guadeloupe/#i97101",
+                annotations="CityPopulation section: cities",
+            ),
+            ScrapedAdminArea(
+                code="france_mayotte",
+                name="Mayotte",
+                level=1,
+                country_code="france",
+                parent_code="france",
+                url="https://www.citypopulation.de/en/france/cities/mayotte/",
+            ),
+            ScrapedAdminArea(
+                code="france_mayotte__repeat2",
+                name="Mayotte",
+                level=2,
+                country_code="france",
+                parent_code="france_mayotte",
+                url="https://www.citypopulation.de/en/france/cities/mayotte/",
+            ),
+            ScrapedAdminArea(
+                code="YT-GT",
+                name="Grande-Terre",
+                level=3,
+                country_code="france",
+                parent_code="france_mayotte__repeat2",
+                entity_type="Island",
+                url="https://www.citypopulation.de/en/france/cities/mayotte/#iYTGT",
+                annotations="CityPopulation section: major_subdivision",
+            ),
+            *mayotte_communes,
+        ]
+
+
+class FranceUnscopedOverseasPrefixCollisionScraper(FakeScraper):
+    def scrape(self, base_url, country_code, page):
+        return [
+            ScrapedAdminArea(code="france", name="France", level=0, country_code="france"),
+            ScrapedAdminArea(
+                code="652",
+                name="Tarbes",
+                level=3,
+                country_code="france",
+                parent_code="65",
+                entity_type="Arrondissement",
+                url="https://www.citypopulation.de/en/france/hautespyrenees/tarbes/",
+                annotations="CityPopulation section: minor_subdivision",
+            ),
+            ScrapedAdminArea(
+                code="6527",
+                name="Saint-Pierre",
+                level=3,
+                country_code="france",
+                parent_code="france_martinique__repeat2",
+                entity_type="Arrondissement",
+                url="https://www.citypopulation.de#i6527",
+                annotations="CityPopulation section: major_subdivision",
+            ),
+            ScrapedAdminArea(
+                code="65270",
+                name="Lespouey",
+                level=4,
+                country_code="france",
+                parent_code="652",
+                entity_type="Commune",
+                url="https://www.citypopulation.de/en/france/hautespyrenees/tarbes/65270__lespouey/",
+                annotations="CityPopulation section: cities",
+            ),
+            ScrapedAdminArea(
+                code="812",
+                name="Castres",
+                level=3,
+                country_code="france",
+                parent_code="81",
+                entity_type="Arrondissement",
+                url="https://www.citypopulation.de/en/france/tarn/castres/",
+                annotations="CityPopulation section: minor_subdivision",
+            ),
+            ScrapedAdminArea(
+                code="8125",
+                name="Acoua",
+                level=4,
+                country_code="france",
+                parent_code="137__france_cities_mayotte__repeat2_294",
+                entity_type="Commune",
+                url="https://www.citypopulation.de#i8125",
+                annotations="CityPopulation section: minor_subdivision",
+            ),
+            ScrapedAdminArea(
+                code="81250",
+                name="Saint-Genest-de-Contest",
+                level=4,
+                country_code="france",
+                parent_code="812",
+                entity_type="Commune",
+                url="https://www.citypopulation.de/en/france/tarn/castres/81250__saint_genest_de_contest/",
+                annotations="CityPopulation section: cities",
+            ),
+        ]
+
+
+
+class GenericProvinceDistrictScraper(FakeScraper):
+    def scrape(self, base_url, country_code, page):
+        return [
+            ScrapedAdminArea(code="testland", name="Testland", level=0, country_code="testland"),
+            ScrapedAdminArea(code="R1", name="North Region", level=1, country_code="testland", parent_code="testland", entity_type="Region"),
+            ScrapedAdminArea(code="10", name="Alpha Province", level=2, country_code="testland", parent_code="R1", entity_type="Province"),
+            ScrapedAdminArea(
+                code="101",
+                name="Alpha District",
+                level=2,
+                country_code="testland",
+                parent_code=None,
+                entity_type="District",
+                url="https://www.citypopulation.de/en/testland/admin/alpha/101__alpha_district/",
+            ),
+            ScrapedAdminArea(
+                code="10101",
+                name="Alpha Commune",
+                level=3,
+                country_code="testland",
+                parent_code="101",
+                entity_type="Commune",
+                url="https://www.citypopulation.de/en/testland/alpha/alpha_district/10101__alpha_commune/",
+            ),
+        ]
+
+
+
+class DuplicateCityAfterNormalizationScraper(FakeScraper):
+    def scrape(self, base_url, country_code, page):
+        return [
+            ScrapedAdminArea(code="testland", name="Testland", level=0, country_code="testland"),
+            ScrapedAdminArea(code="R11", name="Capital Region", level=1, country_code="testland", parent_code="testland", entity_type="Region"),
+            ScrapedAdminArea(
+                code="75",
+                name="Paris",
+                level=2,
+                country_code="testland",
+                parent_code="R11",
+                entity_type="Department",
+                data_wd="Q90",
+                url="https://www.citypopulation.de/en/testland/reg/admin/capital/75__paris/",
+            ),
+            # Same real city from another page.  Without parent_level, the
+            # commune duplicate below wins because it has the more precise code.
+            ScrapedAdminArea(
+                code="751",
+                name="Paris",
+                level=3,
+                country_code="testland",
+                parent_code="75",
+                entity_type="City",
+                data_wd="Q90",
+                url="https://www.citypopulation.de/en/testland/admin/paris/751__paris/",
+            ),
+            ScrapedAdminArea(
+                code="75056",
+                name="Paris",
+                level=3,
+                country_code="testland",
+                parent_code="75",
+                entity_type="Commune",
+                data_wd="Q90",
+                url="https://www.citypopulation.de/en/testland/paris/paris/75056__paris/",
+                annotations="CityPopulation section: cities",
+            ),
+        ]
+
+
+class DuplicateBrusselsAfterNormalizationScraper(FakeScraper):
+    def scrape(self, base_url, country_code, page):
+        return [
+            ScrapedAdminArea(code="belgium", name="Belgium", level=0, country_code="belgium"),
+            ScrapedAdminArea(code="548", name="Région de Bruxelles", level=1, country_code="belgium", parent_code="belgium", entity_type="Reg"),
+            ScrapedAdminArea(code="04000", name="Région de Bruxelles-Capitale", level=2, country_code="belgium", parent_code="548", entity_type="Region"),
+            ScrapedAdminArea(
+                code="21000",
+                name="Bruxelles-Capitale",
+                level=3,
+                country_code="belgium",
+                parent_code="04000",
+                entity_type="Arrondissement",
+                url="https://www.citypopulation.de/en/belgium/admin/région_de_bruxelles_capi/21000__bruxelles_capitale/",
+            ),
+            ScrapedAdminArea(
+                code="7021",
+                name="Bruxelles",
+                level=4,
+                country_code="belgium",
+                parent_code="21000",
+                entity_type="Mun",
+                data_wd="Q239",
+                url="https://www.citypopulation.de/en/belgium/bruxelles/bruxelles_capitale/21004__bruxelles/",
+            ),
+            # Duplicate representation of the same city from another table/page.
+            ScrapedAdminArea(
+                code="21004",
+                name="Bruxelles",
+                level=3,
+                country_code="belgium",
+                parent_code=None,
+                entity_type="City",
+                data_wd="Q239",
+                url="https://www.citypopulation.de/en/belgium/bruxelles/bruxelles_capitale/21004__bruxelles/",
+            ),
+        ]
+
 class FakeRepository:
     def __init__(self):
         self.reset_countries = []
@@ -84,7 +645,329 @@ class FakeRepository:
         return 0
 
 
+
+class ScrapingSchemaV2ConfigTests(unittest.TestCase):
+    def test_include_repeat_and_schema_v2_default_levels_are_parsed(self):
+        pages = parse_pages(
+            [
+                {
+                    "source": "admin",
+                    "path": ["admin"],
+                    "include": {"admin1": True, "admin2": True, "infosection": True},
+                },
+                {
+                    "source": "admin",
+                    "path": ["ceuta"],
+                    "include": {"admin1": False, "admin2": True, "infosection": True},
+                    "repeat": {"infosection": 2},
+                },
+                {
+                    "source": "cities",
+                    "path": ["localities/ceuta"],
+                    "include": {"cities": True, "infosection": False, "major_subdivision": True},
+                },
+            ],
+            slug="spain",
+            schema_version=2,
+        )
+
+        self.assertEqual(pages[0].lowest_level, 0)
+        self.assertEqual(pages[0].include_tables, ("admin1", "admin2"))
+        self.assertTrue(pages[0].include_root)
+
+        self.assertEqual(pages[1].lowest_level, 1)
+        self.assertEqual(pages[1].include_tables, ("admin2",))
+        self.assertEqual(pages[1].repeat, {"infosection": 2})
+
+        self.assertEqual(pages[2].lowest_level, 2)
+        self.assertEqual(pages[2].include_tables, ("tl", "ts"))
+        self.assertFalse(pages[2].include_root)
+
+    def test_schema_v2_country_cities_page_starts_at_country_root_level(self):
+        pages = parse_pages(
+            [
+                {
+                    "source": "cities",
+                    "path": ["cities"],
+                    "include": {"cities": True, "infosection": True, "major_subdivision": True},
+                }
+            ],
+            slug="belgium",
+            schema_version=2,
+        )
+
+        self.assertEqual(pages[0].path, "belgium/cities")
+        self.assertEqual(pages[0].lowest_level, 0)
+        self.assertEqual(pages[0].include_tables, ("tl", "ts"))
+        self.assertTrue(pages[0].include_root)
+
+    def test_schema_v2_include_can_keep_only_infosection_without_tables(self):
+        pages = parse_pages(
+            [
+                {
+                    "source": "cities",
+                    "path": ["cities"],
+                    "include": {"cities": False, "infosection": True, "major_subdivision": False},
+                }
+            ],
+            slug="france",
+            schema_version=2,
+        )
+
+        self.assertEqual(pages[0].path, "france/cities")
+        self.assertEqual(pages[0].lowest_level, 0)
+        self.assertEqual(pages[0].include_tables, ("__none__",))
+        self.assertTrue(pages[0].include_root)
+
+
 class ScrapeAdminAreasTests(unittest.TestCase):
+    def test_orphan_rows_stay_unlinked_without_sum_to_root_and_are_reported(self):
+        repository = FakeRepository()
+        reported = []
+        use_case = ScrapeAdminAreas(
+            repository=repository,
+            scrapers=[OrphanFranceDepartmentScraper()],
+            on_unlinked_entities=lambda config, entities: reported.extend(entities),
+        )
+        config = ScrapingJobConfig(
+            slug="france",
+            country_code="france",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[ScrapingPageConfig(path="france/cities/guyane", html_format="table", lowest_level=1)],
+        )
+
+        use_case.run(config)
+
+        by_code = {entity.code: entity for entity in repository.saved_entities}
+        self.assertIsNone(by_code["france_guyane"].parent_code)
+        self.assertEqual(by_code["france_guyane__repeat2"].parent_code, "france_guyane")
+        self.assertEqual([entity.code for entity in reported], ["france_guyane"])
+
+    def test_orphan_rows_from_sum_to_root_pages_attach_to_country_root(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[OrphanFranceDepartmentScraper()])
+        config = ScrapingJobConfig(
+            slug="france",
+            country_code="france",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[
+                ScrapingPageConfig(
+                    path="france/cities/guyane",
+                    html_format="table",
+                    lowest_level=1,
+                    sum_to_root=True,
+                )
+            ],
+        )
+
+        use_case.run(config)
+
+        by_code = {entity.code: entity for entity in repository.saved_entities}
+        self.assertEqual(by_code["france_guyane"].parent_code, "france")
+        self.assertEqual(by_code["france_guyane__repeat2"].parent_code, "france_guyane")
+
+
+    def test_run_links_french_arrondissements_to_departments_and_shifts_communes(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[FranceDepartmentDistrictScraper()])
+        config = ScrapingJobConfig(
+            slug="france",
+            country_code="france",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[ScrapingPageConfig(path="france/admin", html_format="table", lowest_level=1)],
+        )
+
+        use_case.run(config)
+
+        by_code = {entity.code: entity for entity in repository.saved_entities}
+        self.assertEqual(by_code["011"].parent_code, "01")
+        self.assertEqual(by_code["011"].level, 3)
+        self.assertEqual(by_code["01034"].parent_code, "011")
+        self.assertEqual(by_code["01034"].level, 4)
+
+    def test_run_links_parentless_rows_by_scoped_conflict_code(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[FranceScopedCodeOrphanDistrictScraper()])
+        config = ScrapingJobConfig(
+            slug="france",
+            country_code="france",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[ScrapingPageConfig(path="france/charentemaritime", html_format="table", lowest_level=1)],
+        )
+
+        use_case.run(config)
+
+        by_code = {entity.code: entity for entity in repository.saved_entities}
+        self.assertEqual(by_code["17_174"].parent_code, "17")
+        self.assertEqual(by_code["17_174"].level, 3)
+        self.assertEqual(by_code["17415"].parent_code, "17_174")
+        self.assertEqual(by_code["17415"].level, 4)
+
+    def test_run_generically_repairs_province_district_commune_hierarchy(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[GenericProvinceDistrictScraper()])
+        config = ScrapingJobConfig(
+            slug="testland",
+            country_code="testland",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[ScrapingPageConfig(path="testland/admin", html_format="table", lowest_level=1)],
+        )
+
+        use_case.run(config)
+
+        by_code = {entity.code: entity for entity in repository.saved_entities}
+        self.assertEqual(by_code["101"].parent_code, "10")
+        self.assertEqual(by_code["101"].level, 3)
+        self.assertEqual(by_code["10101"].parent_code, "101")
+        self.assertEqual(by_code["10101"].level, 4)
+
+    def test_run_marks_french_overseas_department_and_links_its_districts(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[FranceOverseasDepartmentDistrictScraper()])
+        config = ScrapingJobConfig(
+            slug="france",
+            country_code="france",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[ScrapingPageConfig(path="france/cities/guyane", html_format="table", lowest_level=1)],
+        )
+
+        use_case.run(config)
+
+        by_code = {entity.code: entity for entity in repository.saved_entities}
+        self.assertEqual(by_code["france_guyane"].entity_type, "Region [overseas]")
+        self.assertEqual(by_code["france_guyane__repeat2"].entity_type, "Department [overseas]")
+        self.assertEqual(by_code["1181"].parent_code, "france_guyane__repeat2")
+        self.assertEqual(by_code["1181"].level, 3)
+        self.assertEqual(by_code["9124"].parent_code, "1181")
+        self.assertEqual(by_code["9124"].level, 4)
+
+    def test_run_does_not_rewire_mainland_france_communes_to_reunion_code_prefix(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[FranceEssonneReunionCodeCollisionScraper()])
+        config = ScrapingJobConfig(
+            slug="france",
+            country_code="france",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[ScrapingPageConfig(path="france/cities/reunion", html_format="table", lowest_level=1)],
+        )
+
+        use_case.run(config)
+
+        by_code = {entity.code: entity for entity in repository.saved_entities}
+        self.assertEqual(by_code["91521"].parent_code, "912")
+        self.assertEqual(by_code["91521"].level, 4)
+
+    def test_run_keeps_same_named_overseas_block_anchors_separate_by_page_scope(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[FranceOverseasSameNameBlockAnchorScraper()])
+        config = ScrapingJobConfig(
+            slug="france",
+            country_code="france",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[ScrapingPageConfig(path="france/cities/martinique", html_format="table", lowest_level=1)],
+        )
+
+        use_case.run(config)
+
+        by_code = {entity.code: entity for entity in repository.saved_entities}
+        martinique_children = {entity.name for entity in repository.saved_entities if entity.parent_code == "MQ-SP"}
+        reunion_children = {entity.name for entity in repository.saved_entities if entity.parent_code == "RE-SP"}
+        mayotte_children = [entity for entity in repository.saved_entities if entity.parent_code == "YT-GT"]
+        guadeloupe_children = [entity for entity in repository.saved_entities if entity.parent_code == "GP-GT"]
+
+        self.assertIn("MQ-SP", by_code)
+        self.assertIn("RE-SP", by_code)
+        self.assertIn("GP-GT", by_code)
+        self.assertIn("YT-GT", by_code)
+        self.assertEqual(martinique_children, {"Bellefontaine"})
+        self.assertEqual(reunion_children, {"Cilaos", "Le Tampon"})
+        self.assertEqual(len(mayotte_children), 15)
+        self.assertEqual([entity.name for entity in guadeloupe_children], ["Les Abymes"])
+
+    def test_run_does_not_rewire_scoped_mainland_codes_to_unscoped_overseas_prefixes(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[FranceUnscopedOverseasPrefixCollisionScraper()])
+        config = ScrapingJobConfig(
+            slug="france",
+            country_code="france",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[ScrapingPageConfig(path="france/admin", html_format="table", lowest_level=1)],
+        )
+
+        use_case.run(config)
+
+        by_code = {entity.code: entity for entity in repository.saved_entities}
+        self.assertEqual(by_code["65270"].parent_code, "652")
+        self.assertEqual(by_code["65270"].level, 4)
+        self.assertEqual(by_code["81250"].parent_code, "812")
+        self.assertEqual(by_code["81250"].level, 4)
+
+
+    def test_run_collapses_same_real_city_after_role_normalization(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[DuplicateCityAfterNormalizationScraper()])
+        config = ScrapingJobConfig(
+            slug="testland",
+            country_code="testland",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[ScrapingPageConfig(path="testland/admin", html_format="table", lowest_level=0)],
+        )
+
+        use_case.run(config)
+
+        by_code = {entity.code: entity for entity in repository.saved_entities}
+        self.assertIn("75056", by_code)
+        self.assertNotIn("751", by_code)
+        self.assertEqual(by_code["75056"].parent_code, "75")
+        self.assertEqual(by_code["75056"].level, 3)
+        paris_children = [
+            entity
+            for entity in repository.saved_entities
+            if entity.parent_code == "75" and entity.data_wd == "Q90"
+        ]
+        self.assertEqual([entity.code for entity in paris_children], ["75056"])
+
+    def test_run_forced_parent_level_links_same_qid_city_child(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[DuplicateCityAfterNormalizationScraper()])
+        config = ScrapingJobConfig(
+            slug="testland",
+            country_code="testland",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[ScrapingPageConfig(path="testland/admin", html_format="table", lowest_level=0, parent_level=3)],
+        )
+
+        use_case.run(config)
+
+        by_code = {entity.code: entity for entity in repository.saved_entities}
+        self.assertIn("751", by_code)
+        self.assertIn("75056", by_code)
+        self.assertEqual(by_code["751"].parent_code, "75")
+        self.assertEqual(by_code["751"].level, 3)
+        self.assertEqual(by_code["75056"].parent_code, "751")
+        self.assertEqual(by_code["75056"].level, 4)
+
+    def test_run_collapses_same_real_brussels_city_after_role_normalization(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[DuplicateBrusselsAfterNormalizationScraper()])
+        config = ScrapingJobConfig(
+            slug="belgium",
+            country_code="belgium",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[ScrapingPageConfig(path="belgium/cities", html_format="table", lowest_level=0)],
+        )
+
+        use_case.run(config)
+
+        brussels_children = [
+            entity
+            for entity in repository.saved_entities
+            if entity.parent_code == "21000" and entity.data_wd == "Q239"
+        ]
+        self.assertEqual(len(brussels_children), 1)
+        self.assertEqual(brussels_children[0].level, 4)
+        self.assertIn(brussels_children[0].code, {"7021", "21004"})
+
     def test_run_deduplicates_applies_area_overrides_and_saves_ids(self):
         repository = FakeRepository()
         starts = []
@@ -153,6 +1036,21 @@ class ScrapeAdminAreasTests(unittest.TestCase):
         self.assertEqual(completes[0].html, "<html>page</html>")
         self.assertEqual([entity.name for entity in completes[0].entities], ["Testland", "Child", "Duplicate Child"])
 
+    def test_run_links_localities_by_citypopulation_code_prefix_after_data_wd(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[SpainLocalityCodePrefixScraper()])
+        config = ScrapingJobConfig(
+            slug="spain",
+            country_code="spain",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[ScrapingPageConfig(path="spain/localities/alicante", html_format="table", lowest_level=2)],
+        )
+
+        use_case.run(config)
+
+        by_code = {entity.code: entity for entity in repository.saved_entities}
+        self.assertEqual(by_code["03082000202"].parent_code, "03082")
+
     def test_unknown_scraper_fails_before_persistence(self):
         repository = FakeRepository()
         use_case = ScrapeAdminAreas(repository=repository, scrapers=[])
@@ -203,6 +1101,264 @@ class ScrapeAdminAreasTests(unittest.TestCase):
         self.assertEqual(starts, [])
         self.assertEqual(cached_events[0].html, "<html>cached</html>")
         self.assertEqual([entity.name for entity in repository.saved_entities], ["Cached Testland"])
+    def test_run_collapses_belgium_duplicate_provinces_and_rewires_districts(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[BelgiumDuplicateAdministrativeRowsScraper()])
+        config = ScrapingJobConfig(
+            slug="belgium",
+            country_code="belgium",
+            base_url="https://www.citypopulation.de/en/",
+            legal_subdivision_level=4,
+            pages=[ScrapingPageConfig(path="belgium/cities", html_format="table", lowest_level=0)],
+        )
+
+        use_case.run(config)
+
+        by_code = {entity.code: entity for entity in repository.saved_entities}
+        self.assertIn("549", by_code)
+        self.assertNotIn("10000", by_code)
+        self.assertEqual(by_code["549"].level, 2)
+        self.assertEqual(by_code["549"].parent_code, "554")
+        self.assertEqual(by_code["11000"].level, 3)
+        self.assertEqual(by_code["11000"].parent_code, "549")
+        self.assertEqual(by_code["11002"].level, 4)
+        self.assertEqual(by_code["11002"].parent_code, "11000")
+
+    def test_run_drops_belgium_brussels_shortcut_child_when_official_district_exists(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[BelgiumBrusselsShortcutScraper()])
+        config = ScrapingJobConfig(
+            slug="belgium",
+            country_code="belgium",
+            base_url="https://www.citypopulation.de/en/",
+            legal_subdivision_level=4,
+            pages=[ScrapingPageConfig(path="belgium/cities", html_format="table", lowest_level=0)],
+        )
+
+        use_case.run(config)
+
+        by_code = {entity.code: entity for entity in repository.saved_entities}
+        self.assertIn("548", by_code)
+        self.assertIn("04000", by_code)
+        self.assertIn("21000", by_code)
+        self.assertNotIn("8461", by_code)
+        self.assertEqual(by_code["04000"].parent_code, "548")
+        self.assertEqual(by_code["21000"].parent_code, "04000")
+        self.assertEqual(by_code["7015"].parent_code, "21000")
+
+    def test_run_drops_context_roots_and_chains_same_data_wd_rows(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[SpainAutonomousCityScraper()])
+        config = ScrapingJobConfig(
+            slug="spain",
+            country_code="spain",
+            base_url="https://www.citypopulation.de/en/",
+            legal_subdivision_level=3,
+            pages=[ScrapingPageConfig(path="spain/admin", html_format="table", lowest_level=0)],
+        )
+
+        result = use_case.run(config)
+
+        by_code = {entity.code: entity for entity in repository.saved_entities}
+        self.assertEqual(result.found, 6)
+        self.assertNotIn("spain", by_code)
+        self.assertEqual(by_code["AND"].parent_code, "espa_a")
+        self.assertEqual(by_code["51"].parent_code, "CEU")
+        self.assertEqual(by_code["51001"].parent_code, "51")
+        self.assertEqual(by_code["51001000201"].parent_code, "51001")
+
+
+
+class BelgiumDuplicateAdministrativeRowsScraper:
+    html_format = "table"
+
+    def scrape(self, base_url, country_code, page):
+        return [
+            ScrapedAdminArea(code="belgium", name="Belgium", level=0, country_code=country_code),
+            ScrapedAdminArea(code="554", name="Vlaams Gewest", level=1, country_code=country_code, parent_code="belgium", data_wd="Q9337"),
+            # Province from the grouped /cities/ table: correct regional parent, but CityPopulation symbol id.
+            ScrapedAdminArea(
+                code="549",
+                name="Antwerpen",
+                level=2,
+                country_code=country_code,
+                parent_code="554",
+                entity_type="Prov",
+                data_wd="Q1116",
+                url="https://www.citypopulation.de/en/belgium/admin/10000__antwerpen/",
+            ),
+            # Same province from /admin/: official administrative code, but without region context.
+            ScrapedAdminArea(
+                code="10000",
+                name="Antwerpen",
+                level=2,
+                country_code=country_code,
+                parent_code="belgium",
+                entity_type="Province",
+                data_wd="Q1116",
+                url="https://www.citypopulation.de/en/belgium/admin/10000__antwerpen/",
+            ),
+            ScrapedAdminArea(
+                code="11000",
+                name="Antwerpen",
+                level=3,
+                country_code=country_code,
+                parent_code="10000",
+                entity_type="Arrondissement",
+                data_wd="Q90895",
+                url="https://www.citypopulation.de/en/belgium/admin/antwerpen/11000__antwerpen/",
+            ),
+            ScrapedAdminArea(
+                code="7016",
+                name="Antwerpen",
+                level=4,
+                country_code=country_code,
+                parent_code="549",
+                entity_type="Mun",
+                data_wd="Q12892",
+                url="https://www.citypopulation.de/en/belgium/antwerpen/antwerpen/11002__antwerpen/",
+            ),
+            ScrapedAdminArea(
+                code="11002",
+                name="Antwerpen",
+                level=4,
+                country_code=country_code,
+                parent_code="11000",
+                entity_type="Municipality",
+                data_wd="Q12892",
+                url="https://www.citypopulation.de/en/belgium/antwerpen/antwerpen/11002__antwerpen/",
+            ),
+        ]
+
+
+class BelgiumBrusselsShortcutScraper:
+    html_format = "table"
+
+    def scrape(self, base_url, country_code, page):
+        return [
+            ScrapedAdminArea(code="belgium", name="Belgium", level=0, country_code=country_code),
+            ScrapedAdminArea(
+                code="548",
+                name="Région de Bruxelles",
+                level=1,
+                country_code=country_code,
+                parent_code="belgium",
+                entity_type="Reg",
+                data_wd="Q240",
+                url="https://www.citypopulation.de/en/belgium/brussels/",
+            ),
+            # Shortcut from the country /cities/ grouped table: same QID/role as the official
+            # arrondissement, but attached directly under the region and with the same URL.
+            ScrapedAdminArea(
+                code="8461",
+                name="Bruxelles-Capitale",
+                level=2,
+                country_code=country_code,
+                parent_code="548",
+                entity_type="Arr",
+                data_wd="Q90870",
+                url="https://www.citypopulation.de/en/belgium/brussels/",
+            ),
+            # Province-equivalent Brussels row from /admin/.
+            ScrapedAdminArea(
+                code="04000",
+                name="Région de Bruxelles-Capitale",
+                level=2,
+                country_code=country_code,
+                parent_code="548",
+                entity_type="Region",
+                data_wd="Q240",
+                url="https://www.citypopulation.de/en/belgium/admin/04000__région_de_bruxelles_capi/",
+            ),
+            # Official arrondissement from /admin/.
+            ScrapedAdminArea(
+                code="21000",
+                name="Bruxelles-Capitale",
+                level=3,
+                country_code=country_code,
+                parent_code="04000",
+                entity_type="Arrondissement",
+                data_wd="Q90870",
+                url="https://www.citypopulation.de/en/belgium/admin/région_de_bruxelles_capi/21000__bruxelles_capitale/",
+            ),
+            ScrapedAdminArea(
+                code="7015",
+                name="Anderlecht",
+                level=4,
+                country_code=country_code,
+                parent_code="21000",
+                entity_type="Mun",
+                data_wd="Q12886",
+                url="https://www.citypopulation.de/en/belgium/bruxelles/bruxelles_capitale/21001__anderlecht/",
+            ),
+        ]
+
+
+class SpainAutonomousCityScraper:
+    html_format = "table"
+
+    def scrape(self, base_url, country_code, page):
+        return [
+            ScrapedAdminArea(
+                code="espa_a",
+                name="España",
+                level=0,
+                country_code=country_code,
+            ),
+            ScrapedAdminArea(
+                code="CEU",
+                name="Ceuta",
+                level=1,
+                country_code=country_code,
+                parent_code="espa_a",
+                data_wd="Q5823",
+                url="https://www.citypopulation.de/en/spain/admin/",
+            ),
+            ScrapedAdminArea(
+                code="51",
+                name="Ceuta",
+                level=2,
+                country_code=country_code,
+                parent_code="CEU",
+                data_wd="Q5823",
+                url="https://www.citypopulation.de/en/spain/ceuta/",
+            ),
+            ScrapedAdminArea(
+                code=country_code,
+                name="Ceuta",
+                level=3,
+                country_code=country_code,
+                parent_code=country_code,
+                data_wd="Q5823",
+                url="https://www.citypopulation.de/en/spain/localities/ceuta/",
+            ),
+            ScrapedAdminArea(
+                code="51001",
+                name="Ceuta",
+                level=3,
+                country_code=country_code,
+                parent_code=country_code,
+                data_wd="Q5823",
+                url="https://www.citypopulation.de/en/spain/ceuta/51001__ceuta/",
+            ),
+            ScrapedAdminArea(
+                code="51001000201",
+                name="Ceuta",
+                level=4,
+                country_code=country_code,
+                parent_code=country_code,
+                data_wd="Q5823",
+                url="https://www.citypopulation.de/en/spain/localities/ceuta/ceuta/51001000201__ceuta/",
+            ),
+            ScrapedAdminArea(
+                code="AND",
+                name="Andalucía",
+                level=1,
+                country_code=country_code,
+                parent_code=country_code,
+                data_wd="Q5783",
+            ),
+        ]
 
 
 class FakeHtmlFetcher:
@@ -470,3 +1626,91 @@ class RuntimeConfigExtensionTests(unittest.TestCase):
         self.assertEqual(by_code["GUF"].parent_code, "OVERSEAS")
         self.assertEqual(by_code["france"].pop_latest, 68_298_554)
         self.assertEqual(by_code["france"].area_km2, Decimal("627474"))
+
+
+class SpanishRepeatedInfoSectionScraper:
+    html_format = "table"
+
+    def scrape(self, base_url, country_code, page):
+        return [
+            ScrapedAdminArea(code="spain", name="España", level=0, country_code="spain"),
+            ScrapedAdminArea(
+                code="CEU",
+                name="Ceuta",
+                level=1,
+                country_code="spain",
+                parent_code="spain",
+                data_wd="Q5823",
+                url="https://www.citypopulation.de/en/spain/admin/CEU__ceuta/",
+            ),
+            ScrapedAdminArea(
+                code="51",
+                name="Ceuta",
+                level=2,
+                country_code="spain",
+                parent_code="CEU",
+                data_wd="Q5823",
+                url="https://www.citypopulation.de/en/spain/admin/ceuta/51__ceuta/",
+            ),
+            ScrapedAdminArea(
+                code="spain_ceuta",
+                name="Ceuta",
+                level=1,
+                country_code="spain",
+                parent_code="spain",
+                url="https://www.citypopulation.de/en/spain/ceuta/",
+                annotations="Raíz de página repetida",
+            ),
+            ScrapedAdminArea(
+                code="spain_ceuta__repeat2",
+                name="Ceuta",
+                level=2,
+                country_code="spain",
+                parent_code="spain_ceuta",
+                url="https://www.citypopulation.de/en/spain/ceuta/",
+                annotations="Raíz de página repetida; Duplicación explícita por página",
+            ),
+            ScrapedAdminArea(
+                code="51001",
+                name="Ceuta",
+                level=3,
+                country_code="spain",
+                parent_code="spain_ceuta__repeat2",
+                data_wd="Q5823",
+                url="https://www.citypopulation.de/en/spain/ceuta/ceuta/51001__ceuta/",
+            ),
+            ScrapedAdminArea(
+                code="51001000201",
+                name="Ceuta",
+                level=4,
+                country_code="spain",
+                parent_code="51001",
+                data_wd="Q5823",
+                url="https://www.citypopulation.de/en/spain/localities/ceuta/ceuta/51001000201__ceuta/",
+            ),
+        ]
+
+
+class SpainRepeatedInfoSectionTests(unittest.TestCase):
+    def test_repeated_infosection_roots_reuse_real_same_level_entities(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[SpanishRepeatedInfoSectionScraper()])
+        config = ScrapingJobConfig(
+            slug="spain",
+            country_code="spain",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[ScrapingPageConfig(path="spain/ceuta", html_format="table", lowest_level=1)],
+        )
+
+        result = use_case.run(config)
+        by_code = {entity.code: entity for entity in repository.saved_entities}
+
+        self.assertEqual(result.found, 5)
+        self.assertNotIn("spain_ceuta", by_code)
+        self.assertNotIn("spain_ceuta__repeat2", by_code)
+        self.assertEqual(by_code["CEU"].parent_code, "spain")
+        self.assertEqual(by_code["51"].parent_code, "CEU")
+        self.assertEqual(by_code["51001"].level, 3)
+        self.assertEqual(by_code["51001"].parent_code, "51")
+        self.assertEqual(by_code["51001000201"].level, 4)
+        self.assertEqual(by_code["51001000201"].parent_code, "51001")

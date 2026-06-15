@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 import re
 import unicodedata
 from datetime import date
@@ -19,6 +20,9 @@ from ciudades_del_mundo.infrastructure.django.admin_area_deletion import (
     SQLITE_SAFE_DELETE_BATCH_SIZE,
     delete_admin_area_country,
     delete_admin_area_ids,
+)
+from ciudades_del_mundo.infrastructure.django.visual_asset_deletion import (
+    delete_visual_assets_for_admin_area_ids,
 )
 from ciudades_del_mundo.models import AdminArea
 
@@ -52,13 +56,10 @@ class DjangoAdminAreaRepository:
         if not entities:
             return 0, 0
 
-        existing = dict(
-            AdminArea.objects.filter(country_code=country_code).values_list("code", "id")
-        )
+        existing = dict(AdminArea.objects.filter(country_code=country_code).values_list("code", "id"))
         incoming_ids = {entity.id for entity in entities}
-        existing_ids = set(existing.values())
-        created = sum(1 for entity_id in incoming_ids if entity_id not in existing_ids)
-        updated = len(incoming_ids) - created
+        existing_by_id = _admin_areas_by_id(incoming_ids, country_code=country_code)
+        existing_ids = set(existing_by_id)
 
         known_codes = set(existing)
         update_fields = [
@@ -80,6 +81,9 @@ class DjangoAdminAreaRepository:
             "annotations",
             "updated_at",
         ]
+        compare_fields = tuple(field for field in update_fields if field != "updated_at")
+        created = 0
+        updated = 0
 
         for level in sorted({entity.level for entity in entities}):
             level_entities = [entity for entity in entities if entity.level == level]
@@ -91,13 +95,25 @@ class DjangoAdminAreaRepository:
                 )
                 for entity in level_entities
             ]
-            AdminArea.objects.bulk_create(
-                objects,
-                batch_size=SQLITE_SAFE_BATCH_SIZE,
-                update_conflicts=True,
-                update_fields=update_fields,
-                unique_fields=["id"],
-            )
+            create_objects = [obj for obj in objects if obj.id not in existing_ids]
+            if create_objects:
+                AdminArea.objects.bulk_create(create_objects, batch_size=SQLITE_SAFE_BATCH_SIZE)
+                created += len(create_objects)
+                existing_ids.update(obj.id for obj in create_objects)
+                existing_by_id.update({obj.id: obj for obj in create_objects})
+
+            changed_objects = [
+                obj
+                for obj in objects
+                if obj.id in existing_ids and _admin_area_changed(existing_by_id[obj.id], obj, compare_fields)
+            ]
+            if changed_objects:
+                AdminArea.objects.bulk_update(
+                    changed_objects,
+                    update_fields,
+                    batch_size=SQLITE_SAFE_BATCH_SIZE,
+                )
+                updated += len(changed_objects)
             known_codes.update(entity.code for entity in level_entities)
 
         return created, updated
@@ -106,6 +122,7 @@ class DjangoAdminAreaRepository:
     def delete_missing(self, country_code: str, ids: set[str]) -> int:
         existing_ids = AdminArea.objects.filter(country_code=country_code).values_list("id", flat=True)
         missing_ids = [existing_id for existing_id in existing_ids.iterator() if existing_id not in ids]
+        delete_visual_assets_for_admin_area_ids(missing_ids)
         return delete_admin_area_ids(
             missing_ids,
             batch_size=SQLITE_SAFE_BATCH_SIZE,
@@ -137,7 +154,7 @@ class DjangoAdminAreaRepository:
         if not assignments:
             return 0
 
-        areas_by_id = AdminArea.objects.in_bulk([assignment.area_id for assignment in assignments])
+        areas_by_id = _admin_areas_by_id(assignment.area_id for assignment in assignments)
         changed = []
         now = timezone.now()
         for assignment in assignments:
@@ -260,8 +277,52 @@ def _next_dhondt_candidate(
 
 
 class DjangoUnitOfWork:
+    def __init__(self, write_lock=None):
+        self.write_lock = write_lock
+
     def transaction(self):
-        return transaction.atomic()
+        if self.write_lock is None:
+            return transaction.atomic()
+        return _locked_transaction(self.write_lock)
+
+
+@contextmanager
+def _locked_transaction(write_lock):
+    with write_lock:
+        with transaction.atomic():
+            yield
+
+
+def _admin_area_changed(existing: AdminArea, candidate: AdminArea, fields: tuple[str, ...]) -> bool:
+    for field in fields:
+        if field == "parent":
+            if existing.parent_id != candidate.parent_id:
+                return True
+            continue
+        if getattr(existing, field) != getattr(candidate, field):
+            return True
+    return False
+
+
+def _admin_areas_by_id(ids, *, country_code: str = "") -> dict[str, AdminArea]:
+    areas: dict[str, AdminArea] = {}
+    for id_batch in _chunks((str(item) for item in ids if item), SQLITE_SAFE_BATCH_SIZE):
+        query = AdminArea.objects.filter(id__in=id_batch)
+        if country_code:
+            query = query.filter(country_code=country_code)
+        areas.update({area.id: area for area in query})
+    return areas
+
+
+def _chunks(values, size: int):
+    batch = []
+    for value in values:
+        batch.append(value)
+        if len(batch) >= size:
+            yield batch
+            batch = []
+    if batch:
+        yield batch
 
 
 def _normalize_data_wd(value: str | None) -> str:

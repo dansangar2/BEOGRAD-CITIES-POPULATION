@@ -1,16 +1,19 @@
 LEGAL_SUBDIVISION = 3
 
+scrape_schema_version = 2
+
 [[pages]]
-source = "infosection"
+source = "cities"
 path = ["cities"]
-lowest_level = 0
+include = { infosection = true, major_subdivision = false, cities = false }
 
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+include = { infosection = true, admin1 = true, admin2 = true }
 
 [[pages]]
 source = "admin"
 path = ["communes/admin"]
-lowest_level = 1
+include = { infosection = true, admin1 = true, admin2 = true }
+force_highest_level = 1

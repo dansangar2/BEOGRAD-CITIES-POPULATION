@@ -1,4 +1,16 @@
-"""Application service that orchestrates a full scraping/import job."""
+"""Application service that orchestrates scraping and persistence.
+
+This use case is intentionally small: it does not know CityPopulation HTML
+quirks and it does not contain country-specific corrections.  The pipeline is:
+
+1. ask the configured scraper to parse every page;
+2. normalize/link equivalent CityPopulation blocks;
+3. persist the resulting rows in the repository;
+4. run the existing derived calculations (most populated city/representatives).
+
+Keeping the application layer thin makes the scraping system easier for another
+AI to read and safely modify.
+"""
 
 from __future__ import annotations
 
@@ -6,10 +18,14 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import nullcontext
 from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
-import re
 from typing import Callable
-from urllib.parse import unquote, urlparse
+from urllib.parse import urljoin
 
+from ciudades_del_mundo.application.citypopulation_linking import (
+    apply_runtime_config_extensions,
+    normalize_citypopulation_entities,
+    unlinked_entities,
+)
 from ciudades_del_mundo.application.configured_cities import apply_configured_cities
 from ciudades_del_mundo.application.entity_merges import apply_entity_merges
 from ciudades_del_mundo.domain import ScrapedAdminArea, ScrapingJobConfig, calculate_most_populated_assignments
@@ -52,7 +68,7 @@ class CachedScrapePage:
 
 
 class ScrapeAdminAreas:
-    """Coordinates scrapers, post-processing and repository persistence."""
+    """Coordinates scraper adapters and repository persistence."""
 
     def __init__(
         self,
@@ -66,6 +82,7 @@ class ScrapeAdminAreas:
         entity_enricher: Callable[[ScrapingJobConfig, list[ScrapedAdminArea]], list[ScrapedAdminArea]] | None = None,
         page_workers: int = 1,
         html_fetcher: HtmlFetcher | None = None,
+        on_unlinked_entities: Callable[[ScrapingJobConfig, tuple[ScrapedAdminArea, ...]], None] | None = None,
     ):
         self.repository = repository
         self.scrapers = {scraper.html_format: scraper for scraper in scrapers}
@@ -75,15 +92,29 @@ class ScrapeAdminAreas:
         self.cached_page_loader = cached_page_loader
         self.on_cached_page = on_cached_page
         self.entity_enricher = entity_enricher
+        # Accepted for CLI compatibility.  Parsing is kept ordered because the
+        # new cross-page linker depends on configured block order.
         self.page_workers = max(1, int(page_workers or 1))
         self.html_fetcher = html_fetcher
+        self.on_unlinked_entities = on_unlinked_entities
 
     def run(self, config: ScrapingJobConfig) -> ScrapeResult:
-        """Execute the scraping pipeline for a single country/job config."""
+        """Execute one complete scraping/import job."""
         entities = self._scrape_pages(config)
-        entities = _rewrite_synthetic_page_roots(config.country_code, entities)
-        entities = _apply_runtime_config_extensions(config, entities)
-        entities = self._post_process_entities(config, entities)
+        entities = normalize_citypopulation_entities(config.country_code, entities)
+        if config.entity_merges:
+            entities = apply_entity_merges(entities, config.entity_merges)
+            entities = _keep_first_scraped_entity(entities)
+        if config.cities:
+            entities = apply_configured_cities(config.country_code, entities, config.cities)
+            entities = _keep_first_scraped_entity(entities)
+        entities = apply_runtime_config_extensions(config, entities)
+
+        if self.on_unlinked_entities:
+            unresolved = tuple(unlinked_entities(config.country_code, entities))
+            if unresolved:
+                self.on_unlinked_entities(config, unresolved)
+
         if self.entity_enricher:
             entities = self.entity_enricher(config, entities)
 
@@ -91,10 +122,7 @@ class ScrapeAdminAreas:
             if config.reset_before_import:
                 self.repository.reset_country(config.country_code)
             created, updated = self.repository.save_many(config.country_code, entities)
-            deleted = self.repository.delete_missing(
-                config.country_code,
-                {entity.id for entity in entities},
-            )
+            deleted = self.repository.delete_missing(config.country_code, {entity.id for entity in entities})
             assignments = calculate_most_populated_assignments(
                 self.repository.list_summaries(config.country_code),
                 config.legal_subdivision_level,
@@ -106,6 +134,7 @@ class ScrapeAdminAreas:
                     config.country_code,
                     config.representation,
                 )
+
         return ScrapeResult(
             created=created,
             updated=updated,
@@ -116,15 +145,10 @@ class ScrapeAdminAreas:
         )
 
     def _scrape_pages(self, config: ScrapingJobConfig) -> list[ScrapedAdminArea]:
-        if (
-            self.html_fetcher
-            and self.page_workers > 1
-            and len(config.pages) > 1
-            and self._all_pages_support_html_prefetch(config)
-        ):
-            return self._scrape_pages_prefetched(config)
+        if self.page_workers > 1 and self.html_fetcher:
+            return self._scrape_pages_with_prefetch(config)
 
-        entities = []
+        entities: list[ScrapedAdminArea] = []
         for index, page in enumerate(config.pages):
             progress = self._page_progress(config, page, index)
             cached = self._cached_page(progress)
@@ -132,206 +156,132 @@ class ScrapeAdminAreas:
                 self._notify_cached_page(progress, cached)
                 entities.extend(cached.entities)
                 continue
+
             if self.on_page_start:
                 self.on_page_start(progress)
-            page_entities, page_html, page_url = self._scrape_single_page(config, page, progress.url)
-            if page_url != progress.url:
-                progress = ScrapePageProgress(
-                    path=progress.path,
-                    html_format=progress.html_format,
-                    lowest_level=progress.lowest_level,
-                    url=page_url,
-                    index=progress.index,
-                )
+            page_entities, html, url = self._scrape_single_page(config, page, progress.url)
             page_entities = _apply_page_area_overrides(page_entities, page.area_km2, page.area_overrides)
-            self._notify_page_complete(progress, len(page_entities), page_html, page_entities)
+            page_entities = _apply_page_forced_highest_level_marker(page_entities, page)
+            page_entities = _apply_page_sum_to_root_marker(page_entities, page)
+            page_entities = _apply_page_parent_level_marker(page_entities, page)
+            completed = replace(progress, url=url, found=len(page_entities), html=html, entities=tuple(page_entities))
+            if self.on_page_complete:
+                self.on_page_complete(completed)
             entities.extend(page_entities)
         return entities
 
-    def _scrape_pages_prefetched(self, config: ScrapingJobConfig) -> list[ScrapedAdminArea]:
-        """Fetch page HTML concurrently, then parse/persist in configured order.
-
-        This keeps the extracted data and page-complete side effects equivalent
-        to the sequential scraper: ``on_page_complete`` is emitted once per
-        configured page in TOML/SQL order, and the same layout-specific parser
-        handles the HTML. Only independent page downloads are overlapped;
-        duplicate URL/format/level pages also reuse the parsed entities.
-        """
+    def _scrape_pages_with_prefetch(self, config: ScrapingJobConfig) -> list[ScrapedAdminArea]:
+        """Download independent URLs concurrently and emit page events in order."""
         entities: list[ScrapedAdminArea] = []
-        page_progress = [self._page_progress(config, page, index) for index, page in enumerate(config.pages)]
-        cached_by_index: dict[int, CachedScrapePage] = {}
-        for index, progress in enumerate(page_progress):
+        pending: list[tuple[object, ScrapePageProgress, CachedScrapePage | None]] = []
+        unique_urls: list[str] = []
+        seen_urls: set[str] = set()
+
+        for index, page in enumerate(config.pages):
+            progress = self._page_progress(config, page, index)
             cached = self._cached_page(progress)
             if cached:
-                cached_by_index[index] = cached
-                self._notify_cached_page(progress, cached)
+                pending.append((page, progress, cached))
                 continue
+
             if self.on_page_start:
                 self.on_page_start(progress)
+            pending.append((page, progress, None))
+            if progress.url not in seen_urls:
+                seen_urls.add(progress.url)
+                unique_urls.append(progress.url)
 
-        futures_by_url: dict[str, Future[str]] = {}
-        parsed_by_page_key: dict[tuple[str, str, int], tuple[ScrapedAdminArea, ...]] = {}
-        with ThreadPoolExecutor(max_workers=min(self.page_workers, len(config.pages))) as executor:
-            for index, progress in enumerate(page_progress):
-                if index in cached_by_index:
-                    continue
-                if progress.url not in futures_by_url:
-                    futures_by_url[progress.url] = executor.submit(self.html_fetcher.get, progress.url)
+        html_by_url: dict[str, str] = {}
+        if unique_urls:
+            max_workers = min(self.page_workers, len(unique_urls))
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures: dict[str, Future[str]] = {
+                    url: executor.submit(self.html_fetcher.get, url) for url in unique_urls
+                }
+                for url in unique_urls:
+                    html_by_url[url] = futures[url].result()
 
-            for index, (page, progress) in enumerate(zip(config.pages, page_progress, strict=True)):
-                cached = cached_by_index.get(index)
-                if cached:
-                    entities.extend(cached.entities)
-                    continue
-                scraper = self._scraper_for(page.html_format)
-                scrape_html = getattr(scraper, "scrape_html", None)
-                if not callable(scrape_html):
-                    page_entities, page_html, page_url = self._scrape_single_page(config, page, progress.url)
-                else:
-                    page_html = futures_by_url[progress.url].result()
-                    page_url = progress.url
-                    page_key = (
-                        page_url,
-                        page.html_format,
-                        page.lowest_level,
-                        tuple(sorted(getattr(page, "table_levels", {}).items())),
-                        tuple(sorted(getattr(page, "status_levels", {}).items())),
-                        tuple(getattr(page, "include_tables", ())),
-                        getattr(page, "include_root", True),
-                        getattr(page, "root_level", None),
-                        getattr(page, "root_code", None),
-                        getattr(page, "root_name", None),
-                        getattr(page, "root_parent_code", None),
-                        getattr(page, "root_entity_type", None),
-                    )
-                    cached_entities = parsed_by_page_key.get(page_key)
-                    if cached_entities is None:
-                        scrape_configured_html = getattr(scraper, "scrape_configured_html", None)
-                        if callable(scrape_configured_html):
-                            cached_entities = tuple(
-                                scrape_configured_html(
-                                    html=page_html,
-                                    url=page_url,
-                                    country_code=config.country_code,
-                                    page=page,
-                                )
-                            )
-                        else:
-                            cached_entities = tuple(
-                                scrape_html(
-                                    html=page_html,
-                                    url=page_url,
-                                    country_code=config.country_code,
-                                    level=page.lowest_level,
-                                )
-                            )
-                        parsed_by_page_key[page_key] = cached_entities
-                    page_entities = list(cached_entities)
-                page_entities = _apply_page_area_overrides(page_entities, page.area_km2, page.area_overrides)
-                self._notify_page_complete(progress, len(page_entities), page_html, page_entities)
-                entities.extend(page_entities)
+        parsed_by_key: dict[tuple[object, ...], tuple[list[ScrapedAdminArea], str]] = {}
+        for page, progress, cached in pending:
+            if cached:
+                self._notify_cached_page(progress, cached)
+                entities.extend(cached.entities)
+                continue
+
+            html = html_by_url[progress.url]
+            parse_key = (progress.url,)
+            parsed = parsed_by_key.get(parse_key)
+            if parsed is None:
+                page_entities = self._parse_prefetched_page(config, page, html, progress.url)
+                parsed = (page_entities, progress.url)
+                parsed_by_key[parse_key] = parsed
+            else:
+                page_entities = list(parsed[0])
+
+            page_entities = _apply_page_area_overrides(page_entities, page.area_km2, page.area_overrides)
+            page_entities = _apply_page_forced_highest_level_marker(page_entities, page)
+            page_entities = _apply_page_sum_to_root_marker(page_entities, page)
+            page_entities = _apply_page_parent_level_marker(page_entities, page)
+            completed = replace(
+                progress,
+                url=parsed[1],
+                found=len(page_entities),
+                html=html,
+                entities=tuple(page_entities),
+            )
+            if self.on_page_complete:
+                self.on_page_complete(completed)
+            entities.extend(page_entities)
         return entities
 
-    def _all_pages_support_html_prefetch(self, config: ScrapingJobConfig) -> bool:
-        for page in config.pages:
-            scraper = self._scraper_for(page.html_format)
-            if not callable(getattr(scraper, "scrape_html", None)):
-                return False
-        return True
+    def _scrape_single_page(self, config: ScrapingJobConfig, page, expected_url: str) -> tuple[list[ScrapedAdminArea], str, str]:
+        scraper = self._scraper_for(page.html_format)
+        scrape_page = getattr(scraper, "scrape_page", None)
+        if callable(scrape_page):
+            result = scrape_page(config.base_url, config.country_code, page)
+            return list(result.entities), result.html, result.url or expected_url
+        return list(scraper.scrape(config.base_url, config.country_code, page)), "", expected_url
 
-    def _cached_page(self, progress: ScrapePageProgress) -> CachedScrapePage | None:
-        if not self.cached_page_loader:
-            return None
-        cached = self.cached_page_loader(progress)
-        if not cached or not cached.entities:
-            return None
-        return cached
+    def _parse_prefetched_page(self, config: ScrapingJobConfig, page, html: str, url: str) -> list[ScrapedAdminArea]:
+        scraper = self._scraper_for(page.html_format)
+        scrape_configured_html = getattr(scraper, "scrape_configured_html", None)
+        if callable(scrape_configured_html):
+            return list(scrape_configured_html(html=html, url=url, country_code=config.country_code, page=page))
+        scrape_html = getattr(scraper, "scrape_html", None)
+        if callable(scrape_html):
+            return list(scrape_html(html=html, url=url, country_code=config.country_code, level=page.lowest_level))
+        scrape = getattr(scraper, "scrape", None)
+        if callable(scrape):
+            return list(scrape(config.base_url, config.country_code, page))
+        raise ValueError(f"Unknown html_format: {page.html_format!r}")
 
     def _page_progress(self, config: ScrapingJobConfig, page, index: int) -> ScrapePageProgress:
         return ScrapePageProgress(
             path=page.path,
             html_format=page.html_format,
-            lowest_level=page.lowest_level,
-            url=_page_url(config.base_url, page.path),
+            lowest_level=page.force_highest_level if page.force_highest_level is not None else page.lowest_level,
+            url=_build_page_url(config.base_url, page.path),
             index=index,
         )
 
-    def _scrape_single_page(
-        self,
-        config: ScrapingJobConfig,
-        page,
-        expected_url: str,
-    ) -> tuple[list[ScrapedAdminArea], str, str]:
-        scraper = self._scraper_for(page.html_format)
-        scraped_page = getattr(scraper, "scrape_page", None)
-        if callable(scraped_page):
-            page_result = scraped_page(config.base_url, config.country_code, page)
-            return list(page_result.entities), str(page_result.html or ""), str(page_result.url or expected_url)
-        return list(scraper.scrape(config.base_url, config.country_code, page)), "", expected_url
-
-    def _scraper_for(self, html_format: str) -> HtmlScraper:
-        scraper = self.scrapers.get(html_format)
-        if scraper:
-            return scraper
-
-        known = ", ".join(sorted(self.scrapers)) or "none"
-        raise ValueError(f"Unknown html_format '{html_format}'. Known formats: {known}.")
-
-    def _notify_page_complete(
-        self,
-        progress: ScrapePageProgress,
-        found: int,
-        html: str,
-        entities: list[ScrapedAdminArea],
-    ) -> None:
-        if not self.on_page_complete:
-            return
-
-        self.on_page_complete(
-            ScrapePageProgress(
-                path=progress.path,
-                html_format=progress.html_format,
-                lowest_level=progress.lowest_level,
-                url=progress.url,
-                index=progress.index,
-                found=found,
-                html=html,
-                entities=tuple(entities),
-            )
-        )
+    def _cached_page(self, progress: ScrapePageProgress) -> CachedScrapePage | None:
+        if not self.cached_page_loader:
+            return None
+        cached = self.cached_page_loader(progress)
+        if cached and cached.entities:
+            return cached
+        return None
 
     def _notify_cached_page(self, progress: ScrapePageProgress, cached: CachedScrapePage) -> None:
-        if not self.on_cached_page:
-            return
-        self.on_cached_page(
-            ScrapePageProgress(
-                path=progress.path,
-                html_format=progress.html_format,
-                lowest_level=progress.lowest_level,
-                url=progress.url,
-                index=progress.index,
-                found=cached.found,
-                html=cached.html,
-                entities=cached.entities,
-            )
-        )
+        if self.on_cached_page:
+            self.on_cached_page(replace(progress, found=cached.found, html=cached.html, entities=cached.entities))
 
-    def _post_process_entities(
-        self,
-        config: ScrapingJobConfig,
-        entities: list[ScrapedAdminArea],
-    ) -> list[ScrapedAdminArea]:
-        entities = _keep_first_scraped_entity(entities)
-        entities = _normalize_synthetic_country_parent_codes(config.country_code, entities)
-        entities = _infer_parent_codes_from_url_path(entities)
-        if config.entity_merges:
-            entities = apply_entity_merges(entities, config.entity_merges)
-            entities = _keep_first_scraped_entity(entities)
-        if not config.cities:
-            return entities
-
-        configured = apply_configured_cities(config.country_code, entities, config.cities)
-        return _keep_first_scraped_entity(configured)
+    def _scraper_for(self, html_format: str) -> HtmlScraper:
+        scraper = self.scrapers.get(str(html_format).strip().lower())
+        if not scraper:
+            allowed = ", ".join(sorted(self.scrapers))
+            raise ValueError(f"Unknown html_format: {html_format!r}. Available: {allowed}.")
+        return scraper
 
     def _transaction(self):
         if self.unit_of_work:
@@ -340,671 +290,38 @@ class ScrapeAdminAreas:
 
 
 
-def _apply_runtime_config_extensions(
-    config: ScrapingJobConfig,
-    entities: list[ScrapedAdminArea],
-) -> list[ScrapedAdminArea]:
-    """Apply optional SQL/TOML runtime extensions not needed by basic configs.
+def _apply_page_forced_highest_level_marker(entities: list[ScrapedAdminArea], page) -> list[ScrapedAdminArea]:
+    forced_level = getattr(page, "force_highest_level", None)
+    if forced_level in (None, ""):
+        return entities
+    marker = f"Forced highest level: {int(forced_level)}"
+    return [replace(entity, annotations=_append_annotation(entity.annotations, marker)) for entity in entities]
 
-    The domain config model intentionally keeps common CityPopulation fields
-    small.  A few countries need data-only post-processing such as synthetic
-    grouping rows or additive country totals.  Composition roots attach those
-    parsed extension dictionaries to the otherwise typed config so the use case
-    can keep the transformation deterministic and reusable.
+
+def _apply_page_sum_to_root_marker(entities: list[ScrapedAdminArea], page) -> list[ScrapedAdminArea]:
+    """Mark all rows parsed from a ``sum_to_root``/``sumar al padre`` page.
+
+    The linker later knows the canonical parent chain and can safely attach or
+    roll up the marked branch.  Doing this in the application layer keeps both
+    real HTML scrapers and test/dummy scrapers consistent.
     """
-    if not entities:
+    if not getattr(page, "sum_to_root", False):
         return entities
-
-    extended = list(entities)
-    extended = _apply_synthetic_entities(
-        config.country_code,
-        extended,
-        getattr(config, "runtime_synthetic_entities", ()),
-    )
-    extended = _apply_parent_overrides(
-        extended,
-        getattr(config, "runtime_parent_overrides", ()),
-    )
-    extended = _refresh_synthetic_entity_metrics(
-        extended,
-        getattr(config, "runtime_synthetic_entities", ()),
-    )
-    extended = _fill_missing_root_metrics_from_children(config.country_code, extended)
-    extended = _apply_root_metric_sources(
-        config.country_code,
-        extended,
-        getattr(config, "runtime_root_metric_sources", ()),
-    )
-    return extended
+    return [replace(entity, contributes_to_root=True) for entity in entities]
 
 
-def _apply_synthetic_entities(
-    country_code: str,
-    entities: list[ScrapedAdminArea],
-    specs,
-) -> list[ScrapedAdminArea]:
-    if not specs:
+def _apply_page_parent_level_marker(entities: list[ScrapedAdminArea], page) -> list[ScrapedAdminArea]:
+    parent_level = getattr(page, "parent_level", None)
+    if parent_level in (None, ""):
         return entities
+    marker = f"Forced parent level: {int(parent_level)}"
+    return [replace(entity, annotations=_append_annotation(entity.annotations, marker)) for entity in entities]
 
-    original_by_code = _first_entity_by_code(entities)
-    existing_codes = {entity.code for entity in entities}
-    updated = list(entities)
-    for spec in specs:
-        code = str(spec.get("code") or "").strip()
-        name = str(spec.get("name") or code).strip()
-        if not code or code in existing_codes:
-            continue
 
-        area_km2 = _metric_decimal(spec.get("area_km2"))
-        pop_latest = _metric_int(spec.get("pop_latest"))
-        pop_latest_date = spec.get("pop_latest_date") or None
-        density = None
-
-        copy_code = str(spec.get("copy_metrics_from") or "").strip()
-        if copy_code:
-            source = original_by_code.get(copy_code)
-            if source:
-                area_km2 = source.area_km2
-                pop_latest = source.pop_latest
-                pop_latest_date = source.pop_latest_date
-                density = source.density
-
-        metric_sources = _metric_sources_for_synthetic_spec(entities, spec)
-        if metric_sources:
-            area_km2 = _sum_decimals(source.area_km2 for source in metric_sources)
-            pop_latest = _sum_ints(source.pop_latest for source in metric_sources)
-            pop_latest_date = _latest_metric_date(source.pop_latest_date for source in metric_sources)
-            density = _density(pop_latest, area_km2)
-
-        entity_type = str(spec.get("entity_type") or "").strip()
-        raw_entity_type = str(spec.get("raw_entity_type") or entity_type).strip()
-        updated.append(
-            ScrapedAdminArea(
-                code=code,
-                name=name,
-                level=int(spec.get("level") or 0),
-                country_code=country_code,
-                parent_code=str(spec.get("parent_code") or "").strip() or None,
-                entity_type=entity_type,
-                raw_entity_type=raw_entity_type,
-                area_km2=area_km2,
-                density=density,
-                pop_latest=pop_latest,
-                pop_latest_date=pop_latest_date,
-                url=str(spec.get("url") or "").strip(),
-                data_wd=str(spec.get("data_wd") or spec.get("data-wd") or "").strip(),
-            )
-        )
-        existing_codes.add(code)
-    return updated
-
-
-
-def _refresh_synthetic_entity_metrics(
-    entities: list[ScrapedAdminArea],
-    specs,
-) -> list[ScrapedAdminArea]:
-    if not specs:
-        return entities
-
-    specs_by_code = {str(spec.get("code") or "").strip(): spec for spec in specs if str(spec.get("code") or "").strip()}
-    if not specs_by_code:
-        return entities
-
-    updated = []
-    for entity in entities:
-        spec = specs_by_code.get(entity.code)
-        if not spec:
-            updated.append(entity)
-            continue
-        sources = _metric_sources_for_synthetic_spec(entities, spec, exclude_codes={entity.code})
-        if not sources:
-            updated.append(entity)
-            continue
-        area_km2 = _sum_decimals(source.area_km2 for source in sources)
-        pop_latest = _sum_ints(source.pop_latest for source in sources)
-        pop_latest_date = _latest_metric_date(source.pop_latest_date for source in sources)
-        updated.append(
-            replace(
-                entity,
-                area_km2=area_km2,
-                pop_latest=pop_latest,
-                pop_latest_date=pop_latest_date,
-                density=_density(pop_latest, area_km2),
-            )
-        )
-    return updated
-
-
-def _metric_sources_for_synthetic_spec(
-    entities: list[ScrapedAdminArea],
-    spec: dict,
-    *,
-    exclude_codes: set[str] | None = None,
-) -> list[ScrapedAdminArea]:
-    exclude_codes = exclude_codes or set()
-    by_code = _first_entity_by_code(entities)
-    sources: list[ScrapedAdminArea] = []
-    seen: set[str] = set()
-
-    for raw_code in spec.get("metric_source_codes") or ():
-        code = str(raw_code).strip()
-        source = by_code.get(code)
-        if source and source.code not in exclude_codes and source.code not in seen:
-            sources.append(source)
-            seen.add(source.code)
-
-    parent_code = str(spec.get("metric_source_parent_code") or "").strip()
-    raw_level = spec.get("metric_source_level")
-    metric_level = int(raw_level) if raw_level not in (None, "") else None
-    if parent_code or metric_level is not None:
-        for entity in entities:
-            if entity.code in exclude_codes or entity.code in seen:
-                continue
-            if parent_code and entity.parent_code != parent_code:
-                continue
-            if metric_level is not None and entity.level != metric_level:
-                continue
-            sources.append(entity)
-            seen.add(entity.code)
-
-    return sources
-
-
-def _fill_missing_root_metrics_from_children(
-    country_code: str,
-    entities: list[ScrapedAdminArea],
-) -> list[ScrapedAdminArea]:
-    roots = [entity for entity in entities if entity.code == country_code and entity.level == 0]
-    if not roots:
-        return entities
-
-    root = roots[0]
-    if root.pop_latest is not None and root.area_km2 is not None:
-        return entities
-
-    child_levels = [entity.level for entity in entities if entity.parent_code == root.code and entity.level > root.level]
-    if not child_levels:
-        return entities
-    highest_child_level = min(child_levels)
-    sources = [
-        entity
-        for entity in entities
-        if entity.parent_code == root.code and entity.level == highest_child_level
-    ]
-    if not sources:
-        return entities
-
-    area_km2 = root.area_km2 if root.area_km2 is not None else _sum_decimals(source.area_km2 for source in sources)
-    pop_latest = root.pop_latest if root.pop_latest is not None else _sum_ints(source.pop_latest for source in sources)
-    pop_latest_date = root.pop_latest_date or _latest_metric_date(source.pop_latest_date for source in sources)
-    updated_root = replace(
-        root,
-        area_km2=area_km2,
-        pop_latest=pop_latest,
-        pop_latest_date=pop_latest_date,
-        density=_density(pop_latest, area_km2),
-    )
-    return [updated_root if entity is root else entity for entity in entities]
-
-def _apply_parent_overrides(entities: list[ScrapedAdminArea], overrides) -> list[ScrapedAdminArea]:
-    if not overrides:
-        return entities
-
-    updated = []
-    for entity in entities:
-        replacement = entity
-        for override in overrides:
-            if not _matches_parent_override(entity, override):
-                continue
-            values = {}
-            if "parent_code" in override:
-                values["parent_code"] = str(override.get("parent_code") or "").strip() or None
-            if "level" in override:
-                values["level"] = int(override["level"])
-            if values:
-                replacement = replace(replacement, **values)
-        updated.append(replacement)
-    return updated
-
-
-def _matches_parent_override(entity: ScrapedAdminArea, override: dict) -> bool:
-    codes = {str(value).strip() for value in override.get("codes") or () if str(value).strip()}
-    if codes and entity.code not in codes:
-        return False
-
-    names = {_normalize_entity_name(value) for value in override.get("names") or () if str(value).strip()}
-    if names and _normalize_entity_name(entity.name) not in names:
-        return False
-
-    levels = {int(value) for value in override.get("match_levels") or ()}
-    if levels and entity.level not in levels:
-        return False
-
-    # Avoid reparenting synthetic containers by default when an override targets
-    # a broad scraped level such as all French regions.
-    exclude_codes = {str(value).strip() for value in override.get("exclude_codes") or () if str(value).strip()}
-    if entity.code in exclude_codes:
-        return False
-    return bool(codes or names or levels)
-
-
-def _apply_root_metric_sources(
-    country_code: str,
-    entities: list[ScrapedAdminArea],
-    specs,
-) -> list[ScrapedAdminArea]:
-    if not specs:
-        return entities
-
-    additions = [_metric_source_entity(entities, spec) for spec in specs]
-    additions = [entity for entity in additions if entity]
-    if not additions:
-        return entities
-
-    updated = []
-    for entity in entities:
-        if entity.code != country_code or entity.level != 0:
-            updated.append(entity)
-            continue
-        area_km2 = _sum_decimals([entity.area_km2, *[source.area_km2 for source in additions]])
-        pop_latest = _sum_ints([entity.pop_latest, *[source.pop_latest for source in additions]])
-        pop_latest_date = _latest_metric_date([entity.pop_latest_date, *[source.pop_latest_date for source in additions]])
-        updated.append(
-            replace(
-                entity,
-                area_km2=area_km2,
-                pop_latest=pop_latest,
-                pop_latest_date=pop_latest_date,
-                density=_density(pop_latest, area_km2),
-            )
-        )
-    return updated
-
-
-def _metric_source_entity(entities: list[ScrapedAdminArea], spec: dict) -> ScrapedAdminArea | None:
-    code = str(spec.get("code") or "").strip()
-    if code:
-        for entity in entities:
-            if entity.code == code:
-                return entity
-
-    name = str(spec.get("name") or "").strip()
-    if name:
-        normalized = _normalize_entity_name(name)
-        for entity in entities:
-            if _normalize_entity_name(entity.name) == normalized:
-                return entity
-
-    path = str(spec.get("path") or spec.get("url") or "").strip().strip("/")
-    if path:
-        for entity in entities:
-            url_path = urlparse(entity.url or "").path.strip("/")
-            if url_path.endswith(path):
-                return entity
-    return None
-
-
-def _first_entity_by_code(entities: list[ScrapedAdminArea]) -> dict[str, ScrapedAdminArea]:
-    by_code: dict[str, ScrapedAdminArea] = {}
-    for entity in entities:
-        by_code.setdefault(entity.code, entity)
-    return by_code
-
-
-def _metric_decimal(value):
-    if value in (None, ""):
-        return None
-    try:
-        return Decimal(str(value))
-    except (InvalidOperation, ValueError):
-        return None
-
-
-def _metric_int(value):
-    if value in (None, ""):
-        return None
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def _sum_decimals(values):
-    total = Decimal("0")
-    found = False
-    for value in values:
-        if value in (None, ""):
-            continue
-        decimal_value = _metric_decimal(value)
-        if decimal_value is None:
-            continue
-        total += decimal_value
-        found = True
-    return total if found else None
-
-
-def _sum_ints(values):
-    total = 0
-    found = False
-    for value in values:
-        if value in (None, ""):
-            continue
-        try:
-            total += int(value)
-            found = True
-        except (TypeError, ValueError):
-            continue
-    return total if found else None
-
-
-def _latest_metric_date(values):
-    present = [value for value in values if value]
-    if not present:
-        return None
-    return max(present)
-
-
-def _density(pop_latest, area_km2):
-    if not pop_latest or not area_km2:
-        return None
-    decimal_area = _metric_decimal(area_km2)
-    if not decimal_area:
-        return None
-    return Decimal(str(pop_latest)) / decimal_area
-
-def _rewrite_synthetic_page_roots(
-    country_code: str,
-    entities: list[ScrapedAdminArea],
-) -> list[ScrapedAdminArea]:
-    """Rewrite transient page-local roots produced by the table scraper.
-
-    ``table`` can emit synthetic roots with ``code == country_code`` when a
-    CityPopulation page only describes the page territory in an infosection.
-    This function keeps the behaviour generic:
-
-    * if the same-name/same-level entity already exists, children are attached
-      to that real entity;
-    * if the same name exists only at a lower level, a deterministic
-      equivalent-level entity is created between the lower-level parent and the
-      deeper children.
-
-    That covers Ceuta/Melilla-style structures without hardcoding any country.
-    """
-    synthetic_roots = [
-        entity
-        for entity in entities
-        if entity.code == country_code and entity.level > 0
-    ]
-    if not synthetic_roots:
-        return entities
-
-    real_entities = [
-        entity
-        for entity in entities
-        if entity.code != country_code and entity.level > 0
-    ]
-    real_by_level_name: dict[tuple[int, str], ScrapedAdminArea] = {}
-    real_by_name: dict[str, list[ScrapedAdminArea]] = {}
-    for entity in real_entities:
-        name_key = _normalize_entity_name(entity.name)
-        real_by_level_name.setdefault((entity.level, name_key), entity)
-        real_by_name.setdefault(name_key, []).append(entity)
-
-    used_codes = {entity.code for entity in entities if entity.code != country_code}
-    replacement_by_object: dict[int, ScrapedAdminArea] = {}
-    for synthetic in synthetic_roots:
-        name_key = _normalize_entity_name(synthetic.name)
-        exact = real_by_level_name.get((synthetic.level, name_key))
-        if exact:
-            replacement_by_object[id(synthetic)] = replace(
-                synthetic,
-                code=exact.code,
-                parent_code=exact.parent_code,
-                entity_type=exact.entity_type or synthetic.entity_type,
-                raw_entity_type=exact.raw_entity_type or synthetic.raw_entity_type,
-            )
-            continue
-
-        lower_parent = _closest_lower_same_name_parent(synthetic, real_by_name.get(name_key, []))
-        if lower_parent:
-            code = _unique_synthetic_equivalent_code(country_code, synthetic, lower_parent, used_codes)
-            used_codes.add(code)
-            replacement_by_object[id(synthetic)] = replace(
-                synthetic,
-                code=code,
-                parent_code=lower_parent.code,
-            )
-
-    if not replacement_by_object:
-        return entities
-
-    parent_rewrites = sorted(
-        (
-            (synthetic, replacement_by_object[id(synthetic)])
-            for synthetic in synthetic_roots
-            if id(synthetic) in replacement_by_object
-        ),
-        key=lambda item: item[0].level,
-        reverse=True,
-    )
-
-    updated = []
-    for entity in entities:
-        replacement = replacement_by_object.get(id(entity))
-        if replacement:
-            updated.append(replacement)
-            continue
-
-        next_entity = entity
-        for synthetic, synthetic_replacement in parent_rewrites:
-            if (
-                entity.parent_code == country_code
-                and entity.level > synthetic.level
-                and _entity_belongs_to_page_root(entity, synthetic)
-            ):
-                next_entity = replace(entity, parent_code=synthetic_replacement.code)
-                break
-        updated.append(next_entity)
-    return updated
-
-
-def _closest_lower_same_name_parent(
-    synthetic: ScrapedAdminArea,
-    candidates: list[ScrapedAdminArea],
-) -> ScrapedAdminArea | None:
-    lower = [candidate for candidate in candidates if candidate.level < synthetic.level]
-    if not lower:
-        return None
-    best_level = max(candidate.level for candidate in lower)
-    best = [candidate for candidate in lower if candidate.level == best_level]
-    if len(best) != 1:
-        return None
-    return best[0]
-
-
-def _unique_synthetic_equivalent_code(
-    country_code: str,
-    synthetic: ScrapedAdminArea,
-    parent: ScrapedAdminArea,
-    used_codes: set[str],
-) -> str:
-    slug = _page_root_slug(synthetic.url) or _normalize_url_slug(synthetic.name) or "equivalent"
-    parent_part = re.sub(r"[^a-z0-9_]+", "_", str(parent.code or country_code).casefold()).strip("_")
-    slug_part = re.sub(r"[^a-z0-9_]+", "_", str(slug).casefold()).strip("_") or "equivalent"
-    base = f"{parent_part}_{slug_part}_l{int(synthetic.level)}"
-    code = base
-    counter = 2
-    while code in used_codes or code == country_code:
-        code = f"{base}_{counter}"
-        counter += 1
-    return code
-
-
-def _entity_belongs_to_page_root(entity: ScrapedAdminArea, root: ScrapedAdminArea) -> bool:
-    root_slug = _page_root_slug(root.url) or _normalize_url_slug(root.name)
-    if not root_slug:
-        return False
-    path = urlparse(entity.url or "").path.casefold()
-    return f"/{root_slug}/" in path or path.rstrip("/").endswith(f"/{root_slug}")
-
-
-def _page_root_slug(url: str | None) -> str | None:
-    if not url:
-        return None
-    segments = [segment for segment in urlparse(url).path.split("/") if segment]
-    if len(segments) < 2:
-        return None
-
-    # /en/spain/ceuta/ -> ceuta
-    # /en/poland/dolnoslaskie/admin/ -> dolnoslaskie
-    generic_tail = {"admin"}
-    for segment in reversed(segments):
-        normalized = _normalize_url_slug(segment)
-        if normalized and normalized not in generic_tail:
-            return normalized
-    return None
-
-
-def _normalize_entity_name(value: str | None) -> str:
-    text = re.sub(r"\s*\([^)]*\)\s*$", "", str(value or "").strip())
-    return " ".join(text.casefold().split())
-
-
-def _keep_first_scraped_entity(entities: list[ScrapedAdminArea]) -> list[ScrapedAdminArea]:
-    """Deduplicate by `(country_code, code)` while preserving first appearance."""
-    seen = set()
-    deduplicated = []
-    for entity in entities:
-        key = (entity.country_code, entity.code)
-        if key in seen:
-            continue
-        seen.add(key)
-        deduplicated.append(entity)
-    return deduplicated
-
-
-def _normalize_synthetic_country_parent_codes(
-    country_code: str,
-    entities: list[ScrapedAdminArea],
-) -> list[ScrapedAdminArea]:
-    if any(entity.code == country_code for entity in entities):
-        return entities
-
-    roots = [entity for entity in entities if entity.level == 0]
-    if len(roots) != 1:
-        return entities
-
-    root_code = roots[0].code
-    return [
-        replace(entity, parent_code=root_code)
-        if entity.parent_code == country_code
-        else entity
-        for entity in entities
-    ]
-
-
-def _infer_parent_codes_from_url_path(entities: list[ScrapedAdminArea]) -> list[ScrapedAdminArea]:
-    """Use CityPopulation URL path slugs to fill missing parent codes when unique.
-
-    The unified ``table``/``double`` scraper deliberately leaves contextual
-    rows unparented when CityPopulation encodes the parent in the page URL
-    rather than in every row URL.  Spain's autonomous cities are an example:
-    ``/localities/ceuta/`` contains the level-2 municipality ``Ceuta`` and the
-    parent level-1 autonomous city is also exposed elsewhere with the slug
-    ``ceuta``.  Prefer that more specific URL parent over the country fallback.
-    """
-    slug_index: dict[tuple[str, int, str], set[str]] = {}
-    for entity in entities:
-        slug = _entity_url_slug(entity.url) or _plain_entity_url_slug(entity.url)
-        if not slug:
-            continue
-        key = (entity.country_code, entity.level, slug)
-        slug_index.setdefault(key, set()).add(entity.code)
-
-    unique_codes = {
-        key: next(iter(codes))
-        for key, codes in slug_index.items()
-        if len(codes) == 1
-    }
-
-    updated = []
-    for entity in entities:
-        if entity.level <= 0:
-            updated.append(entity)
-            continue
-        if entity.parent_code and entity.parent_code != entity.country_code:
-            updated.append(entity)
-            continue
-
-        parent_code = None
-        for parent_slug in _url_parent_slug_candidates(entity.url):
-            parent_code = unique_codes.get((entity.country_code, entity.level - 1, parent_slug))
-            if parent_code and parent_code != entity.code:
-                break
-            parent_code = None
-        if not parent_code:
-            updated.append(entity)
-            continue
-
-        updated.append(replace(entity, parent_code=parent_code))
-    return updated
-
-
-def _entity_url_slug(url: str | None) -> str | None:
-    segment = _last_url_path_segment(url)
-    if not segment or "__" not in segment:
-        return None
-    return _normalize_url_slug(segment.split("__", 1)[1])
-
-
-def _url_parent_slug_candidates(url: str | None) -> tuple[str, ...]:
-    if not url:
-        return ()
-    path = urlparse(url).path
-    segments = [segment for segment in path.split("/") if segment]
-    if len(segments) < 2:
-        return ()
-
-    candidates: list[str] = []
-    last_segment = segments[-1]
-    if "__" not in last_segment:
-        candidates.append(_normalize_url_slug(last_segment))
-
-    parent_segment = segments[-2]
-    if "__" in parent_segment:
-        parent_segment = parent_segment.split("__", 1)[1]
-    candidates.append(_normalize_url_slug(parent_segment))
-
-    unique: list[str] = []
-    for candidate in candidates:
-        if candidate and candidate not in unique:
-            unique.append(candidate)
-    return tuple(unique)
-
-
-def _url_parent_slug(url: str | None) -> str | None:
-    candidates = _url_parent_slug_candidates(url)
-    return candidates[0] if candidates else None
-
-
-def _plain_entity_url_slug(url: str | None) -> str | None:
-    segment = _last_url_path_segment(url)
-    if not segment or "__" in segment:
-        return None
-    return _normalize_url_slug(segment)
-
-
-def _last_url_path_segment(url: str | None) -> str | None:
-    if not url:
-        return None
-    path = urlparse(url).path
-    segments = [segment for segment in path.split("/") if segment]
-    return segments[-1] if segments else None
-
-
-def _normalize_url_slug(value: str) -> str:
-    return unquote(value).strip().casefold()
+def _build_page_url(base_url: str, path: str) -> str:
+    if path.startswith(("http://", "https://")):
+        return path.rstrip("/") + "/"
+    return urljoin(base_url.rstrip("/") + "/", path.strip("/") + "/")
 
 
 def _apply_page_area_overrides(
@@ -1014,36 +331,51 @@ def _apply_page_area_overrides(
 ) -> list[ScrapedAdminArea]:
     if root_area_km2 is None and not area_overrides:
         return entities
-
-    updated = []
+    updated: list[ScrapedAdminArea] = []
     for entity in entities:
         area_km2 = _custom_area_for(entity, root_area_km2, area_overrides)
         if area_km2 is None:
             updated.append(entity)
             continue
-
         density = entity.density
         if entity.pop_latest is not None and area_km2 != 0:
-            density = entity.pop_latest / area_km2
+            density = Decimal(entity.pop_latest) / Decimal(str(area_km2))
         updated.append(replace(entity, area_km2=area_km2, density=density))
     return updated
 
 
-def _custom_area_for(
-    entity: ScrapedAdminArea,
-    root_area_km2,
-    area_overrides: dict[str, object],
-):
+def _custom_area_for(entity: ScrapedAdminArea, root_area_km2, area_overrides: dict[str, object]):
     for key in (entity.id, entity.code, entity.name):
         if key in area_overrides:
-            return area_overrides[key]
+            return _decimal_or_original(area_overrides[key])
     if root_area_km2 is not None and entity.code == entity.country_code:
-        return root_area_km2
+        return _decimal_or_original(root_area_km2)
     return None
 
 
-def _page_url(base_url: str, path: str) -> str:
-    """Build a display URL for progress logs."""
-    if path.startswith(("http://", "https://")):
-        return path.rstrip("/") + "/"
-    return f"{base_url.rstrip('/')}/{path.strip('/')}/"
+def _decimal_or_original(value):
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return value
+
+
+def _keep_first_scraped_entity(entities: list[ScrapedAdminArea]) -> list[ScrapedAdminArea]:
+    seen: set[tuple[str, str]] = set()
+    kept: list[ScrapedAdminArea] = []
+    for entity in entities:
+        key = (str(entity.country_code), str(entity.code))
+        if key in seen:
+            continue
+        seen.add(key)
+        kept.append(entity)
+    return kept
+
+
+def _append_annotation(value: str | None, annotation: str) -> str:
+    current = str(value or "").strip()
+    if not current:
+        return annotation
+    if annotation in current:
+        return current
+    return f"{current}; {annotation}"

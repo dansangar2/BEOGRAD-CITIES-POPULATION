@@ -341,6 +341,9 @@ class ScrapingConfig(models.Model):
     pages_count = models.PositiveIntegerField(default=0)
     cities_count = models.PositiveIntegerField(default=0)
     has_representation = models.BooleanField(default=False)
+    schema_version = models.PositiveSmallIntegerField(default=2)
+    scrape_types = models.CharField(max_length=128, blank=True, default="")
+    pages_config = models.JSONField(default=list, blank=True)
     is_valid = models.BooleanField(default=True, db_index=True)
     validation_error = models.TextField(blank=True, default="")
     imported_at = models.DateTimeField(null=True, blank=True)
@@ -356,6 +359,82 @@ class ScrapingConfig(models.Model):
 
     def __str__(self):
         return f"{self.slug} ({self.country_code})"
+
+
+class DerivedCountry(models.Model):
+    """Container for alternative countries built from scraped subdivisions."""
+
+    slug = models.SlugField(max_length=128, primary_key=True)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    source_country_code = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name", "slug"]
+        indexes = [
+            models.Index(fields=["source_country_code", "slug"], name="dercountry_source_slug_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.slug})"
+
+
+class DerivedCountryConfig(models.Model):
+    """TOML-backed configuration for one derived country variant."""
+
+    country = models.ForeignKey(
+        DerivedCountry,
+        on_delete=models.CASCADE,
+        related_name="configs",
+    )
+    slug = models.SlugField(max_length=128)
+    name = models.CharField(max_length=255)
+    content = models.TextField(blank=True, default="")
+    source_country_code = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    derived_country_code = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["country_id", "name", "slug"]
+        constraints = [
+            models.UniqueConstraint(fields=["country", "slug"], name="derconf_country_slug_uniq"),
+        ]
+        indexes = [
+            models.Index(fields=["country", "is_active"], name="derconf_country_active_idx"),
+            models.Index(fields=["derived_country_code"], name="derconf_derived_code_idx"),
+        ]
+
+    @property
+    def full_slug(self) -> str:
+        return f"{self.country_id}:{self.slug}"
+
+    def __str__(self):
+        return f"{self.country_id}/{self.slug}"
+
+
+class SubdivisionGroup(models.Model):
+    """Reusable TOML group definition for historical or custom subdivisions."""
+
+    slug = models.SlugField(max_length=128, primary_key=True)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    content = models.TextField(blank=True, default="")
+    source_country_code = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name", "slug"]
+        indexes = [
+            models.Index(fields=["source_country_code", "slug"], name="subgroup_source_slug_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.slug})"
 
 
 class VisualAsset(models.Model):

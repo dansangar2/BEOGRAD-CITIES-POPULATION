@@ -1,0 +1,39 @@
+{% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Grupos - Ciudades del Mundo" %}{% endblock %}
+
+{% block content %}
+<section class="page-head compact">
+  <div>
+    <p class="eyebrow">{% trans "Subdivisiones reutilizables" %}</p>
+    <h1>{% trans "Grupos" %}</h1>
+  </div>
+  <a class="button secondary" href="{% url 'ciudades_del_mundo:group_new' %}">{% trans "Nuevo grupo" %}</a>
+</section>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Slug</th>
+        <th>{% trans "Nombre" %}</th>
+        <th>{% trans "Pais fuente" %}</th>
+        <th>{% trans "Acciones" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for group in groups %}
+      <tr>
+        <td><code>{{ group.slug }}</code></td>
+        <td>{{ group.name }}</td>
+        <td>{{ group.source_country_code|default:"-" }}</td>
+        <td><a href="{% url 'ciudades_del_mundo:group_edit' group.slug %}">{% trans "Editar" %}</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4">{% trans "No hay grupos creados." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

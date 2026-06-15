@@ -17,7 +17,15 @@ class DivisionSourceType(StrEnum):
     TABLE = "table"
     DOUBLE = "double"
     CITIES = "cities"
+    CITIESADMIN = "citiesadmin"
     INFOSECTION = "infosection"
+
+
+CONFIGURED_SOURCE_TYPES = {
+    DivisionSourceType.CITIES.value,
+    DivisionSourceType.ADMIN.value,
+    DivisionSourceType.CITIESADMIN.value,
+}
 
 
 class RepresentationSystem(StrEnum):
@@ -43,36 +51,103 @@ class ScrapingPageConfig:
     table_levels: dict[str, int] = field(default_factory=dict)
     status_levels: dict[str, int] = field(default_factory=dict)
     include_tables: tuple[str, ...] = ()
+    include_sections: tuple[str, ...] = ()
     include_root: bool = True
+    force_highest_level: int | None = None
+    parent_level: int | None = None
     root_level: int | None = None
     root_code: str | None = None
     root_name: str | None = None
     root_parent_code: str | None = None
     root_entity_type: str | None = None
+    repeat: dict[str, int] = field(default_factory=dict)
+    sum_to_root: bool = False
+
+    @property
+    def include_infosection(self) -> bool:
+        return self._section_enabled("infosection")
+
+    @property
+    def include_major_subdivision(self) -> bool:
+        return self._section_enabled("major_subdivision")
+
+    @property
+    def include_minor_subdivision(self) -> bool:
+        return self._section_enabled("minor_subdivision")
+
+    @property
+    def include_cities(self) -> bool:
+        return self._section_enabled("cities")
+
+    def _section_enabled(self, section: str) -> bool:
+        if self.include_sections:
+            return section in self.include_sections
+        if section == "infosection":
+            return self.include_root
+        if not self.include_tables:
+            return True
+        if "__none__" in self.include_tables:
+            return False
+        aliases = {
+            "major_subdivision": {"tl", "admin1", "1"},
+            "minor_subdivision": {"tl_child", "admin2", "2"},
+            "cities": {"ts"},
+        }
+        return bool(aliases.get(section, set(self.include_tables)) & set(self.include_tables))
 
     @classmethod
-    def from_mapping(cls, data: dict, *, path: str) -> "ScrapingPageConfig":
+    def from_mapping(
+        cls,
+        data: dict,
+        *,
+        path: str,
+        schema_version: int = 1,
+    ) -> "ScrapingPageConfig":
         source = data.get("source", data.get("html_format"))
         if not source:
             raise ValueError("PAGE debe declarar 'source' o 'html_format'.")
 
+        html_format = DivisionSourceType(str(source)).value
+        if html_format not in CONFIGURED_SOURCE_TYPES:
+            raise ValueError("source debe ser 'cities' o 'admin' o 'citiesadmin'.")
+        include_spec = data.get("include")
+        include_tables = _parse_include_tables(data.get("include_tables", data.get("tables")))
+        include_sections = _parse_include_sections(data.get("include_sections"))
+        if include_spec is not None:
+            # ``include`` is authoritative in schema v2.  A page may request
+            # only the infosection/root and explicitly disable every table,
+            # e.g. ``include = { cities = false, major_subdivision = false,
+            # infosection = true }``.  Do not treat that as the legacy empty
+            # tuple meaning "include all tables".
+            include_tables = _include_tables_from_include_spec(html_format, include_spec)
+            include_sections = _include_sections_from_include_spec(html_format, include_spec)
+
+        include_root = bool(data.get("include_root", True))
+        if isinstance(include_spec, dict) and "infosection" in include_spec:
+            include_root = bool(include_spec.get("infosection"))
+
         return cls(
             path=str(path).strip("/"),
-            html_format=DivisionSourceType(str(source)).value,
-            lowest_level=int(data.get("lowest_level", data.get("level", 1))),
+            html_format=html_format,
+            lowest_level=_page_lowest_level(data, path=path, source=html_format, schema_version=schema_version),
             area_km2=_decimal_or_none(data.get("area_km2", data.get("size", data.get("custom_size")))),
             area_overrides=_parse_area_overrides(
                 data.get("area_overrides", data.get("size_overrides", data.get("custom_sizes")))
             ),
             table_levels=_parse_table_levels(data.get("table_levels", data.get("levels"))),
             status_levels=_parse_status_levels(data.get("status_levels", data.get("entity_type_levels"))),
-            include_tables=_parse_include_tables(data.get("include_tables", data.get("tables"))),
-            include_root=bool(data.get("include_root", True)),
+            include_tables=include_tables,
+            include_sections=include_sections,
+            include_root=include_root,
+            force_highest_level=_int_or_none(data.get("force_highest_level", data.get("forced_level"))),
+            parent_level=_int_or_none(data.get("parent_level", data.get("force_parent_level"))),
             root_level=_int_or_none(data.get("root_level")),
             root_code=_optional_string(data.get("root_code")),
             root_name=_optional_string(data.get("root_name")),
             root_parent_code=_optional_string(data.get("root_parent_code")),
             root_entity_type=_optional_string(data.get("root_entity_type")),
+            repeat=_parse_repeat(data.get("repeat")),
+            sum_to_root=bool(data.get("sum_to_root", False)),
         )
 
 
@@ -213,7 +288,12 @@ def parse_entity_merges(items: Iterable[dict] | None) -> list[EntityMergeConfig]
     return [EntityMergeConfig.from_mapping(item) for item in (items or [])]
 
 
-def parse_pages(items: Iterable[dict] | None, *, slug: str) -> list[ScrapingPageConfig]:
+def parse_pages(
+    items: Iterable[dict] | None,
+    *,
+    slug: str,
+    schema_version: int = 1,
+) -> list[ScrapingPageConfig]:
     pages = []
     for item in items or []:
         raw_paths = item.get("path")
@@ -226,9 +306,108 @@ def parse_pages(items: Iterable[dict] | None, *, slug: str) -> list[ScrapingPage
 
         for raw_path in paths:
             normalized = _normalize_page_path(slug, raw_path)
-            pages.append(ScrapingPageConfig.from_mapping(item, path=normalized))
+            pages.append(ScrapingPageConfig.from_mapping(item, path=normalized, schema_version=schema_version))
     return pages
 
+
+
+def _page_lowest_level(data: dict, *, path: str, source: str, schema_version: int) -> int:
+    if data.get("force_highest_level") is not None or data.get("forced_level") is not None:
+        return int(data.get("force_highest_level", data.get("forced_level")))
+    if data.get("lowest_level") is not None or data.get("level") is not None:
+        return int(data.get("lowest_level", data.get("level")))
+
+    if int(schema_version or 1) < 2:
+        return 1
+
+    normalized_path = str(path or "").strip("/").casefold()
+    if source == DivisionSourceType.ADMIN.value and normalized_path.endswith("/admin"):
+        return 0
+    if source in {DivisionSourceType.CITIES.value, DivisionSourceType.CITIESADMIN.value} and normalized_path.endswith("/cities"):
+        # Country-level CityPopulation /cities/ pages usually expose the
+        # country total in table#tl/tfoot instead of in a normal infosection.
+        # Treat the page itself as level 0 so the cities scraper can parse and
+        # persist that root before reading Regions/Provinces and Cities.
+        return 0
+    if "/localities/" in f"/{normalized_path}/":
+        return 2
+    return 1
+
+
+def _include_tables_from_include_spec(source: str, value) -> tuple[str, ...]:
+    """Return legacy table hints derived from the logical section flags.
+
+    New scrapers use ``include_sections``.  ``include_tables`` is still filled
+    for backwards compatibility with existing diagnostics and older adapters.
+    """
+    sections = _include_sections_from_include_spec(source, value)
+    tables: list[str] = []
+    if "major_subdivision" in sections:
+        tables.append("admin1" if source == DivisionSourceType.ADMIN.value else "tl")
+    if "minor_subdivision" in sections:
+        tables.append("admin2" if source == DivisionSourceType.ADMIN.value else "tl_child")
+    if "cities" in sections:
+        tables.append("ts")
+    return tuple(tables) if tables else ("__none__",)
+
+
+def _include_sections_from_include_spec(source: str, value) -> tuple[str, ...]:
+    if not isinstance(value, dict):
+        raise ValueError("PAGE.include debe ser un dict de banderas booleanas.")
+
+    normalized = {str(key).strip().casefold(): bool(enabled) for key, enabled in value.items()}
+    if source == DivisionSourceType.ADMIN.value:
+        order = ("infosection", "major_subdivision", "minor_subdivision")
+        defaults = {
+            "infosection": normalized.get("infosection", True),
+            "major_subdivision": normalized.get("major_subdivision", normalized.get("admin1", True)),
+            "minor_subdivision": normalized.get("minor_subdivision", normalized.get("admin2", True)),
+        }
+    elif source == DivisionSourceType.CITIESADMIN.value:
+        order = ("infosection", "major_subdivision", "minor_subdivision", "cities")
+        defaults = {section: normalized.get(section, True) for section in order}
+    elif source == DivisionSourceType.CITIES.value:
+        order = ("infosection", "major_subdivision", "cities")
+        defaults = {section: normalized.get(section, True) for section in order}
+    else:
+        order = ("infosection", "major_subdivision", "minor_subdivision", "cities")
+        defaults = {section: normalized.get(section, True) for section in order}
+    return tuple(section for section in order if defaults.get(section, True))
+
+
+def _parse_include_sections(value) -> tuple[str, ...]:
+    if value in (None, ""):
+        return ()
+    if isinstance(value, str):
+        raw_values = [value]
+    elif isinstance(value, Iterable):
+        raw_values = list(value)
+    else:
+        raw_values = [value]
+    sections: list[str] = []
+    for raw in raw_values:
+        section = str(raw).strip().casefold()
+        if section and section not in sections:
+            sections.append(section)
+    return tuple(sections)
+
+
+def _parse_repeat(value) -> dict[str, int]:
+    if value in (None, ""):
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError("PAGE.repeat debe ser un dict {seccion: veces}.")
+    repeats: dict[str, int] = {}
+    for key, raw_count in value.items():
+        section = str(key).strip().casefold()
+        if not section:
+            raise ValueError("PAGE.repeat no puede declarar una sección vacía.")
+        try:
+            count = int(raw_count)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"PAGE.repeat[{key!r}] debe ser entero.") from exc
+        repeats[section] = count
+    return repeats
 
 def _as_tuple(value) -> tuple[str, ...]:
     if isinstance(value, (str, int)):

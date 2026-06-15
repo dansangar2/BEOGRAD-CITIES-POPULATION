@@ -1,6 +1,7 @@
 from .admin import CityPopulationAdminScraper
 from .auto import CityPopulationAutoScraper
 from .cities import CityPopulationCitiesScraper
+from .citiesadmin import CityPopulationCitiesAdminScraper
 from .double import CityPopulationDoubleScraper
 from .infosection import CityPopulationInfoSectionScraper
 from .page_types import CityPopulationPageProfile, CityPopulationPageType, detect_citypopulation_page_profile
@@ -24,6 +25,7 @@ __all__ = [
     "CityPopulationAdminScraper",
     "CityPopulationAutoScraper",
     "CityPopulationCitiesScraper",
+    "CityPopulationCitiesAdminScraper",
     "CityPopulationDoubleScraper",
     "CityPopulationInfoSectionScraper",
     "CityPopulationPageProfile",

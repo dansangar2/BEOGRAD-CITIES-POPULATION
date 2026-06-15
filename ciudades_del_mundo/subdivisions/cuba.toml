@@ -1,19 +1,20 @@
 LEGAL_SUBDIVISION = 1
+scrape_schema_version = 2
 
 [[pages]]
-source = "infosection"
+source = "cities"
 path = ["cities"]
-lowest_level = 0
+include = { cities = false, infosection = true, major_subdivision = false }
 
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+include = { admin1 = true, admin2 = true, infosection = true }
 
 [[pages]]
-source = "table"
+source = "cities"
 path = ["pinardelrio", "artemisa", "lahabana", "mayabeque", "matanzas", "cienfuegos", "villaclara", "sanctispiritus", "ciegodeavila", "camaguey", "lastunas", "holguin", "granma", "santiagodecuba", "guantanamo", "isladelajuventud"]
-lowest_level = 1
+include = { cities = true, infosection = true, major_subdivision = true }
 
 [visual_assets]
 bulk_country_wikidata = true

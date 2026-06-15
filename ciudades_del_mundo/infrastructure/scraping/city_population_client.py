@@ -33,6 +33,7 @@ class CityPopulationEntity:
     country_code: str
     url: str | None
     data_wd: str = ""
+    lookup_name: str | None = None
 
 
 class CityPopulationHtmlFetcher:
@@ -96,7 +97,9 @@ class CityPopulationClient:
 
     def base_for_urljoin(self, url: str) -> str:
         parsed = urlparse(url)
-        return f"{parsed.scheme}://{parsed.netloc}"
+        if not parsed.scheme or not parsed.netloc:
+            return url
+        return parsed._replace(fragment="").geturl()
 
     def detect_last_visible_pop_column(self, table: Tag) -> tuple[int, str | None]:
         visible_columns = self.visible_pop_columns(table)
@@ -186,6 +189,7 @@ class CityPopulationClient:
             country_code=country_code,
             url=self._row_url(tr, base_url),
             data_wd=self._row_data_wd(main_td, tr),
+            lookup_name=main_td.get_text(" ", strip=True),
         )
 
     def parse_tr_ts(
@@ -238,6 +242,7 @@ class CityPopulationClient:
             country_code=country_code,
             url=self._row_url(tr, base_url),
             data_wd=self._row_data_wd(main_td, tr),
+            lookup_name=main_td.get_text(" ", strip=True),
         )
 
     def safe_float(self, value: Optional[str]) -> float | None:

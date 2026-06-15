@@ -5,21 +5,14 @@ reset_before_import = true
 LEGAL_SUBDIVISION = 2
 
 # L0 country -> L1 regions -> L2 cities/urban areas -> L3 zones.
+scrape_schema_version = 2
+
 [[pages]]
-source = "table"
+source = "cities"
 path = ["cities"]
-lowest_level = 0
-root_code = "aruba"
-root_name = "Aruba"
-root_entity_type = "Country"
-include_tables = ["ts"]
-table_levels = { tl = 1, ts = 2 }
+include = { infosection = true, major_subdivision = true, cities = true }
 
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
-root_code = "aruba"
-root_name = "Aruba"
-root_entity_type = "Country"
-table_levels = { admin1 = 1, admin2 = 3 }
+include = { infosection = true, admin1 = true, admin2 = true }

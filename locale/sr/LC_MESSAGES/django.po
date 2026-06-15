@@ -1576,3 +1576,8 @@ msgstr "Нема доступних конфигурација за попуња
 
 msgid "Popular configuraciones disponibles (%(count)s)"
 msgstr "Попуни доступне конфигурације (%(count)s)"
+msgid "Sumar al padre"
+msgstr "Додај родитељу"
+
+msgid "Los checkboxes dependen de la fuente seleccionada. Sumar al padre agrega población y área de esa página al padre enlazado."
+msgstr "Поља зависе од изабраног извора. Додај родитељу додаје становништво и површину те странице повезаном родитељу."

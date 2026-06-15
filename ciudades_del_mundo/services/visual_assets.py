@@ -14,7 +14,7 @@ from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, unquote, urljoin, urlparse
+from urllib.parse import quote, unquote, urlencode, urljoin, urlparse
 from urllib.request import Request, urlopen
 import json
 import os
@@ -50,10 +50,12 @@ WIKIMEDIA_COMMONS_PREVIEW_WIDTH = 500
 WIKIMEDIA_COMMONS_THUMBNAIL_FALLBACK_WIDTH = 500
 WIKIDATA_BULK_ENTITY_LIMIT = 50
 WIKIDATA_DEFAULT_INDIVIDUAL_LOOKUP_LIMIT = 0
+COMMONS_SEARCH_LIMIT = 8
 _ASSET_STARTUP_LOCK = False
 _LAST_WIKIMEDIA_REQUEST_AT = 0.0
 _WIKIDATA_COUNTRY_ASSET_CACHE: dict[tuple[str, tuple[str, ...]], list["WikidataVisualAssetRecord"]] = {}
 _WIKIDATA_ENTITY_ASSET_CACHE: dict[tuple[str, tuple[str, ...], tuple[str, ...], bool], tuple[dict[str, "AssetCandidate"], dict[str, dict]]] = {}
+_COMMONS_SEARCH_ASSET_CACHE: dict[tuple[str, str, str, bool], "AssetCandidate | None"] = {}
 AssetLogger = Callable[[str], None]
 
 
@@ -325,6 +327,21 @@ def ensure_visual_assets_for_admin_area(
     for kind, candidate in configured_candidates.items():
         candidates[kind] = candidate
         _asset_log(logger, f"[assets] admin_area:{area.id} {kind}: config -> {candidate.source_url or candidate.remote_url}")
+    for kind in VISUAL_ASSET_KINDS:
+        if kind in candidates:
+            continue
+        candidate = commons_visual_asset_candidate_for_name(
+            area.name,
+            kind,
+            wikidata_id=wikidata_id,
+            fetch_metadata=False,
+        )
+        if candidate:
+            candidates[kind] = candidate
+            _asset_log(
+                logger,
+                f"[assets] admin_area:{area.id} {kind}: Commons -> {candidate.commons_filename}",
+            )
     return _persist_visual_candidates(
         entity_type="admin_area",
         entity_key=str(area.id),
@@ -370,7 +387,94 @@ def ensure_visual_assets_for_country_admin_areas(
             logger=logger,
         )
         total = _add_seed_results(total, result)
-    return total
+    shared = share_visual_assets_for_country_admin_areas(country_code, logger=logger)
+    return _add_seed_results(total, shared)
+
+
+def share_visual_assets_for_country_admin_areas(
+    country_code: str,
+    *,
+    logger: AssetLogger | None = None,
+) -> AssetSeedResult:
+    """Copy a discovered flag/coat/seal to all admin areas with the same QID.
+
+    Some CityPopulation territories are intentionally represented at several
+    homogeneous hierarchy levels but point to the same Wikidata entity.  Ceuta
+    is both an autonomous-city row, a province-equivalent row, a municipality
+    and a municipal seat.  When one of those rows already has a flag or coat of
+    arms, the same visual identity is valid for the sibling rows with the same
+    ``data_wd`` and must not be limited to a single entity.
+    """
+    if not visual_asset_tables_exist():
+        return AssetSeedResult(errors=1)
+    try:
+        from ciudades_del_mundo.models import AdminArea
+    except Exception:  # pragma: no cover - startup/import edge case.
+        return AssetSeedResult(errors=1)
+
+    areas = list(
+        AdminArea.objects.filter(country_code=country_code)
+        .exclude(level=0)
+        .exclude(city_merge_status=3)
+        .exclude(data_wd="")
+        .values("id", "name", "country_code", "data_wd", "level")
+        .order_by("data_wd", "level", "id")
+    )
+    groups: dict[str, list[dict]] = {}
+    for area in areas:
+        qid = str(area.get("data_wd") or "").strip().upper()
+        if not qid:
+            continue
+        groups.setdefault(qid, []).append(area)
+
+    shared = 0
+    for qid, qid_areas in groups.items():
+        if len(qid_areas) < 2:
+            continue
+        rows = _admin_area_visual_asset_rows([str(area["id"]) for area in qid_areas])
+        if not rows:
+            continue
+        rows_by_entity_kind = {
+            (str(row.get("entity_key") or ""), str(row.get("kind") or "")): row
+            for row in rows
+        }
+        best_by_kind: dict[str, dict] = {}
+        for row in rows:
+            kind = str(row.get("kind") or "")
+            if kind not in VISUAL_ASSET_KINDS or not _asset_row_can_be_shared(row):
+                continue
+            current = best_by_kind.get(kind)
+            if current is None or _asset_share_score(row) > _asset_share_score(current):
+                best_by_kind[kind] = row
+
+        for area in qid_areas:
+            entity_key = str(area["id"])
+            for kind, source in best_by_kind.items():
+                existing = rows_by_entity_kind.get((entity_key, kind))
+                if _asset_row_can_be_shared(existing):
+                    continue
+                if str(source.get("entity_key") or "") == entity_key and existing:
+                    continue
+                asset_id = _upsert_asset(
+                    entity_type="admin_area",
+                    entity_key=entity_key,
+                    entity_name=str(area.get("name") or entity_key),
+                    country_code=country_code,
+                    kind=kind,
+                    status=str(source.get("status") or "found"),
+                    source=_shared_asset_source(source),
+                    wikidata_id=qid,
+                    commons_filename=str(source.get("commons_filename") or ""),
+                    remote_url=str(source.get("remote_url") or ""),
+                    source_url=str(source.get("source_url") or ""),
+                    license_name=str(source.get("license_name") or ""),
+                    author=str(source.get("author") or ""),
+                    attribution=str(source.get("attribution") or ""),
+                )
+                _copy_visual_asset_translations(int(source["id"]), asset_id)
+                shared += 1
+                _asset_log(logger, f"[assets] admin_area:{entity_key} {kind}: compartido por data_wd {qid}")
+    return AssetSeedResult(found=shared)
 
 
 def seed_visual_assets_from_scraped_page(
@@ -617,6 +721,74 @@ def _add_seed_results(left: AssetSeedResult, right: AssetSeedResult) -> AssetSee
     )
 
 
+def _admin_area_visual_asset_rows(entity_keys: list[str]) -> list[dict]:
+    if not entity_keys:
+        return []
+    placeholders = ", ".join(["%s"] * len(entity_keys))
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT *
+              FROM {VISUAL_ASSET_TABLE}
+             WHERE entity_type='admin_area'
+               AND entity_key IN ({placeholders})
+            """,
+            entity_keys,
+        )
+        return _dictfetchall(cursor)
+
+
+def _asset_row_can_be_shared(row: dict | None) -> bool:
+    if not row:
+        return False
+    status = str(row.get("status") or "").casefold()
+    if status in {"", "missing", "error"}:
+        return False
+    return bool(row.get("remote_url") or row.get("commons_filename") or row.get("local_path"))
+
+
+def _asset_share_score(row: dict) -> tuple[int, int, int, int]:
+    status = str(row.get("status") or "").casefold()
+    return (
+        1 if status == "downloaded" or row.get("local_exists") else 0,
+        1 if row.get("remote_url") else 0,
+        1 if row.get("commons_filename") else 0,
+        0 if str(row.get("source") or "").startswith("shared") else 1,
+    )
+
+
+def _shared_asset_source(row: dict) -> str:
+    source = str(row.get("source") or "").strip()
+    if source.startswith("shared"):
+        return source[:40]
+    return "shared-data-wd"
+
+
+def _copy_visual_asset_translations(source_asset_id: int, target_asset_id: int) -> None:
+    if source_asset_id == target_asset_id:
+        return
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT language, title, description, blazon, source, needs_review
+              FROM {VISUAL_TRANSLATION_TABLE}
+             WHERE asset_id=%s
+            """,
+            [source_asset_id],
+        )
+        rows = _dictfetchall(cursor)
+    for row in rows:
+        _upsert_translation(
+            target_asset_id,
+            str(row.get("language") or ""),
+            title=str(row.get("title") or ""),
+            description=str(row.get("description") or ""),
+            blazon=str(row.get("blazon") or ""),
+            source=_shared_asset_source(row),
+            needs_review=bool(row.get("needs_review")),
+        )
+
+
 def _wikidata_query_for_area(name: str, country_name: str) -> str:
     name = _clean_text(name)
     country_name = _clean_text(country_name)
@@ -721,7 +893,7 @@ def get_visual_assets_for_entity(
             status = "downloaded"
             if source == "auto":
                 source = "local"
-        assets[kind] = {
+        payload = {
             **row,
             "source": source,
             "status": status,
@@ -734,16 +906,54 @@ def get_visual_assets_for_entity(
             "image_url": remote_url or local_url,
             "translations": translations_by_asset.get(int(row["id"]), {}),
         }
+        current = assets.get(kind)
+        if current is None or _asset_payload_score(payload) > _asset_payload_score(current):
+            assets[kind] = payload
     if include_fallbacks and entity_type == "country":
         for kind, asset in _configured_country_visual_assets(entity_key).items():
-            assets.setdefault(kind, asset)
+            current = assets.get(kind)
+            if current is None or _asset_payload_score(asset) > _asset_payload_score(current):
+                assets[kind] = asset
     if include_fallbacks and entity_type == "admin_area":
         for kind, asset in _configured_admin_area_visual_assets(entity_key).items():
-            assets.setdefault(kind, asset)
+            current = assets.get(kind)
+            if current is None or _asset_payload_score(asset) > _asset_payload_score(current):
+                assets[kind] = asset
     if include_fallbacks:
         for kind, asset in _local_folder_assets_for_entity(entity_type, entity_key).items():
-            assets.setdefault(kind, asset)
+            current = assets.get(kind)
+            if current is None or _asset_payload_score(asset) > _asset_payload_score(current):
+                assets[kind] = asset
     return assets
+
+
+def _asset_payload_score(asset: dict | None) -> tuple[int, int, int, int, int, int]:
+    """Prefer usable visual rows over stale/missing duplicates.
+
+    Older local databases may contain duplicate visual-asset rows created before
+    the unique constraint was present or after a failed/missing pass.  The API
+    must not let a stale ``missing`` row hide a valid Commons/Wikimedia image.
+    """
+    if not asset:
+        return (0, 0, 0, 0, 0, 0)
+    status = str(asset.get("status") or "").casefold()
+    has_remote = bool(asset.get("remote_url") or asset.get("image_url"))
+    has_commons = bool(asset.get("commons_filename"))
+    has_local = bool(asset.get("local_url") or asset.get("local_exists") or asset.get("local_path"))
+    status_score = {"downloaded": 4, "remote": 3, "found": 3, "ok": 2}.get(status, 0 if status in {"", "missing", "error"} else 1)
+    source = str(asset.get("source") or "")
+    try:
+        row_id = int(asset.get("id") or 0)
+    except (TypeError, ValueError):
+        row_id = 0
+    return (
+        status_score,
+        1 if (has_remote or has_commons or has_local) else 0,
+        1 if has_remote else 0,
+        1 if has_commons else 0,
+        1 if not source.startswith("shared") else 0,
+        row_id,
+    )
 
 
 def get_visual_asset_for_entity_kind(entity_type: str, entity_key: str, kind: str) -> dict | None:
@@ -758,6 +968,19 @@ def get_visual_asset_for_entity_kind(entity_type: str, entity_key: str, kind: st
                attribution, source_url, updated_at
           FROM {VISUAL_ASSET_TABLE}
          WHERE entity_type=%s AND entity_key=%s AND kind=%s
+         ORDER BY
+             CASE
+                 WHEN status IN ('downloaded', 'remote', 'found') THEN 3
+                 WHEN status = 'missing' THEN 0
+                 WHEN status = 'error' THEN 0
+                 ELSE 1
+             END DESC,
+             CASE
+                 WHEN remote_url <> '' OR commons_filename <> '' OR local_path <> '' OR local_exists THEN 1
+                 ELSE 0
+             END DESC,
+             updated_at DESC,
+             id DESC
          LIMIT 1
         """,
         [entity_type, entity_key, kind],
@@ -1277,6 +1500,9 @@ def _seedable_page_entities(country_code: str, entities: list, subdivision_level
         level = getattr(entity, "level", None)
         if not entity_id or entity_id in seen:
             continue
+        if getattr(entity, "code", None) == country_code and level not in (0, "0"):
+            # Page-local context roots are scraper helpers, not persisted areas.
+            continue
         if level == 0:
             pass
         elif subdivision_levels is not None and int(level) not in subdivision_levels:
@@ -1542,6 +1768,139 @@ def _kind_from_text(value: str) -> str:
     return ""
 
 
+def commons_visual_asset_candidate_for_name(
+    entity_name: str,
+    kind: str,
+    *,
+    wikidata_id: str = "",
+    fetch_metadata: bool = False,
+) -> AssetCandidate | None:
+    """Find a plausible Commons file when the Wikidata item lacks image claims."""
+    kind = str(kind or "").strip()
+    if kind not in VISUAL_ASSET_KINDS:
+        return None
+    clean_name = _clean_text(entity_name)
+    if not clean_name:
+        return None
+    qid = _wikidata_qid(wikidata_id)
+    cache_key = (_normalize(clean_name), kind, qid, bool(fetch_metadata))
+    if cache_key in _COMMONS_SEARCH_ASSET_CACHE:
+        return _COMMONS_SEARCH_ASSET_CACHE[cache_key]
+
+    for query in _commons_visual_asset_search_queries(clean_name, kind):
+        for filename in _commons_search_file_filenames(query):
+            if not filename:
+                continue
+            if _kind_from_text(filename) != kind:
+                continue
+            if not _commons_filename_matches_entity_name(filename, clean_name):
+                continue
+            metadata = _commons_file_metadata(filename) if fetch_metadata else {}
+            candidate = AssetCandidate(
+                kind=kind,
+                remote_url=commons_file_url(filename, width=WIKIMEDIA_COMMONS_PREVIEW_WIDTH),
+                commons_filename=filename,
+                wikidata_id=qid,
+                source="commons_search",
+                source_url="https://commons.wikimedia.org/wiki/File:" + quote(filename.replace(" ", "_"), safe="/_()-.,'"),
+                title=metadata.get("title") or filename,
+                description=metadata.get("description") or "",
+                blazon=metadata.get("blazon") or "",
+                license_name=metadata.get("license") or "",
+                author=metadata.get("author") or "",
+                attribution=metadata.get("attribution") or "",
+            )
+            _COMMONS_SEARCH_ASSET_CACHE[cache_key] = candidate
+            return candidate
+
+    _COMMONS_SEARCH_ASSET_CACHE[cache_key] = None
+    return None
+
+
+def _commons_visual_asset_search_queries(entity_name: str, kind: str) -> list[str]:
+    name = _clean_text(entity_name)
+    if not name:
+        return []
+    if kind == "flag":
+        prefixes = ("flag of", "flag", "drapeau")
+    elif kind == "coat":
+        prefixes = ("coat of arms of", "coat of arms", "blason", "armoiries", "escudo", "stemma", "wappen")
+    elif kind == "seal":
+        prefixes = ("seal of", "seal", "sello", "sceau")
+    else:
+        return []
+    queries = [f'{prefix} "{name}"' for prefix in prefixes]
+    queries.extend(f"{prefix} {name}" for prefix in prefixes[:2])
+    deduped: list[str] = []
+    seen = set()
+    for query in queries:
+        key = _normalize(query)
+        if key and key not in seen:
+            deduped.append(query)
+            seen.add(key)
+    return deduped
+
+
+def _commons_search_file_filenames(query: str) -> list[str]:
+    query = str(query or "").strip()
+    if not query:
+        return []
+    url = "https://commons.wikimedia.org/w/api.php?" + urlencode(
+        {
+            "action": "query",
+            "format": "json",
+            "list": "search",
+            "srnamespace": "6",
+            "srlimit": str(COMMONS_SEARCH_LIMIT),
+            "srsearch": query,
+        }
+    )
+    data = _fetch_json(url, timeout=12)
+    rows = ((data.get("query") or {}).get("search") or []) if isinstance(data, dict) else []
+    filenames: list[str] = []
+    for row in rows:
+        title = str((row or {}).get("title") or "").strip()
+        if title.casefold().startswith("file:"):
+            title = title[5:]
+        if title and title not in filenames:
+            filenames.append(title)
+    return filenames
+
+
+_COMMONS_NAME_STOP_WORDS = {
+    "a",
+    "an",
+    "and",
+    "de",
+    "del",
+    "des",
+    "di",
+    "du",
+    "el",
+    "la",
+    "las",
+    "le",
+    "les",
+    "of",
+    "the",
+    "y",
+}
+
+
+def _commons_filename_matches_entity_name(filename: str, entity_name: str) -> bool:
+    filename_text = _normalize(re.sub(r"\.[a-z0-9]{2,5}$", " ", str(filename or ""), flags=re.IGNORECASE))
+    name_tokens = [
+        token
+        for token in _normalize(entity_name).split()
+        if token not in _COMMONS_NAME_STOP_WORDS and len(token) > 1
+    ]
+    if not filename_text or not name_tokens:
+        return False
+    if all(token in filename_text for token in name_tokens):
+        return True
+    return len(name_tokens) == 1 and name_tokens[0] in filename_text
+
+
 def _find_wikidata_id(name: str, *, country_code: str = "") -> str:
     query = name or country_code
     if not query:
@@ -1685,7 +2044,7 @@ def _wikidata_candidates_from_entity(
     candidates: dict[str, AssetCandidate] = {}
     for kind in kinds:
         prop = WIKIDATA_IMAGE_PROPERTIES.get(kind)
-        filename = _first_claim_filename(claims.get(prop) if prop else [])
+        filename = _first_claim_filename(claims.get(prop) if prop else [], prefer_latest=(kind == "flag"))
         if not filename:
             continue
         remote_url = commons_file_url(filename, width=WIKIMEDIA_COMMONS_PREVIEW_WIDTH)
@@ -1715,23 +2074,98 @@ def _wikidata_candidates_from_entity(
     return candidates, descriptions
 
 
-def _first_claim_filename(claims) -> str:
-    preferred: list = []
-    normal: list = []
-    deprecated: list = []
-    for claim in claims or []:
-        rank = str((claim or {}).get("rank") or "normal")
-        if rank == "preferred":
-            preferred.append(claim)
-        elif rank == "deprecated":
-            deprecated.append(claim)
-        else:
-            normal.append(claim)
-    for claim in [*preferred, *normal, *deprecated]:
+def _first_claim_filename(claims, *, prefer_latest: bool = False) -> str:
+    valid_claims: list[tuple[int, dict, str]] = []
+    for index, claim in enumerate(claims or []):
+        if not isinstance(claim, dict):
+            continue
         filename = _claim_filename(claim)
         if filename:
-            return filename
-    return ""
+            valid_claims.append((index, claim, filename))
+    if not valid_claims:
+        return ""
+
+    if prefer_latest:
+        valid_claims.sort(
+            key=lambda item: _claim_recency_score(item[1], item[0]),
+            reverse=True,
+        )
+    else:
+        valid_claims.sort(
+            key=lambda item: (_claim_rank_score(item[1]), -item[0]),
+            reverse=True,
+        )
+    return valid_claims[0][2]
+
+
+def _claim_recency_score(claim: dict, index: int) -> tuple[int, int, int, int]:
+    """Prefer the current/newest Wikidata image claim.
+
+    P41 (flag image) often contains historical flags.  Wikidata ranks are not
+    always enough for local entities, so prefer non-ended claims and then the
+    newest start/point/end date while still using rank as a tie-breaker.
+    """
+    end_dates = _claim_time_values(claim, "P582")
+    date_score = max(
+        [
+            *_claim_time_values(claim, "P580"),
+            *_claim_time_values(claim, "P585"),
+            *_claim_time_values(claim, "P571"),
+            *end_dates,
+        ]
+        or [0]
+    )
+    return (
+        1 if not end_dates else 0,
+        _claim_rank_score(claim),
+        date_score,
+        -index,
+    )
+
+
+def _claim_rank_score(claim: dict) -> int:
+    rank = str((claim or {}).get("rank") or "normal").casefold()
+    if rank == "preferred":
+        return 3
+    if rank == "normal":
+        return 2
+    if rank == "deprecated":
+        return 0
+    return 1
+
+
+def _claim_time_values(claim: dict, property_id: str) -> list[int]:
+    values: list[int] = []
+    qualifiers = (claim or {}).get("qualifiers") or {}
+    for snak in qualifiers.get(property_id, []) or []:
+        try:
+            raw_value = ((snak or {}).get("datavalue") or {}).get("value")
+        except Exception:  # noqa: BLE001
+            raw_value = ""
+        score = _wikidata_time_sort_value(raw_value)
+        if score:
+            values.append(score)
+    return values
+
+
+def _wikidata_time_sort_value(value) -> int:
+    if isinstance(value, dict):
+        value = value.get("time") or value.get("value") or ""
+    text = str(value or "").strip()
+    if not text:
+        return 0
+    match = re.search(r"([+-]?\d{1,9})(?:-(\d{2})(?:-(\d{2}))?)?", text)
+    if not match:
+        return 0
+    try:
+        year = int(match.group(1))
+        month = int(match.group(2) or 1)
+        day = int(match.group(3) or 1)
+    except ValueError:
+        return 0
+    if year <= 0:
+        return 0
+    return year * 10000 + max(1, min(month, 12)) * 100 + max(1, min(day, 31))
 
 
 def _claim_filename(claim) -> str:

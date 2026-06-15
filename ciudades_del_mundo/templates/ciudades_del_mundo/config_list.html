@@ -247,6 +247,10 @@
     <h1>{% trans "Configuraciones países" %}</h1>
   </div>
   <div class="configs-page-actions">
+    <form method="post" action="{{ config_import_toml_url }}" data-config-task-form data-action-label="{% trans 'Importar TOML de subdivisión' %}">
+      {% csrf_token %}
+      <button type="submit" class="quiet" data-config-action="import-toml">{% trans "Importar TOML" %}</button>
+    </form>
     <form method="post" action="{{ config_validate_all_url }}" data-config-task-form data-action-label="{% trans 'Validar todo' %}">
       {% csrf_token %}
       <button type="submit" class="quiet" data-config-action="validate-all">{% trans "Validar todo" %}</button>
@@ -344,4 +348,3 @@
   </section>
 </div>
 {% endblock %}
-

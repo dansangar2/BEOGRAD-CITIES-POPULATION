@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
+import threading
 import time
 
-from django.core.management import BaseCommand, call_command
+from django.core.management import BaseCommand, CommandError, call_command
 from django.db import OperationalError, close_old_connections
 
 from ciudades_del_mundo.infrastructure.scraping import PythonScrapingConfigRepository
@@ -11,7 +13,7 @@ from ciudades_del_mundo.web.task_progress import write_config_progress
 
 
 class Command(BaseCommand):
-    help = "Valida y popula configuraciones; si ya tienen datos, los limpia antes de re-popular."
+    help = "Valida y popula configuraciones con guardado incremental."
 
     def add_arguments(self, parser):
         parser.add_argument("slugs", nargs="+", help="Slugs de las configuraciones/paises a popular o re-popular.")
@@ -20,8 +22,17 @@ class Command(BaseCommand):
             type=int,
             default=_default_page_workers(),
             help=(
-                "Número de páginas CityPopulation que se descargan en paralelo durante el scrapeo. "
+                "Numero de paginas CityPopulation que se descargan en paralelo durante el scrapeo. "
                 "Usa 1 para modo secuencial exacto. Por defecto: %(default)s."
+            ),
+        )
+        parser.add_argument(
+            "--country-workers",
+            type=int,
+            default=_default_country_workers(),
+            help=(
+                "Numero de paises que se validan/populan en paralelo. "
+                "Las escrituras SQLite del scrapeo se serializan. Por defecto: %(default)s."
             ),
         )
         parser.add_argument(
@@ -37,7 +48,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--download-assets",
             action="store_true",
-            help="Descargar los ficheros de Commons durante el scraping. Más lento y puede provocar 429.",
+            help="Descargar los ficheros de Commons durante el scraping. Mas lento y puede provocar 429.",
         )
         parser.add_argument(
             "--skip-subdivision-assets",
@@ -72,29 +83,40 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        self._stdout_lock = threading.Lock()
         slugs = [str(slug).strip() for slug in options.get("slugs") or [] if str(slug).strip()]
         if not slugs:
-            self.stdout.write(self.style.WARNING("No se indicó ninguna configuración para popular."))
+            self.stdout.write(self.style.WARNING("No se indico ninguna configuracion para popular."))
             return
-        repository = PythonScrapingConfigRepository()
-        for slug in slugs:
-            self._repopulate_slug(slug, repository=repository, options=options)
 
-    def _repopulate_slug(self, slug: str, *, repository, options: dict) -> None:
+        country_workers = max(1, int(options.get("country_workers") or 1))
+        if country_workers <= 1 or len(slugs) <= 1:
+            for slug in slugs:
+                self._repopulate_slug(slug, options=options)
+            return
+
+        self._write(
+            f"[popular] Ejecutando {len(slugs)} configuracion(es) con country-workers={country_workers} "
+            f"y page-workers={max(1, int(options.get('page_workers') or 1))}."
+        )
+        with ThreadPoolExecutor(max_workers=min(country_workers, len(slugs))) as executor:
+            futures = {executor.submit(self._repopulate_slug, slug, options=options): slug for slug in slugs}
+            for future in as_completed(futures):
+                slug = futures[future]
+                try:
+                    future.result()
+                except Exception as exc:
+                    raise CommandError(f"{slug}: {exc}") from exc
+
+    def _repopulate_slug(self, slug: str, *, options: dict) -> None:
+        close_old_connections()
         try:
-            config = repository.get(slug)
-            country_code = str(config.country_code or slug)
+            repository = PythonScrapingConfigRepository()
+            repository.get(slug)
 
-            write_config_progress(slug, "validating", detail="Validando configuración")
-            self._write(f"[validar] {slug}: validando configuración antes de popular...")
+            write_config_progress(slug, "validating", detail="Validando configuracion")
+            self._write(f"[validar] {slug}: validando configuracion antes de popular...")
             self._run_with_sqlite_retry(lambda: call_command("validate_subdivision_configs", slug))
-
-            if _country_has_scraped_data(country_code):
-                write_config_progress(slug, "clearing", detail="Limpiando datos anteriores")
-                self._write(f"[limpiar] {slug}: ya tenía datos; limpiando antes de re-popular...")
-                self._run_with_sqlite_retry(lambda: call_command("clear_config_data_with_assets", country_code))
-            else:
-                self._write(f"[limpiar] {slug}: no había datos previos que limpiar.")
 
             write_config_progress(slug, "populating", detail="Populando datos")
             scrape_options = {
@@ -114,6 +136,8 @@ class Command(BaseCommand):
         except Exception as exc:
             write_config_progress(slug, "failed", detail=str(exc))
             raise
+        finally:
+            close_old_connections()
 
     def _run_with_sqlite_retry(self, callback, *, attempts: int = 8):
         delay = 1.0
@@ -131,8 +155,14 @@ class Command(BaseCommand):
                 delay = min(delay * 1.8, 8.0)
 
     def _write(self, message: str) -> None:
-        self.stdout.write(message)
-        self.stdout.flush()
+        lock = getattr(self, "_stdout_lock", None)
+        if lock is None:
+            self.stdout.write(message)
+            self.stdout.flush()
+            return
+        with lock:
+            self.stdout.write(message)
+            self.stdout.flush()
 
 
 def _default_page_workers() -> int:
@@ -143,23 +173,9 @@ def _default_page_workers() -> int:
         return 4
 
 
-def _country_has_scraped_data(country_code: str) -> bool:
-    country_code = str(country_code or "").strip()
-    if not country_code:
-        return False
+def _default_country_workers() -> int:
+    raw = os.environ.get("CIUDADES_SCRAPE_COUNTRY_WORKERS", "1")
     try:
-        from ciudades_del_mundo.models import AdminArea, NuevoAdminArea
-    except Exception:
-        return True
-
-    querysets = (
-        AdminArea.objects.filter(country_code=country_code),
-        NuevoAdminArea.objects.filter(country_code=country_code),
-    )
-    for queryset in querysets:
-        try:
-            if queryset.exists():
-                return True
-        except Exception:
-            return True
-    return False
+        return max(1, int(raw))
+    except (TypeError, ValueError):
+        return 1

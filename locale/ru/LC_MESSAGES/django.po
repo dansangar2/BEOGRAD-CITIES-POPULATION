@@ -1588,3 +1588,8 @@ msgstr "Нет доступных конфигураций для пополне
 
 msgid "Popular configuraciones disponibles (%(count)s)"
 msgstr "Пополнить доступные конфигурации (%(count)s)"
+msgid "Sumar al padre"
+msgstr "Добавить к родителю"
+
+msgid "Los checkboxes dependen de la fuente seleccionada. Sumar al padre agrega población y área de esa página al padre enlazado."
+msgstr "Флажки зависят от выбранного источника. Добавить к родителю добавляет население и площадь этой страницы к связанному родителю."

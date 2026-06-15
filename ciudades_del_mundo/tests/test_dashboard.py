@@ -1,5 +1,6 @@
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 from django.conf import settings
 from django.db import connection
@@ -368,6 +369,48 @@ class DashboardViewTests(TestCase):
         )
         self.assertEqual(data["first_order"]["cards"][0]["detail_url"], "/api/admin-areas/aa_one/")
         self.assertEqual(data["first_order"]["cards"][0]["child_count"], 0)
+
+    def test_dashboard_country_detail_hides_large_leaf_levels_from_selector(self):
+        root = AdminArea.objects.create(
+            id="aa_root",
+            country_code="aa",
+            code="aa",
+            name="AA Country",
+            level=0,
+            area_km2=100,
+            pop_latest=1000,
+        )
+        region = AdminArea.objects.create(
+            id="aa_region",
+            country_code="aa",
+            code="region",
+            name="Region",
+            level=1,
+            entity_type="Region",
+            parent=root,
+            area_km2=100,
+            pop_latest=1000,
+        )
+        for index in range(3):
+            AdminArea.objects.create(
+                id=f"aa_commune_{index}",
+                country_code="aa",
+                code=f"commune_{index}",
+                name=f"Commune {index}",
+                level=2,
+                entity_type="Commune",
+                parent=region,
+                area_km2=10,
+                pop_latest=100,
+            )
+
+        with patch("ciudades_del_mundo.web.views.COUNTRY_LEVEL_OPTION_CHILD_LIMIT", 2):
+            response = self.client.get("/api/countries/aa/?level=2")
+
+        data = response.json()
+        self.assertEqual([level["value"] for level in data["levels"]], [1])
+        self.assertEqual(data["selected_level"], 1)
+        self.assertEqual([row["name"] for row in data["table"]["rows"]], ["Region"])
 
     def test_api_admin_area_detail_returns_direct_children_for_recursive_browser(self):
         root = AdminArea.objects.create(
@@ -781,9 +824,9 @@ commons_filename = "Flag_of_AA.svg"
 remote_url = "https://commons.wikimedia.org/wiki/Special:FilePath/Coat_of_AA.svg"
 
 [[pages]]
-source = "infosection"
+source = "cities"
 path = ["aa/"]
-lowest_level = 0
+force_highest_level = 0
 """,
         )
 

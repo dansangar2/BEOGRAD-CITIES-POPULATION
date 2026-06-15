@@ -1,65 +1,12 @@
-"""Scraper for CityPopulation country pages centered on city/place lists."""
+"""Adapter for the CityPopulation ``cities`` system."""
 
 from __future__ import annotations
 
-from ciudades_del_mundo.domain import ScrapedAdminArea
-from ciudades_del_mundo.infrastructure.scraping.admin import CityPopulationAdminScraper
 from ciudades_del_mundo.infrastructure.scraping.base import BaseCityPopulationScraper
-from ciudades_del_mundo.infrastructure.scraping.double import CityPopulationDoubleScraper
-from ciudades_del_mundo.infrastructure.scraping.infosection import CityPopulationInfoSectionScraper
-from ciudades_del_mundo.infrastructure.scraping.page_config import apply_root_config
+from ciudades_del_mundo.infrastructure.scraping.citypopulation_sections import CityPopulationSectionScraperMixin
 
 
-class CityPopulationCitiesScraper(BaseCityPopulationScraper):
+class CityPopulationCitiesScraper(CityPopulationSectionScraperMixin, BaseCityPopulationScraper):
+    """Parse ``infosection -> major_subdivision -> cities`` pages."""
+
     html_format = "cities"
-
-    def __init__(self, debug: bool = False):
-        super().__init__(debug=debug)
-        self._admin_scraper = CityPopulationAdminScraper(debug=debug)
-        self._double_scraper = CityPopulationDoubleScraper(debug=debug)
-        self._infosection_scraper = CityPopulationInfoSectionScraper(debug=debug)
-
-    def scrape_html(self, html: str, url: str, country_code: str, level: int) -> list[ScrapedAdminArea]:
-        return self._scrape_configured(html=html, url=url, country_code=country_code, level=level, page=None)
-
-    def scrape_configured_html(self, html: str, url: str, country_code: str, page) -> list[ScrapedAdminArea]:
-        return self._scrape_configured(
-            html=html,
-            url=url,
-            country_code=country_code,
-            level=page.lowest_level,
-            page=page,
-        )
-
-    def _scrape_configured(
-        self,
-        *,
-        html: str,
-        url: str,
-        country_code: str,
-        level: int,
-        page,
-    ) -> list[ScrapedAdminArea]:
-        soup, profile = self._soup_and_profile(html)
-        root = self._admin_scraper._parse_root(soup, country_code=country_code, level=level, url=url)
-        if not root:
-            roots = self._infosection_scraper.scrape_html(
-                html=html,
-                url=url,
-                country_code=country_code,
-                level=level,
-            )
-            root = roots[0] if roots else None
-        if page is not None:
-            root = apply_root_config(root, page=page, country_code=country_code, url=url, default_level=level)
-
-        return self._double_scraper.parse_hierarchical_tables(
-            soup=soup,
-            url=url,
-            country_code=country_code,
-            level=level,
-            root=root,
-            first_table_offset=1,
-            profile=profile,
-            page=page,
-        )

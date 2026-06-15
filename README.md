@@ -54,10 +54,12 @@ ficheros.
 
 Cada configuracion SQL describe:
 
-- que scrapers usar (`admin`, `auto`, `table`, `double`, `cities`, `infosection`)
-- que rutas scrapear
-- desde que nivel arrancar cada parser
-- reglas opcionales de normalizacion de ciudades
+- que formato CityPopulation usar por bloque (`cities`, `admin` o `citiesadmin`)
+- que rutas scrapear bajo la base fija `https://www.citypopulation.de/en/`
+- que secciones de cada pagina se persisten y cuantas veces se repiten
+- desde que nivel arranca cada bloque o que nivel se fuerza
+- como enlazar bloques consecutivos, padres forzados y paginas que suman al padre
+- reglas opcionales de normalizacion de ciudades, merges y extensiones runtime
 - `LEGAL_SUBDIVISION` para calcular la ciudad mas poblada por rama
 
 ## Arquitectura
@@ -98,6 +100,10 @@ desde `infrastructure`.
   Entidad scrapeada directamente desde CityPopulation.
 - `NuevoAdminArea`
   Entidad derivada a partir de varias `AdminArea`, util para subdivisiones ficticias, historicas o politicas.
+- `DerivedCountry` y `DerivedCountryConfig`
+  Base SQL para agrupar paises derivados y sus configuraciones TOML.
+- `SubdivisionGroup`
+  Grupo TOML reutilizable de subdivisiones fuente para futuras configs de paises derivados.
 
 ## Flujo de trabajo
 
@@ -115,6 +121,7 @@ produce rutas bajo `spain/...`.
 
 ```toml
 LEGAL_SUBDIVISION = 3
+scrape_schema_version = 2
 
 [representation]
 level = 2
@@ -125,19 +132,26 @@ system = "dhondt"
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
-area_km2 = 505990
+include = { infosection = true, major_subdivision = true, minor_subdivision = true }
 
 [[pages]]
-source = "table"
+source = "cities"
 path = ["andalucia", "aragon", "asturias"]
-lowest_level = 1
-area_overrides = { "51" = 19.00, "52" = 13.40 }
+include = { infosection = false, major_subdivision = true, cities = true }
 
 [[pages]]
-source = "double"
-path = ["localities/acoruna", "localities/alava"]
-lowest_level = 3
+source = "cities"
+path = ["ceuta", "melilla"]
+parent_level = 2
+include = { infosection = true, major_subdivision = true, cities = false }
+repeat = { infosection = 2 }
+
+[[pages]]
+source = "citiesadmin"
+path = ["cities/mayotte"]
+sum_to_root = true
+include = { infosection = true, major_subdivision = true, minor_subdivision = true, cities = true }
+repeat = { infosection = 2 }
 
 [[cities]]
 city = "Example City"
@@ -151,14 +165,64 @@ communes = []
 
 ### Reglas del formato
 
-- `pages` agrupa paginas por parser y nivel.
-- `path` siempre es un array, aunque solo haya una ruta.
-- `source` selecciona el scraper; `auto` detecta la estructura HTML real de la pagina CityPopulation y delega en `admin`, `table`, `double` o `infosection`.
+- `pages` agrupa paginas por bloque. Si `path` contiene varias rutas, se crea
+  una pagina por ruta con la misma configuracion y el mismo nivel de bloque.
+- `path` siempre es un array, aunque solo haya una ruta. Las rutas relativas se
+  prefijan con el `slug` SQL y siempre usan la base
+  `https://www.citypopulation.de/en/`.
+- `source` acepta `cities`, `admin` o `citiesadmin`. Es el formato HTML de la
+  pagina, no una ruta. `cities` modela
+  `infosection -> major_subdivision -> cities`; `admin` modela
+  `infosection -> major_subdivision -> minor_subdivision`; `citiesadmin` modela
+  `infosection -> major_subdivision -> minor_subdivision -> cities`. En paginas
+  `citiesadmin` con `table#tl` agrupado, los hijos pueden aparecer antes del
+  `tbody.adm` padre; el parser los enlaza por codigo/abreviatura y por totales
+  de poblacion/area sin reglas por pais.
+- En paginas `cities`, la seccion de ciudades persistida sale de `table#ts`
+  (`Contents`). Las tablas auxiliares tipo "Major Cities" o "Major
+  Agglomerations" se usan solo si CityPopulation las publica como el `table#ts`
+  configurado.
+- `include = { ... }` activa o desactiva secciones. Las secciones desactivadas
+  no se guardan, pero pueden seguir dando contexto de padre dentro de la misma
+  pagina cuando CityPopulation las necesita para enlazar la tabla persistida.
+- `repeat = { infosection = 2 }` duplica explicitamente una misma entidad en
+  niveles consecutivos. Se usa para raices administrativas repetidas como
+  Ceuta/Melilla o departamentos/regiones de ultramar.
+- `force_highest_level` fuerza el nivel base del bloque y evita depender del
+  orden automatico de bloques; los bloques forzados no se bajan al nivel de una
+  ancla repetida anterior.
+- `parent_level` indica que el bloque debe buscar un padre de ese nivel. Cuando
+  CityPopulation no trae `data-wd`, el enlazador puede usar codigo interno,
+  nombre normalizado y prefijos de codigo para casos como localidades italianas
+  (`01811010004` bajo `018110`). Se aplica antes de colapsar duplicados, por lo
+  que casos como Paris pueden conservar el padre `751` y mover `75056` debajo.
+- `sum_to_root = true` se muestra en la UI como "Sumar al padre": las metricas
+  de la rama se agregan al padre ya enlazado, o al pais si no hay padre forzado.
 - `area_km2` permite indicar un tamano personalizado para la entidad raiz scrapeada en esa pagina.
 - `area_overrides` permite indicar tamanos personalizados por `id`, `code` o `name` de entidad scrapeada.
 - En `[[cities]]`, `keep_communes = false` agrega las comunas o distritos usados para calcular la ciudad pero no los conserva como filas hijas.
 - `LEGAL_SUBDIVISION` es el unico nombre aceptado para el nivel legal.
-- `admin` e `infosection` son tipos de scraper, no atajos especiales de ruta.
+- El enlazador une bloques por `data-wd`, codigo CityPopulation, nombre
+  normalizado en el mismo nivel y codigo persistido. Si CityPopulation reutiliza
+  un codigo para otra entidad, se desambigua con un codigo derivado del padre
+  antes de persistir para no mezclar ramas. Si despues una fila queda sin padre
+  pero su codigo desambiguado conserva el ambito del padre, como `17_174`, ese
+  ambito se usa como tercera via generica de enlace (`17_174` bajo `17`).
+- La deduplicacion por nombre no es global para anclas de bloque que ya tienen
+  padre o ambito de URL. Entidades homonimas de paginas distintas, como
+  `Saint-Pierre` o `Grande-Terre` en departamentos ultramarinos franceses, deben
+  conservar sus hijos dentro de su bloque antes de enlazar con otros bloques.
+- La reparacion por prefijo de codigo no es global: el candidato de prefijo debe
+  pertenecer a la misma rama territorial de la URL cuando ambas filas tienen
+  ruta. Esto evita colisiones como comunas de Essonne `91521...` enlazadas por
+  error bajo un codigo corto de Réunion `9152`.
+- Si el hijo tiene una rama territorial en la URL y el candidato de prefijo es
+  un ancla de bloque sin rama, el candidato se descarta. Esto evita que anchors
+  mal resueltos como `#i6527` o `#i8125` capturen comunas de otros departamentos
+  por simple prefijo numerico.
+- El parser registra alias visibles de nombres cooficiales, parentesis,
+  corchetes y separadores `/`, de modo que un `radm` como `Jávea` puede enlazar
+  con una fila `Xàbia (Jávea)` sin reglas por pais.
 - Para paises con paginas CityPopulation divididas entre varias familias se
   pueden declarar extensiones runtime en el TOML SQL:
   `[[synthetic_entities]]`, `[[parent_overrides]]` y
@@ -232,6 +296,22 @@ py manage.py sync_scraping_configs --force
 py manage.py sync_scraping_configs --to-toml --output-dir .tmp-config-export
 ```
 
+Desde la web, cada editor `/configs/<slug>/` tiene el boton `Exportar TOML`.
+Ese boton llama a `/configs/<slug>/export-toml/` y escribe el contenido SQL
+actual en `ciudades_del_mundo/subdivisions/<slug>.toml`. Es una exportacion de
+puente para revisar o versionar semillas; no cambia la regla runtime: validar y
+scrapear leen la fila SQL `ScrapingConfig.content`.
+
+La pantalla `/configs/` tambien tiene `Importar TOML`. Esa accion lanza una
+tarea en segundo plano equivalente a:
+
+```powershell
+py manage.py sync_scraping_configs --force
+```
+
+Sobrescribe las filas SQL `ScrapingConfig` con los TOML semilla presentes en
+`ciudades_del_mundo/subdivisions/*.toml`; no popula datos `AdminArea`.
+
 Para reinstanciar solo la configuración inicial de España desde `subdivisions/spain.toml`:
 
 ```powershell
@@ -282,6 +362,13 @@ Algunas paginas compuestas de CityPopulation usan una primera tabla solo como
 contexto del padre. En esos casos la config semilla puede usar
 `include_tables = ["ts"]` y `table_levels = { ts = 4 }` para persistir solo la
 segunda tabla en el nivel correcto, manteniendo el padre que expone la web.
+Para el esquema v2 nuevo, usa preferentemente `include = { ... }` y
+`force_highest_level`; `include_tables` y `table_levels` quedan como
+compatibilidad de configs antiguas y casos muy concretos.
+
+La carpeta `ciudades_del_mundo/html/` contiene muestras offline de formatos
+CityPopulation para Belgium, Italy, Spain y France. Sirven para probar parsers y
+enlazado sin red; no son fuente runtime ni sustituyen a `ScrapingConfig`.
 
 ### Ver las URLs que se van a scrapear
 
@@ -294,6 +381,7 @@ py manage.py scrape_subdivisions --list-pages spain
 ```powershell
 py manage.py scrape_subdivisions spain
 py manage.py scrape_subdivisions spain morocco portugal
+py manage.py scrape_subdivisions spain france --country-workers=2 --page-workers=4
 py manage.py scrape_subdivisions --seed-assets-from-pages spain
 py manage.py scrape_subdivisions_with_assets spain --page-workers=4
 py manage.py scrape_subdivisions_with_assets spain --resume --page-workers=4
@@ -306,14 +394,36 @@ El scraping descarga paginas CityPopulation independientes en paralelo con
 `CIUDADES_SCRAPE_PAGE_WORKERS`). El parseo, los eventos `FOUND`, la siembra de
 assets y la escritura SQL se mantienen en el orden de la configuracion, por lo
 que no cambia la funcionalidad ni los datos extraidos; solo se solapa la espera
-de red. Si una misma URL/formato/nivel aparece repetida, se reutiliza el HTML y
-el parseo de esa pagina para no procesarla dos veces. Usa `--page-workers=1` si
+de red. Si una misma URL aparece repetida, se reutiliza el HTML y el parseo de
+esa pagina para no procesarla dos veces. Usa `--page-workers=1` si
 quieres reproducir el comportamiento secuencial antiguo.
 
-La persistencia del scrapeo tambien usa operaciones masivas: guardado por nivel
-con `bulk_create(update_conflicts=True)`, borrado rapido de filas ausentes con
-la misma limpieza segura de relaciones que `clear_config_data`, y
-`bulk_update` para ciudad mas poblada y representantes.
+`--country-workers` permite scrapear varias configuraciones a la vez en
+`scrape_subdivisions`; por defecto vale `1` y tambien se puede configurar con
+`CIUDADES_SCRAPE_COUNTRY_WORKERS`. Las descargas y parseo de paises se solapan,
+pero la transaccion final de SQLite se serializa usando
+`.web_sqlite_write.lock` para evitar bloqueos y escrituras cruzadas entre tareas
+web o procesos CLI. El bloqueo real es un lock del sistema operativo sobre el
+archivo; si un proceso muere y el archivo queda en disco, no bloquea futuros
+scrapeos. No se combina con `--seed-assets-from-pages`; la siembra de
+Wikimedia/Commons queda en modo secuencial. Los comandos envoltorio
+`repopulate_configs` y `validate_and_scrape_configs` tambien aceptan
+`--country-workers`; desde la web, `Popular todo` y `Popular no populados` usan
+`--country-workers=2`.
+
+El flujo normal de popular no vacia antes el pais. La persistencia compara la
+foto scrapeada completa contra SQL: crea filas nuevas, actualiza solo las filas
+modificadas, conserva intactas las que no cambian y borra al final las filas
+que ya no aparecen mediante `delete_missing`. `--clear-first` queda como opcion
+explicita de mantenimiento en `scrape_subdivisions_with_assets`; la accion web
+`Re-popular` ya usa el guardado incremental y no limpia antes de popular.
+
+La persistencia del scrapeo tambien usa operaciones masivas: guardado por nivel,
+busqueda de filas existentes en lotes compatibles con SQLite, creacion masiva de
+filas nuevas, `bulk_update` solo para filas modificadas, borrado rapido de filas
+ausentes con la misma limpieza segura de relaciones que `clear_config_data`,
+limpieza de `VisualAsset` solo para esas areas eliminadas, y `bulk_update` para
+ciudad mas poblada y representantes.
 
 `--resume` reutiliza checkpoints locales de paginas completadas para una
 recuperacion manual por CLI y solo descarga las paginas pendientes. Los
@@ -368,6 +478,13 @@ SQL/TOML y los `[visual_assets.flag]`/`[visual_assets.coat]` declarados como
 `wikidata_id`, `commons_filename` o `remote_url`; despues hace busqueda
 Wikidata si falta el QID. Tambien admite `[[visual_assets.admin_areas]]` para
 assets curados de ciudades/subdivisiones cuando Wikidata no expone P41/P94/P158.
+Si un QID concreto no expone P41/P94/P158, el servicio puede buscar en Commons
+por nombre y tipo (`flag`, `coat`, `seal`) para completar huecos como escudos
+de territorios cuyo item no tiene la propiedad de imagen. En
+`scrape_subdivisions_with_assets`, ese fallback por busqueda se limita a los
+niveles pedidos con `--subdivision-asset-levels` o, si no se indica nada, al
+nivel 1 para no disparar miles de consultas. `ensure_visual_assets --admin-area`
+puede usarlo para una entidad concreta de cualquier nivel.
 No se deben anadir fallbacks hardcodeados en vistas: casos como Sahara
 Occidental, donde la bandera y el escudo viven en QID distintos, se resuelven
 en el contenido SQL de la configuracion o en el TOML semilla del pais bajo
@@ -455,6 +572,26 @@ Las recetas pueden declarar `ROOT_NAME` o `COUNTRY_NAME` para fijar el nombre
 visible del nodo raiz. `nuevo_imperio_romano.py` usa `ROOT_NAME = "Nuevo Imperio
 Romano"` y define las prefecturas de Hispania y Macaronesia.
 
+La nueva base declarativa vive en SQL y TOML:
+
+- `/new-countries/` lista contenedores `DerivedCountry`.
+- Dentro de cada pais, `Nueva configuracion` crea una fila
+  `DerivedCountryConfig` con contenido TOML editable.
+- `Vista` abre una ficha base de la configuracion y enlaza a
+  `/derived/<root_id>/` cuando ya existen filas `NuevoAdminArea` para su
+  `derived_country_code`.
+- `/groups/` lista `SubdivisionGroup`, grupos TOML reutilizables que podran
+  referenciarse desde configuraciones de nuevos paises.
+
+Las recetas Python antiguas siguen en `ciudades_del_mundo/new_subdivisions/` y
+`ciudades_del_mundo/historical_divisions/` para compatibilidad con
+`build_new_subdivisions`. Se generaron semillas TOML equivalentes en
+`ciudades_del_mundo/new_country_configs/*.toml` y
+`ciudades_del_mundo/subdivision_groups/*.toml`; cada TOML guarda metadatos,
+selecciones iniciales y el Python legacy embebido para no perder logica que aun
+no tenga traduccion declarativa. Las copias `*_old/` son backups locales
+ignorados por Git.
+
 ### Exportar
 
 ```powershell
@@ -531,6 +668,12 @@ dibujan por CSS con colores del tema activo, no con emoji. Al abrir una
 subdivision, el navegador agrega otra ficha con su bandera/escudo y sus hijos
 directos; se puede seguir bajando con `/api/admin-areas/<area_id>/` hasta llegar
 a entidades sin hijos.
+La tabla general del pais puede cambiar de nivel con un selector situado en la
+zona de graficas/tabla, justo encima del titulo `Tabla de datos`, solo cuando
+hay mas de una opcion util. El primer nivel bajo la raiz siempre se muestra por
+defecto; los niveles intermedios con hijos se mantienen aunque algun padre sea
+grande, y se ocultan los niveles hoja masivos o niveles muy grandes con pocos
+padres visibles para evitar tablas inmanejables.
 Las traducciones de nombres administrativos de Espana que no son simples cadenas
 de interfaz viven en `ciudades_del_mundo/web/spain_translations.py` para mantener
 juntas las equivalencias de CCAA, provincias, ciudades y tipos de entidad por
@@ -553,7 +696,8 @@ Secciones principales:
   `Por Validar`, `Fallo` y `Validado`; desde `Por Validar`/`Fallo` lanza
   `validate_and_scrape_configs`, por lo que primero se ve `Validando` y despues
   `Populando`. Desde `Validado` lanza directamente
-  `scrape_subdivisions_with_assets --page-workers=4`. `Populado` solo muestra
+  `scrape_subdivisions_with_assets --page-workers=4`. El poblado normal es
+  incremental; no ejecuta `Limpiar` antes de scrapear. `Populado` solo muestra
   `Limpiar`. `Limpiar` se muestra si existen `AdminArea` previos y la fila no
   esta `Validando`, `Populando` ni `Limpiando`. Los estados activos solo
   muestran `Parar`; no dejan visible `Validar` o `Popular` como botones
@@ -575,12 +719,15 @@ Secciones principales:
   para solapar la descarga de HTML de CityPopulation sin cambiar el orden de
   parseo/escritura. El boton `Validar` de una configuracion queda desactivado
   mientras esa validacion sigue activa. El editor guarda `ScrapingConfig.content`
-  y valida sintaxis/esquema antes de escribir.
-- `/recipes/`: lista recetas de `new_subdivisions` e `historical_divisions`.
-  Permite crear recetas nuevas con un formulario JSON, editar recetas nuevas en
-  Python y lanzar `build_new_subdivisions`, CSV o Excel.
-- `/derived/`: muestra paises `NuevoAdminArea` creados y una tabla comparativa
-  por pais con porcentajes respecto al pais y al padre.
+  y valida sintaxis/esquema antes de escribir. El boton `Exportar TOML` escribe
+  la version SQL actual en `ciudades_del_mundo/subdivisions/<slug>.toml` sin
+  convertir ese fichero en fuente runtime.
+- `/new-countries/`: base SQL para paises derivados. Lista `DerivedCountry`,
+  muestra sus configuraciones TOML `DerivedCountryConfig`, permite crear/editar
+  esas configuraciones y abre una vista base que enlaza a `/derived/<id>/`
+  cuando ya hay datos construidos.
+- `/groups/`: lista y edita `SubdivisionGroup`, grupos TOML reutilizables para
+  futuras configuraciones de nuevos paises.
 - `/countries/`: navegador de paises en tarjetas de 10 columnas, con slot
   cuadrado fijo para bandera registrada en SQL o placeholder local cuando no hay
   asset registrado, terreno y poblacion desde `/api/countries/`;
@@ -704,9 +851,11 @@ ciudades_del_mundo/
   historical_divisions/
   infrastructure/
   management/commands/
+  new_country_configs/
   new_subdivisions/
   ports/
   services/
+  subdivision_groups/
   subdivisions/
   templates/
   web/
@@ -722,9 +871,17 @@ db.sqlite3
   de sincronizar, la tabla SQL `ScrapingConfig` es suficiente para validar y
   popular.
 - `historical_divisions`
-  Recetas Python para subdivisiones historicas.
+  Recetas Python legacy para subdivisiones historicas. Siguen siendo buildables
+  por compatibilidad.
 - `new_subdivisions`
-  Recetas Python para nuevas subdivisiones derivadas.
+  Recetas Python legacy para nuevas subdivisiones derivadas. Siguen siendo
+  buildables por compatibilidad.
+- `new_country_configs`
+  TOML semilla generado desde `new_subdivisions/*.py` para el nuevo modelo
+  `DerivedCountryConfig`.
+- `subdivision_groups`
+  TOML semilla generado desde `historical_divisions/*.py` para el nuevo modelo
+  `SubdivisionGroup`.
 
 ## Desarrollo local
 
@@ -784,6 +941,7 @@ py manage.py validate_subdivision_configs
 
 ## Siguientes mejoras razonables
 
-- mover recetas historicas y nuevas subdivisiones a un formato declarativo unificado
+- conectar el constructor de `NuevoAdminArea` al TOML de `DerivedCountryConfig`
+  y `SubdivisionGroup`
 - limpiar codificacion legacy en algunos datos historicos
 - anadir tests para configuraciones SQL y scrapers HTML

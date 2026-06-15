@@ -1588,3 +1588,8 @@ msgstr "Aucune configuration disponible à peupler."
 
 msgid "Popular configuraciones disponibles (%(count)s)"
 msgstr "Peupler les configurations disponibles (%(count)s)"
+msgid "Sumar al padre"
+msgstr "Ajouter au parent"
+
+msgid "Los checkboxes dependen de la fuente seleccionada. Sumar al padre agrega población y área de esa página al padre enlazado."
+msgstr "Les cases dépendent de la source sélectionnée. Ajouter au parent ajoute la population et la superficie de cette page au parent lié."

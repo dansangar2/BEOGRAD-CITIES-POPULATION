@@ -9,14 +9,12 @@ LEGAL_SUBDIVISION = 1
 remote_url = "https://www.citypopulation.de/images/flags/saintbarthelemy.svg"
 source = "config"
 
+scrape_schema_version = 2
+
 [[pages]]
 source = "cities"
 path = [""]
-lowest_level = 0
-root_code = "saintbarthelemy"
-root_name = "Saint-Barthélemy"
-root_entity_type = "Overseas Collectivity"
-table_levels = { tl = 1, ts = 2 }
+include = { infosection = true, major_subdivision = true, cities = true }
 
 [[parent_overrides]]
 codes = ["25266"]

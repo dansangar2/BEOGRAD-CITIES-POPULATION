@@ -1,18 +1,22 @@
 LEGAL_SUBDIVISION = 2
+scrape_schema_version = 2
 
 [[pages]]
-source = "infosection"
+source = "cities"
 path = ["cities"]
-lowest_level = 0
+include = { cities = false, infosection = true, major_subdivision = false }
 
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+include = { admin1 = true, admin2 = true, infosection = false }
 
 [[pages]]
-source = "double"
+source = "cities"
 path = ["adrar", "chlef", "laghouat", "oumelbouaghi", "batna", "bejaia", "biskra", "bechar", "blida", "bouira", "tamanrasset", "tebessa", "tlemcen", "tiaret", "tiziouzou", "eldjazair", "djelfa", "jijel", "setif", "saida", "skikda", "sidibelabbes", "annaba", "guelma", "constantine", "medea", "mostaganem", "msila", "mascara", "ouargla", "oran", "elbayadh", "illizi", "bordjbouarreridj", "boumerdes", "eltarf", "tindouf", "tissemsilt", "eloued", "khenchela", "soukahras", "tipaza", "mila", "aindefla", "naama", "aintemouchent", "ghardaia", "relizane"]
-lowest_level = 2
-include_tables = ["ts"]
-table_levels = { ts = 3 }
+include = { cities = true, infosection = false, major_subdivision = true }
+
+[visual_assets]
+bulk_country_wikidata = true
+strict_required = true
+required_kinds = ["flag", "coat"]

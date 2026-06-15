@@ -62,6 +62,9 @@ class ConfigMetadata:
     has_representation: bool
     is_valid: bool
     validation_error: str = ""
+    schema_version: int = 2
+    scrape_types: str = ""
+    pages_config: tuple[dict, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -94,7 +97,12 @@ def parse_config_metadata(slug: str, content: str) -> ConfigMetadata:
     """Parse a TOML config once and return the fields needed by list views."""
     try:
         data = tomllib.loads(content)
-        pages = parse_pages(data.get("pages"), slug=slug)
+        schema_version = int(data.get("scrape_schema_version", 1))
+        pages = parse_pages(
+            data.get("pages"),
+            slug=slug,
+            schema_version=schema_version,
+        )
         if not pages:
             raise ValueError("La configuración debe definir al menos una página.")
         cities = parse_cities(data.get("cities"))
@@ -108,6 +116,9 @@ def parse_config_metadata(slug: str, content: str) -> ConfigMetadata:
             has_representation=bool(representation),
             is_valid=True,
             validation_error="",
+            schema_version=schema_version,
+            scrape_types=",".join(sorted({page.html_format for page in pages})),
+            pages_config=tuple(_page_metadata(page) for page in pages),
         )
     except Exception as exc:  # noqa: BLE001 - stored for the web UI.
         try:
@@ -122,13 +133,20 @@ def parse_config_metadata(slug: str, content: str) -> ConfigMetadata:
             has_representation=False,
             is_valid=False,
             validation_error=str(exc),
+            schema_version=int(data.get("scrape_schema_version", 2) or 2),
+            scrape_types="",
+            pages_config=(),
         )
 
 
 def parse_scraping_job_config(slug: str, content: str) -> ScrapingJobConfig:
     """Build the domain config from persisted TOML content."""
     data = tomllib.loads(content)
-    pages = parse_pages(data.get("pages"), slug=slug)
+    pages = parse_pages(
+        data.get("pages"),
+        slug=slug,
+        schema_version=int(data.get("scrape_schema_version", 1)),
+    )
     if not pages:
         raise ValueError(f"Config '{slug}' must define at least one page.")
     return ScrapingJobConfig(
@@ -161,6 +179,9 @@ def upsert_scraping_config(slug: str, content: str, *, source_path: str = "") ->
             "pages_count": metadata.pages_count,
             "cities_count": metadata.cities_count,
             "has_representation": metadata.has_representation,
+            "schema_version": metadata.schema_version,
+            "scrape_types": metadata.scrape_types,
+            "pages_config": list(metadata.pages_config),
             "is_valid": metadata.is_valid,
             "validation_error": metadata.validation_error,
             "imported_at": timezone.now() if source_path else None,
@@ -180,6 +201,20 @@ def bundled_toml_config_paths(slugs: list[str] | tuple[str, ...] | None = None) 
         for path in root.glob("*.toml")
         if not path.name.startswith("_") and (not allowed or path.stem in allowed)
     )
+
+
+def _page_metadata(page) -> dict:
+    return {
+        "path": page.path,
+        "source": page.html_format,
+        "lowest_level": page.lowest_level,
+        "force_highest_level": page.force_highest_level,
+        "parent_level": page.parent_level,
+        "include_sections": list(page.include_sections),
+        "include_tables": list(page.include_tables),
+        "repeat": dict(page.repeat),
+        "sum_to_root": bool(page.sum_to_root),
+    }
 
 
 def scraping_config_bootstrap_status(*, imported_count: int = 0) -> ConfigBootstrapStatus:

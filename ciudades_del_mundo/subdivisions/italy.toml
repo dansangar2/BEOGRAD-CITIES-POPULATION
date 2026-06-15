@@ -1,31 +1,21 @@
 LEGAL_SUBDIVISION = 3
-
-[[pages]]
-source = "infosection"
-path = ["cities"]
-lowest_level = 0
+scrape_schema_version = 2
 
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+include = { infosection = true, major_subdivision = true, minor_subdivision = true }
 
 [[pages]]
-source = "table"
+source = "cities"
 path = ["abruzzi", "basilicata", "calabria", "campania", "emiliaromagna", "friuliveneziagiulia", "lazio", "liguria", "lombardia", "marche", "molise", "piemonte", "puglia", "sardegna", "sicilia", "toscana", "trentinoaltoadige", "umbria", "valledaosta", "veneto"]
-lowest_level = 2
+include = { cities = true, infosection = false, major_subdivision = true }
 
 [[pages]]
-source = "table"
+source = "cities"
 path = ["localities/abruzzi", "localities/basilicata", "localities/calabria", "localities/campania", "localities/emiliaromagna", "localities/friuliveneziagiulia", "localities/lazio", "localities/liguria", "localities/lombardia", "localities/marche", "localities/molise", "localities/piemonte", "localities/puglia", "localities/sardegna", "localities/sicilia", "localities/toscana", "localities/trentinoaltoadige", "localities/umbria", "localities/valledaosta", "localities/veneto"]
-lowest_level = 2
-include_tables = ["ts"]
-table_levels = { ts = 4 }
-
-[[pages]]
-source = "auto"
-path = ["firenzecity", "genovacity", "milanocity", "napolicity", "palermocity", "romacity", "torinocity"]
-lowest_level = 3
+parent_level = 3
+include = { cities = true, infosection = false, major_subdivision = true }
 
 [visual_assets]
 bulk_country_wikidata = true

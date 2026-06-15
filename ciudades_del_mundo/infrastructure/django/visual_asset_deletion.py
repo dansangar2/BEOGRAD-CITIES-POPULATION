@@ -1,9 +1,8 @@
-"""Helpers for deleting persisted visual assets for a country.
+"""Helpers for deleting persisted visual assets for removed geography rows.
 
-The clear/re-populate workflows remove AdminArea rows and must also remove the
-flag/coat records generated for that same source country.  This module keeps the
-asset deletion in one place so command-line clears, UI clears and re-populates
-share the same behaviour.
+Explicit clear workflows delete all assets for a source country. Incremental
+scraping only deletes assets owned by AdminArea rows that disappeared from the
+latest complete scrape.
 """
 
 from __future__ import annotations
@@ -77,6 +76,65 @@ def delete_visual_assets_for_country(
             if local_path:
                 local_paths.append(str(local_path))
 
+    if not asset_ids:
+        return VisualAssetDeletionResult()
+
+    return _delete_visual_asset_rows(
+        asset_ids,
+        local_paths,
+        existing_tables=existing_tables,
+        delete_local_files=delete_local_files,
+    )
+
+
+def delete_visual_assets_for_admin_area_ids(
+    ids: Iterable[str],
+    *,
+    delete_local_files: bool = True,
+) -> VisualAssetDeletionResult:
+    """Delete VisualAsset rows owned by specific AdminArea primary keys."""
+    admin_area_ids = list(dict.fromkeys(str(item) for item in ids if item))
+    if not admin_area_ids:
+        return VisualAssetDeletionResult()
+
+    existing_tables = set(connection.introspection.table_names())
+    if VISUAL_ASSET_TABLE not in existing_tables:
+        return VisualAssetDeletionResult()
+
+    asset_ids: list[int] = []
+    local_paths: list[str] = []
+    with connection.cursor() as cursor:
+        for chunk in _chunks(admin_area_ids, 400):
+            placeholders = _placeholders(chunk)
+            cursor.execute(
+                f"""
+                    SELECT id, local_path
+                      FROM {VISUAL_ASSET_TABLE}
+                     WHERE entity_type = %s
+                       AND entity_key IN ({placeholders})
+                """,
+                ["admin_area", *chunk],
+            )
+            for asset_id, local_path in cursor.fetchall():
+                asset_ids.append(int(asset_id))
+                if local_path:
+                    local_paths.append(str(local_path))
+
+    return _delete_visual_asset_rows(
+        asset_ids,
+        local_paths,
+        existing_tables=existing_tables,
+        delete_local_files=delete_local_files,
+    )
+
+
+def _delete_visual_asset_rows(
+    asset_ids: list[int],
+    local_paths: list[str],
+    *,
+    existing_tables: set[str],
+    delete_local_files: bool,
+) -> VisualAssetDeletionResult:
     if not asset_ids:
         return VisualAssetDeletionResult()
 

@@ -1,12 +1,14 @@
 LEGAL_SUBDIVISION = 3
 
+scrape_schema_version = 2
+
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+include = { infosection = true, admin1 = true, admin2 = true }
 
 [[pages]]
-source = "table"
+source = "cities"
 path = [
   "alabama",
   "alaska",
@@ -59,7 +61,8 @@ path = [
   "wisconsin",
   "wyoming",
 ]
-lowest_level = 1
+include = { infosection = true, major_subdivision = true, cities = true }
+force_highest_level = 1
 
 [[pages]]
 source = "admin"
@@ -83,4 +86,5 @@ path = [
   "vermont/admin",
   "wisconsin/admin",
 ]
-lowest_level = 1
+include = { infosection = true, admin1 = true, admin2 = true }
+force_highest_level = 1

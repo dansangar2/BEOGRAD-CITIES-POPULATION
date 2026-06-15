@@ -9,12 +9,9 @@ LEGAL_SUBDIVISION = 1
 remote_url = "https://www.citypopulation.de/images/flags/sintmaarten.svg"
 source = "config"
 
+scrape_schema_version = 2
+
 [[pages]]
 source = "cities"
 path = [""]
-lowest_level = 0
-root_code = "sintmaarten"
-root_name = "Sint Maarten"
-root_entity_type = "Country"
-include_tables = ["ts"]
-table_levels = { tl = 0, ts = 1 }
+include = { infosection = true, major_subdivision = true, cities = true }

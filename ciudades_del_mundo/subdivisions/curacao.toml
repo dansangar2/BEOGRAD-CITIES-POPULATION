@@ -9,24 +9,17 @@ LEGAL_SUBDIVISION = 1
 remote_url = "https://www.citypopulation.de/images/flags/curacao.svg"
 source = "config"
 
+scrape_schema_version = 2
+
 [[pages]]
-source = "table"
+source = "cities"
 path = ["cities"]
-lowest_level = 0
-root_code = "curacao"
-root_name = "Curaçao"
-root_entity_type = "Country"
-include_tables = ["none"]
-table_levels = { tl = 0, ts = 1 }
+include = { infosection = true, major_subdivision = true, cities = true }
 
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
-root_code = "curacao"
-root_name = "Curaçao"
-root_entity_type = "Country"
-table_levels = { admin1 = 2, admin2 = 3 }
+include = { infosection = true, admin1 = true, admin2 = true }
 
 # /curacao/cities/ exposes places, but several place rows lack stable ids and
 # some ids collide with geozone/neighborhood ids from /curacao/admin/.  Keep

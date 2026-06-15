@@ -3,13 +3,15 @@ country_code = "romania"
 base_url = "https://www.citypopulation.de/en/"
 LEGAL_SUBDIVISION = 3
 
+scrape_schema_version = 2
+
 [[pages]]
 source = "admin"
 path = ["admin"]
-lowest_level = 0
+include = { infosection = true, admin1 = true, admin2 = true }
 
 [[pages]]
-source = "table"
+source = "cities"
 # Regiones L1, condados L2 y comunas/ciudades L3.
 path = [
   "localities/alba",
@@ -55,6 +57,5 @@ path = [
   "localities/vaslui",
   "localities/vrancea",
 ]
-lowest_level = 2
-include_tables = ["tl"]
-table_levels = { tl = 3 }
+include = { infosection = true, major_subdivision = true, cities = true }
+force_highest_level = 2

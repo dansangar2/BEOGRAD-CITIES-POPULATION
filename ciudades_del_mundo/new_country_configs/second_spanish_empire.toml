@@ -1,0 +1,511 @@
+schema_version = 1
+kind = "derived_country_config"
+slug = "second_spanish_empire"
+name = "Second Spanish Empire"
+source_python = "ciudades_del_mundo/new_subdivisions/second_spanish_empire.py"
+country = "second_spanish_empire"
+source_country_code = ""
+derived_country_code = "second_spanish_empire"
+groups = []
+
+[selection]
+include_codes = []
+include_levels = []
+group_slugs = []
+
+[legacy]
+divisions_json = '''
+[
+  {
+    "name": "Andalucía",
+    "code": "001",
+    "entity_type": "Provincia",
+    "capitals": [
+      "Sevilla"
+    ],
+    "childs": [],
+    "spec": {
+      "1": {
+        "spain": [
+          "Cataluña"
+        ]
+      },
+      "2": {
+        "france": [
+          "PyrénéESP-Orientales"
+        ]
+      },
+      "restar": {
+        "4": {
+          "france": [
+            "Ansignan",
+            "Bélesta",
+            "Campoussy",
+            "Caramany",
+            "Cassagnes",
+            "Caudiès-de-Fenouillèdes",
+            "Feilluns",
+            "Fenouillet",
+            "Fosse",
+            "Lansac",
+            "Latour-de-France",
+            "Lesquerde",
+            "Maury",
+            "Montalba-le-Château",
+            "Pézilla-de-Conflent",
+            "Planèzes",
+            "Prats-de-Sournia",
+            "Prugnanes",
+            "Rabouillet",
+            "Rasiguères",
+            "Saint-Arnac",
+            "Saint-Martin-de-Fenouillet",
+            "Saint-Paul-de-Fenouillet",
+            "Sournia",
+            "Trévillach",
+            "Trilla",
+            "Vira",
+            "Le Vivier"
+          ]
+        }
+      }
+    },
+    "forced_area_km2": null
+  }
+]
+'''
+python = '''
+DIVISIONS = [
+        {
+            "name": "Andalucía",
+            "code": "001",
+            "entity_type": "Región",
+            "capitals": ["Sevilla"],
+            "childs": [
+                {
+                    "name": "Almería",
+                    "code": "0011",
+                    "entity_type": "Provincia",
+                    "capitals": ["Almería"],
+                    "childs": [
+                        {
+                            "name": "Almería",
+                            "code": "00111",
+                            "entity_type": "Distrito",
+                            "capitals": ["Almería"],
+                            "spec": {
+                                3: {
+                                    "spain": ""
+                                }
+                            }   
+                        },
+                        {
+                            "name": "El Ejido",
+                            "code": "00112",
+                            "entity_type": "Distrito",
+                            "capitals": ["El Ejido"],
+                            "spec": {
+                                3: {
+                                    "spain": ""
+                                }
+                            }   
+                        },
+                        {
+                            "name": "Roquetas de Mar",
+                            "code": "00113",
+                            "entity_type": "Distrito",
+                            "capitals": ["Roquetas de Mar"],
+                            "spec": {
+                                3: {
+                                    "spain": ""
+                                }
+                            }   
+                        }
+                    ],
+                },
+                {
+                  "name": "Cádiz",
+                  "code": "0012",
+                  "entity_type": "Provincia",
+                  "capitals": ["Cádiz"],
+                  "childs": [
+                      {
+                          "name": "Cádiz",
+                          "code": "00121",
+                          "entity_type": "Distrito",
+                          "capitals": ["Cádiz"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      },
+                      {
+                          "name": "Jerez de la Frontera",
+                          "code": "00122",
+                          "entity_type": "Distrito",
+                          "capitals": ["Jerez de la Frontera"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      },
+                      {
+                          "name": "Algeciras",
+                          "code": "00123",
+                          "entity_type": "Distrito",
+                          "capitals": ["Algeciras"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      },
+                      {
+                          "name": "Sanlúcar de Barrameda",
+                          "code": "00124",
+                          "entity_type": "Distrito",
+                          "capitals": ["Sanlúcar de Barrameda"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      }
+                  ],
+              },
+                {
+                  "name": "Córdoba",
+                  "code": "0013",
+                  "entity_type": "Córdoba",
+                  "capitals": ["Córdoba"],
+                  "childs": [
+                      {
+                          "name": "Córdoba",
+                          "code": "00131",
+                          "entity_type": "Distrito",
+                          "capitals": ["Córdoba"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      },
+                      {
+                          "name": "Lucena",
+                          "code": "00132",
+                          "entity_type": "Distrito",
+                          "capitals": ["Lucena"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      },
+                      {
+                          "name": "Puente Genil",
+                          "code": "00133",
+                          "entity_type": "Distrito",
+                          "capitals": ["Puente Genil"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      },
+                      {
+                          "name": "Pozoblanco",
+                          "code": "00134",
+                          "entity_type": "Distrito",
+                          "capitals": ["Pozoblanco"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      }
+                  ],
+              },
+                {
+                  "name": "Granada",
+                  "code": "0014",
+                  "entity_type": "Provincia",
+                  "capitals": ["Granada"],
+                  "childs": [
+                      {
+                          "name": "Granada",
+                          "code": "00141",
+                          "entity_type": "Distrito",
+                          "capitals": ["Granada"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      },
+                      {
+                          "name": "Motril",
+                          "code": "00142",
+                          "entity_type": "Distrito",
+                          "capitals": ["Motril"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      },
+                      {
+                          "name": "Baza",
+                          "code": "00143",
+                          "entity_type": "Distrito",
+                          "capitals": ["Baza"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      },
+                      {
+                          "name": "Loja",
+                          "code": "00144",
+                          "entity_type": "Distrito",
+                          "capitals": ["Loja"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      }
+                  ],
+              },
+                {
+                  "name": "Huelva",
+                  "code": "0015",
+                  "entity_type": "Provincia",
+                  "capitals": ["Huelva"],
+                  "childs": [
+                      {
+                          "name": "Huelva",
+                          "code": "00151",
+                          "entity_type": "Distrito",
+                          "capitals": ["Huelva"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      },
+                      {
+                          "name": "Ayamonte",
+                          "code": "00152",
+                          "entity_type": "Distrito",
+                          "capitals": ["Ayamonte"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      },
+                      {
+                          "name": "Valverde del Camino",
+                          "code": "00153",
+                          "entity_type": "Distrito",
+                          "capitals": ["Valverde del Camino"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      }
+                  ],
+              },
+                {
+                   "name": "Jaén",
+                   "code": "0016",
+                   "entity_type": "Provincia",
+                   "capitals": ["Jaén"],
+                   "childs": [
+                       {
+                           "name": "Jaén",
+                           "code": "00161",
+                           "entity_type": "Distrito",
+                           "capitals": ["Jaén"],
+                           "spec": {
+                               3: {
+                                   "spain": ""
+                               }
+                           }   
+                       },
+                       {
+                           "name": "Linares",
+                           "code": "00162",
+                           "entity_type": "Distrito",
+                           "capitals": ["Linares"],
+                           "spec": {
+                               3: {
+                                   "spain": ""
+                               }
+                           }   
+                       },
+                       {
+                           "name": "Úbeda",
+                           "code": "00163",
+                           "entity_type": "Distrito",
+                           "capitals": ["Úbeda"],
+                           "spec": {
+                               3: {
+                                   "spain": ""
+                               }
+                           }   
+                       }
+                   ],
+               },
+                {
+                  "name": "Málaga",
+                  "code": "0017",
+                  "entity_type": "Provincia",
+                  "capitals": ["Málaga"],
+                  "childs": [
+                      {
+                          "name": "Málaga",
+                          "code": "00171",
+                          "entity_type": "Distrito",
+                          "capitals": ["Málaga"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      },
+                      {
+                          "name": "Marbella",
+                          "code": "00172",
+                          "entity_type": "Distrito",
+                          "capitals": ["Marbella"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      },
+                      {
+                          "name": "Vélez-Málaga",
+                          "code": "00173",
+                          "entity_type": "Distrito",
+                          "capitals": ["Vélez-Málaga"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      },
+                      {
+                          "name": "Antequera",
+                          "code": "00174",
+                          "entity_type": "Distrito",
+                          "capitals": ["Antequera"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      }
+                  ],
+              },
+                {
+                  "name": "Sevilla",
+                  "code": "0018",
+                  "entity_type": "Provincia",
+                  "capitals": ["Sevilla"],
+                  "childs": [
+                      {
+                          "name": "Sevilla",
+                          "code": "00181",
+                          "entity_type": "Distrito",
+                          "capitals": ["Sevilla"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      },
+                      {
+                          "name": "Dos Hermanas",
+                          "code": "00182",
+                          "entity_type": "Distrito",
+                          "capitals": ["Dos Hermanas"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      },
+                      {
+                          "name": "Écija",
+                          "code": "00183",
+                          "entity_type": "Distrito",
+                          "capitals": ["Écija"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      },
+                      {
+                          "name": "Utrera",
+                          "code": "00184",
+                          "entity_type": "Distrito",
+                          "capitals": ["Utrera"],
+                          "spec": {
+                              3: {
+                                  "spain": ""
+                              }
+                          }   
+                      }
+                  ],
+              },
+            ],
+            "spec": {
+                # nivel 1: AdminArea de España "Cataluña"
+                1: {
+                    # Ojo: aquí va el country_code EXACTO que tengas en AdminArea.country_code
+                    "spain": ["Cataluña"],
+                },
+                # nivel 2: AdminArea de Francia "PyrénéESP-Orientales"
+                2: {
+                    "france": ["PyrénéESP-Orientales"],
+                },
+                # restar: municipios concretos dentro de Francia a nivel 4
+                "restar": {
+                    4: {
+                        "france": [
+                            "Ansignan", "Bélesta", "Campoussy", "Caramany", "Cassagnes",
+                            "Caudiès-de-Fenouillèdes", "Feilluns", "Fenouillet", "Fosse", "Lansac",
+                            "Latour-de-France", "Lesquerde", "Maury", "Montalba-le-Château",
+                            "Pézilla-de-Conflent", "Planèzes", "Prats-de-Sournia", "Prugnanes",
+                            "Rabouillet", "Rasiguères", "Saint-Arnac", "Saint-Martin-de-Fenouillet",
+                            "Saint-Paul-de-Fenouillet", "Sournia", "Trévillach", "Trilla", "Vira",
+                            "Le Vivier",
+                        ],
+                    },
+                },
+            },
+            "entity_type": "Provincia",
+            "forced_area_km2": None,
+            # Una o varias capitales (AdminArea dentro del conjunto atómico resultante)
+            
+            # Hijos (subdivisiones inferiores), si quieres definirlos
+            "childs": [
+                # {
+                #     "name": "Alguna subdivisión",
+                #     "spec": {...},
+                #     "entity_type": "Comarca",
+                #     "forced_area_km2": None,
+                #     "capitals": ["Loquesea"],
+                #     "childs": [],
+                # },
+            ],
+        },
+    ]
+'''
