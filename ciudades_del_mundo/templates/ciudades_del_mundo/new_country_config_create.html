@@ -1,0 +1,274 @@
+{% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Nueva entidad" %} - {% trans "Ciudades del Mundo" %}{% endblock %}
+
+{% block content %}
+<section class="page-head compact">
+  <div>
+    <p class="eyebrow">{{ country.name }}</p>
+    <h1>{% trans "Nueva entidad" %}</h1>
+  </div>
+  <a class="button secondary" href="{% url 'ciudades_del_mundo:new_country_detail' country.slug %}">{% trans "Volver" %}</a>
+</section>
+
+<form class="panel derived-create-form" method="post" data-derived-create-form>
+  {% csrf_token %}
+  <input type="hidden" name="selection_json" data-derived-selection-json value="{{ form.selection_json }}">
+  <textarea name="content" hidden>{{ form.content }}</textarea>
+
+  <div class="derived-create-grid">
+    <section class="derived-create-fields">
+      <label>
+        Slug
+        <input name="slug" value="{{ form.slug }}" required>
+      </label>
+      <label>
+        {% trans "Nombre" %}
+        <input name="name" value="{{ form.name }}" required>
+      </label>
+      <label>
+        {% trans "Codigo derivado" %}
+        <input name="derived_country_code" value="{{ form.derived_country_code }}">
+      </label>
+      <label>
+        {% trans "Pais fuente" %}
+        <select name="source_country_code" data-derived-source-select required>
+          <option value="">{% trans "Selecciona un pais" %}</option>
+          {% for source in source_countries %}
+          <option value="{{ source.value }}" data-root-id="{{ source.root_id }}" {% if source.value == form.source_country_code %}selected{% endif %}>{{ source.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" name="is_active" value="1" {% if form.is_active %}checked{% endif %}>
+        <span>{% trans "Activa" %}</span>
+      </label>
+    </section>
+
+    <section class="derived-tree-panel" aria-live="polite">
+      <div class="derived-tree-head">
+        <h2>{% trans "Subdivisiones fuente" %}</h2>
+        <div class="derived-tree-legend">
+          <span class="operation-badge add">{% trans "Suma" %}</span>
+          <span class="operation-badge subtract">{% trans "Resta" %}</span>
+        </div>
+      </div>
+      <p class="muted">{% trans "Si marcas una subdivisión sin tener marcada una superior, suma. Si la marcas dentro de una superior marcada, resta." %}</p>
+      <div
+        class="derived-tree"
+        data-derived-tree
+        data-children-url="{{ children_url }}"
+        data-empty-label="{% trans 'Selecciona un pais fuente.' %}"
+        data-loading-label="{% trans 'Cargando...' %}"
+        data-load-children-label="{% trans 'Ver hijos' %}"
+        data-hide-children-label="{% trans 'Ocultar hijos' %}"
+        data-add-label="{% trans 'Suma' %}"
+        data-subtract-label="{% trans 'Resta' %}"
+        data-no-children-label="{% trans 'Sin hijos' %}"
+        data-error-label="{% trans 'No se pudieron cargar los hijos.' %}"
+      ></div>
+    </section>
+  </div>
+
+  <div class="actions">
+    <button type="submit">{% trans "Crear" %}</button>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var form = document.querySelector("[data-derived-create-form]");
+  if (!form) {
+    return;
+  }
+  var select = form.querySelector("[data-derived-source-select]");
+  var tree = form.querySelector("[data-derived-tree]");
+  var hidden = form.querySelector("[data-derived-selection-json]");
+  var selected = new Set();
+
+  function label(name) {
+    return tree.dataset[name] || "";
+  }
+
+  function currentCountry() {
+    return select ? select.value : "";
+  }
+
+  function clearTree(message) {
+    tree.innerHTML = "";
+    var empty = document.createElement("p");
+    empty.className = "empty";
+    empty.textContent = message || label("emptyLabel");
+    tree.appendChild(empty);
+  }
+
+  function operationFor(row) {
+    if (!selected.has(row.dataset.areaId)) {
+      return "";
+    }
+    var parent = row.parentElement.closest("[data-area-row]");
+    while (parent) {
+      if (selected.has(parent.dataset.areaId)) {
+        return "subtract";
+      }
+      parent = parent.parentElement.closest("[data-area-row]");
+    }
+    return "add";
+  }
+
+  function refreshOperations() {
+    tree.querySelectorAll("[data-area-row]").forEach(function (row) {
+      var operation = operationFor(row);
+      row.dataset.operation = operation;
+      var badge = row.querySelector("[data-operation-badge]");
+      if (badge) {
+        badge.hidden = !operation;
+        badge.textContent = operation === "subtract" ? label("subtractLabel") : label("addLabel");
+        badge.classList.toggle("subtract", operation === "subtract");
+        badge.classList.toggle("add", operation === "add");
+      }
+    });
+  }
+
+  function setLoading(container) {
+    container.innerHTML = "";
+    var loading = document.createElement("p");
+    loading.className = "muted";
+    loading.textContent = label("loadingLabel");
+    container.appendChild(loading);
+  }
+
+  function renderChildren(container, children, depth) {
+    container.innerHTML = "";
+    if (!children.length) {
+      var empty = document.createElement("p");
+      empty.className = "muted";
+      empty.textContent = label("noChildrenLabel");
+      container.appendChild(empty);
+      return;
+    }
+    children.forEach(function (child) {
+      var row = document.createElement("div");
+      row.className = "derived-tree-row";
+      row.dataset.areaRow = "1";
+      row.dataset.areaId = child.id;
+      row.dataset.depth = String(depth || 0);
+
+      var line = document.createElement("div");
+      line.className = "derived-tree-line";
+      line.style.setProperty("--depth", String(depth || 0));
+
+      var checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = child.id;
+      checkbox.checked = selected.has(child.id);
+      checkbox.addEventListener("change", function () {
+        if (checkbox.checked) {
+          selected.add(child.id);
+        } else {
+          selected.delete(child.id);
+        }
+        refreshOperations();
+      });
+      line.appendChild(checkbox);
+
+      var text = document.createElement("span");
+      text.className = "derived-tree-label";
+      text.textContent = child.label || child.name || child.id;
+      line.appendChild(text);
+
+      var meta = document.createElement("span");
+      meta.className = "derived-tree-meta";
+      meta.textContent = "L" + child.level + (child.entity_type ? " · " + child.entity_type : "");
+      line.appendChild(meta);
+
+      var badge = document.createElement("span");
+      badge.className = "operation-badge";
+      badge.dataset.operationBadge = "1";
+      badge.hidden = true;
+      line.appendChild(badge);
+
+      if (child.has_children) {
+        var toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "mini-button";
+        toggle.textContent = label("loadChildrenLabel");
+        toggle.addEventListener("click", function () {
+          var childContainer = row.querySelector("[data-child-container]");
+          if (row.dataset.loaded === "1") {
+            var collapsed = childContainer.hidden;
+            childContainer.hidden = !collapsed;
+            toggle.textContent = collapsed ? label("hideChildrenLabel") : label("loadChildrenLabel");
+            return;
+          }
+          childContainer.hidden = false;
+          toggle.textContent = label("hideChildrenLabel");
+          loadChildren(childContainer, child.id, (depth || 0) + 1);
+          row.dataset.loaded = "1";
+        });
+        line.appendChild(toggle);
+      }
+
+      row.appendChild(line);
+      var childContainer = document.createElement("div");
+      childContainer.className = "derived-tree-children";
+      childContainer.dataset.childContainer = "1";
+      childContainer.hidden = true;
+      row.appendChild(childContainer);
+      container.appendChild(row);
+    });
+    refreshOperations();
+  }
+
+  function loadChildren(container, parentId, depth) {
+    var country = currentCountry();
+    if (!country) {
+      clearTree(label("emptyLabel"));
+      return;
+    }
+    setLoading(container);
+    var url = new URL(tree.dataset.childrenUrl, window.location.origin);
+    url.searchParams.set("country_code", country);
+    if (parentId) {
+      url.searchParams.set("parent_id", parentId);
+    }
+    window.fetch(url.toString(), { headers: { "Accept": "application/json" } })
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error("load failed");
+        }
+        return response.json();
+      })
+      .then(function (data) {
+        renderChildren(container, Array.isArray(data.children) ? data.children : [], depth || 0);
+      })
+      .catch(function () {
+        clearTree(label("errorLabel"));
+      });
+  }
+
+  if (select) {
+    select.addEventListener("change", function () {
+      selected.clear();
+      loadChildren(tree, "", 0);
+    });
+  }
+
+  form.addEventListener("submit", function () {
+    hidden.value = JSON.stringify({
+      source_country_code: currentCountry(),
+      selected_ids: Array.from(selected)
+    });
+  });
+
+  if (currentCountry()) {
+    loadChildren(tree, "", 0);
+  } else {
+    clearTree(label("emptyLabel"));
+  }
+})();
+</script>
+{% endblock %}

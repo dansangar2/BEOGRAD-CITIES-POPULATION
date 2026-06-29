@@ -306,10 +306,30 @@ claims, especially for flags, so modern assets win over historical images when
 both exist.
 
 Local diagnostic logs expire after 90 days. `ciudades_del_mundo.web.log_retention`
-cleans `.web_task_logs/`, `.web_scrape_block_errors/`, `.web_task_progress/` and
-`.web_scrape_resume/`. New web task logs are grouped by task key/country, for
-example `.web_task_logs/algeria/<task_id>.log`; validation logs are grouped by
-country, for example `.web_scrape_block_errors/algeria/algeria_link_*.txt`.
+cleans `.web_task_logs/`, `.web_scrape_block_errors/`, `.web_scrape_pages/`,
+`.web_ai_autoconfig/`, `.web_task_progress/` and `.web_scrape_resume/`. New web
+task logs are grouped by task key/country, for example
+`.web_task_logs/algeria/<task_id>.log`; validation logs are grouped by country,
+for example `.web_scrape_block_errors/algeria/algeria_link_*.txt`.
+`scrape_subdivisions` also writes page snapshots by country and task/run under
+`.web_scrape_pages/<slug>/<task-or-cli-run>/`: `index.jsonl` lists each
+completed page and points to its raw HTML plus parsed entity JSON. This is local
+diagnostic state only and must not become a runtime scraper input.
+
+AI autoconfiguration support lives in
+`ciudades_del_mundo/services/ai_autoconfig_context.py` and the management
+command `prepare_ai_autoconfig`. Territorial target files belong in
+`ciudades_del_mundo/autoconfig_specs/<slug>.txt` and describe the intended
+persisted hierarchy by level, e.g. `Region > Department > Commune > Locality`.
+When the user asks to "configurar" or "autoconfigurar" a country, first run or
+inspect `py manage.py prepare_ai_autoconfig <slug>`; if no slug is given, use
+the recent diagnostics mode (`py manage.py prepare_ai_autoconfig --limit 5`) and
+work through the newest countries. The generated Markdown dossier in
+`.web_ai_autoconfig/<slug>/` combines the territorial objective, active SQL
+TOML, latest validation/task logs, latest scraped-page index and code map. Use
+that dossier to decide whether the fix is TOML-only or a generic parser/linker
+code change. If the target `.txt` is missing or the country has no concrete
+administrative hierarchy to match, do not change scraping behavior.
 
 Offline parser examples for the current v2 behavior live under
 `ciudades_del_mundo/html/{belgium,france,italy,spain}/`. They are fixtures for
@@ -515,20 +535,20 @@ Page-level scraping config hints:
   allowed for explicit `/configs/` bootstrap through `sync_scraping_configs`,
   but are not runtime scraper inputs or automatic fallbacks. Treat this
   directory as optional after SQL has been seeded.
-- `historical_divisions/*.toml`: active TOML form of reusable historical group
-  recipes. Matching `.py` files remain beside them only for legacy
-  `build_new_subdivisions` compatibility until the TOML builder exists.
-- `new_subdivisions/*.toml`: active TOML form of derived country recipes.
-  Matching `.py` files remain beside them only for legacy builder
-  compatibility.
+- `new_country_configs/*.toml`: TOML seeds for the `/new-countries/` SQL
+  section and `DerivedCountryConfig.content`. The web `Importar TOML` action
+  enqueues one `sync_derived_configs new-countries <slug> --force` task per
+  seed; each task imports only configuration into SQL and does not scrape or
+  build `NuevoAdminArea`.
+- `subdivision_groups/*.toml`: TOML seeds for the `/groups/` SQL section and
+  `SubdivisionGroup.content`. The web `Importar TOML` action enqueues one
+  `sync_derived_configs groups <slug> --force` task per seed, so one failed
+  seed does not block the rest of the queue.
+- `historical_divisions/*.py` and `new_subdivisions/*.py`: legacy Python
+  recipes kept for `build_new_subdivisions` compatibility until the TOML
+  builder exists. Do not add new TOML seeds to these legacy Python packages.
 - `historical_divisions_old/` and `new_subdivisions_old/`: local backup copies
   of the legacy Python folders; keep them git-ignored.
-- `new_country_configs/*.toml`: TOML seeds generated from
-  `new_subdivisions/*.py` for the SQL `DerivedCountryConfig` model. They store
-  normalized metadata, empty future selection fields and embedded legacy Python
-  so no unconverted logic is lost.
-- `subdivision_groups/*.toml`: TOML seeds generated from
-  `historical_divisions/*.py` for the SQL `SubdivisionGroup` model.
 - `format_html/*.txt`: sample or reference HTML formats.
 
 ## Main Models
@@ -590,11 +610,14 @@ Page-level scraping config hints:
 - `DerivedCountry.slug` groups variants for one conceptual country, such as
   Spain with several historical/political configurations
 - `DerivedCountryConfig.content` stores TOML with `kind =
-  "derived_country_config"`, `derived_country_code`, group references and
-  future source-selection fields
+  "derived_country_config"`, `derived_country_code`, group references and SQL
+  source-selection fields. The visual `Nueva entidad` flow stores selected
+  `AdminArea.id` values under `[selection] include_ids` / `subtract_ids` plus
+  `[[selection.items]]` rows with `operation = "add"` or `"subtract"`.
 - `/new-countries/` lists containers, `/new-countries/<slug>/` lists configs,
-  `Configuracion` edits TOML and `Vista` links to built `NuevoAdminArea` data
-  when rows exist for the config's `derived_country_code`
+  `Nueva entidad` creates TOML from a SQL AdminArea tree, `Configuracion` edits
+  TOML and `Vista` links to built `NuevoAdminArea` data when rows exist for the
+  config's `derived_country_code`
 - Current builder compatibility still uses legacy Python modules; do not remove
   `new_subdivisions/*.py` until the TOML builder exists
 
@@ -602,7 +625,8 @@ Page-level scraping config hints:
 
 - SQL base for reusable TOML groups of source `AdminArea` selections
 - `content` stores TOML with `kind = "subdivision_group"`
-- `/groups/` lists and edits these groups
+- `/groups/` lists and edits these groups; `Importar TOML` queues one SQL
+  import task per `subdivision_groups/*.toml` seed
 - Groups are intended to be referenced by future `DerivedCountryConfig` TOML
   instead of importing historical Python fragments directly
 
@@ -909,8 +933,8 @@ can modify or delete many `AdminArea` rows in `db.sqlite3`.
 The active declarative recipe files are TOML:
 
 ```text
-ciudades_del_mundo/new_subdivisions/*.toml
-ciudades_del_mundo/historical_divisions/*.toml
+ciudades_del_mundo/new_country_configs/*.toml
+ciudades_del_mundo/subdivision_groups/*.toml
 ```
 
 They contain normalized metadata plus embedded legacy Python under `[legacy]`
@@ -1570,9 +1594,9 @@ If the user asks to fix a scraper:
 
 If the user asks to build or change an empire/country derived hierarchy:
 
-- if the request is for the current builder, keep the matching TOML under
-  `new_subdivisions/` or `historical_divisions/` in sync with any legacy Python
-  compatibility change
+- if the request is for the current legacy builder, change only the matching
+  Python under `new_subdivisions/` or `historical_divisions/`; if a TOML seed
+  must also change, update `new_country_configs/` or `subdivision_groups/`
 - if the request is for the new declarative base, use `/new-countries/`,
   `DerivedCountryConfig.content` TOML, `/groups/` and `SubdivisionGroup.content`
   instead of adding another parallel ad-hoc store

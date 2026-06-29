@@ -1587,3 +1587,83 @@ msgstr "Sumar al padre"
 
 msgid "Los checkboxes dependen de la fuente seleccionada. Sumar al padre agrega población y área de esa página al padre enlazado."
 msgstr "Los checkboxes dependen de la fuente seleccionada. Sumar al padre agrega población y área de esa página al padre enlazado."
+
+# Derived country SQL creation/import UI.
+
+msgid "Nueva entidad"
+msgstr "Nueva entidad"
+
+msgid "semillas TOML disponibles"
+msgstr "semillas TOML disponibles"
+
+msgid "Importar TOML"
+msgstr "Importar TOML"
+
+msgid "Selecciona un pais"
+msgstr "Selecciona un pais"
+
+msgid "Subdivisiones fuente"
+msgstr "Subdivisiones fuente"
+
+msgid "Suma"
+msgstr "Suma"
+
+msgid "Resta"
+msgstr "Resta"
+
+msgid "Si marcas una subdivisi?n sin tener marcada una superior, suma. Si la marcas dentro de una superior marcada, resta."
+msgstr "Si marcas una subdivisi?n sin tener marcada una superior, suma. Si la marcas dentro de una superior marcada, resta."
+
+msgid "Selecciona un pais fuente."
+msgstr "Selecciona un pais fuente."
+
+msgid "Cargando..."
+msgstr "Cargando..."
+
+msgid "Ver hijos"
+msgstr "Ver hijos"
+
+msgid "Ocultar hijos"
+msgstr "Ocultar hijos"
+
+msgid "Sin hijos"
+msgstr "Sin hijos"
+
+msgid "No se pudieron cargar los hijos."
+msgstr "No se pudieron cargar los hijos."
+
+msgid "Importar pais nuevo TOML: %(slug)s"
+msgstr "Importar pais nuevo TOML: %(slug)s"
+
+msgid "Encoladas %(count)s tarea(s) de importacion TOML para nuevos paises."
+msgstr "Encoladas %(count)s tarea(s) de importacion TOML para nuevos paises."
+
+msgid "No hay semillas TOML de nuevos paises para importar."
+msgstr "No hay semillas TOML de nuevos paises para importar."
+
+msgid "Importar grupo TOML: %(slug)s"
+msgstr "Importar grupo TOML: %(slug)s"
+
+msgid "Encoladas %(count)s tarea(s) de importacion TOML para grupos."
+msgstr "Encoladas %(count)s tarea(s) de importacion TOML para grupos."
+
+msgid "No hay semillas TOML de grupos para importar."
+msgstr "No hay semillas TOML de grupos para importar."
+
+msgid "La seleccion visual no es JSON valido: %(error)s"
+msgstr "La seleccion visual no es JSON valido: %(error)s"
+
+msgid "La seleccion visual debe contener una lista de subdivisiones."
+msgstr "La seleccion visual debe contener una lista de subdivisiones."
+
+msgid "El pais fuente es obligatorio."
+msgstr "El pais fuente es obligatorio."
+
+msgid "Selecciona al menos una subdivision fuente."
+msgstr "Selecciona al menos una subdivision fuente."
+
+msgid "La seleccion contiene subdivisiones que no pertenecen al pais fuente."
+msgstr "La seleccion contiene subdivisiones que no pertenecen al pais fuente."
+
+msgid "No existe el TOML semilla: %(path)s."
+msgstr "No existe el TOML semilla: %(path)s."

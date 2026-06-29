@@ -1593,3 +1593,83 @@ msgstr "Ajouter au parent"
 
 msgid "Los checkboxes dependen de la fuente seleccionada. Sumar al padre agrega población y área de esa página al padre enlazado."
 msgstr "Les cases dépendent de la source sélectionnée. Ajouter au parent ajoute la population et la superficie de cette page au parent lié."
+
+# Derived country SQL creation/import UI.
+
+msgid "Nueva entidad"
+msgstr "Nouvelle entit?"
+
+msgid "semillas TOML disponibles"
+msgstr "graines TOML disponibles"
+
+msgid "Importar TOML"
+msgstr "Importer TOML"
+
+msgid "Selecciona un pais"
+msgstr "S?lectionnez un pays"
+
+msgid "Subdivisiones fuente"
+msgstr "Subdivisions sources"
+
+msgid "Suma"
+msgstr "Ajoute"
+
+msgid "Resta"
+msgstr "Soustrait"
+
+msgid "Si marcas una subdivisi?n sin tener marcada una superior, suma. Si la marcas dentro de una superior marcada, resta."
+msgstr "Si vous cochez une subdivision sans parent coch?, elle ajoute. Si vous la cochez dans un parent coch?, elle soustrait."
+
+msgid "Selecciona un pais fuente."
+msgstr "S?lectionnez un pays source."
+
+msgid "Cargando..."
+msgstr "Chargement..."
+
+msgid "Ver hijos"
+msgstr "Voir les enfants"
+
+msgid "Ocultar hijos"
+msgstr "Masquer les enfants"
+
+msgid "Sin hijos"
+msgstr "Aucun enfant"
+
+msgid "No se pudieron cargar los hijos."
+msgstr "Impossible de charger les enfants."
+
+msgid "Importar pais nuevo TOML: %(slug)s"
+msgstr "Importer le TOML du nouveau pays : %(slug)s"
+
+msgid "Encoladas %(count)s tarea(s) de importacion TOML para nuevos paises."
+msgstr "%(count)s t?che(s) d?import TOML en file pour les nouveaux pays."
+
+msgid "No hay semillas TOML de nuevos paises para importar."
+msgstr "Aucune graine TOML de nouveaux pays ? importer."
+
+msgid "Importar grupo TOML: %(slug)s"
+msgstr "Importer le groupe TOML : %(slug)s"
+
+msgid "Encoladas %(count)s tarea(s) de importacion TOML para grupos."
+msgstr "%(count)s t?che(s) d?import TOML en file pour les groupes."
+
+msgid "No hay semillas TOML de grupos para importar."
+msgstr "Aucune graine TOML de groupes ? importer."
+
+msgid "La seleccion visual no es JSON valido: %(error)s"
+msgstr "La s?lection visuelle n?est pas un JSON valide : %(error)s"
+
+msgid "La seleccion visual debe contener una lista de subdivisiones."
+msgstr "La s?lection visuelle doit contenir une liste de subdivisions."
+
+msgid "El pais fuente es obligatorio."
+msgstr "Le pays source est obligatoire."
+
+msgid "Selecciona al menos una subdivision fuente."
+msgstr "S?lectionnez au moins une subdivision source."
+
+msgid "La seleccion contiene subdivisiones que no pertenecen al pais fuente."
+msgstr "La s?lection contient des subdivisions qui n?appartiennent pas au pays source."
+
+msgid "No existe el TOML semilla: %(path)s."
+msgstr "La graine TOML n?existe pas : %(path)s."

@@ -1587,3 +1587,83 @@ msgstr "Add to parent"
 
 msgid "Los checkboxes dependen de la fuente seleccionada. Sumar al padre agrega población y área de esa página al padre enlazado."
 msgstr "The checkboxes depend on the selected source. Add to parent adds that page's population and area to the linked parent."
+
+# Derived country SQL creation/import UI.
+
+msgid "Nueva entidad"
+msgstr "New entity"
+
+msgid "semillas TOML disponibles"
+msgstr "TOML seeds available"
+
+msgid "Importar TOML"
+msgstr "Import TOML"
+
+msgid "Selecciona un pais"
+msgstr "Select a country"
+
+msgid "Subdivisiones fuente"
+msgstr "Source subdivisions"
+
+msgid "Suma"
+msgstr "Adds"
+
+msgid "Resta"
+msgstr "Subtracts"
+
+msgid "Si marcas una subdivisi?n sin tener marcada una superior, suma. Si la marcas dentro de una superior marcada, resta."
+msgstr "If you mark a subdivision without a marked parent, it adds. If you mark it inside a marked parent, it subtracts."
+
+msgid "Selecciona un pais fuente."
+msgstr "Select a source country."
+
+msgid "Cargando..."
+msgstr "Loading..."
+
+msgid "Ver hijos"
+msgstr "Show children"
+
+msgid "Ocultar hijos"
+msgstr "Hide children"
+
+msgid "Sin hijos"
+msgstr "No children"
+
+msgid "No se pudieron cargar los hijos."
+msgstr "Children could not be loaded."
+
+msgid "Importar pais nuevo TOML: %(slug)s"
+msgstr "Import new-country TOML: %(slug)s"
+
+msgid "Encoladas %(count)s tarea(s) de importacion TOML para nuevos paises."
+msgstr "%(count)s TOML import task(s) queued for new countries."
+
+msgid "No hay semillas TOML de nuevos paises para importar."
+msgstr "There are no new-country TOML seeds to import."
+
+msgid "Importar grupo TOML: %(slug)s"
+msgstr "Import group TOML: %(slug)s"
+
+msgid "Encoladas %(count)s tarea(s) de importacion TOML para grupos."
+msgstr "%(count)s TOML import task(s) queued for groups."
+
+msgid "No hay semillas TOML de grupos para importar."
+msgstr "There are no group TOML seeds to import."
+
+msgid "La seleccion visual no es JSON valido: %(error)s"
+msgstr "The visual selection is not valid JSON: %(error)s"
+
+msgid "La seleccion visual debe contener una lista de subdivisiones."
+msgstr "The visual selection must contain a list of subdivisions."
+
+msgid "El pais fuente es obligatorio."
+msgstr "The source country is required."
+
+msgid "Selecciona al menos una subdivision fuente."
+msgstr "Select at least one source subdivision."
+
+msgid "La seleccion contiene subdivisiones que no pertenecen al pais fuente."
+msgstr "The selection contains subdivisions that do not belong to the source country."
+
+msgid "No existe el TOML semilla: %(path)s."
+msgstr "The TOML seed does not exist: %(path)s."

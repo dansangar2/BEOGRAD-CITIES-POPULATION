@@ -43,6 +43,12 @@ urlpatterns = [
     path("recipes/<slug:slug>/", views.recipe_edit, name="recipe_edit"),
     path("recipes/<slug:slug>/task/<slug:action>/", views.start_recipe_task, name="start_recipe_task"),
     path("new-countries/", views.new_country_list, name="new_country_list"),
+    path("new-countries/import-toml/", views.new_country_import_toml, name="new_country_import_toml"),
+    path(
+        "new-countries/source-children/",
+        views.new_country_source_children,
+        name="new_country_source_children",
+    ),
     path("new-countries/new/", views.new_country_new, name="new_country_new"),
     path("new-countries/<slug:country_slug>/", views.new_country_detail, name="new_country_detail"),
     path(
@@ -61,6 +67,7 @@ urlpatterns = [
         name="new_country_config_view",
     ),
     path("groups/", views.group_list, name="group_list"),
+    path("groups/import-toml/", views.group_import_toml, name="group_import_toml"),
     path("groups/new/", views.group_new, name="group_new"),
     path("groups/<slug:slug>/", views.group_edit, name="group_edit"),
     path("derived/", views.nuevo_area_list, name="nuevo_area_list"),

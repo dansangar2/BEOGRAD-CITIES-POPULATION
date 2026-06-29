@@ -9,8 +9,11 @@ derived_country_code = "empire_of_roma"
 groups = []
 
 [selection]
+source_country_code = ""
+include_ids = []
+subtract_ids = []
 include_codes = []
-include_levels = []
+subtract_codes = []
 group_slugs = []
 
 [legacy]

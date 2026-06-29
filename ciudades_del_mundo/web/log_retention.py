@@ -12,6 +12,8 @@ LOG_RETENTION_DAYS = 90
 LOG_DIRECTORIES = (
     ".web_task_logs",
     ".web_scrape_block_errors",
+    ".web_scrape_pages",
+    ".web_ai_autoconfig",
     ".web_task_progress",
     ".web_scrape_resume",
 )
@@ -39,4 +41,3 @@ def cleanup_old_logs(*, base_dir: Path | None = None, days: int = LOG_RETENTION_
                 continue
 
     return removed
-

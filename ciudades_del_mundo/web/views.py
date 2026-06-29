@@ -77,6 +77,11 @@ from ciudades_del_mundo.services.config_asset_overrides import (
     load_config_asset_overrides,
     save_config_asset_overrides,
 )
+from ciudades_del_mundo.services.derived_config_seeds import (
+    bundled_new_country_config_paths,
+    bundled_subdivision_group_paths,
+    render_derived_country_selection_toml,
+)
 from ciudades_del_mundo.services.status_codes import (
     get_program_message_catalog,
     program_message_payload,
@@ -1772,6 +1777,50 @@ def start_recipe_task(request, slug, action):
     return redirect("ciudades_del_mundo:task_detail", task_id=task.id)
 
 
+def new_country_import_toml(request):
+    """Queue one SQL import task per new-country TOML seed."""
+    if request.method != "POST":
+        return redirect("ciudades_del_mundo:new_country_list")
+    paths = bundled_new_country_config_paths()
+    task_count = _queue_derived_seed_import_tasks(
+        paths,
+        section="new-countries",
+        key_prefix="import-new-country",
+        label_template=_("Importar pais nuevo TOML: %(slug)s"),
+    )
+    if task_count:
+        messages.info(
+            request,
+            _("Encoladas %(count)s tarea(s) de importacion TOML para nuevos paises.")
+            % {"count": task_count},
+        )
+    else:
+        messages.warning(request, _("No hay semillas TOML de nuevos paises para importar."))
+    return redirect("ciudades_del_mundo:task_list")
+
+
+def group_import_toml(request):
+    """Queue one SQL import task per subdivision-group TOML seed."""
+    if request.method != "POST":
+        return redirect("ciudades_del_mundo:group_list")
+    paths = bundled_subdivision_group_paths()
+    task_count = _queue_derived_seed_import_tasks(
+        paths,
+        section="groups",
+        key_prefix="import-group",
+        label_template=_("Importar grupo TOML: %(slug)s"),
+    )
+    if task_count:
+        messages.info(
+            request,
+            _("Encoladas %(count)s tarea(s) de importacion TOML para grupos.")
+            % {"count": task_count},
+        )
+    else:
+        messages.warning(request, _("No hay semillas TOML de grupos para importar."))
+    return redirect("ciudades_del_mundo:task_list")
+
+
 def new_country_list(request):
     """List derived-country containers and their editable TOML variants."""
     countries = (
@@ -1781,7 +1830,7 @@ def new_country_list(request):
     return render(
         request,
         "ciudades_del_mundo/new_country_list.html",
-        {"countries": countries},
+        {"countries": countries, "seed_count": len(bundled_new_country_config_paths())},
     )
 
 
@@ -1837,13 +1886,20 @@ def new_country_detail(request, country_slug):
 def new_country_config_new(request, country_slug):
     """Create a TOML configuration for one derived country."""
     country = _derived_country_or_404(country_slug)
+    source_country_code = str(
+        request.POST.get("source_country_code")
+        or request.GET.get("source_country_code")
+        or country.source_country_code
+        or ""
+    ).strip().lower()
     form = {
         "slug": "",
         "name": "",
-        "source_country_code": country.source_country_code,
+        "source_country_code": source_country_code,
         "derived_country_code": "",
         "content": "",
         "is_active": "1",
+        "selection_json": "",
     }
     if request.method == "POST":
         form.update({key: request.POST.get(key, "") for key in form})
@@ -1855,12 +1911,14 @@ def new_country_config_new(request, country_slug):
             if not name:
                 raise ValueError(_("El nombre es obligatorio."))
             derived_code = _normalize_recipe_slug(form["derived_country_code"] or slug)
-            content = str(form["content"] or "").strip() or _default_derived_country_toml(
+            content = _derived_country_content_from_create_post(
                 country=country,
                 slug=slug,
                 name=name,
                 source_country_code=form["source_country_code"],
                 derived_country_code=derived_code,
+                raw_content=form["content"],
+                selection_json=form["selection_json"],
             )
             _validate_plain_toml(content, expected_kind="derived_country_config")
             config = DerivedCountryConfig.objects.create(
@@ -1891,8 +1949,14 @@ def new_country_config_new(request, country_slug):
         )
     return render(
         request,
-        "ciudades_del_mundo/new_country_config_form.html",
-        {"country": country, "form": form, "config": None},
+        "ciudades_del_mundo/new_country_config_create.html",
+        {
+            "country": country,
+            "form": form,
+            "config": None,
+            "source_countries": _derived_source_country_options(),
+            "children_url": reverse("ciudades_del_mundo:new_country_source_children"),
+        },
     )
 
 
@@ -1957,10 +2021,64 @@ def new_country_config_view(request, country_slug, config_slug):
     )
 
 
+def new_country_source_children(request):
+    """Return source `AdminArea` children for the derived-country creation tree."""
+    country_code = str(request.GET.get("country_code") or "").strip().lower()
+    parent_id = str(request.GET.get("parent_id") or "").strip()
+    if not country_code:
+        return JsonResponse({"children": []})
+    try:
+        if parent_id:
+            parent = _visible_admin_areas().get(id=parent_id, country_code__iexact=country_code)
+            children = _visible_admin_areas().filter(parent=parent)
+        else:
+            root = _source_country_root_for_code(country_code)
+            if root:
+                children = _visible_admin_areas().filter(parent=root)
+            else:
+                children = _visible_admin_areas().filter(country_code__iexact=country_code, level=1)
+        rows = list(
+            children.order_by("level", "name", "id").only(
+                "id",
+                "country_code",
+                "code",
+                "name",
+                "level",
+                "entity_type",
+                "parent_id",
+            )
+        )
+    except (AdminArea.DoesNotExist, OperationalError, ProgrammingError, ValueError):
+        rows = []
+    child_counts = _admin_area_child_counts([str(row.id) for row in rows])
+    return JsonResponse(
+        {
+            "children": [
+                {
+                    "id": str(row.id),
+                    "code": str(row.code or ""),
+                    "name": str(row.name or ""),
+                    "label": _area_display_name(row),
+                    "level": int(row.level or 0),
+                    "entity_type": str(row.entity_type or ""),
+                    "parent_id": str(row.parent_id or ""),
+                    "has_children": child_counts.get(str(row.id), 0) > 0,
+                }
+                for row in rows
+            ]
+        }
+    )
+
+
 def group_list(request):
     """List reusable TOML groups for historical/custom subdivisions."""
     groups = SubdivisionGroup.objects.order_by("name", "slug")
-    return render(request, "ciudades_del_mundo/group_list.html", {"groups": groups})
+    return render(
+        request,
+        "ciudades_del_mundo/group_list.html",
+        {"groups": groups, "seed_count": len(bundled_subdivision_group_paths())},
+    )
+
 
 
 def group_new(request):
@@ -6336,6 +6454,134 @@ def _normalize_recipe_slug(value: str) -> str:
     return slug
 
 
+def _queue_derived_seed_import_tasks(
+    paths: list[Path],
+    *,
+    section: str,
+    key_prefix: str,
+    label_template: str,
+) -> int:
+    count = 0
+    for path in paths:
+        slug = path.stem
+        task_manager.start(
+            key=f"{key_prefix}:{slug}",
+            label=label_template % {"slug": slug},
+            args=["sync_derived_configs", section, slug, "--force"],
+        )
+        count += 1
+    return count
+
+
+def _derived_country_content_from_create_post(
+    *,
+    country: DerivedCountry,
+    slug: str,
+    name: str,
+    source_country_code: str,
+    derived_country_code: str,
+    raw_content: str,
+    selection_json: str,
+) -> str:
+    selection_json = str(selection_json or "").strip()
+    if selection_json:
+        try:
+            selection = json.loads(selection_json)
+        except json.JSONDecodeError as exc:
+            raise ValueError(_("La seleccion visual no es JSON valido: %(error)s") % {"error": exc}) from exc
+        selected_ids = selection.get("selected_ids") if isinstance(selection, dict) else None
+        if not isinstance(selected_ids, list):
+            raise ValueError(_("La seleccion visual debe contener una lista de subdivisiones."))
+        if not str(source_country_code or "").strip():
+            raise ValueError(_("El pais fuente es obligatorio."))
+        return render_derived_country_selection_toml(
+            country_slug=country.slug,
+            config_slug=slug,
+            name=name,
+            source_country_code=source_country_code,
+            derived_country_code=derived_country_code,
+            selected_ids=[str(value) for value in selected_ids],
+        )
+
+    content = str(raw_content or "").strip()
+    if content:
+        return content
+    return _default_derived_country_toml(
+        country=country,
+        slug=slug,
+        name=name,
+        source_country_code=source_country_code,
+        derived_country_code=derived_country_code,
+    )
+
+
+def _derived_source_country_options() -> list[dict[str, str]]:
+    options = []
+    seen = set()
+    try:
+        roots = (
+            _visible_admin_areas()
+            .filter(level=0)
+            .order_by("name", "country_code", "id")
+            .only("id", "country_code", "name", "level")
+        )
+        for root in roots:
+            code = str(root.country_code or "").strip().lower()
+            if not code or code in seen:
+                continue
+            seen.add(code)
+            options.append(
+                {
+                    "value": code,
+                    "label": _display_name(root.name, code, country_code=code),
+                    "root_id": str(root.id),
+                }
+            )
+        if options:
+            return options
+        country_codes = (
+            _visible_admin_areas()
+            .values_list("country_code", flat=True)
+            .distinct()
+            .order_by("country_code")
+        )
+        return [
+            {"value": str(code), "label": _display_name("", code, country_code=str(code)), "root_id": ""}
+            for code in country_codes
+            if str(code or "").strip()
+        ]
+    except (OperationalError, ProgrammingError):
+        return []
+
+
+def _source_country_root_for_code(country_code: str) -> AdminArea | None:
+    country_code = str(country_code or "").strip().lower()
+    if not country_code:
+        return None
+    return (
+        _visible_admin_areas()
+        .filter(country_code__iexact=country_code, level=0)
+        .order_by("parent_id", "name", "id")
+        .first()
+    )
+
+
+def _admin_area_child_counts(parent_ids: list[str]) -> dict[str, int]:
+    parent_ids = [str(value) for value in parent_ids if str(value or "").strip()]
+    if not parent_ids:
+        return {}
+    try:
+        return {
+            str(row["parent_id"]): int(row["total"] or 0)
+            for row in _visible_admin_areas()
+            .filter(parent_id__in=parent_ids)
+            .values("parent_id")
+            .annotate(total=Count("id"))
+        }
+    except (OperationalError, ProgrammingError):
+        return {}
+
+
 def _derived_country_or_404(slug: str) -> DerivedCountry:
     try:
         return DerivedCountry.objects.get(slug=_normalize_recipe_slug(slug))
@@ -6388,9 +6634,11 @@ def _default_derived_country_toml(
             "groups = []",
             "",
             "[selection]",
-            "# Futuro constructor: seleccionar AdminArea por codigos, niveles, nombres o grupos.",
+            f"source_country_code = {_toml_string(source_country_code)}",
+            "include_ids = []",
+            "subtract_ids = []",
             "include_codes = []",
-            "include_levels = []",
+            "subtract_codes = []",
             "group_slugs = []",
             "",
         ]
@@ -6407,8 +6655,11 @@ def _default_group_toml(*, slug: str, name: str, source_country_code: str) -> st
             f"source_country_code = {_toml_string(str(source_country_code or '').strip().lower())}",
             "",
             "[selection]",
-            "# Futuro uso: estas referencias podran alimentar configs de Nuevos paises.",
+            f"source_country_code = {_toml_string(str(source_country_code or '').strip().lower())}",
+            "include_ids = []",
+            "subtract_ids = []",
             "include_codes = []",
+            "subtract_codes = []",
             "include_levels = []",
             "include_names = []",
             "",

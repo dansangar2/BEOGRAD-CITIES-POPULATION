@@ -106,6 +106,96 @@ class DerivedSectionWebTests(TestCase):
         self.assertEqual(self.client.get("/new-countries/testland/").status_code, 200)
         self.assertEqual(self.client.get("/new-countries/testland/configs/republic/view/").status_code, 200)
 
+    def test_new_country_visual_selection_generates_sql_toml(self):
+        country = DerivedCountry.objects.create(slug="testland", name="Testland", source_country_code="aa")
+        root = AdminArea.objects.create(
+            id="aa",
+            country_code="aa",
+            code="aa",
+            name="Source Country",
+            level=0,
+        )
+        region = AdminArea.objects.create(
+            id="aa_1",
+            country_code="aa",
+            code="1",
+            name="Region",
+            level=1,
+            parent=root,
+        )
+        city = AdminArea.objects.create(
+            id="aa_11",
+            country_code="aa",
+            code="11",
+            name="City",
+            level=2,
+            parent=region,
+        )
+
+        response = self.client.post(
+            "/new-countries/testland/configs/new/",
+            {
+                "slug": "visual",
+                "name": "Visual",
+                "source_country_code": "aa",
+                "derived_country_code": "visual_land",
+                "is_active": "1",
+                "selection_json": json.dumps({"selected_ids": [region.id, city.id]}),
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        config = DerivedCountryConfig.objects.get(country=country, slug="visual")
+        self.assertIn('source_country_code = "aa"', config.content)
+        self.assertIn('include_ids = ["aa_1"]', config.content)
+        self.assertIn('subtract_ids = ["aa_11"]', config.content)
+        self.assertIn('operation = "add"', config.content)
+        self.assertIn('operation = "subtract"', config.content)
+
+    def test_new_country_source_children_endpoint_returns_direct_children(self):
+        root = AdminArea.objects.create(
+            id="bb",
+            country_code="bb",
+            code="bb",
+            name="Source Country",
+            level=0,
+        )
+        region = AdminArea.objects.create(
+            id="bb_1",
+            country_code="bb",
+            code="1",
+            name="Region",
+            level=1,
+            parent=root,
+        )
+        AdminArea.objects.create(
+            id="bb_11",
+            country_code="bb",
+            code="11",
+            name="City",
+            level=2,
+            parent=region,
+        )
+
+        response = self.client.get("/new-countries/source-children/?country_code=bb")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual([row["id"] for row in payload["children"]], ["bb_1"])
+        self.assertTrue(payload["children"][0]["has_children"])
+
+    def test_new_country_import_toml_queues_one_task_per_seed(self):
+        with patch("ciudades_del_mundo.web.views.bundled_new_country_config_paths") as paths:
+            paths.return_value = [Path("one.toml"), Path("two.toml")]
+            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+                start.return_value = _Object(id="queued", status=ManagedTask.Status.QUEUED, is_active=True)
+                response = self.client.post("/new-countries/import-toml/")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(start.call_count, 2)
+        self.assertEqual(start.call_args_list[0].kwargs["args"], ["sync_derived_configs", "new-countries", "one", "--force"])
+        self.assertEqual(start.call_args_list[1].kwargs["args"], ["sync_derived_configs", "new-countries", "two", "--force"])
+
     def test_group_flow_persists_toml(self):
         response = self.client.post(
             "/groups/new/",
@@ -123,6 +213,18 @@ class DerivedSectionWebTests(TestCase):
         self.assertEqual(group.source_country_code, "aa")
         self.assertEqual(self.client.get("/groups/").status_code, 200)
         self.assertEqual(self.client.get("/groups/historic_group/").status_code, 200)
+
+    def test_group_import_toml_queues_one_task_per_seed(self):
+        with patch("ciudades_del_mundo.web.views.bundled_subdivision_group_paths") as paths:
+            paths.return_value = [Path("group_one.toml"), Path("group_two.toml")]
+            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+                start.return_value = _Object(id="queued", status=ManagedTask.Status.QUEUED, is_active=True)
+                response = self.client.post("/groups/import-toml/")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(start.call_count, 2)
+        self.assertEqual(start.call_args_list[0].kwargs["args"], ["sync_derived_configs", "groups", "group_one", "--force"])
+        self.assertEqual(start.call_args_list[1].kwargs["args"], ["sync_derived_configs", "groups", "group_two", "--force"])
 
 
 class WebInterfaceHelperTests(TestCase):

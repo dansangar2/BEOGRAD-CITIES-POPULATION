@@ -9,8 +9,11 @@ derived_country_code = "spanish_federal_republic"
 groups = []
 
 [selection]
+source_country_code = "spain"
+include_ids = []
+subtract_ids = []
 include_codes = []
-include_levels = []
+subtract_codes = []
 group_slugs = []
 
 [legacy]

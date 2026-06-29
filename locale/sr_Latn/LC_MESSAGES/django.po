@@ -1581,3 +1581,83 @@ msgstr "Dodaj roditelju"
 
 msgid "Los checkboxes dependen de la fuente seleccionada. Sumar al padre agrega población y área de esa página al padre enlazado."
 msgstr "Polja zavise od izabranog izvora. Dodaj roditelju dodaje stanovništvo i površinu te stranice povezanom roditelju."
+
+# Derived country SQL creation/import UI.
+
+msgid "Nueva entidad"
+msgstr "Novi entitet"
+
+msgid "semillas TOML disponibles"
+msgstr "dostupni TOML ?abloni"
+
+msgid "Importar TOML"
+msgstr "Uvezi TOML"
+
+msgid "Selecciona un pais"
+msgstr "Izaberi zemlju"
+
+msgid "Subdivisiones fuente"
+msgstr "Izvorne podele"
+
+msgid "Suma"
+msgstr "Dodaje"
+
+msgid "Resta"
+msgstr "Oduzima"
+
+msgid "Si marcas una subdivisi?n sin tener marcada una superior, suma. Si la marcas dentro de una superior marcada, resta."
+msgstr "Ako ozna?i? podelu bez ozna?ene nadre?ene, dodaje se. Ako je ozna?i? unutar ozna?ene nadre?ene, oduzima se."
+
+msgid "Selecciona un pais fuente."
+msgstr "Izaberi izvornu zemlju."
+
+msgid "Cargando..."
+msgstr "U?itavanje..."
+
+msgid "Ver hijos"
+msgstr "Prika?i decu"
+
+msgid "Ocultar hijos"
+msgstr "Sakrij decu"
+
+msgid "Sin hijos"
+msgstr "Nema dece"
+
+msgid "No se pudieron cargar los hijos."
+msgstr "Deca nisu mogla da se u?itaju."
+
+msgid "Importar pais nuevo TOML: %(slug)s"
+msgstr "Uvezi TOML nove zemlje: %(slug)s"
+
+msgid "Encoladas %(count)s tarea(s) de importacion TOML para nuevos paises."
+msgstr "U red je dodato %(count)s zadataka uvoza TOML za nove zemlje."
+
+msgid "No hay semillas TOML de nuevos paises para importar."
+msgstr "Nema TOML ?ablona novih zemalja za uvoz."
+
+msgid "Importar grupo TOML: %(slug)s"
+msgstr "Uvezi TOML grupu: %(slug)s"
+
+msgid "Encoladas %(count)s tarea(s) de importacion TOML para grupos."
+msgstr "U red je dodato %(count)s zadataka uvoza TOML za grupe."
+
+msgid "No hay semillas TOML de grupos para importar."
+msgstr "Nema TOML ?ablona grupa za uvoz."
+
+msgid "La seleccion visual no es JSON valido: %(error)s"
+msgstr "Vizuelni izbor nije ispravan JSON: %(error)s"
+
+msgid "La seleccion visual debe contener una lista de subdivisiones."
+msgstr "Vizuelni izbor mora da sadr?i listu podela."
+
+msgid "El pais fuente es obligatorio."
+msgstr "Izvorna zemlja je obavezna."
+
+msgid "Selecciona al menos una subdivision fuente."
+msgstr "Izaberi bar jednu izvornu podelu."
+
+msgid "La seleccion contiene subdivisiones que no pertenecen al pais fuente."
+msgstr "Izbor sadr?i podele koje ne pripadaju izvornoj zemlji."
+
+msgid "No existe el TOML semilla: %(path)s."
+msgstr "TOML ?ablon ne postoji: %(path)s."

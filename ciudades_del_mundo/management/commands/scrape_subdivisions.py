@@ -42,6 +42,7 @@ from ciudades_del_mundo.services.ai_text_provider import (
     OpenAICompatibleJsonProvider,
 )
 from ciudades_del_mundo.services.scrape_resume import ScrapeResumeStore
+from ciudades_del_mundo.services.scraped_page_logs import ScrapedPageLogWriter
 from ciudades_del_mundo.services.scraping_config_extensions import attach_runtime_config_extensions
 from ciudades_del_mundo.services.visual_assets import (
     seed_visual_assets_from_scraped_page,
@@ -50,6 +51,7 @@ from ciudades_del_mundo.services.visual_assets import (
 )
 from ciudades_del_mundo.services.wikidata_parent_links import repair_entities_with_wikidata_parent_links
 from ciudades_del_mundo.web.log_retention import cleanup_old_logs
+from ciudades_del_mundo.web.task_progress import current_task_id
 
 
 class Command(BaseCommand):
@@ -155,6 +157,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self._stdout_lock = threading.Lock()
         self._sqlite_write_lock = sqlite_write_lock_if_needed() or threading.Lock()
+        cleanup_old_logs()
         countries = options["countries"]
         config_repository = PythonScrapingConfigRepository()
         configs = self._get_configs(config_repository, countries)
@@ -228,6 +231,7 @@ class Command(BaseCommand):
 
             ai_service = self._ai_service(options) if options.get("ai_enrich") else None
             resume_store = _resume_store_for_config(config)
+            page_log_writer = ScrapedPageLogWriter(slug=config.slug, run_id=_scrape_run_id())
             if not options.get("resume"):
                 resume_store.clear()
 
@@ -246,6 +250,7 @@ class Command(BaseCommand):
                     page,
                     current_config,
                     resume_store=resume_store,
+                    page_log_writer=page_log_writer,
                     seed_assets=seed_assets,
                     download_assets=bool(options.get("download_assets")) and not bool(options.get("no_download_assets")),
                     subdivision_levels=subdivision_levels,
@@ -256,7 +261,10 @@ class Command(BaseCommand):
                     if options.get("resume")
                     else None
                 ),
-                on_cached_page=self._on_cached_page,
+                on_cached_page=lambda page, writer=page_log_writer: self._on_cached_page(
+                    page,
+                    page_log_writer=writer,
+                ),
                 entity_enricher=(
                     ai_service.normalize_scraped_entities
                     if ai_service
@@ -375,12 +383,14 @@ class Command(BaseCommand):
         config,
         *,
         resume_store: ScrapeResumeStore,
+        page_log_writer: ScrapedPageLogWriter,
         seed_assets: bool,
         download_assets: bool,
         subdivision_levels: tuple[int, ...] | None,
         max_individual_wikidata_lookups: int,
     ) -> None:
         self._write(f"FOUND {page.found} entities: {page.url}")
+        self._write_scraped_page_log(page_log_writer, page, cached=False)
         if not seed_assets:
             resume_store.save_page(page)
             return
@@ -399,8 +409,18 @@ class Command(BaseCommand):
             self._write(result.as_log_line(f"{config.slug}:page-assets"))
         resume_store.save_page(page)
 
-    def _on_cached_page(self, page) -> None:
+    def _on_cached_page(self, page, *, page_log_writer: ScrapedPageLogWriter) -> None:
         self._write(f"RESUME {page.found} cached entities: {page.url}")
+        self._write_scraped_page_log(page_log_writer, page, cached=True)
+
+    def _write_scraped_page_log(self, writer: ScrapedPageLogWriter, page, *, cached: bool) -> None:
+        try:
+            writer.write_page(page, cached=cached)
+        except Exception as exc:  # noqa: BLE001 - diagnostics must not fail the scrape.
+            self._write(
+                f"[scraping] No se pudo escribir el log local de pagina para {page.url}: {exc}",
+                style=self.style.WARNING,
+            )
 
     def _run_with_sqlite_retry(self, callback, *, attempts: int = 8):
         delay = 1.0
@@ -523,6 +543,10 @@ def _default_country_workers() -> int:
 def _parse_ai_languages(value: str) -> tuple[str, ...]:
     languages = tuple(item.strip() for item in str(value or "").split(",") if item.strip())
     return languages or DEFAULT_AI_LANGUAGES
+
+
+def _scrape_run_id() -> str:
+    return current_task_id() or time.strftime("cli_%Y%m%d_%H%M%S")
 
 
 def _write_block_validation_log(slug: str, error: ScrapeBlockValidationError) -> Path:

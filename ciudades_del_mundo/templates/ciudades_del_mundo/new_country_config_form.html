@@ -59,13 +59,14 @@
 
   <aside class="panel help-panel">
     <h2>{% trans "Modelo base" %}</h2>
-    <p>{% trans "Esta configuracion guarda la seleccion de subdivisiones fuente y el codigo del pais derivado. El constructor final se conectara sobre este TOML." %}</p>
+    <p>{% trans "Esta configuracion guarda la seleccion SQL de subdivisiones fuente. Las entradas marcadas sin una superior marcada suman; las entradas marcadas dentro de una superior marcada restan." %}</p>
     <pre><code>kind = "derived_country_config"
 groups = []
 
 [selection]
-include_codes = []
-include_levels = []
+source_country_code = ""
+include_ids = []
+subtract_ids = []
 group_slugs = []</code></pre>
   </aside>
 </section>

@@ -6,7 +6,11 @@ source_python = "ciudades_del_mundo/historical_divisions/spanish_old_provinces.p
 source_country_code = ""
 
 [selection]
+source_country_code = ""
+include_ids = []
+subtract_ids = []
 include_codes = []
+subtract_codes = []
 include_levels = []
 include_names = []
 

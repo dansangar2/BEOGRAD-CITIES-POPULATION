@@ -1593,3 +1593,83 @@ msgstr "Zum übergeordneten Element addieren"
 
 msgid "Los checkboxes dependen de la fuente seleccionada. Sumar al padre agrega población y área de esa página al padre enlazado."
 msgstr "Die Kontrollkästchen hängen von der ausgewählten Quelle ab. Zum übergeordneten Element addieren fügt Bevölkerung und Fläche dieser Seite dem verknüpften Elternknoten hinzu."
+
+# Derived country SQL creation/import UI.
+
+msgid "Nueva entidad"
+msgstr "Neue Entit?t"
+
+msgid "semillas TOML disponibles"
+msgstr "TOML-Vorlagen verf?gbar"
+
+msgid "Importar TOML"
+msgstr "TOML importieren"
+
+msgid "Selecciona un pais"
+msgstr "Land ausw?hlen"
+
+msgid "Subdivisiones fuente"
+msgstr "Quell-Unterteilungen"
+
+msgid "Suma"
+msgstr "Addiert"
+
+msgid "Resta"
+msgstr "Subtrahiert"
+
+msgid "Si marcas una subdivisi?n sin tener marcada una superior, suma. Si la marcas dentro de una superior marcada, resta."
+msgstr "Wenn eine Unterteilung ohne markierte ?bergeordnete Einheit markiert wird, addiert sie. Innerhalb einer markierten ?bergeordneten Einheit subtrahiert sie."
+
+msgid "Selecciona un pais fuente."
+msgstr "Quellland ausw?hlen."
+
+msgid "Cargando..."
+msgstr "L?dt..."
+
+msgid "Ver hijos"
+msgstr "Kinder anzeigen"
+
+msgid "Ocultar hijos"
+msgstr "Kinder ausblenden"
+
+msgid "Sin hijos"
+msgstr "Keine Kinder"
+
+msgid "No se pudieron cargar los hijos."
+msgstr "Kinder konnten nicht geladen werden."
+
+msgid "Importar pais nuevo TOML: %(slug)s"
+msgstr "TOML f?r neues Land importieren: %(slug)s"
+
+msgid "Encoladas %(count)s tarea(s) de importacion TOML para nuevos paises."
+msgstr "%(count)s TOML-Importaufgabe(n) f?r neue L?nder eingereiht."
+
+msgid "No hay semillas TOML de nuevos paises para importar."
+msgstr "Keine TOML-Vorlagen f?r neue L?nder zum Importieren vorhanden."
+
+msgid "Importar grupo TOML: %(slug)s"
+msgstr "Gruppen-TOML importieren: %(slug)s"
+
+msgid "Encoladas %(count)s tarea(s) de importacion TOML para grupos."
+msgstr "%(count)s TOML-Importaufgabe(n) f?r Gruppen eingereiht."
+
+msgid "No hay semillas TOML de grupos para importar."
+msgstr "Keine TOML-Vorlagen f?r Gruppen zum Importieren vorhanden."
+
+msgid "La seleccion visual no es JSON valido: %(error)s"
+msgstr "Die visuelle Auswahl ist kein g?ltiges JSON: %(error)s"
+
+msgid "La seleccion visual debe contener una lista de subdivisiones."
+msgstr "Die visuelle Auswahl muss eine Liste von Unterteilungen enthalten."
+
+msgid "El pais fuente es obligatorio."
+msgstr "Das Quellland ist erforderlich."
+
+msgid "Selecciona al menos una subdivision fuente."
+msgstr "Mindestens eine Quell-Unterteilung ausw?hlen."
+
+msgid "La seleccion contiene subdivisiones que no pertenecen al pais fuente."
+msgstr "Die Auswahl enth?lt Unterteilungen, die nicht zum Quellland geh?ren."
+
+msgid "No existe el TOML semilla: %(path)s."
+msgstr "Die TOML-Vorlage existiert nicht: %(path)s."

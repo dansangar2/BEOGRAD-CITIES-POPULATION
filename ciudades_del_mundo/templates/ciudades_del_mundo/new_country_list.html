@@ -8,8 +8,15 @@
   <div>
     <p class="eyebrow">{% trans "NuevoAdminArea" %}</p>
     <h1>{% trans "Nuevos paises" %}</h1>
+    <p class="muted">{{ seed_count }} {% trans "semillas TOML disponibles" %}</p>
   </div>
-  <a class="button secondary" href="{% url 'ciudades_del_mundo:new_country_new' %}">{% trans "Nuevo pais" %}</a>
+  <div class="actions">
+    <form method="post" action="{% url 'ciudades_del_mundo:new_country_import_toml' %}">
+      {% csrf_token %}
+      <button class="secondary" type="submit">{% trans "Importar TOML" %}</button>
+    </form>
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:new_country_new' %}">{% trans "Nuevo pais" %}</a>
+  </div>
 </section>
 
 <div class="table-wrap">

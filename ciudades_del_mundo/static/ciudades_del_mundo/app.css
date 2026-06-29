@@ -4656,6 +4656,124 @@ pre.console.task-console,
   border-color: #64748b;
 }
 
+.derived-create-form {
+  display: grid;
+  gap: 18px;
+}
+
+.derived-create-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+}
+
+.derived-create-fields {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.derived-tree-panel {
+  min-width: 0;
+}
+
+.derived-tree-head {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.derived-tree-head h2 {
+  margin: 0;
+}
+
+.derived-tree-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.derived-tree {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-top: 12px;
+  max-height: min(64vh, 760px);
+  overflow: auto;
+  padding: 10px;
+}
+
+.derived-tree-row {
+  min-width: 0;
+}
+
+.derived-tree-line {
+  align-items: center;
+  border-radius: 6px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(140px, 1fr) auto auto auto;
+  min-height: 38px;
+  padding: 5px 6px 5px calc(6px + (var(--depth, 0) * 18px));
+}
+
+.derived-tree-line:hover {
+  background: var(--surface-alt);
+}
+
+.derived-tree-label,
+.derived-tree-meta {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.derived-tree-meta {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.derived-tree-children {
+  margin-left: 8px;
+}
+
+.operation-badge {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.operation-badge.add {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  color: var(--accent-strong);
+}
+
+.operation-badge.subtract {
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--line));
+  color: var(--danger);
+}
+
+@media (max-width: 860px) {
+  .derived-create-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .derived-tree-line {
+    grid-template-columns: auto minmax(120px, 1fr) auto;
+  }
+
+  .derived-tree-meta {
+    grid-column: 2 / -1;
+    white-space: normal;
+  }
+}
+
 .config-pages-toml-table tr.is-page-disabled td {
   background: #e5e7eb;
   color: #475569;

@@ -78,10 +78,39 @@ Comandos utiles:
 py manage.py validate_subdivision_configs spain
 py manage.py scrape_subdivisions spain
 py manage.py scrape_subdivisions_with_assets spain
+py manage.py prepare_ai_autoconfig spain
 ```
 
 `scrape_subdivisions_with_assets` ejecuta primero el scraping CityPopulation y
 despues reutiliza el flujo existente de assets visuales por QID.
+
+### Autoconfiguracion por IA
+
+Para que un agente pueda corregir una configuracion a partir del objetivo
+territorial esperado, crea un fichero
+`ciudades_del_mundo/autoconfig_specs/<slug>.txt`. El texto debe describir la
+jerarquia persistida esperada por niveles, por ejemplo
+`Region > Departamento > Distrito > Comuna > Localidad`.
+
+Antes de pedir la correccion, genera el expediente offline:
+
+```powershell
+py manage.py prepare_ai_autoconfig france
+```
+
+Si no pasas pais, el comando toma los paises con logs recientes:
+
+```powershell
+py manage.py prepare_ai_autoconfig --limit 5
+```
+
+El expediente se guarda en `.web_ai_autoconfig/<slug>/` e incluye el `.txt`
+territorial, el TOML activo de `ScrapingConfig.content`, el ultimo log de
+validacion, el ultimo log de tarea y el indice de paginas scrapeadas mas
+reciente. No scrapea red ni modifica configuraciones. Los scrapes normales
+guardan snapshots de pagina en `.web_scrape_pages/<slug>/<task>/` con
+`index.jsonl`, HTML y entidades parseadas para que el agente pueda revisar la
+pagina exacta que produjo el error.
 
 ## Arquitectura
 
@@ -735,13 +764,14 @@ La nueva base declarativa vive en SQL y TOML:
 
 Las recetas Python antiguas siguen en `ciudades_del_mundo/new_subdivisions/` y
 `ciudades_del_mundo/historical_divisions/` para compatibilidad con
-`build_new_subdivisions`, pero cada receta activa tiene ya un TOML homogeneo en
-la misma carpeta. Tambien existen semillas TOML equivalentes en
+`build_new_subdivisions`. Los TOML activos de la nueva base declarativa estan en
 `ciudades_del_mundo/new_country_configs/*.toml` y
 `ciudades_del_mundo/subdivision_groups/*.toml`; cada TOML guarda metadatos,
 selecciones iniciales y el Python legacy embebido para no perder logica que aun
-no tenga traduccion declarativa. Las copias `*_old/` son backups locales
-ignorados por Git.
+no tenga traduccion declarativa. `/new-countries/` y `/groups/` tienen
+`Importar TOML`, que encola una tarea por semilla y actualiza solo filas SQL de
+configuracion; si una semilla falla, las demas tareas siguen en la cola. Las
+copias `*_old/` son backups locales ignorados por Git.
 
 ### Exportar
 
@@ -889,11 +919,17 @@ Secciones principales:
   `ciudades_del_mundo/subdivisions/<slug>.toml` sin convertir ese fichero en
   fuente runtime.
 - `/new-countries/`: base SQL para paises derivados. Lista `DerivedCountry`,
-  muestra sus configuraciones TOML `DerivedCountryConfig`, permite crear/editar
-  esas configuraciones y abre una vista base que enlaza a `/derived/<id>/`
-  cuando ya hay datos construidos.
+  muestra sus configuraciones TOML `DerivedCountryConfig`, permite importar las
+  semillas de `new_country_configs/*.toml` con una tarea por fichero y crear
+  una `Nueva entidad` desde un arbol SQL de `AdminArea`. En ese arbol, marcar
+  una subdivision sin una superior marcada guarda una suma; marcarla dentro de
+  una superior marcada guarda una resta. La seleccion se persiste en
+  `DerivedCountryConfig.content` como `include_ids`, `subtract_ids` y
+  `[[selection.items]]`. La vista base enlaza a `/derived/<id>/` cuando ya hay
+  datos construidos.
 - `/groups/`: lista y edita `SubdivisionGroup`, grupos TOML reutilizables para
-  futuras configuraciones de nuevos paises.
+  futuras configuraciones de nuevos paises. `Importar TOML` encola una tarea
+  por fichero de `subdivision_groups/*.toml`.
 - `/countries/`: navegador de paises en tarjetas de 10 columnas, con slot
   cuadrado fijo para bandera registrada en SQL o placeholder local cuando no hay
   asset registrado, terreno y poblacion desde `/api/countries/`;
@@ -1040,17 +1076,17 @@ db.sqlite3
   de sincronizar, la tabla SQL `ScrapingConfig` es suficiente para validar y
   popular.
 - `historical_divisions`
-  TOML activos para grupos historicos, con Python legacy al lado mientras el
-  builder antiguo siga existiendo.
+  Recetas Python legacy para `build_new_subdivisions`; no es carpeta activa de
+  semillas TOML.
 - `new_subdivisions`
-  TOML activos para nuevas subdivisiones derivadas, con Python legacy al lado
-  mientras el builder antiguo siga existiendo.
+  Recetas Python legacy para `build_new_subdivisions`; no es carpeta activa de
+  semillas TOML.
 - `new_country_configs`
-  TOML semilla generado desde `new_subdivisions/*.py` para el nuevo modelo
-  `DerivedCountryConfig`.
+  TOML semilla/importacion para el nuevo modelo `DerivedCountryConfig` y la
+  seccion `/new-countries/`.
 - `subdivision_groups`
-  TOML semilla generado desde `historical_divisions/*.py` para el nuevo modelo
-  `SubdivisionGroup`.
+  TOML semilla/importacion para el modelo `SubdivisionGroup` y la seccion
+  `/groups/`.
 
 ## Desarrollo local
 
