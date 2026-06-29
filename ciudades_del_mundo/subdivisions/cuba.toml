@@ -1,20 +1,26 @@
-LEGAL_SUBDIVISION = 1
+LEGAL_SUBDIVISION = 2
 scrape_schema_version = 2
 
 [[pages]]
 source = "cities"
 path = ["cities"]
-include = { cities = false, infosection = true, major_subdivision = false }
+include = { cities = false, infosection = true, major_subdivision = true }
 
 [[pages]]
 source = "admin"
 path = ["admin"]
-include = { admin1 = true, admin2 = true, infosection = true }
+include = { infosection = false, major_subdivision = true, minor_subdivision = true }
 
 [[pages]]
 source = "cities"
-path = ["pinardelrio", "artemisa", "lahabana", "mayabeque", "matanzas", "cienfuegos", "villaclara", "sanctispiritus", "ciegodeavila", "camaguey", "lastunas", "holguin", "granma", "santiagodecuba", "guantanamo", "isladelajuventud"]
-include = { cities = true, infosection = true, major_subdivision = true }
+path = ["pinardelrio", "artemisa", "mayabeque", "matanzas", "cienfuegos", "villaclara", "sanctispiritus", "ciegodeavila", "camaguey", "lastunas", "holguin", "granma", "santiagodecuba", "guantanamo", "isladelajuventud"]
+include = { cities = true, infosection = false, major_subdivision = true }
+
+[[pages]]
+source = "cities"
+path = ["ciudaddelahabana"]
+parent_level = 2
+include = { cities = true, infosection = false, major_subdivision = true }
 
 [visual_assets]
 bulk_country_wikidata = true

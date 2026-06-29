@@ -8,7 +8,6 @@ import time
 from django.core.management import BaseCommand, CommandError, call_command
 from django.db import OperationalError, close_old_connections
 
-from ciudades_del_mundo.infrastructure.scraping import PythonScrapingConfigRepository
 from ciudades_del_mundo.web.task_progress import write_config_progress
 
 
@@ -111,9 +110,6 @@ class Command(BaseCommand):
     def _repopulate_slug(self, slug: str, *, options: dict) -> None:
         close_old_connections()
         try:
-            repository = PythonScrapingConfigRepository()
-            repository.get(slug)
-
             write_config_progress(slug, "validating", detail="Validando configuracion")
             self._write(f"[validar] {slug}: validando configuracion antes de popular...")
             self._run_with_sqlite_retry(lambda: call_command("validate_subdivision_configs", slug))

@@ -36,6 +36,8 @@
   .manual-asset-overrides-table select option.asset-resource-unassigned { color: #b42318; }
   .manual-pages-table tr.is-page-row-dragging { opacity: 0.55; }
   .manual-pages-table tr.is-page-row-drop-target td { box-shadow: inset 0 2px 0 var(--accent, #2563eb); }
+  .manual-pages-table tr.is-page-disabled { opacity: 0.58; }
+  .manual-pages-table tr.is-page-disabled td { background: color-mix(in srgb, var(--surface-muted, #f8fafc) 75%, transparent); }
   .manual-page-drag-handle {
     cursor: grab;
     user-select: none;
@@ -61,6 +63,10 @@
     <form method="post" action="{% url 'ciudades_del_mundo:config_export_toml' slug %}" data-config-export-form data-action-label="{% trans 'Exportar TOML' %}" data-exporting-label="{% trans 'Exportando TOML...' %}" data-export-success-label="{% trans 'TOML exportado correctamente.' %}" data-export-error-label="{% trans 'No se pudo exportar el TOML.' %}">
       {% csrf_token %}
       <button type="submit" class="secondary">{% trans "Exportar TOML" %}</button>
+    </form>
+    <form method="post" action="{% url 'ciudades_del_mundo:config_import_toml_slug' slug %}" data-config-export-form data-action-label="{% trans 'Importar TOML' %}" data-exporting-label="{% trans 'Importando TOML...' %}" data-export-success-label="{% trans 'TOML importado correctamente.' %}" data-export-error-label="{% trans 'No se pudo importar el TOML.' %}">
+      {% csrf_token %}
+      <button type="submit" class="secondary">{% trans "Importar TOML" %}</button>
     </form>
     <a class="button secondary" href="{% url 'ciudades_del_mundo:config_export_data_csv' slug %}">{% trans "Exportar CSV datos" %}</a>
     {% endif %}
@@ -144,7 +150,7 @@
           </thead>
           <tbody data-manual-pages>
             {% for page in manual.pages %}
-            <tr>
+            <tr{% if page.enabled == 'false' %} class="is-page-disabled"{% endif %}>
               <td class="manual-procedure-cell">
                 <label class="manual-input-label">{% trans "Procedimiento" %}
                   <select name="page_source" aria-label="{% trans 'Procedimiento' %}" class="manual-source-select">
@@ -192,6 +198,8 @@
               </td>
               <td class="manual-actions-cell">
                 <div class="manual-action-buttons manual-page-actions">
+                  <input type="hidden" name="page_enabled" value="{{ page.enabled|default:'true' }}" data-page-enabled>
+                  <button type="button" class="secondary mini-button page-enabled-toggle" data-toggle-page-enabled data-enabled-label="{% trans 'Desactivar bloque' %}" data-disabled-label="{% trans 'Reactivar bloque' %}" data-enabled-icon="⏸" data-disabled-icon="↻" aria-label="{% trans 'Desactivar bloque' %}" title="{% trans 'Activa o desactiva este bloque sin borrarlo' %}"><span aria-hidden="true" data-page-toggle-icon>{% if page.enabled == 'false' %}↻{% else %}⏸{% endif %}</span></button>
                   <button type="button" class="secondary mini-button manual-page-drag-handle" data-page-drag-handle draggable="true" aria-label="{% trans 'Mover fila' %}" title="{% trans 'Arrastrar para cambiar el orden de scrapeo' %}">↕</button>
                   <button type="button" class="quiet danger-text" data-remove-page-row aria-label="{% trans 'Quitar fila' %}" title="{% trans 'Quitar fila' %}">×</button>
                 </div>
@@ -235,6 +243,8 @@
               </td>
               <td class="manual-actions-cell">
                 <div class="manual-action-buttons manual-page-actions">
+                  <input type="hidden" name="page_enabled" value="true" data-page-enabled>
+                  <button type="button" class="secondary mini-button page-enabled-toggle" data-toggle-page-enabled data-enabled-label="{% trans 'Desactivar bloque' %}" data-disabled-label="{% trans 'Reactivar bloque' %}" data-enabled-icon="⏸" data-disabled-icon="↻" aria-label="{% trans 'Desactivar bloque' %}" title="{% trans 'Activa o desactiva este bloque sin borrarlo' %}"><span aria-hidden="true" data-page-toggle-icon>⏸</span></button>
                   <button type="button" class="secondary mini-button manual-page-drag-handle" data-page-drag-handle draggable="true" aria-label="{% trans 'Mover fila' %}" title="{% trans 'Arrastrar para cambiar el orden de scrapeo' %}">↕</button>
                   <button type="button" class="quiet danger-text" data-remove-page-row aria-label="{% trans 'Quitar fila' %}" title="{% trans 'Quitar fila' %}">×</button>
                 </div>
@@ -369,8 +379,14 @@
       {% endif %}
 
       <div class="actions">
+        {% if mode == "new" %}
+        <p class="muted config-autosave-status" data-config-autosave-status>{% trans "Guarda para crear la configuración." %}</p>
         <button type="submit">{% trans "Guardar" %}</button>
+        {% else %}
+        <span data-config-autosave-status hidden></span>
+        {% endif %}
         {% if mode == "edit" %}
+        <button type="submit" hidden tabindex="-1" data-autosave-submit aria-hidden="true"></button>
         <button type="submit" class="secondary" formaction="{% url 'ciudades_del_mundo:start_config_task' slug 'validate' %}" formmethod="post" data-config-action="validate" data-action-label="{% trans 'Validar' %}">{% trans "Validar" %}</button>
         <button type="submit" formaction="{% url 'ciudades_del_mundo:start_config_task' slug 'scrape' %}" formmethod="post" data-config-action="scrape" data-action-label="{% if config_workflow.status_filter == 'populated' %}{% trans 'Re-popular' %}{% else %}{% trans 'Popular' %}{% endif %}">{% if config_workflow.status_filter == 'populated' %}{% trans "Re-popular" %}{% else %}{% trans "Popular" %}{% endif %}</button>
         <button type="submit" class="secondary danger-text" formaction="{% url 'ciudades_del_mundo:start_config_task' slug 'clear' %}" formmethod="post" data-config-action="clear" data-action-label="{% trans 'Limpiar' %}">{% trans "Limpiar" %}</button>
@@ -398,8 +414,14 @@
         <textarea name="content" spellcheck="false">{{ content }}</textarea>
       </label>
       <div class="actions">
+        {% if mode == "new" %}
+        <p class="muted config-autosave-status" data-config-autosave-status>{% trans "Guarda para crear la configuración." %}</p>
         <button type="submit">{% trans "Guardar" %}</button>
+        {% else %}
+        <span data-config-autosave-status hidden></span>
+        {% endif %}
         {% if mode == "edit" %}
+        <button type="submit" hidden tabindex="-1" data-autosave-submit aria-hidden="true"></button>
         <button type="submit" class="secondary" formaction="{% url 'ciudades_del_mundo:start_config_task' slug 'validate' %}" formmethod="post" data-config-action="validate" data-action-label="{% trans 'Validar' %}">{% trans "Validar" %}</button>
         <button type="submit" formaction="{% url 'ciudades_del_mundo:start_config_task' slug 'scrape' %}" formmethod="post" data-config-action="scrape" data-action-label="{% if config_workflow.status_filter == 'populated' %}{% trans 'Re-popular' %}{% else %}{% trans 'Popular' %}{% endif %}">{% if config_workflow.status_filter == 'populated' %}{% trans "Re-popular" %}{% else %}{% trans "Popular" %}{% endif %}</button>
         <button type="submit" class="secondary danger-text" formaction="{% url 'ciudades_del_mundo:start_config_task' slug 'clear' %}" formmethod="post" data-config-action="clear" data-action-label="{% trans 'Limpiar' %}">{% trans "Limpiar" %}</button>
@@ -426,7 +448,7 @@
           TOML
           <textarea spellcheck="false" data-generated-config readonly>{{ content }}</textarea>
         </label>
-        <p class="muted">{% trans "La sección Scrapping solo genera y previsualiza la configuración. Para guardar, abre Manual o Archivo y pulsa Guardar desde esa pestaña." %}</p>
+        <p class="muted">{% trans "La sección Scrapping solo genera y previsualiza la configuración. Para conservarla, abre Manual o Archivo; en edición se guarda automáticamente al cambiar." %}</p>
       </div>
     </section>
   </div>

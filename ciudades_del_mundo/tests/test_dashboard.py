@@ -370,7 +370,7 @@ class DashboardViewTests(TestCase):
         self.assertEqual(data["first_order"]["cards"][0]["detail_url"], "/api/admin-areas/aa_one/")
         self.assertEqual(data["first_order"]["cards"][0]["child_count"], 0)
 
-    def test_dashboard_country_detail_hides_large_leaf_levels_from_selector(self):
+    def test_dashboard_country_detail_exposes_only_levels_with_configured_row_limit(self):
         root = AdminArea.objects.create(
             id="aa_root",
             country_code="aa",
@@ -404,13 +404,71 @@ class DashboardViewTests(TestCase):
                 pop_latest=100,
             )
 
-        with patch("ciudades_del_mundo.web.views.COUNTRY_LEVEL_OPTION_CHILD_LIMIT", 2):
+        with patch("ciudades_del_mundo.web.views.COUNTRY_LEVEL_OPTION_MAX_ROWS", 2):
             response = self.client.get("/api/countries/aa/?level=2")
 
         data = response.json()
         self.assertEqual([level["value"] for level in data["levels"]], [1])
+        self.assertEqual(data["levels"][0]["label"], "Region")
         self.assertEqual(data["selected_level"], 1)
         self.assertEqual([row["name"] for row in data["table"]["rows"]], ["Region"])
+
+    def test_dashboard_country_detail_filters_mixed_large_level_by_eligible_types(self):
+        root = AdminArea.objects.create(
+            id="aa_root",
+            country_code="aa",
+            code="aa",
+            name="AA Country",
+            level=0,
+            area_km2=100,
+            pop_latest=1000,
+        )
+        region = AdminArea.objects.create(
+            id="aa_region",
+            country_code="aa",
+            code="region",
+            name="Region",
+            level=1,
+            entity_type="Region",
+            parent=root,
+        )
+        province = AdminArea.objects.create(
+            id="aa_province",
+            country_code="aa",
+            code="province",
+            name="Province",
+            level=2,
+            entity_type="Province",
+            parent=region,
+        )
+        AdminArea.objects.create(
+            id="aa_province_child",
+            country_code="aa",
+            code="province-child",
+            name="Province Child",
+            level=3,
+            entity_type="District",
+            parent=province,
+        )
+        for index in range(3):
+            AdminArea.objects.create(
+                id=f"aa_municipality_{index}",
+                country_code="aa",
+                code=f"municipality_{index}",
+                name=f"Municipality {index}",
+                level=2,
+                entity_type="Municipality",
+                parent=region,
+            )
+
+        with patch("ciudades_del_mundo.web.views.COUNTRY_LEVEL_OPTION_MAX_ROWS", 2):
+            response = self.client.get("/api/countries/aa/?level=2")
+
+        data = response.json()
+        self.assertEqual([(level["value"], level["label"], level["count"]) for level in data["levels"]], [(1, "Region", 1), (2, "Province", 1)])
+        self.assertEqual(data["selected_level"], 2)
+        self.assertEqual(data["selected_filter"], "2|Province")
+        self.assertEqual([row["name"] for row in data["table"]["rows"]], ["Province"])
 
     def test_api_admin_area_detail_returns_direct_children_for_recursive_browser(self):
         root = AdminArea.objects.create(

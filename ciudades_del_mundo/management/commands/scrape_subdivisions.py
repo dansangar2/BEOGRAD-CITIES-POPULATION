@@ -4,15 +4,23 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
+from pathlib import Path
 import threading
 import time
 
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import OperationalError, close_old_connections, connection
 from django.db.migrations.executor import MigrationExecutor
 from django.db.utils import ProgrammingError
+from django.utils.translation import gettext as _
 
-from ciudades_del_mundo.application import CachedScrapePage, ScrapeAdminAreas
+from ciudades_del_mundo.application import (
+    CachedScrapePage,
+    ScrapeAdminAreas,
+    ScrapeBlockValidationError,
+    ScrapeLinkValidationError,
+)
 from ciudades_del_mundo.infrastructure.django.admin_area_repository import DjangoAdminAreaRepository, DjangoUnitOfWork
 from ciudades_del_mundo.infrastructure.django.sqlite_write_lock import sqlite_write_lock_if_needed
 from ciudades_del_mundo.infrastructure.scraping import (
@@ -40,6 +48,8 @@ from ciudades_del_mundo.services.visual_assets import (
     share_visual_assets_for_country_admin_areas,
     visual_asset_tables_exist,
 )
+from ciudades_del_mundo.services.wikidata_parent_links import repair_entities_with_wikidata_parent_links
+from ciudades_del_mundo.web.log_retention import cleanup_old_logs
 
 
 class Command(BaseCommand):
@@ -255,18 +265,27 @@ class Command(BaseCommand):
                         entities,
                     )
                 ),
+                wikimedia_parent_resolver=lambda current_config, entities: repair_entities_with_wikidata_parent_links(
+                    current_config.country_code,
+                    entities,
+                    logger=self._write,
+                ),
                 page_workers=max(1, int(options.get("page_workers") or 1)),
                 html_fetcher=CityPopulationHtmlFetcher(debug=options["debug"]),
                 on_unlinked_entities=self._on_unlinked_entities,
+                on_persistence_progress=self._on_persistence_progress,
+                on_block_validation_error=self._on_block_validation_error,
+                on_link_validation_error=self._on_link_validation_error,
             )
 
             try:
+                self._write(f"[paso 1/5] {config.slug}: scraping por bloques CityPopulation...")
                 result = self._run_with_sqlite_retry(lambda: use_case.run(config))
             except Exception as exc:
                 raise CommandError(str(exc)) from exc
 
             self._write(
-                f"OK {config.slug}: found={result.found}, created={result.created}, "
+                f"[paso 5/5] OK {config.slug}: found={result.found}, created={result.created}, "
                 f"updated={result.updated}, deleted={result.deleted}",
                 style=self.style.SUCCESS,
             )
@@ -309,6 +328,46 @@ class Command(BaseCommand):
                 f"parent={entity.parent_code!r} data_wd={entity.data_wd!r} url={entity.url!r}",
                 style=self.style.WARNING,
             )
+
+    def _on_block_validation_error(self, config, error: ScrapeBlockValidationError) -> None:
+        log_path = _write_block_validation_log(config.slug, error)
+        self._write(
+            f"[scraping] {error.code}: bloque {error.block_index + 1} de {config.slug} no valido. "
+            f"Log exportado: {log_path}",
+            style=self.style.ERROR,
+        )
+
+    def _on_link_validation_error(self, config, error: ScrapeLinkValidationError) -> None:
+        log_path = _write_link_validation_log(config.slug, error)
+        self._write(
+            f"[scraping] {error.code}: vinculacion de {config.slug} no valida. "
+            f"Log exportado: {log_path}",
+            style=self.style.ERROR,
+        )
+
+    def _on_persistence_progress(self, config, progress) -> None:
+        label = _persistence_phase_label(progress.phase)
+        step = _persistence_step_label(progress.phase)
+        if progress.status == "start":
+            if progress.phase == "save_retry":
+                self._write(f"[{step}] {config.slug}: {label} ({progress.count}/10)...")
+                return
+            self._write(f"[{step}] {config.slug}: {label}...")
+            return
+
+        details = []
+        if progress.created:
+            details.append(_("creadas=%(count)s") % {"count": progress.created})
+        if progress.updated:
+            details.append(_("actualizadas=%(count)s") % {"count": progress.updated})
+        if progress.deleted:
+            details.append(_("borradas=%(count)s") % {"count": progress.deleted})
+        if not details and progress.count:
+            details.append(_("filas=%(count)s") % {"count": progress.count})
+        suffix = f" ({', '.join(details)})" if details else ""
+        self._write(f"[{step}] {config.slug}: {label} completado{suffix}")
+        if progress.phase == "save":
+            self._write(f"[{step}] {config.slug}: {_('bloque de persistencia guardado completamente')}")
 
     def _on_page_complete(
         self,
@@ -464,6 +523,72 @@ def _default_country_workers() -> int:
 def _parse_ai_languages(value: str) -> tuple[str, ...]:
     languages = tuple(item.strip() for item in str(value or "").split(",") if item.strip())
     return languages or DEFAULT_AI_LANGUAGES
+
+
+def _write_block_validation_log(slug: str, error: ScrapeBlockValidationError) -> Path:
+    return _write_scrape_validation_log(
+        slug,
+        suffix=f"block_{error.block_index + 1}",
+        text=error.to_log_text(),
+    )
+
+
+def _write_link_validation_log(slug: str, error: ScrapeLinkValidationError) -> Path:
+    return _write_scrape_validation_log(
+        slug,
+        suffix="link",
+        text=error.to_log_text(),
+    )
+
+
+def _write_scrape_validation_log(slug: str, *, suffix: str, text: str) -> Path:
+    cleanup_old_logs()
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    safe_slug = "".join(char if char.isalnum() or char in {"-", "_"} else "_" for char in str(slug or "config"))
+    safe_suffix = "".join(char if char.isalnum() or char in {"-", "_"} else "_" for char in str(suffix or "error"))
+    log_dir = Path(settings.BASE_DIR) / ".web_scrape_block_errors" / safe_slug
+    log_dir.mkdir(parents=True, exist_ok=True)
+    path = log_dir / f"{safe_slug}_{safe_suffix}_{timestamp}.txt"
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def _persistence_phase_label(phase: str) -> str:
+    labels = {
+        "normalize": _("normalizando vinculos"),
+        "entity_merges": _("aplicando fusiones"),
+        "configured_cities": _("aplicando ciudades configuradas"),
+        "runtime_extensions": _("aplicando extensiones de configuracion"),
+        "wikimedia_parent_links": _("resolviendo padres con Wikimedia"),
+        "link_validation": _("validando vinculacion entre bloques"),
+        "most_populated_assign": _("asignando ciudad mas poblada"),
+        "entity_enrichment": _("enriqueciendo entidades"),
+        "reset": _("reiniciando datos existentes"),
+        "save": _("guardando filas"),
+        "save_retry": _("reintentando guardado"),
+        "delete_missing": _("borrando filas ausentes"),
+        "most_populated_load": _("leyendo resumenes para ciudad mas poblada"),
+        "most_populated_calculate": _("calculando ciudad mas poblada"),
+        "most_populated_save": _("guardando ciudad mas poblada"),
+        "representatives": _("asignando representantes"),
+    }
+    return labels.get(str(phase or ""), str(phase or _("fase desconocida")))
+
+
+def _persistence_step_label(phase: str) -> str:
+    link_phases = {
+        "normalize",
+        "entity_merges",
+        "configured_cities",
+        "runtime_extensions",
+        "wikimedia_parent_links",
+        "link_validation",
+        "most_populated_assign",
+        "entity_enrichment",
+    }
+    if str(phase or "") in link_phases:
+        return "paso 2/5"
+    return "paso 5/5"
 
 
 def _resume_store_for_config(config) -> ScrapeResumeStore:

@@ -1,0 +1,82 @@
+schema_version = 1
+kind = "derived_country_config"
+slug = "austria_perfect_empire"
+name = "Austria Perfect Empire"
+source_python = "ciudades_del_mundo/new_subdivisions/austria_perfect_empire.py"
+country = "austria_perfect_empire"
+source_country_code = ""
+derived_country_code = "austria_perfect_empire"
+groups = []
+
+[selection]
+include_codes = []
+include_levels = []
+group_slugs = []
+
+[legacy]
+assignments_json = '''
+{
+  "ESCANHOS": {
+    "nivel": 2,
+    "escanhos": 200,
+    "min": 1
+  }
+}
+'''
+python = '''
+from copy import deepcopy
+
+from ciudades_del_mundo.new_subdivisions.austria_empire import DIVISIONS as DIVA
+from ciudades_del_mundo.historical_divisions.espanha import *
+from ciudades_del_mundo.historical_divisions.italy import *
+from ciudades_del_mundo.historical_divisions.portugal import *
+
+def create_join() -> dict:
+    result = deepcopy(DIVA)
+    spain = [
+        {
+            "name": "Castilla",
+            "code": "CAS",
+            "entity_type": "Corona",
+            "capitals": ["Madrid"],
+            "childs": [
+                CASTILLA,
+                NAVARRA_A,
+            ]
+        },
+        {
+            "name": "Aragón",
+            "code": "ARA",
+            "entity_type": "Corona",
+            "capitals": ["Zaragoza", "Barcelona"],
+            "childs": [
+                ARAGON, 
+                CATALUNHA_A,
+                VALENCIA_A, 
+                MALLORCA,
+                CERDENHA,
+                SICILIA,
+            ]
+        },
+        {
+            "name": "Portugal",
+            "code": "POR",
+            "entity_type": "Reino",
+            "capitals": ["Lisboa"],
+            "childs": [
+                PORTUGAL
+            ]
+        }
+    ]
+    result.extend(spain)
+    return result
+
+DIVISIONS = create_join()
+
+ESCANHOS = {
+        "nivel": 2,  # provincias del imperio
+        "escanhos": 200,                        # total de escaños a repartir
+        "min": 1,                              # mínimo por provincia
+    }
+'''
+python_source = "from copy import deepcopy\n\nfrom ciudades_del_mundo.new_subdivisions.austria_empire import DIVISIONS as DIVA\nfrom ciudades_del_mundo.historical_divisions.spanish_old_provinces import *\nfrom ciudades_del_mundo.historical_divisions.pre_italy_states import *\nfrom ciudades_del_mundo.historical_divisions.portugal_provinces import *\n\ndef create_join() -> dict:\n    result = deepcopy(DIVA)\n    spain = [\n        {\n            \"name\": \"Castilla\",\n            \"code\": \"CAS\",\n            \"entity_type\": \"Corona\",\n            \"capitals\": [\"Madrid\"],\n            \"childs\": [\n                CASTILLA,\n                NAVARRA_A,\n            ]\n        },\n        {\n            \"name\": \"Aragón\",\n            \"code\": \"ARA\",\n            \"entity_type\": \"Corona\",\n            \"capitals\": [\"Zaragoza\", \"Barcelona\"],\n            \"childs\": [\n                ARAGON, \n                CATALUNHA_A,\n                VALENCIA_A, \n                MALLORCA,\n                CERDENHA,\n                SICILIA,\n            ]\n        },\n        {\n            \"name\": \"Portugal\",\n            \"code\": \"POR\",\n            \"entity_type\": \"Reino\",\n            \"capitals\": [\"Lisboa\"],\n            \"childs\": [\n                PORTUGAL\n            ]\n        }\n    ]\n    result.extend(spain)\n    return result\n\nDIVISIONS = create_join()\n\nESCANHOS = {\n        \"nivel\": 2,  # provincias del imperio\n        \"escanhos\": 200,                        # total de escaños a repartir\n        \"min\": 1,                              # mínimo por provincia\n    }\n"

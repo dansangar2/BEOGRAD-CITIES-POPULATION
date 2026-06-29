@@ -1,12 +1,15 @@
 import ast
 import json
+import os
 from io import StringIO
 from pathlib import Path
 import re
 from tempfile import TemporaryDirectory
+import time
 from unittest.mock import patch
 
 from django.core.management import call_command
+from django.http import QueryDict
 from django.test import TestCase
 from django.utils import timezone
 from django.utils import translation
@@ -22,6 +25,7 @@ from ciudades_del_mundo.models import (
     VisualAssetTranslation,
 )
 from ciudades_del_mundo.services.scraping_configs import upsert_scraping_config
+from ciudades_del_mundo.web.log_retention import cleanup_old_logs
 from ciudades_del_mundo.web.task_progress import task_progress_path
 from ciudades_del_mundo.web.tasks import ManagedTask, TaskManager, task_manager
 from ciudades_del_mundo.web.views import (
@@ -30,6 +34,8 @@ from ciudades_del_mundo.web.views import (
     _area_related_places,
     _eligible_config_slugs_for_bulk,
     _latest_bulk_config_progress,
+    _inferred_generated_page_level,
+    _render_config_from_manual_post,
     _render_recipe_from_form,
     _can_clear_config_row,
     _can_scrape_config_status,
@@ -120,6 +126,12 @@ class DerivedSectionWebTests(TestCase):
 
 
 class WebInterfaceHelperTests(TestCase):
+    def test_generated_page_level_inference_keeps_source_and_route_independent(self):
+        self.assertEqual(_inferred_generated_page_level("morocco", "admin", "benimellalkhenifra/admin"), 1)
+        self.assertEqual(_inferred_generated_page_level("morocco", "admin", "admin"), 0)
+        self.assertEqual(_inferred_generated_page_level("gibraltar", "cities", "admin"), 0)
+        self.assertEqual(_inferred_generated_page_level("france", "cities", "cities/guyane"), 1)
+
     def test_area_map_helpers_include_capitals_and_major_city(self):
         capital = _Object(id="capital-1", name="Capital source")
         area = _Object(
@@ -202,6 +214,133 @@ path = ["admin"]
 force_highest_level = 0
 """,
         )
+
+    def test_manual_config_save_prefers_visible_level_fields_over_stale_pages_json(self):
+        post = QueryDict("", mutable=True)
+        post.update(
+            {
+                "manual_country_code": "netherlands",
+                "manual_legal_subdivision": "2",
+                "pages_json": (
+                    '[{"source": "admin", "path": ["admin"], '
+                    '"include": {"infosection": true, "major_subdivision": true, "minor_subdivision": true}}, '
+                    '{"source": "cities", "path": ["drenthe"], "parent_level": 3, '
+                    '"include": {"infosection": false, "major_subdivision": false, "cities": true}}]'
+                ),
+            }
+        )
+        post.setlist("page_source", ["admin", "cities"])
+        post.setlist("page_enabled", ["true", "true"])
+        post.setlist("page_force_highest_level", ["", "3"])
+        post.setlist("page_parent_level", ["", "2"])
+        post.setlist("page_include_infosection", ["true", "true"])
+        post.setlist("page_include_major_subdivision", ["true", "false"])
+        post.setlist("page_include_minor_subdivision", ["true", "false"])
+        post.setlist("page_include_cities", ["false", "true"])
+
+        content = _render_config_from_manual_post("netherlands", post, current_content="")
+
+        self.assertIn('path = ["drenthe"]', content)
+        self.assertIn("force_highest_level = 3", content)
+        self.assertIn("parent_level = 2", content)
+        self.assertIn("include = { cities = true, infosection = true, major_subdivision = false }", content)
+
+    def test_config_edit_autosave_post_persists_visible_manual_page_changes(self):
+        ScrapingConfig.objects.update_or_create(
+            slug="netherlands",
+            defaults={
+                "country_code": "netherlands",
+                "name": "Netherlands",
+                "content": """
+LEGAL_SUBDIVISION = 2
+scrape_schema_version = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+include = { infosection = true, major_subdivision = true, minor_subdivision = true }
+
+[[pages]]
+source = "cities"
+path = ["drenthe"]
+parent_level = 3
+include = { cities = true, infosection = false, major_subdivision = false }
+""".strip()
+                + "\n",
+            },
+        )
+        pages_json = json.dumps(
+            [
+                {
+                    "source": "admin",
+                    "path": ["admin"],
+                    "include": {
+                        "infosection": True,
+                        "major_subdivision": True,
+                        "minor_subdivision": True,
+                    },
+                },
+                {
+                    "source": "cities",
+                    "path": ["drenthe"],
+                    "parent_level": 3,
+                    "include": {
+                        "cities": True,
+                        "infosection": False,
+                        "major_subdivision": False,
+                    },
+                },
+            ]
+        )
+
+        response = self.client.post(
+            "/configs/netherlands/",
+            data={
+                "editor_mode": "manual",
+                "manual_country_code": "netherlands",
+                "manual_legal_subdivision": "2",
+                "pages_json": pages_json,
+                "page_source": ["admin", "cities"],
+                "page_enabled": ["true", "false"],
+                "page_force_highest_level": ["", "3"],
+                "page_parent_level": ["", "2"],
+                "page_include_infosection": ["true", "true"],
+                "page_include_major_subdivision": ["true", "false"],
+                "page_include_minor_subdivision": ["true", "false"],
+                "page_include_cities": ["false", "true"],
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        content = ScrapingConfig.objects.get(slug="netherlands").content
+        self.assertIn('path = ["drenthe"]', content)
+        self.assertIn("enabled = false", content)
+        self.assertIn("force_highest_level = 3", content)
+        self.assertIn("parent_level = 2", content)
+        self.assertIn("include = { cities = true, infosection = true, major_subdivision = false }", content)
+
+    def test_config_edit_keeps_citypopulation_config_as_main_editor(self):
+        upsert_scraping_config(
+            "spain",
+            """
+scrape_schema_version = 2
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+""".strip() + "\n",
+        )
+
+        response = self.client.get("/configs/spain/")
+
+        self.assertEqual(response.status_code, 200)
+        front = ScrapingConfig.objects.get(slug="spain")
+        self.assertIn("[[pages]]", front.content)
+        self.assertIn('source = "admin"', front.content)
+        self.assertFalse(ScrapingConfig.objects.filter(slug="old-spain").exists())
+        self.assertContains(response, "admin")
 
     def test_recipe_form_renders_importable_python_with_numeric_dat_keys(self):
         content = _render_recipe_from_form(
@@ -343,7 +482,41 @@ force_highest_level = 0
         self.assertIn("line 0\n", full_output)
         self.assertIn("line 259\n", full_output)
 
-    def test_task_manager_starts_all_tasks_immediately_without_backend_queue(self):
+    def test_task_manager_groups_scrape_logs_by_country(self):
+        with TemporaryDirectory() as tmpdir:
+            manager = _RecordingTaskManager(
+                history_path=Path(tmpdir) / "tasks.json",
+                max_running_tasks=1,
+            )
+            manager._recovery_done = True
+
+            task = manager.start(
+                key="scrape:algeria",
+                label="Popular Argelia",
+                args=["scrape_subdivisions_with_assets", "algeria"],
+            )
+
+        self.assertEqual(Path(task.log_path).parts, (".web_task_logs", "algeria", f"{task.id}.log"))
+
+    def test_cleanup_old_logs_removes_files_older_than_retention(self):
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            old_log = root / ".web_task_logs" / "algeria" / "old.log"
+            fresh_log = root / ".web_task_logs" / "algeria" / "fresh.log"
+            old_log.parent.mkdir(parents=True)
+            old_log.write_text("old", encoding="utf-8")
+            fresh_log.write_text("fresh", encoding="utf-8")
+            old_timestamp = time.time() - 91 * 24 * 60 * 60
+            os.utime(old_log, (old_timestamp, old_timestamp))
+
+            removed = cleanup_old_logs(base_dir=root, days=90)
+
+            self.assertEqual(removed, 1)
+            self.assertFalse(old_log.exists())
+            self.assertTrue(fresh_log.exists())
+
+
+    def test_task_manager_queues_tasks_past_running_limit(self):
         with TemporaryDirectory() as tmpdir:
             manager = _RecordingTaskManager(
                 history_path=Path(tmpdir) / "tasks.json",
@@ -359,11 +532,27 @@ force_highest_level = 0
                 for index in range(5)
             ]
 
-            self.assertEqual([task.status for task in tasks], ["running"] * 5)
-            self.assertEqual(manager.started_workers, [task.id for task in tasks])
-            self.assertEqual(ManagedTask.objects.filter(status=ManagedTask.Status.QUEUED).count(), 0)
+            statuses = list(
+                ManagedTask.objects.filter(key__startswith="validate:test-")
+                .order_by("created_at", "id")
+                .values_list("status", flat=True)
+            )
+            self.assertEqual(statuses, ["running", "queued", "queued", "queued", "queued"])
+            self.assertEqual(manager.started_workers, [tasks[0].id])
 
-    def test_task_manager_cancels_running_task_after_starting_worker(self):
+            first = ManagedTask.objects.get(id=tasks[0].id)
+            first.status = ManagedTask.Status.SUCCEEDED
+            first.finished_at = timezone.now()
+            first.save(update_fields=["status", "finished_at", "updated_at"])
+            with manager._lock:
+                task_ids = manager._dispatch_queued_locked()
+            manager._start_workers(task_ids)
+
+            tasks[1].refresh_from_db()
+            self.assertEqual(tasks[1].status, "running")
+            self.assertEqual(manager.started_workers, [tasks[0].id, tasks[1].id])
+
+    def test_task_manager_cancels_queued_task_without_starting_worker(self):
         with TemporaryDirectory() as tmpdir:
             manager = _RecordingTaskManager(
                 history_path=Path(tmpdir) / "tasks.json",
@@ -387,7 +576,7 @@ force_highest_level = 0
 
         self.assertEqual(first.status, "running")
         self.assertEqual(second.status, "cancelled")
-        self.assertEqual(manager.started_workers, [first.id, second.id])
+        self.assertEqual(manager.started_workers, [first.id])
 
     def test_can_clear_requires_rows_and_no_active_operation(self):
         for status in ["pending", "validated", "populated", "failed"]:
@@ -974,6 +1163,24 @@ force_highest_level = 0
         finally:
             task_manager._recovery_done = original_recovery_done
 
+    def test_single_config_import_toml_reads_only_matching_seed(self):
+        slug = "zzimportone"
+        with (
+            patch("ciudades_del_mundo.web.views.bundled_toml_config_paths", return_value=[Path(f"subdivisions/{slug}.toml")]) as paths,
+            patch("ciudades_del_mundo.web.views.sqlite_write_lock_if_needed", return_value=None),
+            patch("ciudades_del_mundo.web.views.sync_scraping_configs_from_toml", return_value=1) as sync,
+        ):
+            response = self.client.post(
+                f"/configs/{slug}/import-toml/",
+                HTTP_ACCEPT="application/json",
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        paths.assert_called_once_with([slug])
+        sync.assert_called_once_with(force=True, only_if_empty=False, slugs=[slug])
+        self.assertTrue(response.json()["imported"])
+
     def test_bulk_popular_all_uses_country_workers(self):
         original_recovery_done = task_manager._recovery_done
         for slug in ("zztestbulkworkersa", "zztestbulkworkersb"):
@@ -1005,7 +1212,7 @@ force_highest_level = 0
             self.assertEqual(response.status_code, 200)
             kwargs = start.call_args.kwargs
             self.assertEqual(kwargs["key"], "scrape:all")
-            self.assertEqual(kwargs["args"][-3:], ["--no-download-assets", "--page-workers=4", "--country-workers=2"])
+            self.assertEqual(kwargs["args"][-3:], ["--no-download-assets", "--page-workers=4", "--country-workers=1"])
         finally:
             task_manager._recovery_done = original_recovery_done
 

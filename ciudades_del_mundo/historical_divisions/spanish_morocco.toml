@@ -1,0 +1,15 @@
+schema_version = 1
+kind = "subdivision_group"
+slug = "spanish_morocco"
+name = "Spanish Morocco"
+source_python = "ciudades_del_mundo/historical_divisions/spanish_morocco.py"
+source_country_code = ""
+
+[selection]
+include_codes = []
+include_levels = []
+include_names = []
+
+[legacy]
+# Mantiene la receta Python original hasta que el builder TOML cubra toda la l?gica.
+python_source = "ZONA_TANGER = [\"Tánger\", \"Laaouama\", \"Hjar Ennhal\", \"Gueznaia\"]\nFAHS_ANJRA_A_TANGER = [\"Al Bahraoyine\"]\nTANGER_ASSILAH_A_YEBALA = [\"Sebt Azzinate\", \"Dar Chaoui\", \"Al Manzla\"]\nTETOUAN_A_LOCUS = [\"Bni Leit\"]\nALHUCEMAS_A_KERT = [\"Imzouren\", \"Bni Bouayach\", \"Nekkour\"]\n\nCABO_JUBY = {\n    \"name\": \"Cabo Juby\",\n    \"code\": \"CJU\",\n    \"entity_type\": \"Provincia\",\n    \"capitals\": [\"Tarfaya\"],\n    \"forced_area_km2\": 32875,\n    \"spec\": {\n        2: {\"morocco\": [\"Tan-Tan\", \"Assa-Zag\"], \"westernsahara\": [\"Tarfaya\"]}\n    },\n}\nIFNI = {\n    \"name\": \"Ifni\",\n    \"code\": \"CJU\",\n    \"entity_type\": \"Provincia\",\n    \"capitals\": [\"Sidi Ifni\"],\n    \"forced_area_km2\": 1502,\n    \"spec\": {\n        3: {\"morocco\": [\"Sidi Ifni\", \"Tioughza\", \"Tnine Amellou\", \"Mesti\"]}\n    },\n}\n\nYEBALA = {\n    \"name\": \"Yebala\",\n    \"code\": \"EMA-YEB\",\n    \"entity_type\": \"Región\",\n    \"capitals\": [\"Tétouan\"],\n    \"spec\": {\n        2: {\"morocco\": [\"Fahs - Anjra\", \"M'Diq - Fnideq\", \"Tétouan\"]},\n        3: {\"morocco\": TANGER_ASSILAH_A_YEBALA},\n        \"restar\": {3: {\"morocco\": FAHS_ANJRA_A_TANGER + TETOUAN_A_LOCUS}}\n    }\n}\n\nLOCUS = {\n    \"name\": \"Locus\",\n    \"code\": \"EMA-LOC\",\n    \"entity_type\": \"Región\",\n    \"capitals\": [\"Larache\"],\n    \"spec\": {\n        2: {\"morocco\": [\"Tanger - Assilah\", \"Larache\"]},\n        3: {\"morocco\": TETOUAN_A_LOCUS},\n        \"restar\": {3: {\"morocco\": ZONA_TANGER + TANGER_ASSILAH_A_YEBALA}}\n    }\n}\n\nCHAUEN = {\n    \"name\": \"Chauen\",\n    \"code\": \"EMA-CHA\",\n    \"entity_type\": \"Región\",\n    \"capitals\": [\"Chefchaouen\"],\n    \"spec\": {\n        2:{\"morocco\": \"Chefchaouen\"}\n    }\n}\n\nRIF = {\n    \"name\": \"Rif\",\n    \"code\": \"EMA-RIF\",\n    \"entity_type\": \"Región\",\n    \"capitals\": [\"Al Hoceïma\"],\n    \"spec\": {\n        2:{\"morocco\": \"Al Hoceïma\"},\n        \"restar\": {3: {\"morocco\": ALHUCEMAS_A_KERT}}\n    }\n}\n\nKERT = {\n    \"name\": \"Kert\",\n    \"code\": \"EMA-KER\",\n    \"entity_type\": \"Región\",\n    \"capitals\": [\"Nador\"],\n    \"spec\": {\n        2: {\"morocco\": [\"Driouch\", \"Nador\"]},\n        3: {\"morocco\": ALHUCEMAS_A_KERT}\n    }\n}\n\nTANGER = {\n    \"name\": \"Tánger\",\n    \"code\": \"EMA-TAN\",\n    \"entity_type\": \"Zona\",\n    \"capitals\": [\"Tánger\"],\n    \"spec\": {\n        3:{\"morocco\": ZONA_TANGER + FAHS_ANJRA_A_TANGER}\n    }\n}"

@@ -29,6 +29,7 @@ urlpatterns = [
     path("configs/new/", views.config_new, name="config_new"),
     path("configs/all/task/<slug:action>/", views.start_all_config_task, name="start_all_config_task"),
     path("configs/<slug:slug>/export-toml/", views.config_export_toml, name="config_export_toml"),
+    path("configs/<slug:slug>/import-toml/", views.config_import_toml_slug, name="config_import_toml_slug"),
     path("configs/<slug:slug>/export-data-csv/", views.config_export_data_csv, name="config_export_data_csv"),
     path("configs/<slug:slug>/editor-data/", views.config_editor_data, name="config_editor_data"),
     path("configs/<slug:slug>/", views.config_edit, name="config_edit"),

@@ -352,6 +352,56 @@ class CityPopulationDoubleScraperTests(unittest.TestCase):
         self.assertEqual([entity.code for entity in entities], ["03082000202"])
         self.assertEqual(entities[0].parent_code, "03082")
 
+    def test_city_name_parenthetical_in_hint_is_preserved_as_annotation(self):
+        html = """
+        <html>
+          <body>
+            <table id="tl">
+              <thead><tr><th class="rpop" data-coldate="2025-01-01">2025</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td class="rname" id="iM1"><span itemprop="name">Municipality One</span></td>
+                  <td class="rstatus">Municipality</td>
+                  <td class="rpop">10,000</td>
+                </tr>
+              </tbody>
+            </table>
+            <table id="ts">
+              <thead><tr><th class="radm">Municipality</th><th class="rpop" data-coldate="2025-01-01">2025</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td class="rname" id="iL1"><span itemprop="name">Place One</span> (in: Parish A)</td>
+                  <td class="rstatus">Locality</td>
+                  <td class="radm" data-admid="M1">Municipality One</td>
+                  <td class="rpop">30</td>
+                </tr>
+              </tbody>
+            </table>
+          </body>
+        </html>
+        """
+        page = ScrapingPageConfig(
+            path="portugal/aveiro",
+            html_format="cities",
+            lowest_level=2,
+            include_root=False,
+            include_tables=("ts",),
+            table_levels={"tl": 2, "ts": 4},
+        )
+
+        entities = CityPopulationCitiesScraper().scrape_configured_html(
+            html=html,
+            url="https://www.citypopulation.de/en/portugal/aveiro/",
+            country_code="portugal",
+            page=page,
+        )
+
+        self.assertEqual([entity.code for entity in entities], ["L1"])
+        self.assertEqual(entities[0].name, "Place One")
+        self.assertEqual(entities[0].level, 4)
+        self.assertEqual(entities[0].parent_code, "M1")
+        self.assertIn("CityPopulation parent hint: Parish A", entities[0].annotations)
+
 
     def test_blank_parent_cell_uses_same_name_parent_and_adds_annotation(self):
         html = """
@@ -706,6 +756,146 @@ class CityPopulationCitiesScraperTests(unittest.TestCase):
         self.assertIn("7014", by_code)
         self.assertNotIn("554", by_code)
         self.assertNotIn("999", by_code)
+
+    def test_cities_page_without_tl_uses_ts_tfoot_as_major_subdivision_parent(self):
+        html = """
+        <html><body>
+          <section id="citysection">
+            <h2>Cities</h2>
+            <table id="ts">
+              <thead>
+                <tr>
+                  <th class="rname">Name</th><th class="rstatus">Status</th>
+                  <th class="rpop" data-coldate="2015-01-01">2015</th>
+                  <th class="rpop" data-coldate="2024-01-01">2024</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="rname" id="iBK00465" data-status="Urban Center">
+                    <span itemprop="name">Aalden</span>
+                  </td>
+                  <td class="rstatus">Urban Center</td>
+                  <td class="rpop">1,700</td>
+                  <td class="rpop">1,775</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr onclick="javascript:symArea('NL13','adm1')">
+                  <td class="rname" id="iNL13" data-wiki="Drenthe" data-wd="Q772"
+                      data-area="2632.65" data-density="187.94">
+                    <span itemprop="name"><a href="javascript:symArea('NL13','adm1')">Drenthe</a></span>
+                  </td>
+                  <td class="rstatus">Province</td>
+                  <td class="rpop">491,411</td>
+                  <td class="rpop">494,771</td>
+                </tr>
+              </tfoot>
+            </table>
+          </section>
+        </body></html>
+        """
+        page = parse_pages(
+            [
+                {
+                    "source": "cities",
+                    "path": ["drenthe"],
+                    "force_highest_level": 2,
+                    "include": {"cities": True, "infosection": False, "major_subdivision": True},
+                }
+            ],
+            slug="netherlands",
+            schema_version=2,
+        )[0]
+
+        entities = CityPopulationCitiesScraper().scrape_configured_html(
+            html=html,
+            url="https://www.citypopulation.de/en/netherlands/drenthe/",
+            country_code="netherlands",
+            page=page,
+        )
+
+        by_code = {entity.code: entity for entity in entities}
+        self.assertEqual([entity.code for entity in entities], ["NL13", "BK00465"])
+        self.assertEqual(by_code["NL13"].level, 2)
+        self.assertEqual(by_code["NL13"].entity_type, "Province")
+        self.assertEqual(by_code["NL13"].data_wd, "Q772")
+        self.assertEqual(by_code["NL13"].pop_latest, 494771)
+        self.assertEqual(by_code["BK00465"].level, 3)
+        self.assertEqual(by_code["BK00465"].parent_code, "NL13")
+        self.assertEqual(by_code["BK00465"].pop_latest, 1775)
+
+    def test_cities_page_with_only_tl_tfoot_uses_it_as_major_subdivision_parent(self):
+        html = """
+        <html><body>
+          <section id="adminareas">
+            <h2>Province</h2>
+            <table id="tl">
+              <thead>
+                <tr>
+                  <th class="rname">Name</th><th class="rstatus">Status</th>
+                  <th class="rpop" data-coldate="2021-01-01">2021</th>
+                </tr>
+              </thead>
+              <tfoot>
+                <tr onclick="javascript:symArea('NL13','adm1')">
+                  <td class="rname" id="iNL13" data-wiki="Drenthe" data-wd="Q772"
+                      data-area="2632.65" data-density="187.94">
+                    <span itemprop="name"><a href="javascript:symArea('NL13','adm1')">Drenthe</a></span>
+                  </td>
+                  <td class="rstatus">Province</td>
+                  <td class="rpop">494,771</td>
+                </tr>
+              </tfoot>
+            </table>
+          </section>
+          <section id="citysection">
+            <h2>Urban Centers</h2>
+            <table id="ts">
+              <thead>
+                <tr>
+                  <th class="rname">Name</th><th class="rstatus">Status</th><th class="radm">Adm.</th>
+                  <th class="rpop" data-coldate="2021-01-01">2021</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr onclick="javascript:sym('BK00465')">
+                  <td class="rname" id="iBK00465" data-wd="Q2432807">
+                    <span itemprop="name"><a href="javascript:sym('BK00465')">Aalden</a></span>
+                  </td>
+                  <td class="rstatus">Urban Center</td><td class="radm">Coevorden</td><td class="rpop">1,775</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+        </body></html>
+        """
+        page = parse_pages(
+            [
+                {
+                    "source": "cities",
+                    "path": ["drenthe"],
+                    "force_highest_level": 2,
+                    "include": {"cities": True, "infosection": False, "major_subdivision": True},
+                }
+            ],
+            slug="netherlands",
+            schema_version=2,
+        )[0]
+
+        entities = CityPopulationCitiesScraper().scrape_configured_html(
+            html=html,
+            url="https://www.citypopulation.de/en/netherlands/drenthe/",
+            country_code="netherlands",
+            page=page,
+        )
+
+        by_code = {entity.code: entity for entity in entities}
+        self.assertEqual([entity.code for entity in entities], ["NL13", "BK00465"])
+        self.assertEqual(by_code["NL13"].level, 2)
+        self.assertEqual(by_code["NL13"].entity_type, "Province")
+        self.assertEqual(by_code["BK00465"].level, 3)
+        self.assertEqual(by_code["BK00465"].parent_code, "NL13")
 
 
     def test_country_cities_grouped_first_table_builds_infosection_adm_child_ts_chain(self):

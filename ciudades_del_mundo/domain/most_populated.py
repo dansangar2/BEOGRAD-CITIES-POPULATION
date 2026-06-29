@@ -30,60 +30,95 @@ def calculate_most_populated_assignments(
     if not areas:
         return []
 
+    # Kept in the signature for callers/config compatibility. Scraped
+    # AdminArea selection now targets the highest available descendant level.
+    _ = legal_subdivision_level
     max_level = max(area.level for area in areas)
-    legal_level = legal_subdivision_level if legal_subdivision_level is not None else max_level
     by_parent: dict[str | None, list[AdminAreaSummary]] = {}
     for area in areas:
-        by_parent.setdefault(area.parent_id, []).append(area)
+        if area.city_merge_status in {CITY_MERGE_NONE, CITY_MERGE_UNIFIED}:
+            by_parent.setdefault(area.parent_id, []).append(area)
+
+    descendant_index = _descendant_index(areas, by_parent)
 
     assignments = []
     for area in areas:
-        target_level = legal_level if area.level < legal_level else max_level
+        target_level = max_level
         if target_level <= area.level:
             continue
 
-        top = _most_populated_descendant(area, target_level, by_parent)
+        top = _most_populated_descendant(area, target_level, descendant_index)
         if top and area.most_populate_city_id != top.id:
             assignments.append(MostPopulatedAssignment(area_id=area.id, most_populated_id=top.id))
 
     return assignments
 
 
+@dataclass(frozen=True)
+class _DescendantIndexEntry:
+    levels: frozenset[int]
+    top_by_level: dict[int, AdminAreaSummary]
+
+
+def _descendant_index(
+    areas: list[AdminAreaSummary],
+    by_parent: dict[str | None, list[AdminAreaSummary]],
+) -> dict[str, _DescendantIndexEntry]:
+    """Return available descendant levels and top populated rows per level.
+
+    The previous implementation traversed each area's full subtree separately.
+    Large countries repeat the same work thousands of times. This bottom-up
+    index keeps the same level-selection semantics while visiting each edge a
+    bounded number of times.
+    """
+    result: dict[str, _DescendantIndexEntry] = {}
+    for area in sorted(areas, key=lambda item: int(item.level), reverse=True):
+        levels: set[int] = set()
+        top_by_level: dict[int, AdminAreaSummary] = {}
+        for child in reversed(by_parent.get(area.id, [])):
+            if child.id == area.id:
+                continue
+            if int(child.level) > int(area.level):
+                levels.add(int(child.level))
+                _set_most_populated(top_by_level, int(child.level), child)
+            child_entry = result.get(child.id)
+            if child_entry is None:
+                continue
+            for level in child_entry.levels:
+                if int(level) <= int(area.level):
+                    continue
+                levels.add(int(level))
+                top = child_entry.top_by_level.get(int(level))
+                if top is not None:
+                    _set_most_populated(top_by_level, int(level), top)
+        result[area.id] = _DescendantIndexEntry(frozenset(levels), top_by_level)
+    return result
+
+
 def _most_populated_descendant(
     area: AdminAreaSummary,
     target_level: int,
-    by_parent: dict[str | None, list[AdminAreaSummary]],
+    descendant_index: dict[str, _DescendantIndexEntry],
 ) -> AdminAreaSummary | None:
-    stack = _preferred_children(by_parent.get(area.id, []))
-    candidates_by_level: dict[int, list[AdminAreaSummary]] = {}
-    while stack:
-        node = stack.pop()
-        if node.level > area.level:
-            candidates_by_level.setdefault(node.level, []).append(node)
-        stack.extend(_preferred_children(by_parent.get(node.id, [])))
-
-    if not candidates_by_level:
+    entry = descendant_index.get(area.id)
+    if entry is None or not entry.levels:
         return None
 
-    candidate_level = _closest_available_level(candidates_by_level.keys(), target_level)
-    return _most_populated(candidates_by_level[candidate_level])
+    candidate_level = _closest_available_level(entry.levels, target_level)
+    return entry.top_by_level.get(candidate_level)
 
 
 def _closest_available_level(levels, target_level: int) -> int:
     return min(levels, key=lambda level: (abs(level - target_level), level > target_level, level))
 
 
-def _preferred_children(children: list[AdminAreaSummary] | None) -> list[AdminAreaSummary]:
-    return [
-        child
-        for child in (children or [])
-        if child.city_merge_status in {CITY_MERGE_NONE, CITY_MERGE_UNIFIED}
-    ]
-
-
-def _most_populated(candidates: list[AdminAreaSummary]) -> AdminAreaSummary | None:
-    return max(
-        (candidate for candidate in candidates if candidate.pop_latest is not None),
-        key=lambda candidate: candidate.pop_latest,
-        default=None,
-    )
+def _set_most_populated(
+    top_by_level: dict[int, AdminAreaSummary],
+    level: int,
+    candidate: AdminAreaSummary,
+) -> None:
+    if candidate.pop_latest is None:
+        return
+    current = top_by_level.get(level)
+    if current is None or (candidate.pop_latest or 0) > (current.pop_latest or 0):
+        top_by_level[level] = candidate

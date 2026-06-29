@@ -50,12 +50,15 @@ from ciudades_del_mundo.infrastructure.scraping.page_types import (
     CityPopulationPageType,
     detect_citypopulation_page_profile,
 )
+from ciudades_del_mundo.infrastructure.django.sqlite_write_lock import sqlite_write_lock_if_needed
 
 from ciudades_del_mundo.services.scraping_configs import (
+    bundled_toml_config_paths,
     ensure_initial_scraping_configs,
     export_scraping_configs_to_toml,
     scraping_config_bootstrap_status,
     scraping_config_table_exists,
+    sync_scraping_configs_from_toml,
     upsert_scraping_config,
 )
 from ciudades_del_mundo.services.dynamic_translations import (
@@ -84,7 +87,7 @@ from .task_progress import read_task_config_progress
 from .tasks import task_manager
 
 
-COUNTRY_LEVEL_OPTION_CHILD_LIMIT = 150
+COUNTRY_LEVEL_OPTION_MAX_ROWS = 500
 
 
 
@@ -683,11 +686,7 @@ def _country_detail_response(request, country_code):
     country_code = country_code.lower()
     if not _visible_admin_areas().filter(country_code=country_code).exists():
         raise Http404(_("No existe el pais '%(country_code)s'.") % {"country_code": country_code})
-    try:
-        selected_level = int(request.GET.get("level")) if request.GET.get("level") not in (None, "") else None
-    except (TypeError, ValueError):
-        selected_level = None
-    return JsonResponse(_country_detail_payload(country_code, selected_level))
+    return JsonResponse(_country_detail_payload(country_code, request.GET.get("level")))
 
 
 def admin_area_list(request):
@@ -806,12 +805,10 @@ def config_new(request):
     """Create a new SQL-backed scraping config."""
     wants_json = _wants_json(request)
     default_content = (
-        "LEGAL_SUBDIVISION = 2\n"
         "scrape_schema_version = 2\n\n"
         "[[pages]]\n"
-        'source = "admin"\n'
-        'path = ["admin"]\n'
-        'include = { infosection = true, major_subdivision = true, minor_subdivision = true }\n'
+        'source = "cities"\n'
+        'path = [""]\n'
     )
     slug = ""
     content = default_content
@@ -1048,6 +1045,51 @@ def config_export_toml(request, slug):
     return redirect("ciudades_del_mundo:config_edit", slug=slug)
 
 
+def config_import_toml_slug(request, slug):
+    """Import one ciudades_del_mundo/subdivisions/<slug>.toml seed into SQL."""
+    wants_json = _wants_json(request)
+    slug = _normalize_config_slug(slug)
+    if request.method != "POST":
+        if wants_json:
+            return JsonResponse({"ok": False, "error": _("Método no soportado.")}, status=405)
+        return redirect("ciudades_del_mundo:config_edit", slug=slug)
+    if not scraping_config_table_exists():
+        error = _("La tabla de configuraciones todavía no está disponible. Ejecuta 'py manage.py migrate'.")
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=503)
+        messages.error(request, error)
+        return redirect("ciudades_del_mundo:config_edit", slug=slug)
+    if not bundled_toml_config_paths([slug]):
+        error = _("No existe el fichero subdivisions/%(slug)s.toml.") % {"slug": slug}
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=404)
+        messages.error(request, error)
+        return redirect("ciudades_del_mundo:config_edit", slug=slug)
+
+    try:
+        write_lock = sqlite_write_lock_if_needed()
+        if write_lock is None:
+            imported = sync_scraping_configs_from_toml(force=True, only_if_empty=False, slugs=[slug])
+        else:
+            with write_lock:
+                imported = sync_scraping_configs_from_toml(force=True, only_if_empty=False, slugs=[slug])
+    except Exception as exc:  # noqa: BLE001 - surfaced to the editor as a form message.
+        error = _("No se pudo importar el TOML: %(error)s") % {"error": exc}
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=500)
+        messages.error(request, error)
+        return redirect("ciudades_del_mundo:config_edit", slug=slug)
+
+    if imported:
+        message = _("Configuración importada desde subdivisions/%(slug)s.toml.") % {"slug": slug}
+    else:
+        message = _("El fichero subdivisions/%(slug)s.toml no modificó la configuración.") % {"slug": slug}
+    if wants_json:
+        return JsonResponse({"ok": True, "message": message, "imported": bool(imported)})
+    messages.success(request, message)
+    return redirect("ciudades_del_mundo:config_edit", slug=slug)
+
+
 def config_import_toml(request):
     """Import bundled subdivision TOML files into SQL in a background task."""
     wants_json = _wants_json(request)
@@ -1145,7 +1187,7 @@ def start_all_config_task(request, action):
             return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
         key = "scrape:unpopulated"
         label = _("Popular configuraciones no populadas (%(count)s)") % {"count": len(eligible_slugs)}
-        args = ["validate_and_scrape_configs", *eligible_slugs, "--no-download-assets", "--page-workers=4", "--country-workers=2"]
+        args = ["validate_and_scrape_configs", *eligible_slugs, "--no-download-assets", "--page-workers=4", "--country-workers=1"]
     elif action == "scrape":
         eligible_slugs = _eligible_config_slugs_for_bulk("scrape")
         if not eligible_slugs:
@@ -1156,7 +1198,7 @@ def start_all_config_task(request, action):
             return HttpResponseRedirect(reverse("ciudades_del_mundo:config_list"))
         key = "scrape:all"
         label = _("Popular configuraciones disponibles (%(count)s)") % {"count": len(eligible_slugs)}
-        args = ["repopulate_configs", *eligible_slugs, "--no-download-assets", "--page-workers=4", "--country-workers=2"]
+        args = ["repopulate_configs", *eligible_slugs, "--no-download-assets", "--page-workers=4", "--country-workers=1"]
     else:
         error = _("Acción de configuración no soportada.")
         if wants_json:
@@ -2884,7 +2926,7 @@ def _visual_assets_ready() -> bool:
         return False
 
 
-def _country_detail_payload(country_code: str, selected_level: int | None = None) -> dict:
+def _country_detail_payload(country_code: str, selected_level: int | str | None = None) -> dict:
     root = _canonical_country_area(country_code)
     country_record = next(
         (row for row in _admin_country_summary_records() if row["code"] == country_code),
@@ -2896,13 +2938,15 @@ def _country_detail_payload(country_code: str, selected_level: int | None = None
         },
     )
     available_levels = _country_available_levels(country_code, root)
-    if selected_level not in [item["value"] for item in available_levels]:
-        selected_level = available_levels[0]["value"] if available_levels else None
+    selected_level, selected_entity_types, selected_filter = _resolve_country_level_selection(
+        selected_level,
+        available_levels,
+    )
 
     first_order = list(_country_top_level_areas(country_code, root).select_related("parent").order_by("name"))
     population_total = country_record["population"]
     area_total = country_record["area_km2"] or 0
-    rows = _country_table_rows(country_code, root, selected_level, population_total, area_total)
+    rows = _country_table_rows(country_code, root, selected_level, population_total, area_total, selected_entity_types)
     subdivision_count = _visible_admin_areas().filter(country_code=country_code).count() - (1 if root else 0)
     visual_assets = _visual_assets_payload("country", country_code, include_fallbacks=False)
 
@@ -2931,6 +2975,7 @@ def _country_detail_payload(country_code: str, selected_level: int | None = None
         },
         "levels": available_levels,
         "selected_level": selected_level,
+        "selected_filter": selected_filter,
         "table": {
             "rows": rows,
         },
@@ -3152,6 +3197,39 @@ def _admin_area_detail_url(area: AdminArea) -> str:
     return reverse("ciudades_del_mundo:api_admin_area_detail", kwargs={"area_id": area.id})
 
 
+def _resolve_country_level_selection(
+    selected_value: int | str | None,
+    available_levels: list[dict],
+) -> tuple[int | None, tuple[str, ...], str]:
+    if not available_levels:
+        return None, (), ""
+    parsed_level, parsed_types = _parse_country_level_filter(selected_value)
+    by_filter = {str(item.get("filter_value") or item["value"]): item for item in available_levels}
+    by_level = {int(item["value"]): item for item in available_levels}
+    selected_key = str(selected_value or "").strip()
+    selected = by_filter.get(selected_key) if selected_key else None
+    if selected is None and parsed_level is not None:
+        selected = by_level.get(parsed_level)
+    if selected is None:
+        selected = available_levels[0]
+    filter_value = str(selected.get("filter_value") or selected["value"])
+    level, entity_types = _parse_country_level_filter(filter_value)
+    return level, entity_types, filter_value
+
+
+def _parse_country_level_filter(value: int | str | None) -> tuple[int | None, tuple[str, ...]]:
+    text = str(value or "").strip()
+    if not text:
+        return None, ()
+    level_text, *raw_types = text.split("|")
+    try:
+        level = int(level_text)
+    except (TypeError, ValueError):
+        return None, ()
+    entity_types = tuple(item for item in raw_types if item)
+    return level, entity_types
+
+
 def _country_available_levels(country_code: str, root: AdminArea | None) -> list[dict]:
     levels = list(
         _visible_admin_areas().filter(country_code=country_code)
@@ -3159,8 +3237,6 @@ def _country_available_levels(country_code: str, root: AdminArea | None) -> list
         .distinct()
         .order_by("level")
     )
-    level_values = [level for level in levels if not (root and level == root.level)]
-    first_level = level_values[0] if level_values else None
     rows = []
     for level in levels:
         if root and level == root.level:
@@ -3168,38 +3244,59 @@ def _country_available_levels(country_code: str, root: AdminArea | None) -> list
         level_rows = _visible_admin_areas().filter(country_code=country_code, level=level)
         if root:
             level_rows = level_rows.exclude(id=root.id)
-        child_counts = list(
-            level_rows.annotate(
-                visible_child_count=Count(
-                    "children",
-                    filter=~Q(children__city_merge_status=AdminArea.CityMergeStatus.SOURCE),
+        type_stats = _country_level_type_stats(level_rows)
+        level_total = sum(count for count, _rows_with_children in type_stats.values())
+        if level_total <= 0:
+            continue
+        partial_level = False
+        if level_total <= COUNTRY_LEVEL_OPTION_MAX_ROWS:
+            entity_type_values = tuple(sorted(type_stats))
+            filter_value = str(level)
+        else:
+            partial_level = True
+            entity_type_values = tuple(
+                sorted(
+                    entity_type
+                    for entity_type, (count, rows_with_children) in type_stats.items()
+                    if count <= COUNTRY_LEVEL_OPTION_MAX_ROWS and rows_with_children > 0
                 )
-            ).values_list("visible_child_count", flat=True)
-        )
-        max_children = max(child_counts or [0])
-        rows_with_children = sum(1 for count in child_counts if count > 0)
-        if level != first_level:
-            level_total = len(child_counts)
-            if rows_with_children <= 0 and level_total > COUNTRY_LEVEL_OPTION_CHILD_LIMIT:
-                continue
-            if (
-                rows_with_children > 0
-                and level_total > COUNTRY_LEVEL_OPTION_CHILD_LIMIT
-                and rows_with_children < max(2, level_total // 10)
-            ):
-                continue
-        entity_types = _level_entity_types(country_code, level)
+            )
+            if not entity_type_values:
+                break
+            level_total = sum(type_stats[entity_type][0] for entity_type in entity_type_values)
+            filter_value = "|".join([str(level), *entity_type_values])
+        entity_types = [_entity_type_label(item, country_code=country_code) or _("Sin tipo") for item in entity_type_values]
+        entity_type_label = " / ".join(entity_types[:3])
         rows.append(
             {
                 "value": level,
-                "label": _("Nivel %(level)s") % {"level": _display_level(level, root)},
-                "entity_type": ", ".join(entity_types[:3]),
-                "count": len(child_counts),
-                "max_children": max_children,
-                "rows_with_children": rows_with_children,
+                "filter_value": filter_value,
+                "label": entity_type_label or _("Nivel %(level)s") % {"level": _display_level(level, root)},
+                "entity_type": entity_type_label,
+                "count": level_total,
             }
         )
+        if partial_level:
+            break
     return rows
+
+
+def _country_level_type_stats(level_rows) -> dict[str, tuple[int, int]]:
+    counts = {
+        str(row["entity_type"] or ""): int(row["count"])
+        for row in level_rows.values("entity_type").annotate(count=Count("id")).order_by("entity_type")
+    }
+    rows_with_children = {
+        str(row["entity_type"] or ""): int(row["count"])
+        for row in (
+            level_rows.filter(children__isnull=False)
+            .exclude(children__city_merge_status=AdminArea.CityMergeStatus.SOURCE)
+            .values("entity_type")
+            .annotate(count=Count("id", distinct=True))
+            .order_by("entity_type")
+        )
+    }
+    return {entity_type: (count, rows_with_children.get(entity_type, 0)) for entity_type, count in counts.items()}
 
 
 def _display_level(level: int, root: AdminArea | None) -> int:
@@ -3227,6 +3324,7 @@ def _country_table_rows(
     selected_level: int | None,
     population_total=0,
     area_total=0,
+    selected_entity_types: tuple[str, ...] = (),
 ) -> list[dict]:
     if selected_level is None:
         return []
@@ -3235,6 +3333,8 @@ def _country_table_rows(
         .select_related("parent")
         .order_by("name")
     )
+    if selected_entity_types:
+        rows = rows.filter(entity_type__in=selected_entity_types)
     if root:
         rows = rows.exclude(id=root.id)
     return [
@@ -3836,6 +3936,7 @@ def _parse_config_editor_data(slug: str, content: str, *, asset_editor_enabled: 
                 "repeat_minor_subdivision": "" if repeat.get("minor_subdivision", repeat.get("admin2")) is None else str(repeat.get("minor_subdivision", repeat.get("admin2"))),
                 "repeat_cities": "" if repeat.get("cities") is None else str(repeat.get("cities")),
                 "sum_to_root": _bool_text(page.get("sum_to_root", False)),
+                "enabled": _bool_text(page.get("enabled", not page.get("disabled", False))),
             }
         )
     country_code = str(data.get("country_code") or slug or "")
@@ -4450,6 +4551,8 @@ def _render_config_from_manual_post(slug: str, post, *, current_content: str = "
                 f"path = {_toml_array(page['path'])}",
             ]
         )
+        if page.get("enabled") is False:
+            lines.append("enabled = false")
         if page.get("force_highest_level") is not None:
             lines.append(f"force_highest_level = {page['force_highest_level']}")
         if page.get("parent_level") is not None:
@@ -4661,6 +4764,7 @@ def _manual_page_from_payload(raw_page: dict, *, index: int) -> dict:
             raise ValueError(_("El padre forzado de la página %(index)s debe ser numérico.") % {"index": index}) from exc
     include = raw_page.get("include") if isinstance(raw_page.get("include"), dict) else {}
     page: dict[str, object] = {
+        "enabled": _form_bool(raw_page.get("enabled"), default=True),
         "source": source,
         "path": paths,
         "sum_to_root": _form_bool(raw_page.get("sum_to_root"), default=False),
@@ -4727,11 +4831,63 @@ def _manual_pages_from_json(post) -> list[dict] | None:
         _normalize_page_source_for_form(value)
         for value in post.getlist("page_source")
     ]
+    enabled_overrides = [
+        _form_bool(value, default=True)
+        for value in post.getlist("page_enabled")
+    ]
+    force_level_overrides = [str(value or "").strip() for value in post.getlist("page_force_highest_level")]
+    parent_level_overrides = [str(value or "").strip() for value in post.getlist("page_parent_level")]
+    sum_to_root_overrides = [
+        _form_bool(value, default=False)
+        for value in post.getlist("page_sum_to_root")
+    ]
+    include_overrides = {
+        "infosection": [_form_bool(value, default=True) for value in post.getlist("page_include_infosection")],
+        "major_subdivision": [
+            _form_bool(value, default=True)
+            for value in post.getlist("page_include_major_subdivision")
+        ],
+        "minor_subdivision": [
+            _form_bool(value, default=True)
+            for value in (post.getlist("page_include_minor_subdivision") or post.getlist("page_include_admin2"))
+        ],
+        "cities": [_form_bool(value, default=True) for value in post.getlist("page_include_cities")],
+    }
+    repeat_overrides = {
+        "infosection": [str(value or "").strip() for value in post.getlist("page_repeat_infosection")],
+        "major_subdivision": [str(value or "").strip() for value in post.getlist("page_repeat_major_subdivision")],
+        "minor_subdivision": [
+            str(value or "").strip()
+            for value in (post.getlist("page_repeat_minor_subdivision") or post.getlist("page_repeat_admin2"))
+        ],
+        "cities": [str(value or "").strip() for value in post.getlist("page_repeat_cities")],
+    }
 
     pages: list[dict] = []
     for index, raw_page in enumerate(payload, start=1):
         if isinstance(raw_page, dict) and index <= len(source_overrides):
             raw_page = {**raw_page, "source": source_overrides[index - 1]}
+        if isinstance(raw_page, dict) and index <= len(enabled_overrides):
+            raw_page = {**raw_page, "enabled": enabled_overrides[index - 1]}
+        if isinstance(raw_page, dict) and index <= len(force_level_overrides):
+            raw_page = {**raw_page, "force_highest_level": force_level_overrides[index - 1]}
+        if isinstance(raw_page, dict) and index <= len(parent_level_overrides):
+            raw_page = {**raw_page, "parent_level": parent_level_overrides[index - 1]}
+        if isinstance(raw_page, dict) and index <= len(sum_to_root_overrides):
+            raw_page = {**raw_page, "sum_to_root": sum_to_root_overrides[index - 1]}
+        if isinstance(raw_page, dict):
+            include = raw_page.get("include") if isinstance(raw_page.get("include"), dict) else {}
+            include = dict(include)
+            for key, values in include_overrides.items():
+                if index <= len(values):
+                    include[key] = values[index - 1]
+            raw_page = {**raw_page, "include": include}
+            repeat = raw_page.get("repeat") if isinstance(raw_page.get("repeat"), dict) else {}
+            repeat = dict(repeat)
+            for key, values in repeat_overrides.items():
+                if index <= len(values):
+                    repeat[key] = values[index - 1]
+            raw_page = {**raw_page, "repeat": repeat}
         page = _manual_page_from_payload(raw_page, index=index)
         if page:
             pages.append(page)
@@ -4746,6 +4902,7 @@ def _manual_pages_from_post(post) -> list[dict]:
     page_sources = post.getlist("page_source")
     page_levels = post.getlist("page_force_highest_level")
     page_parent_levels = post.getlist("page_parent_level")
+    page_enabled_values = post.getlist("page_enabled")
     include_infosections = post.getlist("page_include_infosection")
     include_major_subdivisions = post.getlist("page_include_major_subdivision")
     include_minor_subdivisions = post.getlist("page_include_minor_subdivision") or post.getlist("page_include_admin2")
@@ -4763,6 +4920,7 @@ def _manual_pages_from_post(post) -> list[dict]:
             page_paths,
             page_levels,
             page_parent_levels,
+            page_enabled_values,
             include_infosections,
             include_major_subdivisions,
             include_minor_subdivisions,
@@ -4781,6 +4939,7 @@ def _manual_pages_from_post(post) -> list[dict]:
             raw_paths,
             raw_level,
             raw_parent_level,
+            raw_enabled,
             raw_include_infosection,
             raw_include_major,
             raw_include_minor,
@@ -4809,7 +4968,7 @@ def _manual_pages_from_post(post) -> list[dict]:
                 parent_level_int = int(raw_parent_level)
             except (TypeError, ValueError) as exc:
                 raise ValueError(_("El padre forzado de la página %(index)s debe ser numérico.") % {"index": index}) from exc
-        page: dict[str, object] = {"source": source, "path": paths}
+        page: dict[str, object] = {"source": source, "path": paths, "enabled": _form_bool(raw_enabled, default=True)}
         if level_int is not None:
             page["force_highest_level"] = level_int
         if parent_level_int is not None:
@@ -5542,10 +5701,15 @@ def _render_citypopulation_generated_config(
 
 def _inferred_generated_page_level(slug: str, source: str, path: str) -> int:
     segments = [segment for segment in str(path or "").strip("/").split("/") if segment]
-    source = str(source or "").strip().lower()
-    if source == "admin":
+    slug_key = str(slug or "").strip("/").casefold()
+    if segments and slug_key and segments[0].casefold() == slug_key:
+        segments = segments[1:]
+    normalized_source = str(source or "").strip().lower()
+    if not segments:
         return 0
-    if not segments or segments == ["cities"]:
+    if segments == ["admin"]:
+        return 0
+    if normalized_source in {"cities", "citiesadmin"} and segments == ["cities"]:
         return 0
     if segments[0] in {"cities", "localities", "places", "towns"}:
         return 1

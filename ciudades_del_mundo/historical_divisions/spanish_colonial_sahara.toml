@@ -1,0 +1,15 @@
+schema_version = 1
+kind = "subdivision_group"
+slug = "spanish_colonial_sahara"
+name = "Spanish Colonial Sahara"
+source_python = "ciudades_del_mundo/historical_divisions/spanish_colonial_sahara.py"
+source_country_code = ""
+
+[selection]
+include_codes = []
+include_levels = []
+include_names = []
+
+[legacy]
+# Mantiene la receta Python original hasta que el builder TOML cubra toda la l?gica.
+python_source = "SAHARA_OCCIDENTAL = [\n    {\n        \"name\": \"Sahara\",\n        \"code\": \"SAH\",\n        \"forced_area_km2\": 266000,\n        \"capitals\": [\"Laâyoune\"],\n        \"year_start\": 1900,\n        \"year_end\": 1978,\n        \"entity_type\": \"Provincia\",\n        \"spec\": {\n            0: {\n                \"westernsahara\": [\n                    \"Aousserd\",\n                    \"Boujdour\",\n                    \"Es Semara\",\n                    \"Laâyoune\",\n                    \"Oued Ed-Dahab\",\n                    \"R.A.S.D.\",\n                    \"Tarfaya\",\n                ]\n            }\n        }\n    },\n]\n\nSAGUIA_EL_HAMRA = [\n    {\n        \"name\": \"Saguía el Hamra\",\n        \"code\": \"SEH\",\n        \"forced_area_km2\": 82000,\n        \"capitals\": [\"Laâyoune\"],\n        \"year_start\": 1900,\n        \"year_end\": 1978,\n        \"entity_type\": \"Territorio\",\n        \"spec\": {1: {\"westernsahara\": [\"Laâyoune\", \"Es Semara\", \"Tarfaya\"]}, 2: {\"westernsahara\": [\"Boujdour\"]}}\n    },\n]\n\nRIO_DE_ORO = [\n    {\n        \"name\": \"Río de Oro\",\n        \"code\": \"RDO\",\n        \"forced_area_km2\": 184000,\n        \"capitals\": [\"Dakhla\"],\n        \"year_start\": 1900,\n        \"year_end\": 1978,\n        \"entity_type\": \"Territorio\",\n        \"spec\": {1: {\"westernsahara\": [\"Boujdour\", \"Oued Ed-Dahab\", \"Aousserd\"]}, \"restar\": {2: {\"westernsahara\": [\"Boujdour\"]}}}\n    },\n]\n"

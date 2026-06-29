@@ -51,6 +51,17 @@ class CityPopulationHtmlFetcher:
         return CityPopulationClient(debug=self.debug, parser=self.parser).get(url)
 
 
+def _parent_hint_from_name(value: str | None) -> str | None:
+    text = re.sub(r"\s+", " ", str(value or "").strip())
+    if not text:
+        return None
+    match = re.search(r"\(\s*in\s*:\s*([^)]+?)\s*\)", text, flags=re.IGNORECASE)
+    if not match:
+        return None
+    parent_name = re.sub(r"\s+", " ", match.group(1).strip(" ,;"))
+    return parent_name or None
+
+
 class CityPopulationClient:
     """Thin client around requests plus row parsing helpers for CityPopulation."""
 
@@ -238,7 +249,7 @@ class CityPopulationClient:
             pop_latest_date=pop_latest_date,
             last_census_year=self.year_from_date(pop_latest_date) or default_last_census_year,
             parent_id=None,
-            parent_name=None,
+            parent_name=_parent_hint_from_name(main_td.get_text(" ", strip=True)),
             country_code=country_code,
             url=self._row_url(tr, base_url),
             data_wd=self._row_data_wd(main_td, tr),

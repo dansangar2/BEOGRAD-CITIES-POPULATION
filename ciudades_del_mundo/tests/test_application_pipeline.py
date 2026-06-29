@@ -1,8 +1,24 @@
 from decimal import Decimal
 import unittest
 
-from ciudades_del_mundo.application.scrape_admin_areas import CachedScrapePage, ScrapeAdminAreas
-from ciudades_del_mundo.domain import AdminAreaSummary, ScrapedAdminArea, ScrapingJobConfig, ScrapingPageConfig, parse_pages
+from ciudades_del_mundo.application.scrape_admin_areas import (
+    CachedScrapePage,
+    ScrapeAdminAreas,
+    ScrapeBlockValidationError,
+    ScrapeLinkValidationError,
+)
+from ciudades_del_mundo.application.citypopulation_linking import normalize_citypopulation_entities
+from ciudades_del_mundo.domain import (
+    AdminAreaSummary,
+    ScrapedAdminArea,
+    ScrapingJobConfig,
+    ScrapingPageConfig,
+    parse_pages,
+)
+from ciudades_del_mundo.services.wikidata_parent_links import (
+    WikidataParentCandidate,
+    link_entities_with_wikidata_parent_candidates,
+)
 
 
 class FakeScraper:
@@ -50,6 +66,236 @@ class FakeHtmlScraper(FakeScraper):
         )
 
 
+class MissingSectionCitiesScraper:
+    html_format = "cities"
+
+    def scrape_page(self, base_url, country_code, page):
+        from ciudades_del_mundo.ports import ScrapedHtmlPage
+
+        return ScrapedHtmlPage(
+            entities=[
+                ScrapedAdminArea(
+                    code=country_code,
+                    name="Testland",
+                    level=0,
+                    country_code=country_code,
+                    pop_latest=100,
+                    annotations="CityPopulation section: infosection",
+                ),
+                ScrapedAdminArea(
+                    code="north",
+                    name="North",
+                    level=1,
+                    country_code=country_code,
+                    parent_code=country_code,
+                    pop_latest=50,
+                    annotations="CityPopulation section: major_subdivision",
+                ),
+            ],
+            html="<html><main>missing cities table</main></html>",
+            url="https://example.test/en/fake/cities/",
+        )
+
+
+class MissingParentAdminScraper:
+    html_format = "admin"
+
+    def scrape_page(self, base_url, country_code, page):
+        from ciudades_del_mundo.ports import ScrapedHtmlPage
+
+        return ScrapedHtmlPage(
+            entities=[
+                ScrapedAdminArea(
+                    code=country_code,
+                    name="Testland",
+                    level=0,
+                    country_code=country_code,
+                    annotations="CityPopulation section: infosection",
+                ),
+                ScrapedAdminArea(
+                    code="P1",
+                    name="Province One",
+                    level=1,
+                    country_code=country_code,
+                    annotations="CityPopulation section: major_subdivision",
+                ),
+                ScrapedAdminArea(
+                    code="D1",
+                    name="District One",
+                    level=2,
+                    country_code=country_code,
+                    parent_code="P1",
+                    annotations="CityPopulation section: minor_subdivision",
+                ),
+            ],
+            html="<html><main>missing parent</main></html>",
+            url="https://example.test/en/fake/admin/",
+        )
+
+
+class RootAliasCitiesScraper:
+    html_format = "cities"
+
+    def scrape_page(self, base_url, country_code, page):
+        from ciudades_del_mundo.ports import ScrapedHtmlPage
+
+        return ScrapedHtmlPage(
+            entities=[
+                ScrapedAdminArea(
+                    code=country_code,
+                    name="Aliasland",
+                    level=0,
+                    country_code=country_code,
+                    annotations="CityPopulation section: infosection",
+                ),
+                ScrapedAdminArea(
+                    code="child",
+                    name="Child",
+                    level=1,
+                    country_code=country_code,
+                    parent_code="748",
+                    annotations="CityPopulation section: cities",
+                ),
+            ],
+            html="<html><main>root alias</main></html>",
+            url=f"https://example.test/en/{country_code}/cities/",
+        )
+
+
+class UnlinkedV2AdminScraper:
+    html_format = "admin"
+
+    def scrape_page(self, base_url, country_code, page):
+        from ciudades_del_mundo.ports import ScrapedHtmlPage
+
+        return ScrapedHtmlPage(
+            entities=[
+                ScrapedAdminArea(
+                    code="20",
+                    name="Saida",
+                    level=1,
+                    country_code=country_code,
+                    entity_type="Province",
+                    data_wd="Q233640",
+                    url="https://www.citypopulation.de/en/algeria/admin/20__saida/",
+                    annotations="CityPopulation section: major_subdivision",
+                )
+            ],
+            html="<html><main>saida province</main></html>",
+            url="https://www.citypopulation.de/en/algeria/admin/",
+        )
+
+
+class NetherlandsAdminHierarchyScraper:
+    html_format = "admin"
+
+    def scrape_page(self, base_url, country_code, page):
+        from ciudades_del_mundo.ports import ScrapedHtmlPage
+
+        return ScrapedHtmlPage(
+            entities=[
+                ScrapedAdminArea(
+                    code=country_code,
+                    name="Netherlands",
+                    level=0,
+                    country_code=country_code,
+                    data_wd="Q55",
+                    annotations="CityPopulation section: infosection",
+                ),
+                ScrapedAdminArea(
+                    code="NL01",
+                    name="Drenthe",
+                    level=1,
+                    country_code=country_code,
+                    parent_code=country_code,
+                    data_wd="Q772",
+                    annotations="CityPopulation section: major_subdivision",
+                ),
+                ScrapedAdminArea(
+                    code="GM1730",
+                    name="Tynaarlo",
+                    level=2,
+                    country_code=country_code,
+                    parent_code="NL01",
+                    data_wd="Q1000",
+                    annotations="CityPopulation section: minor_subdivision",
+                ),
+            ],
+            html="<html><main>netherlands admin</main></html>",
+            url="https://www.citypopulation.de/en/netherlands/admin/",
+        )
+
+
+class NetherlandsParentlessUrbanCenterScraper:
+    html_format = "cities"
+
+    def scrape_page(self, base_url, country_code, page):
+        from ciudades_del_mundo.ports import ScrapedHtmlPage
+
+        return ScrapedHtmlPage(
+            entities=[
+                ScrapedAdminArea(
+                    code="BK00261",
+                    name="Zuidlaren",
+                    level=1,
+                    country_code=country_code,
+                    entity_type="Urban Center",
+                    data_wd="Q228666",
+                    annotations="CityPopulation section: cities",
+                    url="https://www.citypopulation.de/en/netherlands/drenthe/_/BK00261__zuidlaren/",
+                )
+            ],
+            html="<html><main>netherlands cities</main></html>",
+            url="https://www.citypopulation.de/en/netherlands/drenthe/",
+        )
+
+
+class AlgeriaRootCitiesScraper:
+    html_format = "cities"
+
+    def scrape_page(self, base_url, country_code, page):
+        from ciudades_del_mundo.ports import ScrapedHtmlPage
+
+        return ScrapedHtmlPage(
+            entities=[
+                ScrapedAdminArea(
+                    code=country_code,
+                    name="Algeria",
+                    level=0,
+                    country_code=country_code,
+                    pop_latest=100,
+                    annotations="CityPopulation section: infosection",
+                ),
+            ],
+            html="<html><main>algeria root</main></html>",
+            url="https://www.citypopulation.de/en/algeria/cities/",
+        )
+
+
+class AlgeriaParentlessProvinceAdminScraper:
+    html_format = "admin"
+
+    def scrape_page(self, base_url, country_code, page):
+        from ciudades_del_mundo.ports import ScrapedHtmlPage
+
+        return ScrapedHtmlPage(
+            entities=[
+                ScrapedAdminArea(
+                    code="20",
+                    name="Saida",
+                    level=1,
+                    country_code=country_code,
+                    entity_type="Province",
+                    data_wd="Q233640",
+                    url="https://www.citypopulation.de/en/algeria/admin/20__saida/",
+                    annotations="CityPopulation section: major_subdivision",
+                )
+            ],
+            html="<html><main>saida province</main></html>",
+            url="https://www.citypopulation.de/en/algeria/admin/",
+        )
+
+
 class SpainLocalityCodePrefixScraper(FakeScraper):
     def scrape(self, base_url, country_code, page):
         return [
@@ -79,6 +325,108 @@ class SpainLocalityCodePrefixScraper(FakeScraper):
                 country_code="spain",
                 parent_code="03083",
                 url="https://www.citypopulation.de/en/spain/localities/alicante/jávea/03082000202__alborada/",
+            ),
+        ]
+
+
+class SpainSingleProvinceCommunityScraper(FakeScraper):
+    def scrape(self, base_url, country_code, page):
+        return [
+            ScrapedAdminArea(code="spain", name="Spain", level=0, country_code="spain"),
+            ScrapedAdminArea(
+                code="MAD",
+                name="Madrid",
+                level=1,
+                country_code="spain",
+                parent_code="spain",
+                url="https://www.citypopulation.de/en/spain/admin/MAD__madrid/",
+            ),
+            ScrapedAdminArea(
+                code="28",
+                name="Madrid",
+                level=2,
+                country_code="spain",
+                parent_code="MAD",
+                url="https://www.citypopulation.de/en/spain/admin/madrid/28__madrid/",
+            ),
+            ScrapedAdminArea(
+                code="28079",
+                name="Madrid",
+                level=2,
+                country_code="spain",
+                parent_code="MAD",
+                entity_type="Municipality",
+                annotations="CityPopulation section: cities",
+                url="https://www.citypopulation.de/en/spain/madrid/madrid/28079__madrid/",
+            ),
+        ]
+
+
+class PortugalParentHintScraper(FakeScraper):
+    def scrape(self, base_url, country_code, page):
+        return [
+            ScrapedAdminArea(code="portugal", name="Portugal", level=0, country_code="portugal"),
+            ScrapedAdminArea(
+                code="01",
+                name="Aveiro",
+                level=1,
+                country_code="portugal",
+                parent_code="portugal",
+            ),
+            ScrapedAdminArea(
+                code="1610101",
+                name="Agueda",
+                level=2,
+                country_code="portugal",
+                parent_code="01",
+            ),
+            ScrapedAdminArea(
+                code="010121",
+                name="Parish A",
+                level=3,
+                country_code="portugal",
+                parent_code="1610101",
+            ),
+            ScrapedAdminArea(
+                code="L1",
+                name="Place One",
+                level=4,
+                country_code="portugal",
+                parent_code="1610101",
+                annotations="CityPopulation section: cities; CityPopulation parent hint: Parish A",
+            ),
+        ]
+
+
+class PortugalMultiwordUrlScopeScraper(FakeScraper):
+    def scrape(self, base_url, country_code, page):
+        return [
+            ScrapedAdminArea(code="portugal", name="Portugal", level=0, country_code="portugal"),
+            ScrapedAdminArea(
+                code="05",
+                name="Castelo Branco",
+                level=1,
+                country_code="portugal",
+                parent_code="portugal",
+                url="https://www.citypopulation.de/en/portugal/admin/05__castelo_branco/",
+            ),
+            ScrapedAdminArea(
+                code="16",
+                name="Viana do Castelo",
+                level=1,
+                country_code="portugal",
+                parent_code="portugal",
+                url="https://www.citypopulation.de/en/portugal/admin/16__viana_do_castelo/",
+            ),
+            ScrapedAdminArea(
+                code="1690502",
+                name="Castelo Branco",
+                level=2,
+                country_code="portugal",
+                parent_code="05",
+                entity_type="Municipality",
+                annotations="CityPopulation section: minor_subdivision",
+                url="https://www.citypopulation.de/en/portugal/admin/castelo_branco/1690502__castelo_branco/",
             ),
         ]
 
@@ -645,6 +993,19 @@ class FakeRepository:
         return 0
 
 
+class FlakySaveRepository(FakeRepository):
+    def __init__(self, failures_before_success=2):
+        super().__init__()
+        self.failures_before_success = failures_before_success
+        self.save_attempts = 0
+
+    def save_many(self, country_code, entities):
+        self.save_attempts += 1
+        if self.save_attempts <= self.failures_before_success:
+            raise RuntimeError("transient save failure")
+        return super().save_many(country_code, entities)
+
+
 
 class ScrapingSchemaV2ConfigTests(unittest.TestCase):
     def test_include_repeat_and_schema_v2_default_levels_are_parsed(self):
@@ -701,6 +1062,54 @@ class ScrapingSchemaV2ConfigTests(unittest.TestCase):
         self.assertEqual(pages[0].include_tables, ("tl", "ts"))
         self.assertTrue(pages[0].include_root)
 
+    def test_schema_v2_root_cities_page_without_suffix_starts_at_country_root_level(self):
+        pages = parse_pages(
+            [
+                {
+                    "source": "cities",
+                    "path": [""],
+                    "include": {"cities": True, "infosection": True, "major_subdivision": True},
+                }
+            ],
+            slug="andorra",
+            schema_version=2,
+        )
+
+        self.assertEqual(pages[0].path, "andorra")
+        self.assertEqual(pages[0].lowest_level, 0)
+
+    def test_schema_v2_city_shaped_admin_page_with_infosection_starts_at_country_root_level(self):
+        pages = parse_pages(
+            [
+                {
+                    "source": "cities",
+                    "path": ["admin"],
+                    "include": {"cities": False, "infosection": True, "major_subdivision": True},
+                }
+            ],
+            slug="gibraltar",
+            schema_version=2,
+        )
+
+        self.assertEqual(pages[0].path, "gibraltar/admin")
+        self.assertEqual(pages[0].lowest_level, 0)
+
+    def test_schema_v2_nested_admin_path_does_not_start_at_country_root_level(self):
+        pages = parse_pages(
+            [
+                {
+                    "source": "admin",
+                    "path": ["benimellalkhenifra/admin"],
+                    "include": {"infosection": False, "major_subdivision": True, "minor_subdivision": True},
+                }
+            ],
+            slug="morocco",
+            schema_version=2,
+        )
+
+        self.assertEqual(pages[0].path, "morocco/benimellalkhenifra/admin")
+        self.assertEqual(pages[0].lowest_level, 1)
+
     def test_schema_v2_include_can_keep_only_infosection_without_tables(self):
         pages = parse_pages(
             [
@@ -719,8 +1128,343 @@ class ScrapingSchemaV2ConfigTests(unittest.TestCase):
         self.assertEqual(pages[0].include_tables, ("__none__",))
         self.assertTrue(pages[0].include_root)
 
+    def test_schema_v2_explicit_include_root_false_overrides_infosection_include(self):
+        pages = parse_pages(
+            [
+                {
+                    "source": "cities",
+                    "path": ["drenthe"],
+                    "include": {"cities": True, "infosection": True, "major_subdivision": True},
+                    "include_root": False,
+                }
+            ],
+            slug="netherlands",
+            schema_version=2,
+        )
+
+        self.assertFalse(pages[0].include_root)
+        self.assertNotIn("infosection", pages[0].include_sections)
+
+
+class CityPopulationLinkingTests(unittest.TestCase):
+    def test_self_parent_link_is_repaired_to_scoped_prefix_parent(self):
+        result = normalize_citypopulation_entities(
+            "spain",
+            [
+                ScrapedAdminArea(code="spain", name="Spain", level=0, country_code="spain"),
+                ScrapedAdminArea(code="PV", name="Pais Vasco", level=1, country_code="spain", parent_code="spain"),
+                ScrapedAdminArea(code="01", name="Alava", level=2, country_code="spain", parent_code="PV"),
+                ScrapedAdminArea(
+                    code="01047",
+                    name="Erriberabeitia",
+                    level=4,
+                    country_code="spain",
+                    parent_code="01047",
+                    entity_type="Municipality",
+                    url="https://www.citypopulation.de/en/spain/localities/alava/01047__erriberabeitia/",
+                    annotations="CityPopulation section: cities",
+                ),
+            ],
+        )
+
+        fixed = next(entity for entity in result if entity.code == "01047")
+        self.assertEqual(fixed.parent_code, "01")
+        self.assertEqual(fixed.level, 3)
+
+    def test_forced_parent_level_can_reparent_city_across_level_gap(self):
+        result = normalize_citypopulation_entities(
+            "testland",
+            [
+                ScrapedAdminArea(code="testland", name="Testland", level=0, country_code="testland"),
+                ScrapedAdminArea(code="10", name="North", level=1, country_code="testland", parent_code="testland"),
+                ScrapedAdminArea(code="101", name="Example Parent", level=3, country_code="testland", parent_code="10"),
+                ScrapedAdminArea(
+                    code="city-1",
+                    name="Example City",
+                    level=1,
+                    country_code="testland",
+                    entity_type="Urban Center",
+                    url="https://www.citypopulation.de/en/testland/north/example_parent/city_1/",
+                    annotations="CityPopulation section: cities; Forced parent level: 3",
+                ),
+            ],
+        )
+
+        city = next(entity for entity in result if entity.code == "city-1")
+        self.assertEqual(city.parent_code, "101")
+        self.assertEqual(city.level, 4)
+
 
 class ScrapeAdminAreasTests(unittest.TestCase):
+    def test_run_rewrites_same_page_root_parent_alias_before_block_validation(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[RootAliasCitiesScraper()])
+        config = ScrapingJobConfig(
+            slug="malta",
+            country_code="malta",
+            base_url="https://example.test/en/",
+            legal_subdivision_level=1,
+            pages=[
+                ScrapingPageConfig(
+                    path="malta/cities",
+                    html_format="cities",
+                    lowest_level=0,
+                    include_sections=("infosection", "cities"),
+                    include_tables=("ts",),
+                )
+            ],
+        )
+
+        use_case.run(config)
+
+        child = next(entity for entity in repository.saved_entities if entity.code == "child")
+        self.assertEqual(child.parent_code, "malta")
+
+    def test_run_retries_transient_save_failures_before_failing_job(self):
+        repository = FlakySaveRepository(failures_before_success=2)
+        events = []
+        use_case = ScrapeAdminAreas(
+            repository=repository,
+            scrapers=[FakeScraper()],
+            on_persistence_progress=lambda config, progress: events.append(progress),
+        )
+        config = ScrapingJobConfig(
+            slug="fake",
+            country_code="fake",
+            base_url="https://example.test/en/",
+            pages=[ScrapingPageConfig(path="fake/admin", html_format="table", lowest_level=0)],
+        )
+
+        result = use_case.run(config)
+
+        self.assertEqual(result.created, 2)
+        self.assertEqual(repository.save_attempts, 3)
+        self.assertEqual([event.count for event in events if event.phase == "save_retry"], [1, 2])
+
+    def test_run_fails_block_before_persistence_when_configured_section_is_missing(self):
+        repository = FakeRepository()
+        logs = []
+        use_case = ScrapeAdminAreas(
+            repository=repository,
+            scrapers=[MissingSectionCitiesScraper()],
+            on_block_validation_error=lambda config, error: logs.append(error.to_log_text()),
+        )
+        config = ScrapingJobConfig(
+            slug="fake",
+            country_code="fake",
+            base_url="https://example.test/en/",
+            pages=[
+                ScrapingPageConfig(
+                    path="fake/cities",
+                    html_format="cities",
+                    lowest_level=0,
+                    include_sections=("infosection", "major_subdivision", "cities"),
+                )
+            ],
+        )
+
+        with self.assertRaises(ScrapeBlockValidationError) as raised:
+            use_case.run(config)
+
+        self.assertEqual(repository.saved_entities, [])
+        self.assertIn("SCR-BLOCK-001", str(raised.exception))
+        self.assertEqual(len(logs), 1)
+        self.assertIn("SCR-BLOCK-SECTION", logs[0])
+        self.assertIn("https://example.test/en/fake/cities/", logs[0])
+        self.assertIn("<html><main>missing cities table</main></html>", logs[0])
+
+    def test_run_fails_block_before_persistence_when_non_root_level_has_no_parent(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[MissingParentAdminScraper()])
+        config = ScrapingJobConfig(
+            slug="fake",
+            country_code="fake",
+            base_url="https://example.test/en/",
+            pages=[
+                ScrapingPageConfig(
+                    path="fake/admin",
+                    html_format="admin",
+                    lowest_level=0,
+                    include_sections=("infosection", "major_subdivision", "minor_subdivision"),
+                )
+            ],
+        )
+
+        with self.assertRaises(ScrapeBlockValidationError) as raised:
+            use_case.run(config)
+
+        self.assertEqual(repository.saved_entities, [])
+        self.assertIn("SCR-BLOCK-PARENT", raised.exception.to_log_text())
+        self.assertIn("Province One", raised.exception.to_log_text())
+
+    def test_run_fails_link_validation_before_persistence_when_v2_rows_remain_unlinked(self):
+        repository = FakeRepository()
+        logs = []
+        use_case = ScrapeAdminAreas(
+            repository=repository,
+            scrapers=[UnlinkedV2AdminScraper()],
+            on_link_validation_error=lambda config, error: logs.append(error.to_log_text()),
+        )
+        config = ScrapingJobConfig(
+            slug="algeria",
+            country_code="algeria",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[
+                ScrapingPageConfig(
+                    path="algeria/admin",
+                    html_format="admin",
+                    lowest_level=1,
+                    include_sections=("major_subdivision",),
+                )
+            ],
+        )
+
+        with self.assertRaises(ScrapeLinkValidationError) as raised:
+            use_case.run(config)
+
+        self.assertEqual(repository.saved_entities, [])
+        self.assertIn("SCR-LINK-001", str(raised.exception))
+        self.assertEqual(len(logs), 1)
+        self.assertIn("SCR-LINK-PARENT", logs[0])
+        self.assertIn("Saida", logs[0])
+        self.assertIn("<html><main>saida province</main></html>", logs[0])
+
+    def test_run_repairs_missing_parent_with_wikidata_before_link_validation(self):
+        repository = FakeRepository()
+        events = []
+
+        def parent_resolver(config, entities):
+            return link_entities_with_wikidata_parent_candidates(
+                config.country_code,
+                entities,
+                [
+                    WikidataParentCandidate(
+                        child_qid="Q228666",
+                        parent_qid="Q1000",
+                        parent_label="Tynaarlo",
+                    )
+                ],
+            )
+
+        use_case = ScrapeAdminAreas(
+            repository=repository,
+            scrapers=[NetherlandsAdminHierarchyScraper(), NetherlandsParentlessUrbanCenterScraper()],
+            wikimedia_parent_resolver=parent_resolver,
+            on_persistence_progress=lambda config, progress: events.append((progress.phase, progress.status)),
+        )
+        config = ScrapingJobConfig(
+            slug="netherlands",
+            country_code="netherlands",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[
+                ScrapingPageConfig(
+                    path="netherlands/admin",
+                    html_format="admin",
+                    lowest_level=0,
+                    include_sections=("infosection", "major_subdivision", "minor_subdivision"),
+                    block_index=0,
+                ),
+                ScrapingPageConfig(
+                    path="netherlands/drenthe",
+                    html_format="cities",
+                    lowest_level=1,
+                    parent_level=2,
+                    include_sections=("cities",),
+                    block_index=1,
+                ),
+            ],
+        )
+
+        use_case.run(config)
+
+        by_code = {str(entity.code): entity for entity in repository.saved_entities}
+        self.assertEqual(by_code["BK00261"].parent_code, "GM1730")
+        self.assertEqual(by_code["BK00261"].level, 3)
+        self.assertLess(
+            events.index(("wikimedia_parent_links", "done")),
+            events.index(("link_validation", "start")),
+        )
+
+    def test_wikidata_parent_linking_can_use_unique_parent_label_when_parent_qid_is_missing(self):
+        result = link_entities_with_wikidata_parent_candidates(
+            "netherlands",
+            [
+                ScrapedAdminArea(code="netherlands", name="Netherlands", level=0, country_code="netherlands"),
+                ScrapedAdminArea(code="NL01", name="Drenthe", level=1, country_code="netherlands", parent_code="netherlands"),
+                ScrapedAdminArea(code="GM1730", name="Tynaarlo", level=2, country_code="netherlands", parent_code="NL01"),
+                ScrapedAdminArea(
+                    code="BK00261",
+                    name="Zuidlaren",
+                    level=1,
+                    country_code="netherlands",
+                    data_wd="Q228666",
+                    annotations="Forced parent level: 2",
+                ),
+            ],
+            [WikidataParentCandidate(child_qid="Q228666", parent_qid="Q999999", parent_label="Tynaarlo")],
+        )
+
+        by_code = {str(entity.code): entity for entity in result}
+        self.assertEqual(by_code["BK00261"].parent_code, "GM1730")
+        self.assertEqual(by_code["BK00261"].level, 3)
+
+    def test_wikidata_parent_linking_falls_back_to_unique_url_scope_parent(self):
+        result = link_entities_with_wikidata_parent_candidates(
+            "netherlands",
+            [
+                ScrapedAdminArea(code="netherlands", name="Netherlands", level=0, country_code="netherlands"),
+                ScrapedAdminArea(code="OV", name="Overijssel", level=1, country_code="netherlands", parent_code="netherlands"),
+                ScrapedAdminArea(
+                    code="BK00809",
+                    name="Steenenkamer / De Hoven",
+                    level=1,
+                    country_code="netherlands",
+                    data_wd="Q1221157",
+                    annotations="Forced parent level: 2",
+                    url="https://www.citypopulation.de/en/netherlands/overijssel/_/BK00809__steenenkamer_de_hoven/",
+                ),
+            ],
+            [],
+        )
+
+        by_code = {str(entity.code): entity for entity in result}
+        self.assertEqual(by_code["BK00809"].parent_code, "OV")
+        self.assertEqual(by_code["BK00809"].level, 2)
+
+    def test_run_links_parentless_level_one_rows_to_existing_country_root(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(
+            repository=repository,
+            scrapers=[AlgeriaRootCitiesScraper(), AlgeriaParentlessProvinceAdminScraper()],
+        )
+        config = ScrapingJobConfig(
+            slug="algeria",
+            country_code="algeria",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[
+                ScrapingPageConfig(
+                    path="algeria/cities",
+                    html_format="cities",
+                    lowest_level=0,
+                    include_sections=("infosection",),
+                    block_index=0,
+                ),
+                ScrapingPageConfig(
+                    path="algeria/admin",
+                    html_format="admin",
+                    lowest_level=1,
+                    include_sections=("major_subdivision",),
+                    block_index=1,
+                ),
+            ],
+        )
+
+        use_case.run(config)
+
+        by_code = {str(entity.code): entity for entity in repository.saved_entities}
+        self.assertEqual(by_code["20"].parent_code, "algeria")
+        self.assertEqual(by_code["20"].level, 1)
+
     def test_orphan_rows_stay_unlinked_without_sum_to_root_and_are_reported(self):
         repository = FakeRepository()
         reported = []
@@ -1012,8 +1756,9 @@ class ScrapeAdminAreasTests(unittest.TestCase):
 
         self.assertEqual(starts[0].url, "https://example.test/en/fake/admin/")
         self.assertEqual(completes[0].found, 3)
-        self.assertEqual(len(repository.most_populated_assignments), 1)
-        self.assertEqual(repository.most_populated_assignments[0].most_populated_id, "fake_child")
+        self.assertEqual(repository.most_populated_assignments, [])
+        self.assertEqual(root.most_populated_city_code, "child")
+        self.assertIsNone(child.most_populated_city_code)
 
     def test_run_exposes_downloaded_html_on_page_complete_when_scraper_supports_it(self):
         repository = FakeRepository()
@@ -1050,6 +1795,55 @@ class ScrapeAdminAreasTests(unittest.TestCase):
 
         by_code = {entity.code: entity for entity in repository.saved_entities}
         self.assertEqual(by_code["03082000202"].parent_code, "03082")
+
+    def test_run_links_single_province_community_municipalities_to_numeric_province_prefix(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[SpainSingleProvinceCommunityScraper()])
+        config = ScrapingJobConfig(
+            slug="spain",
+            country_code="spain",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[ScrapingPageConfig(path="spain/madrid", html_format="table", lowest_level=1)],
+        )
+
+        use_case.run(config)
+
+        by_code = {entity.code: entity for entity in repository.saved_entities}
+        self.assertEqual(by_code["28"].parent_code, "MAD")
+        self.assertEqual(by_code["28079"].parent_code, "28")
+        self.assertEqual(by_code["28079"].level, 3)
+
+    def test_run_uses_parent_hint_to_link_locality_to_intermediate_parent(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[PortugalParentHintScraper()])
+        config = ScrapingJobConfig(
+            slug="portugal",
+            country_code="portugal",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[ScrapingPageConfig(path="portugal/aveiro", html_format="table", lowest_level=2)],
+        )
+
+        use_case.run(config)
+
+        by_code = {entity.code: entity for entity in repository.saved_entities}
+        self.assertEqual(by_code["L1"].parent_code, "010121")
+        self.assertEqual(by_code["L1"].level, 4)
+
+    def test_run_keeps_multiword_url_scope_parent_over_numeric_prefix_parent(self):
+        repository = FakeRepository()
+        use_case = ScrapeAdminAreas(repository=repository, scrapers=[PortugalMultiwordUrlScopeScraper()])
+        config = ScrapingJobConfig(
+            slug="portugal",
+            country_code="portugal",
+            base_url="https://www.citypopulation.de/en/",
+            pages=[ScrapingPageConfig(path="portugal/admin/castelo_branco", html_format="table", lowest_level=1)],
+        )
+
+        use_case.run(config)
+
+        by_code = {entity.code: entity for entity in repository.saved_entities}
+        self.assertEqual(by_code["1690502"].parent_code, "05")
+        self.assertEqual(by_code["1690502"].level, 2)
 
     def test_unknown_scraper_fails_before_persistence(self):
         repository = FakeRepository()

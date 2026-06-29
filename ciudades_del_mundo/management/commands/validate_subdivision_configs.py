@@ -27,7 +27,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         repository = PythonScrapingConfigRepository()
-        countries = options["countries"] or repository.list_slugs()
+        countries = options["countries"] or list(ScrapingConfig.objects.order_by("slug").values_list("slug", flat=True))
         if not countries:
             raise CommandError(
                 "No SQL subdivision configs found. Run 'py manage.py sync_scraping_configs' to import temporary TOML seeds."
@@ -37,6 +37,9 @@ class Command(BaseCommand):
         for slug in countries:
             write_config_progress(slug, "validating")
             try:
+                record = ScrapingConfig.objects.filter(slug=slug).first()
+                if record is None:
+                    raise ModuleNotFoundError(f"No SQL scraping config found for slug '{slug}'.")
                 config = repository.get(slug)
                 attach_runtime_config_extensions([config])
             except Exception as exc:

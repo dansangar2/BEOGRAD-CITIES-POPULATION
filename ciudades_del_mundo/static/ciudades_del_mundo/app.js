@@ -2429,9 +2429,12 @@
       var levelSelect = document.createElement("select");
       levels.forEach(function (level) {
         var option = document.createElement("option");
-        option.value = level.value;
-        option.textContent = level.label + (level.entity_type ? " \u00b7 " + level.entity_type : "");
-        option.selected = String(level.value) === String(data.selected_level);
+        option.value = level.filter_value || level.value;
+        option.textContent = level.label;
+        if (level.count) {
+          option.title = level.label + " (" + level.count + ")";
+        }
+        option.selected = String(option.value) === String(data.selected_filter || data.selected_level);
         levelSelect.appendChild(option);
       });
       levelSelect.addEventListener("change", function () {
@@ -5684,7 +5687,7 @@
     }
     Array.prototype.slice.call(tbody.querySelectorAll("tr")).forEach(function (row) {
       bindCheckboxFallbacks(row);
-      syncPagePathHidden(row);
+      syncPagePathHidden(row, { silent: true });
       var sourceField = row.querySelector('[name="page_source"]');
       var source = sourceField ? String(sourceField.value || "cities").toLowerCase() : "cities";
       if (["cities", "admin", "citiesadmin"].indexOf(source) === -1) {
@@ -5699,6 +5702,7 @@
       var parentLevelField = row.querySelector('[name="page_parent_level"]');
       var parentLevelText = parentLevelField ? String(parentLevelField.value || "").trim() : "";
       var page = {
+        enabled: manualPageEnabledValue(row),
         source: source,
         path: paths,
         sum_to_root: manualPageCheckboxValue(row, "page_sum_to_root", false),
@@ -5743,6 +5747,39 @@
     return active ? active.dataset.configTab || "" : "";
   }
 
+  function manualPageEnabledValue(row) {
+    var field = row ? row.querySelector("[data-page-enabled]") : null;
+    return !field || String(field.value || "true").toLowerCase() !== "false";
+  }
+
+  function updateManualPageEnabledState(row) {
+    if (!row) {
+      return;
+    }
+    var enabled = manualPageEnabledValue(row);
+    row.classList.toggle("is-page-disabled", !enabled);
+    var button = row.querySelector("[data-toggle-page-enabled]");
+    if (button) {
+      var label = enabled
+        ? (button.dataset.enabledLabel || "Desactivar bloque")
+        : (button.dataset.disabledLabel || "Reactivar bloque");
+      var icon = enabled
+        ? (button.dataset.enabledIcon || "⏸")
+        : (button.dataset.disabledIcon || "↻");
+      button.textContent = icon;
+      button.setAttribute("aria-label", label);
+      button.setAttribute("title", label);
+      button.classList.toggle("is-reactivate", !enabled);
+    }
+  }
+
+  function notifyConfigFormChanged(element) {
+    var form = element && element.closest ? element.closest("[data-config-editor-form]") : null;
+    if (form) {
+      form.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }
+
   function configEditorSaveButton(form, submitter) {
     if (submitter && submitter.matches && submitter.matches("button, input[type='submit']")) {
       return submitter;
@@ -5750,11 +5787,26 @@
     return form ? form.querySelector("button[type='submit']:not([data-config-action]), input[type='submit']:not([data-config-action])") : null;
   }
 
-  function submitConfigEditorSave(form, editor, submitter) {
+  function setConfigAutosaveStatus(editor, message, state) {
+    if (!editor) {
+      return;
+    }
+    editor.querySelectorAll("[data-config-autosave-status]").forEach(function (status) {
+      status.textContent = message || "";
+      status.dataset.state = state || "";
+    });
+  }
+
+  function submitConfigEditorSave(form, editor, submitter, options) {
+    options = options || {};
     var button = configEditorSaveButton(form, submitter);
     var previousButtonText = button ? button.textContent : "";
     var title = editor.dataset.saveLabel || (button ? button.textContent : "Guardar configuración");
-    var toast = createConfigToast(title, editor.dataset.savingLabel || "Guardando configuración...", editor);
+    var silent = options.silent === true;
+    var toast = silent ? null : createConfigToast(title, editor.dataset.savingLabel || "Guardando configuración...", editor);
+    if (silent) {
+      setConfigAutosaveStatus(editor, editor.dataset.savingLabel || "Guardando configuración...", "saving");
+    }
     if (button) {
       button.disabled = true;
       if (editor.dataset.savingLabel) {
@@ -5772,13 +5824,18 @@
         "X-CSRFToken": csrfFromForm(form)
       }
     }).then(parseJsonResponseText).then(function (data) {
+      form._configAutosavePending = false;
       var message = data.message || editor.dataset.saveSuccessLabel || "Configuración guardada correctamente.";
       if (data.notice) {
         message += " " + data.notice;
       }
-      setConfigToastStatus(toast, "succeeded", message);
-      toast.element.classList.add("is-success");
-      scheduleConfigToastDismiss(toast, CONFIG_TOAST_DONE_VISIBLE_MS);
+      if (toast) {
+        setConfigToastStatus(toast, "succeeded", message);
+        toast.element.classList.add("is-success");
+        scheduleConfigToastDismiss(toast, CONFIG_TOAST_DONE_VISIBLE_MS);
+      } else {
+        setConfigAutosaveStatus(editor, message, "saved");
+      }
       if (data.slug && editor.dataset.slug !== data.slug) {
         editor.dataset.slug = data.slug;
       }
@@ -5791,9 +5848,14 @@
         pollConfigTask(data.status_url, taskToast, null, data.summary_url || "", editor, "scrape", data.label || "");
       }
     }).catch(function (error) {
-      setConfigToastStatus(toast, "failed", error.message || editor.dataset.saveErrorLabel || "No se pudo guardar la configuración.");
-      toast.element.classList.add("is-error");
-      scheduleConfigToastDismiss(toast, CONFIG_TOAST_DONE_VISIBLE_MS);
+      var errorMessage = error.message || editor.dataset.saveErrorLabel || "No se pudo guardar la configuración.";
+      if (toast) {
+        setConfigToastStatus(toast, "failed", errorMessage);
+        toast.element.classList.add("is-error");
+        scheduleConfigToastDismiss(toast, CONFIG_TOAST_DONE_VISIBLE_MS);
+      } else {
+        setConfigAutosaveStatus(editor, errorMessage, "failed");
+      }
     }).finally(function () {
       if (button) {
         button.disabled = false;
@@ -5802,6 +5864,58 @@
         }
       }
     });
+  }
+
+  function scheduleConfigEditorAutosave(form, editor, options) {
+    if (!form || !editor || editor.dataset.mode !== "edit" || editor.dataset.configHydrating === "1") {
+      return;
+    }
+    options = options || {};
+    window.clearTimeout(form._configAutosaveTimer);
+    form._configAutosavePending = true;
+    setConfigAutosaveStatus(editor, "Cambios pendientes...", "pending");
+    form._configAutosaveTimer = window.setTimeout(function () {
+      if (editor.dataset.configHydrating === "1") {
+        return;
+      }
+      submitConfigEditorSave(form, editor, null, { silent: true });
+    }, options.delay !== undefined ? options.delay : 300);
+  }
+
+  function flushConfigEditorAutosave(form, editor) {
+    if (!form || !editor || editor.dataset.mode !== "edit" || !form._configAutosavePending) {
+      return;
+    }
+    window.clearTimeout(form._configAutosaveTimer);
+    syncManualPagesJson(form);
+    var editorModeInput = form.querySelector('input[name="editor_mode"]');
+    if (editorModeInput) {
+      editorModeInput.value = form.dataset.configEditorForm || editorModeInput.value || "manual";
+    }
+    var action = form.action || window.location.href;
+    var body = new FormData(form);
+    if (window.navigator && typeof window.navigator.sendBeacon === "function") {
+      try {
+        if (window.navigator.sendBeacon(action, body)) {
+          form._configAutosavePending = false;
+          return;
+        }
+      } catch (error) {}
+    }
+    try {
+      fetch(action, {
+        method: "POST",
+        body: body,
+        credentials: "same-origin",
+        keepalive: true,
+        headers: {
+          "Accept": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+          "X-CSRFToken": csrfFromForm(form)
+        }
+      });
+      form._configAutosavePending = false;
+    } catch (error) {}
   }
 
   function initConfigEditorSubmitGuards(editor) {
@@ -5833,6 +5947,21 @@
         }
         event.preventDefault();
         submitConfigEditorSave(form, editor, submitter);
+      });
+      form.addEventListener("input", function (event) {
+        if (event.target && event.target.closest && event.target.closest("[data-config-action]")) {
+          return;
+        }
+        scheduleConfigEditorAutosave(form, editor);
+      });
+      form.addEventListener("change", function (event) {
+        if (event.target && event.target.closest && event.target.closest("[data-config-action]")) {
+          return;
+        }
+        scheduleConfigEditorAutosave(form, editor, { delay: 0 });
+      });
+      window.addEventListener("beforeunload", function () {
+        flushConfigEditorAutosave(form, editor);
       });
     });
   }
@@ -5867,7 +5996,12 @@
       if (!data || data.ok === false) {
         throw new Error(editor.dataset.errorLabel || "No se pudieron cargar los datos.");
       }
-      updateConfigEditorFromGeneratedContent(editor, data.content || "", data.manual || null);
+      editor.dataset.configHydrating = "1";
+      try {
+        updateConfigEditorFromGeneratedContent(editor, data.content || "", data.manual || null);
+      } finally {
+        delete editor.dataset.configHydrating;
+      }
       setConfigEditorLoading(editor, false);
     }).catch(function (error) {
       // The server-rendered form remains usable if dynamic hydration fails.
@@ -5894,13 +6028,16 @@
         sourceEntities = [];
       }
       try {
+        editor.dataset.configHydrating = "1";
         initManualPages(editor);
         initManualAssetOverrides(editor);
         initCityTransfer(editor, sourceEntities);
         initConfigGenerator(editor);
         initAiLoginLinks(editor);
+        delete editor.dataset.configHydrating;
         loadConfigEditorData(editor);
       } catch (error) {
+        delete editor.dataset.configHydrating;
         window.console && window.console.error && window.console.error("Error inicializando configuraci\u00f3n", error);
       }
       var params = new URLSearchParams(window.location.search || "");
@@ -5925,7 +6062,8 @@
     return values;
   }
 
-  function syncPagePathHidden(row) {
+  function syncPagePathHidden(row, options) {
+    options = options || {};
     if (!row) {
       return;
     }
@@ -5933,9 +6071,13 @@
     if (!hidden) {
       return;
     }
-    hidden.value = pagePathValuesFromRow(row).join("\n");
-    hidden.dispatchEvent(new Event("input", { bubbles: true }));
-    hidden.dispatchEvent(new Event("change", { bubbles: true }));
+    var nextValue = pagePathValuesFromRow(row).join("\n");
+    var changed = hidden.value !== nextValue;
+    hidden.value = nextValue;
+    if (changed && !options.silent) {
+      hidden.dispatchEvent(new Event("input", { bubbles: true }));
+      hidden.dispatchEvent(new Event("change", { bubbles: true }));
+    }
   }
 
   function createPagePathBox(row, value) {
@@ -6177,16 +6319,21 @@
     });
   }
 
-  function syncCheckboxFallback(toggle) {
+  function syncCheckboxFallback(toggle, options) {
+    options = options || {};
     if (!toggle) {
       return;
     }
     var label = toggle.closest(".manual-mini-check");
     var hidden = label ? label.querySelector("[data-checkbox-fallback]") : null;
     if (hidden) {
-      hidden.value = toggle.checked ? "true" : "false";
-      hidden.dispatchEvent(new Event("input", { bubbles: true }));
-      hidden.dispatchEvent(new Event("change", { bubbles: true }));
+      var nextValue = toggle.checked ? "true" : "false";
+      var changed = hidden.value !== nextValue;
+      hidden.value = nextValue;
+      if (changed && !options.silent) {
+        hidden.dispatchEvent(new Event("input", { bubbles: true }));
+        hidden.dispatchEvent(new Event("change", { bubbles: true }));
+      }
     }
   }
 
@@ -6199,9 +6346,10 @@
         toggle.dataset.checkboxBound = "1";
         toggle.addEventListener("change", function () {
           syncCheckboxFallback(toggle);
+          notifyConfigFormChanged(toggle);
         });
       }
-      syncCheckboxFallback(toggle);
+      syncCheckboxFallback(toggle, { silent: true });
     });
   }
 
@@ -6247,7 +6395,20 @@
         if (tbody.querySelectorAll("tr").length > 1) {
           row.remove();
           syncManualPageRowOrder(tbody);
+          notifyConfigFormChanged(tbody);
         }
+      });
+    }
+    var toggleEnabled = row.querySelector("[data-toggle-page-enabled]");
+    if (toggleEnabled && toggleEnabled.dataset.bound !== "true") {
+      toggleEnabled.dataset.bound = "true";
+      toggleEnabled.addEventListener("click", function () {
+        var field = row.querySelector("[data-page-enabled]");
+        if (field) {
+          field.value = manualPageEnabledValue(row) ? "false" : "true";
+        }
+        updateManualPageEnabledState(row);
+        notifyConfigFormChanged(row);
       });
     }
     bindPagePathControls(row);
@@ -6260,6 +6421,7 @@
       });
     }
     updatePageConfigVisibility(row);
+    updateManualPageEnabledState(row);
     bindManualPageDrag(row, tbody);
   }
 
@@ -6275,6 +6437,8 @@
         field.value = "";
       } else if (field.matches("[data-checkbox-fallback]")) {
         field.value = field.name === "page_sum_to_root" ? "false" : "true";
+      } else if (field.name === "page_enabled") {
+        field.value = "true";
       } else {
         field.value = "";
       }
@@ -6297,6 +6461,7 @@
     bindPagePathControls(row);
     bindCheckboxFallbacks(row);
     updatePageConfigVisibility(row);
+    updateManualPageEnabledState(row);
   }
 
   function initManualPages(editor) {
@@ -6319,6 +6484,9 @@
       clone.querySelectorAll("[data-remove-page-row]").forEach(function (button) {
         delete button.dataset.bound;
       });
+      clone.querySelectorAll("[data-toggle-page-enabled]").forEach(function (button) {
+        delete button.dataset.bound;
+      });
       delete clone.dataset.pagePathReady;
       delete clone.dataset.pageDragReady;
       delete clone.dataset.pageOrder;
@@ -6326,6 +6494,7 @@
       bindManualPageRow(clone, tbody);
       tbody.appendChild(clone);
       syncManualPageRowOrder(tbody);
+      notifyConfigFormChanged(tbody);
     });
   }
 
@@ -6756,6 +6925,9 @@
       clone.querySelectorAll("[data-remove-page-row]").forEach(function (button) {
         delete button.dataset.bound;
       });
+      clone.querySelectorAll("[data-toggle-page-enabled]").forEach(function (button) {
+        delete button.dataset.bound;
+      });
       delete clone.dataset.pagePathReady;
       resetManualPageRow(clone);
       bindManualPageRow(clone, tbody);
@@ -6784,6 +6956,7 @@
         var forcedParentLevel = page.parent_level;
         parentLevel.value = forcedParentLevel === undefined || forcedParentLevel === null ? "" : String(forcedParentLevel);
       }
+      setManualPageInputField(row, "page_enabled", manualPageValue(page, "enabled", "true"));
       setCheckboxFallbackField(row, "page_include_infosection", manualPageValue(page, "include_infosection", "true"));
       setCheckboxFallbackField(row, "page_include_major_subdivision", manualPageValue(page, "include_major_subdivision", manualPageValue(page, "include_admin1", "true")));
       setCheckboxFallbackField(row, "page_include_minor_subdivision", manualPageValue(page, "include_minor_subdivision", manualPageValue(page, "include_admin2", "true")));
@@ -6797,6 +6970,7 @@
       setPagePathBoxes(row, paths.length ? paths : [""]);
       bindManualPageRow(row, tbody);
       updatePageConfigVisibility(row);
+      updateManualPageEnabledState(row);
     });
   }
 

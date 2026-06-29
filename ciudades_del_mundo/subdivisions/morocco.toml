@@ -1,28 +1,27 @@
 LEGAL_SUBDIVISION = 3
-
 scrape_schema_version = 2
 
 [[pages]]
 source = "cities"
 path = ["cities"]
-include = { infosection = true, major_subdivision = false, cities = false }
+include = { cities = false, infosection = true, major_subdivision = true }
 
 [[pages]]
 source = "admin"
 path = ["admin"]
-include = { infosection = true, admin1 = true, admin2 = true }
+include = { infosection = false, major_subdivision = true, minor_subdivision = true }
 
 [[pages]]
 source = "admin"
 path = ["benimellalkhenifra/admin", "draatafilalet/admin", "fesmeknes/admin", "grandcasablancasettat/admin", "guelmimouednoun/admin", "marrakechsafi/admin", "oriental/admin", "rabatsalekenitra/admin", "soussmassa/admin", "tangertetouanalhoceima/admin"]
-include = { infosection = true, admin1 = true, admin2 = true }
-force_highest_level = 1
+include = { infosection = false, major_subdivision = true, minor_subdivision = true }
 
 [[pages]]
 source = "cities"
 path = ["benimellalkhenifra", "draatafilalet", "fesmeknes", "grandcasablancasettat", "guelmimouednoun", "marrakechsafi", "oriental", "rabatsalekenitra", "soussmassa", "tangertetouanalhoceima"]
-include = { infosection = true, major_subdivision = true, cities = true }
-force_highest_level = 2
+force_highest_level = 4
+parent_level = 2
+include = { cities = true, infosection = false, major_subdivision = true }
 
 [visual_assets]
 bulk_country_wikidata = true

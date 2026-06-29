@@ -1,0 +1,381 @@
+schema_version = 1
+kind = "derived_country_config"
+slug = "perfect_spanish_empire"
+name = "Perfect Spanish Empire"
+source_python = "ciudades_del_mundo/new_subdivisions/perfect_spanish_empire.py"
+country = "perfect_spanish_empire"
+source_country_code = ""
+derived_country_code = "perfect_spanish_empire"
+groups = []
+
+[selection]
+include_codes = []
+include_levels = []
+group_slugs = []
+
+[legacy]
+assignments_json = '''
+{
+  "CAPITAL_NAMES_ES": {
+    "Vitoria-Gasteiz": "Vitoria",
+    "Donostia": "San Sebastián",
+    "València": "Valencia",
+    "Angra do Heroísmo": "Angra del Heroísmo",
+    "Cagliari": "Cáller",
+    "Napoli": "Nápoles",
+    "Tanger": "Tánger",
+    "El Jadida": "Mazagán",
+    "Assilah": "Arcila",
+    "Monterey": "Monterrey"
+  }
+}
+'''
+python = '''
+from copy import deepcopy
+
+from ciudades_del_mundo.models import NuevoAdminArea
+from ciudades_del_mundo.historical_divisions.espanha import *
+from ciudades_del_mundo.historical_divisions.portugal import *
+from ciudades_del_mundo.historical_divisions.cuba import *
+from ciudades_del_mundo.historical_divisions.italy import *
+from ciudades_del_mundo.historical_divisions.eeuu import *
+from ciudades_del_mundo.historical_divisions.mexico import *
+from ciudades_del_mundo.historical_divisions.netherlands import *
+from ciudades_del_mundo.historical_divisions.colombia import *
+from ciudades_del_mundo.historical_divisions.ecuatorialguinea import *
+from ciudades_del_mundo.historical_divisions.centroamerica import *
+
+
+CAPITAL_NAMES_ES = {
+    "Vitoria-Gasteiz": "Vitoria",
+    "Donostia": "San Sebastián",
+    "València": "Valencia",
+    "Angra do Heroísmo": "Angra del Heroísmo",
+    "Cagliari": "Cáller",
+    "Napoli": "Nápoles",
+    "Tanger": "Tánger",
+    "El Jadida": "Mazagán",
+    "Assilah": "Arcila",
+    "Monterey": "Monterrey",
+}
+
+
+def _with_code(division: dict, code: str) -> dict:
+    result = deepcopy(division)
+    result["code"] = code
+    return result
+
+
+def _depends_on(division: dict, target_code: str) -> dict:
+    result = deepcopy(division)
+    result["depends_on"] = target_code
+    return result
+
+
+def _capital_label(capital) -> str:
+    if isinstance(capital, dict):
+        for key in ("label", "name", "id", "code"):
+            value = capital.get(key)
+            if value not in (None, ""):
+                return str(value)
+    return str(capital)
+
+
+def _capital_es(capital):
+    label = _capital_label(capital)
+    translation = CAPITAL_NAMES_ES.get(label)
+    if translation is None and not isinstance(capital, dict):
+        return capital
+
+    result = deepcopy(capital) if isinstance(capital, dict) else {"label": label}
+    names = dict(result.get("names_by_language") or result.get("names") or {})
+    if translation is not None:
+        names["es"] = translation
+    if names:
+        result["names_by_language"] = names
+    return result
+
+
+def _with_spanish_capitals(value):
+    if isinstance(value, list):
+        return [_with_spanish_capitals(item) for item in value]
+    if not isinstance(value, dict):
+        return value
+
+    result = deepcopy(value)
+    if "capitals" in result:
+        result["capitals"] = [_capital_es(capital) for capital in result.get("capitals") or []]
+    if "childs" in result:
+        result["childs"] = _with_spanish_capitals(result.get("childs") or [])
+    return result
+
+
+CASTILLA_PROVINCIAS = _with_spanish_capitals([
+    ALAVA_B,
+    VIZCAYA,
+    GUIPUZCOA,
+    SEVILLA_B,
+    CORDOBA_B,
+    JAEN_B,
+    NUEVAS_POBLACIONES,
+    ASTURIAS,
+    GALICIA,
+    LEON_B,
+    ZAMORA_B,
+    TORO_B,
+    SALAMANCA_B,
+    EXTREMADURA,
+    NAVARRA_B,
+    BURGOS_B,
+    SORIA_B,
+    SEGOVIA_B,
+    AVILA_B,
+    PALENCIA,
+    _with_code(VALLADOLID_B, "VLL"),
+    _with_code(MADRID_B, "MDR"),
+    GUADALAJARA_B,
+    TOLEDO_B,
+    LA_MANCHA,
+    CUENCA_B,
+    MURCIA_B,
+    GRANADA_B,
+    CANARIAS,
+])
+
+ARAGON_PROVINCIAS = _with_spanish_capitals([
+    ARAGON,
+    CATALUNHA_A,
+    VALENCIA_B,
+    MALLORCA,
+    CERDENHA,
+])
+
+PORTUGAL_PROVINCIAS = _with_spanish_capitals([
+    ENTRE_EL_DUERO_Y_MINHO,
+    DETRAS_DE_LOS_MONTES_Y_ALTO_DUERO,
+    BEIRA,
+    ESTREMADURA,
+    ALENTEJO,
+    ALGARVE,
+])
+
+BORGONHA_PROVINCIAS = _with_spanish_capitals([
+    ARTOIS,
+    FLANDES,
+    UTRIQUE,
+    HENAO,
+    CAMBRAI,
+    DRENTE,
+    GRONINGA,
+    FRISIA,
+    HOLANDA,
+    ZELANDA,
+    LUXEMBURGO,
+])
+
+DIVISIONS = _with_spanish_capitals([
+    {
+        "name": "Corona de Castilla",
+        "code": "CAS",
+        "entity_type": "Corona",
+        "capitals": ["Madrid"],
+        "childs": CASTILLA_PROVINCIAS,
+    },
+    {
+        "name": "Corona de Aragón",
+        "code": "ARA",
+        "entity_type": "Corona",
+        "capitals": ["Zaragoza", "Barcelona"],
+        "childs": ARAGON_PROVINCIAS,
+    },
+    {
+        "name": "Corona de Portugal",
+        "code": "POR",
+        "entity_type": "Corona",
+        "capitals": ["Lisboa"],
+        "childs": PORTUGAL_PROVINCIAS,
+    },
+    {
+        "name": "Nueva España",
+        "code": "NES",
+        "entity_type": "Virreinato",
+        "capitals": ["Ciudad de México"],
+        "childs": [
+            NUEVO_MEXICO,
+            VIEJA_CALIFORNIA,
+            NUEVA_CALIFORNIA,
+            NUTKA,
+            TEXAS,
+            NUEVA_EXTREMADURA,
+            NUEVO_SANTANDER,
+            NUEVA_VIZCAYA,
+            NUEVO_LEON,
+            NUEVA_NAVARRA,
+            OAXACA,
+            ZACATECAS,
+            SAN_LUIS_POTOSI,
+            GUANAJUATO,
+            GUADALAJARA_DE_JALISCO,
+            MEXICO,
+            VERACRUZ,
+            CHIAPAS,
+            MINCHOACAN,
+            PUEBLA,
+            TAXACLA
+        ],
+    },
+    {
+        "name": "Italia",
+        "code": "ITA",
+        "entity_type": "Virreinato",
+        "capitals": ["Napoli"],
+        "childs": [
+            SICILIA,
+            REINO_NAPOLES,
+            MILAN,
+            _depends_on(PIOMBINO, "ITA-NAP"),
+            _depends_on(PRESIDIOS_DE_TOSCANA, "ITA-NAP"),
+        ],
+    },
+    {
+        "name": "Estado Borgoñón",
+        "code": "BOR",
+        "entity_type": "Estado",
+        "childs": BORGONHA_PROVINCIAS,
+    },
+    {
+        "name": "África",
+        "code": "AFR",
+        "entity_type": "Provincia imperial",
+        "capitals": ["Tanger"],
+        "province_status": "territorio",
+        "childs": [MAZAGAN, CASABLANCA, ARCILA, TANGER, CEUTA, MELILLA, ORAN],
+    },
+    {
+        "name": "Perú",
+        "code": "PER",
+        "entity_type": "Virreinato",
+        "childs": [],
+    },
+    {
+        "name": "Nueva Granada",
+        "code": "NGR",
+        "entity_type": "Virreinato",
+        "childs": [
+            PANAMA,
+            DARIEN,
+            VERAGUAS,
+            PORTOBELO,
+            CARTAGENA,
+            SANTA_MARTA,
+            RIOHACHA,
+            SANTAFE,
+            POPAYAN,
+            CASANARE,
+        ],
+    },
+    {
+        "name": "Brasil",
+        "code": "BRA",
+        "entity_type": "Estado",
+        "childs": [],
+    },
+    {
+        "name": "Rio de la Plata",
+        "code": "RPL",
+        "entity_type": "Virreinato",
+        "childs": [
+            FERNANDO_POO_Y_ANNOBON
+        ],
+    },
+    {
+        "name": "Chile",
+        "code": "CHI",
+        "entity_type": "Capitanía General",
+        "childs": [],
+    },
+    {
+        "name": "Marañao",
+        "code": "MAR",
+        "entity_type": "Estado",
+        "childs": [],
+    },
+    {
+        "name": "Guatemala",
+        "code": "GUA",
+        "entity_type": "Capitanía General",
+        "capitals": ["Guatemala"],
+        "childs": [
+            CHIAPAS,
+            GUATEMALA,
+            SAN_SALVADOR,
+            NICARAGUA,
+            COSTA_RICA,
+        ],
+    },
+    {
+        "name": "Cuba",
+        "code": "CUB",
+        "entity_type": "Capitanía General",
+        "capitals": ["La Habana"],
+        "childs": [
+            DIVISIONS_XVII,
+            FLORIDA_ORIENTAL,
+            FLORIDA_OCCIDENTAL,
+            LUISIANA
+        ],
+    },
+    {
+        "name": "Puerto Rico",
+        "code": "PRI",
+        "entity_type": "Capitanía General",
+        "capitals": ["San Juan"],
+        "childs": [
+            {
+                "name": "Puerto Rico",
+                "code": "PRI",
+                "entity_type": "Capitanía General",
+                "capitals": ["San Juan"],
+                "spec": {
+                    0: {"puertorico": ["Puerto Rico"]},
+                },
+            }
+        ]
+    },
+    {
+        "name": "Santo Domingo",
+        "code": "SDO",
+        "entity_type": "Capitanía General",
+        "childs": [],
+    },
+    {
+        "name": "Yucatán",
+        "code": "YUC",
+        "entity_type": "Capitanía General",
+        "childs": [
+            TABASCO,
+            CARMEN,
+            MERIDA_DE_YUCATAN,
+        ],
+    },
+    {
+        "name": "Filipinas",
+        "code": "FIL",
+        "entity_type": "Capitanía General",
+        "childs": [],
+    },
+    {
+        "name": "Venezuela",
+        "code": "VEN",
+        "entity_type": "Capitanía General",
+        "childs": [],
+    },
+])
+
+ESCANHOS = {
+    "nivel": NuevoAdminArea.Level.ADMIN2,
+    "escanhos": 800,
+    "min": 1,
+}
+'''
+python_source = "from copy import deepcopy\n\nfrom ciudades_del_mundo.models import NuevoAdminArea\nfrom ciudades_del_mundo.historical_divisions.spanish_old_provinces import *\nfrom ciudades_del_mundo.historical_divisions.portugal_provinces import *\nfrom ciudades_del_mundo.historical_divisions.spanish_cuba import *\nfrom ciudades_del_mundo.historical_divisions.pre_italy_states import *\nfrom ciudades_del_mundo.historical_divisions.eeuu import *\nfrom ciudades_del_mundo.historical_divisions.spanish_mexico import *\nfrom ciudades_del_mundo.historical_divisions.seventeen_provinces import *\nfrom ciudades_del_mundo.historical_divisions.spanish_colombia import *\nfrom ciudades_del_mundo.historical_divisions.spanish_ecuatorialguinea import *\nfrom ciudades_del_mundo.historical_divisions.spanish_guatemala import *\n\n\nCAPITAL_NAMES_ES = {\n    \"Vitoria-Gasteiz\": \"Vitoria\",\n    \"Donostia\": \"San Sebastián\",\n    \"València\": \"Valencia\",\n    \"Angra do Heroísmo\": \"Angra del Heroísmo\",\n    \"Cagliari\": \"Cáller\",\n    \"Napoli\": \"Nápoles\",\n    \"Tanger\": \"Tánger\",\n    \"El Jadida\": \"Mazagán\",\n    \"Assilah\": \"Arcila\",\n    \"Monterey\": \"Monterrey\",\n}\n\n\ndef _with_code(division: dict, code: str) -> dict:\n    result = deepcopy(division)\n    result[\"code\"] = code\n    return result\n\n\ndef _depends_on(division: dict, target_code: str) -> dict:\n    result = deepcopy(division)\n    result[\"depends_on\"] = target_code\n    return result\n\n\ndef _capital_label(capital) -> str:\n    if isinstance(capital, dict):\n        for key in (\"label\", \"name\", \"id\", \"code\"):\n            value = capital.get(key)\n            if value not in (None, \"\"):\n                return str(value)\n    return str(capital)\n\n\ndef _capital_es(capital):\n    label = _capital_label(capital)\n    translation = CAPITAL_NAMES_ES.get(label)\n    if translation is None and not isinstance(capital, dict):\n        return capital\n\n    result = deepcopy(capital) if isinstance(capital, dict) else {\"label\": label}\n    names = dict(result.get(\"names_by_language\") or result.get(\"names\") or {})\n    if translation is not None:\n        names[\"es\"] = translation\n    if names:\n        result[\"names_by_language\"] = names\n    return result\n\n\ndef _with_spanish_capitals(value):\n    if isinstance(value, list):\n        return [_with_spanish_capitals(item) for item in value]\n    if not isinstance(value, dict):\n        return value\n\n    result = deepcopy(value)\n    if \"capitals\" in result:\n        result[\"capitals\"] = [_capital_es(capital) for capital in result.get(\"capitals\") or []]\n    if \"childs\" in result:\n        result[\"childs\"] = _with_spanish_capitals(result.get(\"childs\") or [])\n    return result\n\n\nCASTILLA_PROVINCIAS = _with_spanish_capitals([\n    ALAVA_B,\n    VIZCAYA,\n    GUIPUZCOA,\n    SEVILLA_B,\n    CORDOBA_B,\n    JAEN_B,\n    NUEVAS_POBLACIONES,\n    ASTURIAS,\n    GALICIA,\n    LEON_B,\n    ZAMORA_B,\n    TORO_B,\n    SALAMANCA_B,\n    EXTREMADURA,\n    NAVARRA_B,\n    BURGOS_B,\n    SORIA_B,\n    SEGOVIA_B,\n    AVILA_B,\n    PALENCIA,\n    _with_code(VALLADOLID_B, \"VLL\"),\n    _with_code(MADRID_B, \"MDR\"),\n    GUADALAJARA_B,\n    TOLEDO_B,\n    LA_MANCHA,\n    CUENCA_B,\n    MURCIA_B,\n    GRANADA_B,\n    CANARIAS,\n])\n\nARAGON_PROVINCIAS = _with_spanish_capitals([\n    ARAGON,\n    CATALUNHA_A,\n    VALENCIA_B,\n    MALLORCA,\n    CERDENHA,\n])\n\nPORTUGAL_PROVINCIAS = _with_spanish_capitals([\n    ENTRE_EL_DUERO_Y_MINHO,\n    DETRAS_DE_LOS_MONTES_Y_ALTO_DUERO,\n    BEIRA,\n    ESTREMADURA,\n    ALENTEJO,\n    ALGARVE,\n])\n\nBORGONHA_PROVINCIAS = _with_spanish_capitals([\n    ARTOIS,\n    FLANDES,\n    UTRIQUE,\n    HENAO,\n    CAMBRAI,\n    DRENTE,\n    GRONINGA,\n    FRISIA,\n    HOLANDA,\n    ZELANDA,\n    LUXEMBURGO,\n])\n\nDIVISIONS = _with_spanish_capitals([\n    {\n        \"name\": \"Corona de Castilla\",\n        \"code\": \"CAS\",\n        \"entity_type\": \"Corona\",\n        \"capitals\": [\"Madrid\"],\n        \"childs\": CASTILLA_PROVINCIAS,\n    },\n    {\n        \"name\": \"Corona de Aragón\",\n        \"code\": \"ARA\",\n        \"entity_type\": \"Corona\",\n        \"capitals\": [\"Zaragoza\", \"Barcelona\"],\n        \"childs\": ARAGON_PROVINCIAS,\n    },\n    {\n        \"name\": \"Corona de Portugal\",\n        \"code\": \"POR\",\n        \"entity_type\": \"Corona\",\n        \"capitals\": [\"Lisboa\"],\n        \"childs\": PORTUGAL_PROVINCIAS,\n    },\n    {\n        \"name\": \"Nueva España\",\n        \"code\": \"NES\",\n        \"entity_type\": \"Virreinato\",\n        \"capitals\": [\"Ciudad de México\"],\n        \"childs\": [\n            NUEVO_MEXICO,\n            VIEJA_CALIFORNIA,\n            NUEVA_CALIFORNIA,\n            NUTKA,\n            TEXAS,\n            NUEVA_EXTREMADURA,\n            NUEVO_SANTANDER,\n            NUEVA_VIZCAYA,\n            NUEVO_LEON,\n            NUEVA_NAVARRA,\n            OAXACA,\n            ZACATECAS,\n            SAN_LUIS_POTOSI,\n            GUANAJUATO,\n            GUADALAJARA_DE_JALISCO,\n            MEXICO,\n            VERACRUZ,\n            CHIAPAS,\n            MINCHOACAN,\n            PUEBLA,\n            TAXACLA\n        ],\n    },\n    {\n        \"name\": \"Italia\",\n        \"code\": \"ITA\",\n        \"entity_type\": \"Virreinato\",\n        \"capitals\": [\"Napoli\"],\n        \"childs\": [\n            SICILIA,\n            REINO_NAPOLES,\n            MILAN,\n            _depends_on(PIOMBINO, \"ITA-NAP\"),\n            _depends_on(PRESIDIOS_DE_TOSCANA, \"ITA-NAP\"),\n        ],\n    },\n    {\n        \"name\": \"Estado Borgoñón\",\n        \"code\": \"BOR\",\n        \"entity_type\": \"Estado\",\n        \"childs\": BORGONHA_PROVINCIAS,\n    },\n    {\n        \"name\": \"África\",\n        \"code\": \"AFR\",\n        \"entity_type\": \"Provincia imperial\",\n        \"capitals\": [\"Tanger\"],\n        \"province_status\": \"territorio\",\n        \"childs\": [MAZAGAN, CASABLANCA, ARCILA, TANGER, CEUTA, MELILLA, ORAN],\n    },\n    {\n        \"name\": \"Perú\",\n        \"code\": \"PER\",\n        \"entity_type\": \"Virreinato\",\n        \"childs\": [],\n    },\n    {\n        \"name\": \"Nueva Granada\",\n        \"code\": \"NGR\",\n        \"entity_type\": \"Virreinato\",\n        \"childs\": [\n            PANAMA,\n            DARIEN,\n            VERAGUAS,\n            PORTOBELO,\n            CARTAGENA,\n            SANTA_MARTA,\n            RIOHACHA,\n            SANTAFE,\n            POPAYAN,\n            CASANARE,\n        ],\n    },\n    {\n        \"name\": \"Brasil\",\n        \"code\": \"BRA\",\n        \"entity_type\": \"Estado\",\n        \"childs\": [],\n    },\n    {\n        \"name\": \"Rio de la Plata\",\n        \"code\": \"RPL\",\n        \"entity_type\": \"Virreinato\",\n        \"childs\": [\n            FERNANDO_POO_Y_ANNOBON\n        ],\n    },\n    {\n        \"name\": \"Chile\",\n        \"code\": \"CHI\",\n        \"entity_type\": \"Capitanía General\",\n        \"childs\": [],\n    },\n    {\n        \"name\": \"Marañao\",\n        \"code\": \"MAR\",\n        \"entity_type\": \"Estado\",\n        \"childs\": [],\n    },\n    {\n        \"name\": \"Guatemala\",\n        \"code\": \"GUA\",\n        \"entity_type\": \"Capitanía General\",\n        \"capitals\": [\"Guatemala\"],\n        \"childs\": [\n            CHIAPAS,\n            GUATEMALA,\n            SAN_SALVADOR,\n            NICARAGUA,\n            COSTA_RICA,\n        ],\n    },\n    {\n        \"name\": \"Cuba\",\n        \"code\": \"CUB\",\n        \"entity_type\": \"Capitanía General\",\n        \"capitals\": [\"La Habana\"],\n        \"childs\": [\n            DIVISIONS_XVII,\n            FLORIDA_ORIENTAL,\n            FLORIDA_OCCIDENTAL,\n            LUISIANA\n        ],\n    },\n    {\n        \"name\": \"Puerto Rico\",\n        \"code\": \"PRI\",\n        \"entity_type\": \"Capitanía General\",\n        \"capitals\": [\"San Juan\"],\n        \"childs\": [\n            {\n                \"name\": \"Puerto Rico\",\n                \"code\": \"PRI\",\n                \"entity_type\": \"Capitanía General\",\n                \"capitals\": [\"San Juan\"],\n                \"spec\": {\n                    0: {\"puertorico\": [\"Puerto Rico\"]},\n                },\n            }\n        ]\n    },\n    {\n        \"name\": \"Santo Domingo\",\n        \"code\": \"SDO\",\n        \"entity_type\": \"Capitanía General\",\n        \"childs\": [],\n    },\n    {\n        \"name\": \"Yucatán\",\n        \"code\": \"YUC\",\n        \"entity_type\": \"Capitanía General\",\n        \"childs\": [\n            TABASCO,\n            CARMEN,\n            MERIDA_DE_YUCATAN,\n        ],\n    },\n    {\n        \"name\": \"Filipinas\",\n        \"code\": \"FIL\",\n        \"entity_type\": \"Capitanía General\",\n        \"childs\": [],\n    },\n    {\n        \"name\": \"Venezuela\",\n        \"code\": \"VEN\",\n        \"entity_type\": \"Capitanía General\",\n        \"childs\": [],\n    },\n])\n\nESCANHOS = {\n    \"nivel\": NuevoAdminArea.Level.ADMIN2,\n    \"escanhos\": 800,\n    \"min\": 1,\n}\n"

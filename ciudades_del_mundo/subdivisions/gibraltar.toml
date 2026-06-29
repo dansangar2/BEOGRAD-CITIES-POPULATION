@@ -1,11 +1,10 @@
-LEGAL_SUBDIVISION = 1
-
+LEGAL_SUBDIVISION = 0
 scrape_schema_version = 2
 
 [[pages]]
 source = "cities"
 path = ["admin"]
-include = { infosection = true, major_subdivision = true, cities = true }
+include = { cities = false, infosection = true, major_subdivision = true }
 
 [visual_assets]
 bulk_country_wikidata = true

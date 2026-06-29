@@ -1,0 +1,107 @@
+schema_version = 1
+kind = "derived_country_config"
+slug = "austria_spanish_empire"
+name = "Austria Spanish Empire"
+source_python = "ciudades_del_mundo/new_subdivisions/austria_spanish_empire.py"
+country = "austria_spanish_empire"
+source_country_code = ""
+derived_country_code = "austria_spanish_empire"
+groups = []
+
+[selection]
+include_codes = []
+include_levels = []
+group_slugs = []
+
+[legacy]
+assignments_json = '''
+{}
+'''
+python = '''
+from ciudades_del_mundo.models import NuevoAdminArea
+
+from ciudades_del_mundo.historical_divisions.espanha import *
+from ciudades_del_mundo.historical_divisions.portugal import *
+from ciudades_del_mundo.historical_divisions.italy import *
+
+
+#================================================================
+
+DIVISIONS = [
+        {
+            "name": "Castilla",
+            "code": "CCAS",
+            "entity_type": "Corona",
+            "capitals": ["Madrid"],
+            "childs": [
+                {
+                    "name": "Castilla",
+                    "code": "CAS",
+                    "entity_type": "Corona",
+                    "capitals": ["Madrid"],
+                    "childs": [ 
+                        ALAVA_A, VIZCAYA, GUIPUZCOA, 
+                        LEON_A, TORO_A, ZAMORA_A, SALAMANCA_A, 
+                        BURGOS_A, SORIA_A, VALLADOLID_A, SEGOVIA_A, AVILA_A, 
+                        MADRID_A, GUADALAJARA_A, TOLEDO_A, CUENCA_A, 
+                        MURCIA_A, 
+                        SEVILLA_A, CORDOBA_A, JAEN_A, 
+                        CANARIAS, 
+                        GRANADA_A, MELILLA, ORAN, 
+                    ]
+                }, 
+                NAVARRA_A,
+            ]
+        },
+        {
+            "name": "Aragón",
+            "code": "CARA",
+            "entity_type": "Corona",
+            "capitals": ["Zaragoza", "Barcelona"],
+            "childs": [
+                ARAGON, 
+                CATALUNHA_A,
+                VALENCIA_A, 
+                MALLORCA,
+                CERDENHA,
+            ]
+        },
+        {
+            "name": "Portugal",
+            "code": "CPOR",
+            "entity_type": "Reino",
+            "capitals": ["Lisboa"],
+            "childs": [
+                {
+                    "name": "Portugal",
+                    "code": "POR",
+                    "entity_type": "Reino",
+                    "capitals": ["Lisboa"],
+                    "childs": [
+                        {
+                            "name": "Portugal",
+                            "code": "POR",
+                            "entity_type": "Reino",
+                            "capitals": ["Lisboa"],
+                            "childs": [ ALENTEJO, BEIRA, ALGARVE, ESTREMADURA, ENTRE_EL_DUERO_Y_MINHO, DETRAS_DE_LOS_MONTES_Y_ALTO_DUERO,]        
+                        }, AZORES, MADEIRA, 
+                        {
+                            "name": "Algarbe de Ultramar",
+                            "code": "ALU",
+                            "entity_type": "Reino",
+                            "capitals": ["Tánger"],
+                            "childs": [CEUTA, TANGER, ALCAZARSEGUIR, ARCILA, CASABLANCA, MAZAGAN,]
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+
+ESCANHOS = {
+        "nivel": NuevoAdminArea.Level.ADMIN2,  # provincias del imperio
+        "escanhos": 80,                        # total de escaños a repartir
+        "min": 2,                              # mínimo por provincia
+    }
+'''
+python_source = "from ciudades_del_mundo.models import NuevoAdminArea\n\nfrom ciudades_del_mundo.historical_divisions.spanish_old_provinces import *\nfrom ciudades_del_mundo.historical_divisions.portugal_provinces import *\nfrom ciudades_del_mundo.historical_divisions.pre_italy_states import *\n\n\n#================================================================\n\nDIVISIONS = [\n        {\n            \"name\": \"Castilla\",\n            \"code\": \"CCAS\",\n            \"entity_type\": \"Corona\",\n            \"capitals\": [\"Madrid\"],\n            \"childs\": [\n                {\n                    \"name\": \"Castilla\",\n                    \"code\": \"CAS\",\n                    \"entity_type\": \"Corona\",\n                    \"capitals\": [\"Madrid\"],\n                    \"childs\": [ \n                        ALAVA_A, VIZCAYA, GUIPUZCOA, \n                        LEON_A, TORO_A, ZAMORA_A, SALAMANCA_A, \n                        BURGOS_A, SORIA_A, VALLADOLID_A, SEGOVIA_A, AVILA_A, \n                        MADRID_A, GUADALAJARA_A, TOLEDO_A, CUENCA_A, \n                        MURCIA_A, \n                        SEVILLA_A, CORDOBA_A, JAEN_A, \n                        CANARIAS, \n                        GRANADA_A, MELILLA, ORAN, \n                    ]\n                }, \n                NAVARRA_A,\n            ]\n        },\n        {\n            \"name\": \"Aragón\",\n            \"code\": \"CARA\",\n            \"entity_type\": \"Corona\",\n            \"capitals\": [\"Zaragoza\", \"Barcelona\"],\n            \"childs\": [\n                ARAGON, \n                CATALUNHA_A,\n                VALENCIA_A, \n                MALLORCA,\n                CERDENHA,\n            ]\n        },\n        {\n            \"name\": \"Portugal\",\n            \"code\": \"CPOR\",\n            \"entity_type\": \"Reino\",\n            \"capitals\": [\"Lisboa\"],\n            \"childs\": [\n                {\n                    \"name\": \"Portugal\",\n                    \"code\": \"POR\",\n                    \"entity_type\": \"Reino\",\n                    \"capitals\": [\"Lisboa\"],\n                    \"childs\": [\n                        {\n                            \"name\": \"Portugal\",\n                            \"code\": \"POR\",\n                            \"entity_type\": \"Reino\",\n                            \"capitals\": [\"Lisboa\"],\n                            \"childs\": [ ALENTEJO, BEIRA, ALGARVE, ESTREMADURA, ENTRE_EL_DUERO_Y_MINHO, DETRAS_DE_LOS_MONTES_Y_ALTO_DUERO,]        \n                        }, AZORES, MADEIRA, \n                        {\n                            \"name\": \"Algarbe de Ultramar\",\n                            \"code\": \"ALU\",\n                            \"entity_type\": \"Reino\",\n                            \"capitals\": [\"Tánger\"],\n                            \"childs\": [CEUTA, TANGER, ALCAZARSEGUIR, ARCILA, CASABLANCA, MAZAGAN,]\n                        }\n                    ]\n                }\n            ]\n        }\n    ]\n\nESCANHOS = {\n        \"nivel\": NuevoAdminArea.Level.ADMIN2,  # provincias del imperio\n        \"escanhos\": 80,                        # total de escaños a repartir\n        \"min\": 2,                              # mínimo por provincia\n    }"

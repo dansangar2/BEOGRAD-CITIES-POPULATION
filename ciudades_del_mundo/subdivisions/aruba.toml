@@ -1,18 +1,21 @@
-name = "Aruba"
-country_code = "aruba"
-base_url = "https://www.citypopulation.de/en/"
-reset_before_import = true
 LEGAL_SUBDIVISION = 2
-
-# L0 country -> L1 regions -> L2 cities/urban areas -> L3 zones.
 scrape_schema_version = 2
+name = "Aruba"
+reset_before_import = true
 
 [[pages]]
 source = "cities"
 path = ["cities"]
-include = { infosection = true, major_subdivision = true, cities = true }
+include = { cities = true, infosection = true, major_subdivision = true }
 
 [[pages]]
 source = "admin"
 path = ["admin"]
-include = { infosection = true, admin1 = true, admin2 = true }
+force_highest_level = 3
+parent_level = 1
+include = { infosection = false, major_subdivision = true, minor_subdivision = true }
+
+[visual_assets]
+bulk_country_wikidata = true
+strict_required = true
+required_kinds = ["flag", "coat"]

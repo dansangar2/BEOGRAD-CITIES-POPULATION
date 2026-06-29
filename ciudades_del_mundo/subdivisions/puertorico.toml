@@ -1,22 +1,20 @@
-
 scrape_schema_version = 2
 
 [[pages]]
 source = "cities"
 path = ["cities"]
-include = { infosection = true, major_subdivision = false, cities = false }
+include = { cities = false, infosection = true, major_subdivision = false }
 
 [[pages]]
-source = "cities"
+source = "admin"
 path = ["admin"]
-include = { infosection = true, major_subdivision = true, cities = true }
-force_highest_level = 1
+parent_level = 0
+include = { infosection = false, major_subdivision = true, minor_subdivision = true }
 
 [[pages]]
 source = "cities"
 path = ["towns"]
-include = { infosection = true, major_subdivision = true, cities = true }
-force_highest_level = 1
+include = { cities = true, infosection = false, major_subdivision = true }
 
 [visual_assets]
 bulk_country_wikidata = true

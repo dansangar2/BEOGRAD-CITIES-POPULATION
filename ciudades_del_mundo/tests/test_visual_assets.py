@@ -371,6 +371,43 @@ class VisualAssetSeedingTests(TestCase):
         self.assertEqual(filenames["Q10313"]["coat"], "Escudo de Donostia.svg")
         batch_json.assert_called_once()
 
+    def test_assign_assets_skips_commons_fallback_for_empty_qids_by_default(self):
+        from ciudades_del_mundo.models import AdminArea
+
+        AdminArea.objects.create(
+            id="cc_empty",
+            country_code="cc",
+            code="empty",
+            name="Empty Province",
+            level=1,
+            data_wd="Q12345",
+        )
+
+        with (
+            patch(
+                "ciudades_del_mundo.management.commands.scrape_subdivisions_with_assets._country_wikidata_id_for_bulk",
+                return_value="",
+            ),
+            patch(
+                "ciudades_del_mundo.management.commands.scrape_subdivisions_with_assets._wikidata_visual_asset_filenames_for_ids",
+                return_value={},
+            ),
+            patch(
+                "ciudades_del_mundo.management.commands.scrape_subdivisions_with_assets.commons_visual_asset_candidate_for_name",
+            ) as commons_search,
+        ):
+            applied = _assign_wikidata_assets_from_scraped_data_wd(
+                "cc",
+                "cc",
+                config_data={},
+                country_wikidata_id="",
+                required_kinds=["flag", "coat"],
+                levels=[],
+            )
+
+        self.assertEqual(applied, 0)
+        commons_search.assert_not_called()
+
     def test_asset_subdivision_levels_empty_means_all_levels(self):
         self.assertEqual(_asset_subdivision_levels_for_scrape("", []), "")
         self.assertEqual(_asset_subdivision_levels_for_scrape("", [1, 2]), "1,2")

@@ -4641,6 +4641,39 @@ pre.console.task-console,
   width: 100%;
 }
 
+.manual-page-actions .page-enabled-toggle {
+  align-items: center;
+  display: inline-flex;
+  font-size: 1rem;
+  justify-content: center;
+  min-height: 32px;
+  min-width: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.manual-page-actions .page-enabled-toggle.is-reactivate {
+  border-color: #64748b;
+}
+
+.config-pages-toml-table tr.is-page-disabled td {
+  background: #e5e7eb;
+  color: #475569;
+}
+
+.config-pages-toml-table tr.is-page-disabled input,
+.config-pages-toml-table tr.is-page-disabled select,
+.config-pages-toml-table tr.is-page-disabled textarea {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.config-pages-toml-table tr.is-page-disabled .manual-config-grid,
+.config-pages-toml-table tr.is-page-disabled .page-path-list,
+.config-pages-toml-table tr.is-page-disabled .manual-level-fields {
+  opacity: 0.58;
+}
+
 .manual-procedure-cell [data-add-page-path] {
   line-height: 1.1;
   min-height: 34px;

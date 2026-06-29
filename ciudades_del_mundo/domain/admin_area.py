@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 
@@ -33,6 +33,8 @@ class ScrapedAdminArea:
     city_merge_status: int = CITY_MERGE_NONE
     annotations: str = ""
     contributes_to_root: bool = False
+    most_populated_city_code: str | None = None
+    translations: dict[str, str] = field(default_factory=dict)
 
     @property
     def id(self) -> str:

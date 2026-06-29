@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.test import TestCase
 
 from ciudades_del_mundo.domain import DivisionSourceType, RepresentationConfig, RepresentationSystem, parse_pages
+from ciudades_del_mundo.services.scraping_configs import parse_config_metadata
 from ciudades_del_mundo.infrastructure.scraping import PythonScrapingConfigRepository
 
 
@@ -33,6 +34,8 @@ class ScrapingConfigTests(TestCase):
         self.assertTrue(all(page.include_cities is True for page in pages))
         self.assertTrue(all(page.force_highest_level == 2 for page in pages))
         self.assertTrue(all(page.sum_to_root is True for page in pages))
+        self.assertEqual([page.block_index for page in pages], [0, 0, 0])
+        self.assertEqual([page.path_index for page in pages], [0, 1, 2])
 
     def test_parse_pages_rejects_missing_path_and_negative_area(self):
         with self.assertRaisesRegex(ValueError, "path"):
@@ -44,6 +47,20 @@ class ScrapingConfigTests(TestCase):
     def test_parse_pages_rejects_legacy_source(self):
         with self.assertRaisesRegex(ValueError, "source debe ser 'cities' o 'admin'"):
             parse_pages([{"source": "auto", "path": "ceuta"}], slug="spain")
+
+    def test_parse_pages_skips_disabled_blocks(self):
+        pages = parse_pages(
+            [
+                {"source": "admin", "path": "admin"},
+                {"source": "cities", "path": "broken", "enabled": False},
+                {"source": "cities", "path": "andalucia"},
+            ],
+            slug="spain",
+            schema_version=2,
+        )
+
+        self.assertEqual([page.path for page in pages], ["spain/admin", "spain/andalucia"])
+        self.assertEqual([page.block_index for page in pages], [0, 2])
 
     def test_representation_total_for_populations_supports_habitant_mode(self):
         config = RepresentationConfig.from_mapping(
@@ -64,3 +81,20 @@ class ScrapingConfigTests(TestCase):
                 self.assertGreater(len(config.pages), 0)
                 self.assertTrue(all(page.path for page in config.pages))
                 self.assertTrue(all(page.html_format in {item.value for item in DivisionSourceType} for page in config.pages))
+
+    def test_wikimedia_v3_metadata_is_no_longer_valid(self):
+        metadata = parse_config_metadata(
+            "spain",
+            """
+scrape_schema_version = 3
+source = "wikimedia"
+country_code = "spain"
+name = "Spain"
+wikidata_id = "Q29"
+""",
+        )
+
+        self.assertFalse(metadata.is_valid)
+        self.assertEqual(metadata.schema_version, 3)
+        self.assertEqual(metadata.pages_count, 0)
+        self.assertIn("página", metadata.validation_error)

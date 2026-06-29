@@ -1,0 +1,89 @@
+schema_version = 1
+kind = "derived_country_config"
+slug = "france_kingdom"
+name = "France Kingdom"
+source_python = "ciudades_del_mundo/new_subdivisions/france_kingdom.py"
+country = "france_kingdom"
+source_country_code = ""
+derived_country_code = "france_kingdom"
+groups = []
+
+[selection]
+include_codes = []
+include_levels = []
+group_slugs = []
+
+[legacy]
+assignments_json = '''
+{
+  "ESCANHOS": {
+    "nivel": 2,
+    "escanhos": 100,
+    "min": 1
+  }
+}
+'''
+python = '''
+from ciudades_del_mundo.historical_divisions.france import *
+
+
+DIVISIONS = [
+    {
+        "name": "Francia",
+        "code": "FRA",
+        "entity_type": "Reino",
+        "capitals": ["Paris"],
+        "childs": [
+            ISLA_DE_FRANCIA,
+        #    BERRY,
+        #    ORLEANESADO,
+            NORMANDIA,
+            LANGUEDOC,
+        #    LIONESADO,
+            DELFINADO,
+            CAMPANHA,
+            AUNIS,
+            SAINTIONGE,
+            POITOU,
+            AQUITANIA,
+        #    BORGONHA,
+            PICARDIA,
+            ANJOU,
+            PROVENZA,
+            ANGOUMOIS,
+        #    BORBONES,
+            MARCHE,
+            BRETANHA,
+        #    MAINE_Y_PERCHE,
+            TURENA,
+            LIMOSIN,
+            FOIX,
+        #    AUVERNIA,
+            BEARNE,
+        #    ALSACIA,
+            ARTOIS,
+            ROSELLON,
+            FLANDES_Y_HENAO,
+        #    FRANCO_CONDADO,
+        #    LORENA_Y_BARROIS,
+            CORCEGA,
+        #    NIERVES,
+        #    CONDADO_VENESINO,
+        #    MULHOUSE,
+        #    SABOYA,
+        #    NIZA,
+        #    MONTBELIARD,
+        #    MENTON,
+        #    ROCABRUNA,
+        #    TENDE
+        ]
+    }
+]
+
+ESCANHOS = {
+        "nivel": 2,  # provincias del imperio
+        "escanhos": 100,                        # total de escaños a repartir
+        "min": 1,                              # mínimo por provincia
+    }
+'''
+python_source = "from ciudades_del_mundo.historical_divisions.france_provinces import *\n\n\nDIVISIONS = [\n    {\n        \"name\": \"Francia\",\n        \"code\": \"FRA\",\n        \"entity_type\": \"Reino\",\n        \"capitals\": [\"Paris\"],\n        \"childs\": [\n            ISLA_DE_FRANCIA,\n        #    BERRY,\n        #    ORLEANESADO,\n            NORMANDIA,\n            LANGUEDOC,\n        #    LIONESADO,\n            DELFINADO,\n            CAMPANHA,\n            AUNIS,\n            SAINTIONGE,\n            POITOU,\n            AQUITANIA,\n        #    BORGONHA,\n            PICARDIA,\n            ANJOU,\n            PROVENZA,\n            ANGOUMOIS,\n        #    BORBONES,\n            MARCHE,\n            BRETANHA,\n        #    MAINE_Y_PERCHE,\n            TURENA,\n            LIMOSIN,\n            FOIX,\n        #    AUVERNIA,\n            BEARNE,\n        #    ALSACIA,\n            ARTOIS,\n            ROSELLON,\n            FLANDES_Y_HENAO,\n        #    FRANCO_CONDADO,\n        #    LORENA_Y_BARROIS,\n            CORCEGA,\n        #    NIERVES,\n        #    CONDADO_VENESINO,\n        #    MULHOUSE,\n        #    SABOYA,\n        #    NIZA,\n        #    MONTBELIARD,\n        #    MENTON,\n        #    ROCABRUNA,\n        #    TENDE\n        ]\n    }\n]\n\nESCANHOS = {\n        \"nivel\": 2,  # provincias del imperio\n        \"escanhos\": 100,                        # total de escaños a repartir\n        \"min\": 1,                              # mínimo por provincia\n    }"

@@ -1,0 +1,15 @@
+schema_version = 1
+kind = "subdivision_group"
+slug = "spanish_ecuatorialguinea"
+name = "Spanish Ecuatorialguinea"
+source_python = "ciudades_del_mundo/historical_divisions/spanish_ecuatorialguinea.py"
+source_country_code = ""
+
+[selection]
+include_codes = []
+include_levels = []
+include_names = []
+
+[legacy]
+# Mantiene la receta Python original hasta que el builder TOML cubra toda la l?gica.
+python_source = "\n\nGUINEA = {\n    \"name\": \"Territorios en el Golfo de Guinea\",\n    \"code\": \"GUI\",\n    \"entity_type\": \"Estado\",\n    \"capitals\": [\"Malabo\"],\n    \"childs\": [\n        {\n            \"name\": \"Fernando Poo\",\n            \"code\": \"FEP\",\n            \"entity_type\": \"Provincia\",\n            \"capitals\": [\"Malabo\"],\n            \"spec\": {1: {\"equatorialguinea\": [\"Bioko Norte\", \"Bioko Sur\", \"Annobón\"]}}\n        },\n        {\n            \"name\": \"Rio Muni\",\n            \"code\": \"RMU\",\n            \"entity_type\": \"Provincia\",\n            \"capitals\": [\"Bata\"],\n            \"spec\": {1: {\"equatorialguinea\": [\"Centro Sur\", \"Kié-Ntem\", \"Litoral\", \"Wele-Nzas\"]}}\n        },\n    ],\n}\n\nFERNANDO_POO_Y_ANNOBON =  {\n    \"name\": \"Fernando Poo y Annobón\",\n    \"code\": \"FEP\",\n    \"entity_type\": \"Provincia\",\n    \"capitals\": [\"Malabo\"],\n    \"spec\": {\n        1: {\"equatorialguinea\": [\"Bioko Norte\", \"Bioko Sur\", \"Annobón\"]}\n    }\n}\n\nFERNANDO_POO =  {\n    \"name\": \"Fernando Poo\",\n    \"code\": \"FEP\",\n    \"entity_type\": \"Provincia\",\n    \"capitals\": [\"Malabo\"],\n    \"spec\": {\n        1: {\"equatorialguinea\": [\"Bioko Norte\", \"Bioko Sur\"]}\n    }\n}\n\nANNOBON =  {\n    \"name\": \"Annobón\",\n    \"code\": \"ANN\",\n    \"entity_type\": \"Provincia\",\n    \"capitals\": [\"San Antonio Palé\"],\n    \"spec\": {\n        1: {\"equatorialguinea\": [\"Annobón\"]}\n    }\n}"

@@ -10,6 +10,7 @@ from django.core.management import BaseCommand, CommandError, call_command
 from django.db import close_old_connections
 
 from ciudades_del_mundo.infrastructure.scraping import PythonScrapingConfigRepository
+from ciudades_del_mundo.models import ScrapingConfig
 from ciudades_del_mundo.web.task_progress import write_config_progress
 
 
@@ -69,7 +70,11 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self._stdout_lock = threading.Lock()
         repository = PythonScrapingConfigRepository()
-        slugs = list(options["countries"] or repository.list_slugs())
+        slugs = list(
+            options["countries"]
+            or ScrapingConfig.objects.order_by("slug").values_list("slug", flat=True)
+            or repository.list_slugs()
+        )
         if not slugs:
             self._write("No hay configuraciones para popular.", style=self.style.WARNING)
             return
@@ -110,10 +115,8 @@ class Command(BaseCommand):
         close_old_connections()
         try:
             self._write(f"[popular] ({index}/{total}) {slug}")
-            repository = PythonScrapingConfigRepository()
             write_config_progress(slug, "validating")
             try:
-                repository.get(slug)
                 call_command("validate_subdivision_configs", slug)
                 write_config_progress(slug, "populating")
                 call_command("scrape_subdivisions_with_assets", slug, **scrape_options)

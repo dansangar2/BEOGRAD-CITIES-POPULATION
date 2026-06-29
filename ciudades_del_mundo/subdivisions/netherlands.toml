@@ -1,18 +1,16 @@
 LEGAL_SUBDIVISION = 2
-
 scrape_schema_version = 2
 
 [[pages]]
 source = "admin"
 path = ["admin"]
-include = { infosection = true, admin1 = true, admin2 = true }
+include = { infosection = true, major_subdivision = true, minor_subdivision = true }
 
 [[pages]]
 source = "cities"
 path = ["drenthe", "flevoland", "friesland", "gelderland", "groningen", "limburg", "noordbrabant", "noordholland", "overijssel", "utrecht", "zeeland", "zuidholland"]
-include = { infosection = true, major_subdivision = true, cities = true }
-force_highest_level = 1
-include_root = false
+parent_level = 2
+include = { cities = true, infosection = false, major_subdivision = false }
 
 [visual_assets]
 bulk_country_wikidata = true

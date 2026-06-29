@@ -182,6 +182,41 @@ class CityPopulationSectionParser:
                 )
             )
 
+        if (
+            effective_system == "cities"
+            and SECTION_MAJOR in include
+            and SECTION_CITIES in include
+            and SECTION_INFOSECTION not in include
+            and _tl_has_tfoot_without_body_rows(soup)
+        ):
+            entities.extend(
+                self._parse_tl_tfoot_major(
+                    soup=soup,
+                    level=levels[SECTION_MAJOR],
+                    country_code=country_code,
+                    base_url=base_url,
+                    page=page,
+                    parent_context=parent_context,
+                )
+            )
+
+        if (
+            effective_system == "cities"
+            and SECTION_MAJOR in include
+            and SECTION_CITIES in include
+            and not soup.find("table", id="tl")
+        ):
+            entities.extend(
+                self._parse_ts_tfoot_major(
+                    soup=soup,
+                    level=levels[SECTION_MAJOR],
+                    country_code=country_code,
+                    base_url=base_url,
+                    page=page,
+                    parent_context=parent_context,
+                )
+            )
+
         if effective_system in {"cities", "citiesadmin"} and SECTION_CITIES in include:
             entities.extend(
                 self._parse_ts_cities(
@@ -460,6 +495,102 @@ class CityPopulationSectionParser:
             result[block.index] = tuple(entries)
         return result
 
+    def _parse_tl_tfoot_major(
+        self,
+        *,
+        soup: BeautifulSoup,
+        level: int,
+        country_code: str,
+        base_url: str,
+        page: Any | None,
+        parent_context: "_ParentContext",
+    ) -> list[ScrapedAdminArea]:
+        table = soup.find("table", id="tl")
+        if not isinstance(table, Tag):
+            return []
+        tfoot = table.find("tfoot")
+        if not isinstance(tfoot, Tag):
+            return []
+
+        last_pop_idx, last_pop_date = self.client.detect_last_visible_pop_column(table)
+        visible_pop_columns = self.client.visible_pop_columns(table)
+        root_parent = parent_context.latest_for_section(SECTION_INFOSECTION)
+        rows: list[ScrapedAdminArea] = []
+        for tr in tfoot.find_all("tr"):
+            parsed = self.client.parse_tr_tl(
+                tr=tr,
+                explicit_level=level,
+                last_visible_pop_idx=last_pop_idx,
+                last_visible_date=last_pop_date,
+                default_last_census_year=self.client.year_from_date(last_pop_date),
+                country_code=country_code,
+                base_url=base_url,
+                default_entity_type=SECTION_DEFAULT_ENTITY_TYPE[SECTION_MAJOR],
+                visible_pop_columns=visible_pop_columns,
+            )
+            if not parsed:
+                continue
+            entity = _entity_from_parsed(
+                parsed,
+                section=SECTION_MAJOR,
+                level=level,
+                country_code=country_code,
+                parent_code=root_parent.code if root_parent else None,
+            )
+            chain = _repeat_entity_chain(entity, section=SECTION_MAJOR, page=page)
+            rows.extend(chain)
+            for item in chain:
+                parent_context.register(item, row=tr)
+        return rows
+
+    def _parse_ts_tfoot_major(
+        self,
+        *,
+        soup: BeautifulSoup,
+        level: int,
+        country_code: str,
+        base_url: str,
+        page: Any | None,
+        parent_context: "_ParentContext",
+    ) -> list[ScrapedAdminArea]:
+        table = soup.find("table", id="ts")
+        if not isinstance(table, Tag):
+            return []
+        tfoot = table.find("tfoot")
+        if not isinstance(tfoot, Tag):
+            return []
+
+        last_pop_idx, last_pop_date = self.client.detect_last_visible_pop_column(table)
+        visible_pop_columns = self.client.visible_pop_columns(table)
+        root_parent = parent_context.latest_for_section(SECTION_INFOSECTION)
+        rows: list[ScrapedAdminArea] = []
+        for tr in tfoot.find_all("tr"):
+            parsed = self.client.parse_tr_tl(
+                tr=tr,
+                explicit_level=level,
+                last_visible_pop_idx=last_pop_idx,
+                last_visible_date=last_pop_date,
+                default_last_census_year=self.client.year_from_date(last_pop_date),
+                country_code=country_code,
+                base_url=base_url,
+                default_entity_type=SECTION_DEFAULT_ENTITY_TYPE[SECTION_MAJOR],
+                visible_pop_columns=visible_pop_columns,
+            )
+            if not parsed:
+                continue
+            entity = _entity_from_parsed(
+                parsed,
+                section=SECTION_MAJOR,
+                level=level,
+                country_code=country_code,
+                parent_code=root_parent.code if root_parent else None,
+            )
+            chain = _repeat_entity_chain(entity, section=SECTION_MAJOR, page=page)
+            rows.extend(chain)
+            for item in chain:
+                parent_context.register(item, row=tr)
+        return rows
+
     def _parse_ts_cities(
         self,
         *,
@@ -481,7 +612,7 @@ class CityPopulationSectionParser:
         has_radm = bool(table.select("td.radm, th.radm"))
         rows: list[ScrapedAdminArea] = []
         fallback_parent = parent_context.deepest()
-        for tr in table.find_all("tr"):
+        for tr in _table_body_rows(table):
             parsed = self.client.parse_tr_ts(
                 tr=tr,
                 last_visible_pop_idx=last_pop_idx,
@@ -813,6 +944,16 @@ def _tl_tbody_classes(tbody: Tag) -> set[str]:
     return {str(value).strip().casefold() for value in (tbody.get("class") or [])}
 
 
+def _table_body_rows(table: Tag) -> list[Tag]:
+    bodies = table.find_all("tbody", recursive=False)
+    if not bodies:
+        return list(table.find_all("tr"))
+    rows: list[Tag] = []
+    for tbody in bodies:
+        rows.extend(tbody.find_all("tr", recursive=False))
+    return rows
+
+
 def _is_classed_major_tbody(tbody: Tag) -> bool:
     classes = _tl_tbody_classes(tbody)
     return "admin1" in classes or "adm" in classes
@@ -836,6 +977,19 @@ def _tl_has_grouped_minor(soup: BeautifulSoup) -> bool:
         if "admin2" in classes or not classes:
             has_child_body = True
     return has_classed_major and has_child_body
+
+
+def _tl_has_tfoot_without_body_rows(soup: BeautifulSoup) -> bool:
+    table = soup.find("table", id="tl")
+    if not isinstance(table, Tag):
+        return False
+    tfoot = table.find("tfoot")
+    if not isinstance(tfoot, Tag) or not tfoot.find("tr"):
+        return False
+    for tbody in table.find_all("tbody", recursive=False):
+        if tbody.find("tr"):
+            return False
+    return True
 
 
 def _major_lookup(major_entries: dict[int, tuple[_TlMajorEntry, ...]]) -> dict[str, _TlMajorEntry]:
@@ -943,6 +1097,9 @@ def _entity_from_parsed(
     country_code: str,
     parent_code: str | None,
 ) -> ScrapedAdminArea:
+    annotations = _section_annotation(section)
+    if parsed.parent_name:
+        annotations = _append_annotation(annotations, f"CityPopulation parent hint: {parsed.parent_name}")
     return ScrapedAdminArea(
         code=str(parsed.entity_id),
         name=parsed.name,
@@ -958,7 +1115,7 @@ def _entity_from_parsed(
         last_census_year=parsed.last_census_year,
         url=parsed.url,
         data_wd=parsed.data_wd,
-        annotations=_section_annotation(section),
+        annotations=annotations,
     )
 
 

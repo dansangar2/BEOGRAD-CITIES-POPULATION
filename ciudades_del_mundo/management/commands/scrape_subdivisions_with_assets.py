@@ -22,6 +22,7 @@ from ciudades_del_mundo.services.visual_assets import (
     commons_visual_asset_candidate_for_name,
     visual_asset_tables_exist,
 )
+from ciudades_del_mundo.web.log_retention import cleanup_old_logs
 from ciudades_del_mundo.web.task_progress import write_config_progress
 
 
@@ -36,6 +37,8 @@ SCRAPE_ERROR_CODES = {
     "database": "SCR-DB-001",
     "network": "SCR-NET-001",
     "clear": "SCR-CLEAR-001",
+    "block": "SCR-BLOCK-001",
+    "link": "SCR-LINK-001",
     "unknown": "SCR-UNKNOWN",
 }
 
@@ -176,11 +179,12 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         slug = options["slug"]
         try:
-            config = PythonScrapingConfigRepository().get(slug)
-            country_code = str(config.country_code or slug)
+            cleanup_old_logs()
             page_workers = max(1, int(options.get("page_workers") or 1))
             ai_limit = max(1, int(options.get("ai_limit") or 1))
             config_data = _config_data_for_slug(slug)
+            config = PythonScrapingConfigRepository().get(slug)
+            country_code = str(config.country_code or slug)
             asset_settings = _visual_asset_settings(config_data)
             warning_detail = ""
 
@@ -188,21 +192,19 @@ class Command(BaseCommand):
                 write_config_progress(slug, "clearing", detail="Limpiando datos anteriores")
                 self._write(f"[limpiar] {slug}: limpiando datos existentes antes de re-popular...")
                 self._run_with_sqlite_retry(lambda: call_command("clear_config_data_with_assets", country_code))
-            write_config_progress(slug, "populating", detail="Scrapeando datos")
+            write_config_progress(
+                slug,
+                "populating",
+                detail="Scrapeando datos",
+            )
 
-            # Fase 1: popular datos. Los assets se buscan despues para mantener
-            # separado el scrapeo de datos de la busqueda de banderas/escudos.
-            self._write(f"[popular] {slug}: fase 1/2, scrapeando datos...")
+            self._write(f"[paso 1/5] {slug}: scraping por bloques CityPopulation...")
             self._run_with_sqlite_retry(
                 lambda: call_command(
                     "scrape_subdivisions",
                     slug,
                     page_workers=page_workers,
                     resume=bool(options.get("resume")),
-                    # Importante: en este comando los assets NO se siembran durante
-                    # el scraping de páginas. Primero se persisten las entidades de
-                    # CityPopulation con su data_wd y después una segunda fase resuelve
-                    # banderas/escudos en Wikidata usando esos QIDs en lotes pequeños.
                     seed_assets_from_pages=False,
                     no_download_assets=bool(options.get("no_download_assets")),
                     download_assets=False,
@@ -215,11 +217,6 @@ class Command(BaseCommand):
                     ai_limit=ai_limit,
                 )
             )
-
-            # Tras importar datos, intenta rescatar de CityPopulation el Wikidata ID
-            # de la entidad raíz del país/territorio. La fase de assets sigue
-            # separada y se ejecuta después, pero usa este QID como raíz cuando
-            # CityPopulation lo expone.
             citypopulation_country_qid = _citypopulation_country_wikidata_id(
                 config,
                 slug=slug,
@@ -229,21 +226,22 @@ class Command(BaseCommand):
             )
 
             if options.get("skip_assets"):
-                self._write("[assets] omitido por --skip-assets")
+                self._write("[assets] assets omitidos por --skip-assets")
                 write_config_progress(
                     slug,
                     "populated",
                     detail=_coded_message(SCRAPE_ERROR_CODES["success"], "Scraping completado correctamente."),
                 )
+                self._write(f"[paso 5/5] {slug}: procedimiento de populado completado")
                 return
             if not visual_asset_tables_exist():
                 raise CommandError(_coded_message(SCRAPE_ERROR_CODES["assets_table"], "La tabla de assets visuales no existe. Ejecuta migraciones."))
 
-            # Fase 2: buscar y registrar banderas/escudos por data_wd.
+            # Paso 3/5: buscar recursos Wikimedia/Wikidata por data_wd.
             # No se usa una consulta SPARQL gigante por país: se toman los QIDs ya
             # scrapeados desde CityPopulation y se resuelven por lotes con wbgetentities.
             write_config_progress(slug, "populating", detail="Buscando banderas y escudos por data_wd")
-            self._write(f"[assets] {slug}: fase 2/2, resolviendo Wikidata por data_wd...")
+            self._write(f"[assets] {slug}: scraping de recursos Wikimedia por data_wd...")
             self._run_with_sqlite_retry(
                 lambda: _assign_wikidata_assets_from_scraped_data_wd(
                     slug,
@@ -256,9 +254,12 @@ class Command(BaseCommand):
                         asset_settings["required_levels"],
                     ),
                     include_subdivisions=not bool(options.get("skip_subdivision_assets")),
+                    resolve_phase_label="[paso 3/5]",
+                    assign_phase_label="[paso 4/5]",
                     logger=self._write,
                 )
             )
+            self._write(f"[assets] {slug}: asignacion de recursos Wikimedia completada")
             self._run_with_sqlite_retry(
                 lambda: _mirror_country_assets_to_root_admin_areas(
                     country_code,
@@ -267,7 +268,8 @@ class Command(BaseCommand):
             )
 
             if asset_settings.get("legacy_country_bulk_wikidata") and not options.get("skip_country_bulk_assets"):
-                self._write(f"[assets] {slug}: fallback legado de búsqueda masiva Wikidata activado por configuración...")
+                phase_label = "[paso 3/5]"
+                self._write(f"{phase_label} {slug}: fallback legado de búsqueda masiva Wikidata activado por configuración...")
                 self._run_with_sqlite_retry(
                     lambda: _assign_bulk_country_wikidata_assets(
                         slug,
@@ -331,6 +333,7 @@ class Command(BaseCommand):
             write_config_progress(slug, "populated", detail=warning_detail)
         else:
             write_config_progress(slug, "populated", detail=_coded_message(SCRAPE_ERROR_CODES["success"], "Scraping completado correctamente."))
+        self._write(f"[paso 5/5] {slug}: procedimiento de populado completado")
 
 
 def _apply_configured_wikidata_asset_overrides(slug: str, country_code: str, *, config_data: dict | None = None, logger=None) -> int:
@@ -967,6 +970,8 @@ def _assign_wikidata_assets_from_scraped_data_wd(
     required_kinds: list[str] | None = None,
     levels: list[int] | None = None,
     include_subdivisions: bool = True,
+    resolve_phase_label: str = "[paso 3/5]",
+    assign_phase_label: str = "[paso 4/5]",
     logger=None,
 ) -> int:
     """Assign visual assets using the data_wd stored on AdminArea rows.
@@ -987,6 +992,7 @@ def _assign_wikidata_assets_from_scraped_data_wd(
         return 0
 
     data = config_data if isinstance(config_data, dict) else _config_data_for_slug(slug)
+    visual_asset_config = data.get("visual_assets") if isinstance(data.get("visual_assets"), dict) else {}
     kind_filter = [kind for kind in (required_kinds or []) if kind in WIKIDATA_ASSET_PROPERTIES]
     if not kind_filter:
         kind_filter = ["flag", "coat"]
@@ -1034,15 +1040,30 @@ def _assign_wikidata_assets_from_scraped_data_wd(
         _log_asset_mirror(logger, f"[assets] {country_code}: no hay subdivisiones con data_wd para asignar assets")
         return applied
 
+    _log_asset_mirror(
+        logger,
+        f"{resolve_phase_label} {country_code}: resolviendo Wikidata por data_wd "
+        f"(qids={len(qid_to_areas)}, areas={len(areas)})",
+    )
     filenames_by_qid = _wikidata_visual_asset_filenames_for_ids(
         list(qid_to_areas.keys()),
         kinds=kind_filter,
         logger=logger,
     )
 
+    allow_empty_commons_fallback = _config_bool(
+        visual_asset_config.get("commons_fallback_for_empty_qids"),
+        default=False,
+    )
     qids_with_assets = 0
     area_assignments = 0
     commons_fallbacks = 0
+    commons_searches = 0
+    _log_asset_mirror(
+        logger,
+        f"{assign_phase_label} {country_code}: asignando recursos visuales "
+        f"(qids={len(qid_to_areas)}, qids con recursos Wikidata={len(filenames_by_qid)})",
+    )
     for qid, target_areas in qid_to_areas.items():
         filenames = filenames_by_qid.get(qid, {})
         qid_has_assets = bool(filenames)
@@ -1053,6 +1074,15 @@ def _assign_wikidata_assets_from_scraped_data_wd(
                     continue
                 if int(getattr(area, "level", -1) or -1) not in commons_fallback_levels:
                     continue
+                if not filenames and not allow_empty_commons_fallback:
+                    continue
+                commons_searches += 1
+                if commons_searches == 1 or commons_searches % 25 == 0:
+                    _log_asset_mirror(
+                        logger,
+                        f"[paso 4/5] {country_code}: fallback Commons en curso "
+                        f"(busquedas={commons_searches})",
+                    )
                 candidate = commons_visual_asset_candidate_for_name(
                     str(getattr(area, "name", "") or ""),
                     kind,
@@ -1081,9 +1111,10 @@ def _assign_wikidata_assets_from_scraped_data_wd(
 
     _log_asset_mirror(
         logger,
-        f"[assets] {country_code}: data_wd procesados={len(qid_to_areas)}, "
+        f"[paso 4/5] {country_code}: data_wd procesados={len(qid_to_areas)}, "
         f"qids con recursos={qids_with_assets}, asignaciones={area_assignments}, "
-        f"fallbacks Commons={commons_fallbacks}, assets nuevos/actualizados={applied}",
+        f"busquedas Commons={commons_searches}, fallbacks Commons={commons_fallbacks}, "
+        f"assets nuevos/actualizados={applied}",
     )
     return applied
 

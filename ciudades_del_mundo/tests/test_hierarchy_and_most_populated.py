@@ -26,7 +26,7 @@ class HierarchyTests(unittest.TestCase):
 
 
 class MostPopulatedTests(unittest.TestCase):
-    def test_calculate_most_populated_ignores_source_rows_and_uses_legal_level(self):
+    def test_calculate_most_populated_ignores_source_rows_and_uses_highest_available_level(self):
         areas = [
             AdminAreaSummary(id="root", level=0, parent_id=None, pop_latest=1000),
             AdminAreaSummary(id="region", level=1, parent_id="root", pop_latest=500),
@@ -40,6 +40,5 @@ class MostPopulatedTests(unittest.TestCase):
 
         self.assertEqual(
             [(item.area_id, item.most_populated_id) for item in assignments],
-            [("root", "city-b"), ("region", "city-b"), ("city-a", "district-a")],
+            [("root", "district-a"), ("region", "district-a"), ("city-a", "district-a")],
         )
-

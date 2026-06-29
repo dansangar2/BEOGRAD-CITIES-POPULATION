@@ -1,13 +1,14 @@
-name = "Saint-Martin"
-country_code = "saintmartin"
-base_url = "https://www.citypopulation.de/en/"
-reset_before_import = true
 LEGAL_SUBDIVISION = 1
-
-# L0 collectivity -> L1 places. The territory row is page context only.
 scrape_schema_version = 2
+name = "Saint-Martin"
+reset_before_import = true
 
 [[pages]]
 source = "cities"
-path = [""]
-include = { infosection = true, major_subdivision = true, cities = true }
+path = ["/"]
+include = { cities = true, infosection = true, major_subdivision = true }
+
+[visual_assets]
+bulk_country_wikidata = true
+strict_required = true
+required_kinds = ["flag", "coat"]

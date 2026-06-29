@@ -46,11 +46,13 @@ def normalize_citypopulation_entities(
     scoped = _repair_explicit_repeated_roots(country_code, scoped)
     scoped = _attach_sum_to_root_entities(country_code, scoped)
     scoped = _apply_forced_parent_levels(scoped)
+    scoped = _apply_parent_name_hints(scoped)
     scoped = _rewire_parent_codes(scoped)
     scoped = _normalize_child_levels(scoped)
     scoped = _collapse_equivalent_rows(scoped)
     scoped = _drop_cross_level_shortcuts(scoped)
     scoped = _attach_parentless_disambiguated_code_children(scoped)
+    scoped = _repair_self_parent_links(country_code, scoped)
     scoped = _roll_up_sum_to_root_metrics(country_code, scoped)
     scoped = _fill_country_root_metrics(country_code, scoped)
     return scoped
@@ -478,9 +480,12 @@ def _apply_forced_parent_levels(entities: list[ScrapedAdminArea]) -> list[Scrape
 
 def _should_apply_forced_parent(entity: ScrapedAdminArea, target_level: int) -> bool:
     level = int(entity.level)
+    section = _annotation_section(entity.annotations)
+    if level == 0 or section == "infosection":
+        return False
     if level > target_level:
         return True
-    if level == target_level and _annotation_section(entity.annotations) == "cities":
+    if section == "cities":
         return True
     return False
 
@@ -518,6 +523,13 @@ def _best_forced_parent(
         ]
         if name_matches:
             return max(name_matches, key=lambda candidate: _forced_parent_score(entity, candidate))
+    scope_matches = [
+        candidate
+        for candidate in candidate_rows
+        if _parent_name_in_child_url_scope(entity, candidate)
+    ]
+    if scope_matches:
+        return max(scope_matches, key=lambda candidate: _forced_parent_score(entity, candidate))
     current = next((candidate for candidate in candidate_rows if str(candidate.code) == current_parent_code), None)
     return current
 
@@ -533,6 +545,43 @@ def _forced_parent_score(entity: ScrapedAdminArea, candidate: ScrapedAdminArea) 
 def _forced_parent_level(annotations: str | None) -> int | None:
     match = re.search(r"Forced parent level:\s*(\d+)", str(annotations or ""))
     return int(match.group(1)) if match else None
+
+
+def _apply_parent_name_hints(entities: list[ScrapedAdminArea]) -> list[ScrapedAdminArea]:
+    by_level_name: dict[tuple[int, str], list[ScrapedAdminArea]] = {}
+    for entity in entities:
+        key = (int(entity.level), _norm_name(entity.name))
+        if key[1]:
+            by_level_name.setdefault(key, []).append(entity)
+
+    updated: list[ScrapedAdminArea] = []
+    for entity in entities:
+        hint = _parent_name_hint(entity.annotations)
+        if not hint:
+            updated.append(entity)
+            continue
+        candidates = by_level_name.get((int(entity.level) - 1, _norm_name(hint)), [])
+        if not candidates:
+            updated.append(entity)
+            continue
+        scoped = [
+            candidate
+            for candidate in candidates
+            if entity.parent_code and str(candidate.parent_code) == str(entity.parent_code)
+        ]
+        if len(scoped) == 1:
+            updated.append(replace(entity, parent_code=scoped[0].code))
+            continue
+        if len(candidates) == 1:
+            updated.append(replace(entity, parent_code=candidates[0].code))
+            continue
+        updated.append(entity)
+    return updated
+
+
+def _parent_name_hint(annotations: str | None) -> str:
+    match = re.search(r"CityPopulation parent hint:\s*([^;]+)", str(annotations or ""))
+    return match.group(1).strip() if match else ""
 
 
 def _forced_highest_level(annotations: str | None) -> int | None:
@@ -665,7 +714,9 @@ def _attach_rootless_country_children(country_code: str, entities: list[ScrapedA
     The regions must therefore become ``France -> Region`` and the complete
     branch below each region must be shifted one level down.  ``sum_to_root``
     pages are handled by ``_attach_sum_to_root_entities`` and are not changed
-    here.
+    here.  If the row is already one level below the country, it is only
+    attached to the root without shifting; this covers ordinary L1 rows from a
+    later block whose page did not persist an infosection.
     """
     root = _preferred_country_root(country_code, entities)
     if root is None:
@@ -677,7 +728,7 @@ def _attach_rootless_country_children(country_code: str, entities: list[ScrapedA
         for entity in entities
         if not entity.parent_code
         and str(entity.code) != str(root.code)
-        and int(entity.level) <= root_level
+        and int(entity.level) <= root_level + 1
         and not entity.contributes_to_root
         and _annotation_section(entity.annotations) in {"major_subdivision", "minor_subdivision"}
     ]
@@ -921,6 +972,7 @@ def _collapse_equivalent_rows(entities: list[ScrapedAdminArea]) -> list[ScrapedA
     kept: list[ScrapedAdminArea] = []
     replacements: dict[str, str] = {}
     key_owner: dict[tuple[str, object], ScrapedAdminArea] = {}
+    by_code = _by_code_first(entities)
 
     for entity in entities:
         duplicate = _first_duplicate_for(entity, key_owner)
@@ -929,10 +981,18 @@ def _collapse_equivalent_rows(entities: list[ScrapedAdminArea]) -> list[ScrapedA
             _register_duplicate_keys(entity, key_owner)
             continue
 
-        preferred = _preferred_duplicate(duplicate, entity, entities)
+        preferred = _preferred_duplicate(duplicate, entity, by_code)
+        preferred_was_duplicate = preferred is duplicate
         discarded = entity if preferred is duplicate else duplicate
+        preferred = _merge_duplicate_parent(preferred, discarded, by_code)
         replacements[str(discarded.code)] = str(preferred.code)
-        if preferred is duplicate:
+        if preferred_was_duplicate:
+            if preferred is not duplicate:
+                kept = [preferred if item is duplicate else item for item in kept]
+                for key, owner in list(key_owner.items()):
+                    if owner is duplicate:
+                        key_owner[key] = preferred
+                _register_duplicate_keys(preferred, key_owner)
             continue
 
         kept = [preferred if item is duplicate else item for item in kept]
@@ -944,6 +1004,40 @@ def _collapse_equivalent_rows(entities: list[ScrapedAdminArea]) -> list[ScrapedA
     if not replacements:
         return kept
     return [replace(entity, parent_code=_resolve_replacement(entity.parent_code, replacements)) for entity in kept]
+
+
+def _merge_duplicate_parent(
+    preferred: ScrapedAdminArea,
+    discarded: ScrapedAdminArea,
+    entities: list[ScrapedAdminArea] | dict[str, ScrapedAdminArea],
+) -> ScrapedAdminArea:
+    """Preserve the best valid parent when equivalent rows are collapsed."""
+    discarded_parent = str(discarded.parent_code or "").strip()
+    if not discarded_parent:
+        return preferred
+    if not _duplicate_parent_is_valid(discarded_parent, preferred, entities):
+        return preferred
+
+    preferred_parent = str(preferred.parent_code or "").strip()
+    if not _duplicate_parent_is_valid(preferred_parent, preferred, entities):
+        return replace(preferred, parent_code=discarded_parent)
+
+    if _parent_quality(discarded, entities) > _parent_quality(preferred, entities):
+        return replace(preferred, parent_code=discarded_parent)
+    return preferred
+
+
+def _duplicate_parent_is_valid(
+    parent_code: str,
+    child: ScrapedAdminArea,
+    entities: list[ScrapedAdminArea] | dict[str, ScrapedAdminArea],
+) -> bool:
+    if not parent_code or parent_code == str(child.code):
+        return False
+    parent = _entity_by_code(entities, parent_code)
+    if parent is None:
+        return False
+    return int(parent.level) < int(child.level)
 
 
 def _drop_cross_level_shortcuts(entities: list[ScrapedAdminArea]) -> list[ScrapedAdminArea]:
@@ -974,8 +1068,8 @@ def _drop_cross_level_shortcuts(entities: list[ScrapedAdminArea]) -> list[Scrape
                     continue
                 if _code_prefix_related(shallow, deep):
                     continue
-                deep_quality = _parent_quality(deep, entities)
-                shallow_quality = _parent_quality(shallow, entities)
+                deep_quality = _parent_quality(deep, by_code)
+                shallow_quality = _parent_quality(shallow, by_code)
                 if deep_quality < shallow_quality:
                     continue
                 if deep_quality == shallow_quality and not _parents_equivalent(shallow, deep, by_code):
@@ -1076,14 +1170,17 @@ def _duplicate_keys(entity: ScrapedAdminArea) -> tuple[tuple[str, object], ...]:
 def _preferred_duplicate(
     current: ScrapedAdminArea,
     candidate: ScrapedAdminArea,
-    entities: list[ScrapedAdminArea],
+    entities: list[ScrapedAdminArea] | dict[str, ScrapedAdminArea],
 ) -> ScrapedAdminArea:
     current_score = _duplicate_score(current, entities)
     candidate_score = _duplicate_score(candidate, entities)
     return candidate if candidate_score > current_score else current
 
 
-def _duplicate_score(entity: ScrapedAdminArea, entities: list[ScrapedAdminArea]) -> tuple[int, int, int, int]:
+def _duplicate_score(
+    entity: ScrapedAdminArea,
+    entities: list[ScrapedAdminArea] | dict[str, ScrapedAdminArea],
+) -> tuple[int, int, int, int]:
     parent_quality = _parent_quality(entity, entities)
     has_qid = 1 if _qid(entity.data_wd) else 0
     code_precision = len(str(entity.code or ""))
@@ -1091,7 +1188,7 @@ def _duplicate_score(entity: ScrapedAdminArea, entities: list[ScrapedAdminArea])
     return (parent_quality, has_qid, code_precision, url_specificity)
 
 
-def _parent_quality(entity: ScrapedAdminArea, entities: list[ScrapedAdminArea]) -> int:
+def _parent_quality(entity: ScrapedAdminArea, entities: list[ScrapedAdminArea] | dict[str, ScrapedAdminArea]) -> int:
     parent = _entity_by_code(entities, str(entity.parent_code) if entity.parent_code else None)
     if parent is None:
         return 0
@@ -1118,6 +1215,7 @@ def _rewire_parent_codes(entities: list[ScrapedAdminArea]) -> list[ScrapedAdminA
     already-scraped prefix and moves them exactly one level below that prefix.
     """
     codes = {str(entity.code) for entity in entities}
+    by_code = _by_code_first(entities)
     prefix_index = _prefix_parent_index(entities)
 
     updated: list[ScrapedAdminArea] = []
@@ -1125,7 +1223,7 @@ def _rewire_parent_codes(entities: list[ScrapedAdminArea]) -> list[ScrapedAdminA
         parent_code = str(entity.parent_code) if entity.parent_code else None
         prefix_parent = _best_prefix_parent(entity, prefix_index)
         if prefix_parent is not None:
-            current_parent = _entity_by_code(entities, parent_code) if parent_code else None
+            current_parent = by_code.get(parent_code) if parent_code else None
             expected_parent = str(prefix_parent.code)
             expected_level = int(prefix_parent.level) + 1
             if _should_use_prefix_parent(entity, current_parent, prefix_parent):
@@ -1136,6 +1234,38 @@ def _rewire_parent_codes(entities: list[ScrapedAdminArea]) -> list[ScrapedAdminA
             updated.append(entity)
         else:
             updated.append(entity)
+    return updated
+
+
+def _repair_self_parent_links(country_code: str, entities: list[ScrapedAdminArea]) -> list[ScrapedAdminArea]:
+    """Replace impossible self-parent links with the safest generic parent.
+
+    Duplicate collapse and cross-level shortcut removal can expose rows whose
+    parent code is their own CityPopulation code.  Keep the repair generic:
+    first use the same prefix-based parent rule as locality rewiring, then fall
+    back to the country root only when no better scoped parent exists.
+    """
+    root = _preferred_country_root(country_code, entities)
+    prefix_index = _prefix_parent_index(entities)
+    updated: list[ScrapedAdminArea] = []
+    for entity in entities:
+        if str(entity.parent_code or "") != str(entity.code):
+            updated.append(entity)
+            continue
+        prefix_parent = _best_prefix_parent(entity, prefix_index)
+        if prefix_parent is not None:
+            updated.append(
+                replace(
+                    entity,
+                    parent_code=prefix_parent.code,
+                    level=int(prefix_parent.level) + 1,
+                )
+            )
+            continue
+        if root is not None and str(root.code) != str(entity.code):
+            updated.append(replace(entity, parent_code=root.code, level=max(int(entity.level), int(root.level) + 1)))
+            continue
+        updated.append(replace(entity, parent_code=None))
     return updated
 
 
@@ -1174,6 +1304,13 @@ def _by_code_prefer_lowest(entities: list[ScrapedAdminArea]) -> dict[str, Scrape
         current = by_code.get(code)
         if current is None or int(entity.level) < int(current.level):
             by_code[code] = entity
+    return by_code
+
+
+def _by_code_first(entities: list[ScrapedAdminArea]) -> dict[str, ScrapedAdminArea]:
+    by_code: dict[str, ScrapedAdminArea] = {}
+    for entity in entities:
+        by_code.setdefault(str(entity.code), entity)
     return by_code
 
 
@@ -1218,10 +1355,14 @@ def _should_use_prefix_parent(
         return True
     if current_gap == 1:
         if (
+            int(prefix_parent.level) <= int(current_parent.level)
+            and _parent_name_in_child_url_scope(entity, current_parent)
+        ):
+            return False
+        if (
             prefix_is_prefix
             and not current_is_prefix
             and int(prefix_parent.level) >= int(current_parent.level)
-            and len(prefix_code) >= len(current_code)
         ):
             return True
         return int(prefix_parent.level) >= int(current_parent.level) and len(str(prefix_parent.code)) > len(str(current_parent.code))
@@ -1232,32 +1373,45 @@ def _should_use_prefix_parent(
     return False
 
 
-def _entity_by_code(entities: list[ScrapedAdminArea], code: str | None) -> ScrapedAdminArea | None:
+def _parent_name_in_child_url_scope(entity: ScrapedAdminArea, parent: ScrapedAdminArea) -> bool:
+    parent_name = _identity_name(parent.name) or _norm_name(parent.name)
+    if not parent_name:
+        return False
+    return parent_name in _url_scope_tokens(entity)
+
+
+def _entity_by_code(
+    entities: list[ScrapedAdminArea] | dict[str, ScrapedAdminArea],
+    code: str | None,
+) -> ScrapedAdminArea | None:
     if not code:
         return None
     wanted = str(code)
+    if isinstance(entities, dict):
+        return entities.get(wanted)
     for entity in entities:
         if str(entity.code) == wanted:
             return entity
     return None
 
 
-def _prefix_parent_index(entities: list[ScrapedAdminArea]) -> dict[int, list[ScrapedAdminArea]]:
+def _prefix_parent_index(entities: list[ScrapedAdminArea]) -> dict[int, dict[str, list[ScrapedAdminArea]]]:
     """Index possible code-prefix parents by code length, longest first."""
-    by_length: dict[int, list[ScrapedAdminArea]] = {}
+    by_length: dict[int, dict[str, list[ScrapedAdminArea]]] = {}
     for entity in entities:
         code = str(entity.code or "")
         if not code or _is_explicit_repeat(entity):
             continue
-        by_length.setdefault(len(code), []).append(entity)
-    for items in by_length.values():
-        items.sort(key=lambda item: int(item.level), reverse=True)
+        by_length.setdefault(len(code), {}).setdefault(code, []).append(entity)
+    for by_code in by_length.values():
+        for items in by_code.values():
+            items.sort(key=lambda item: int(item.level), reverse=True)
     return dict(sorted(by_length.items(), reverse=True))
 
 
 def _best_prefix_parent(
     entity: ScrapedAdminArea,
-    prefix_index: dict[int, list[ScrapedAdminArea]],
+    prefix_index: dict[int, dict[str, list[ScrapedAdminArea]]],
 ) -> ScrapedAdminArea | None:
     """Return the longest valid code-prefix parent for city/locality rows.
 
@@ -1273,10 +1427,10 @@ def _best_prefix_parent(
     if len(code) < 3 or not _prefix_safe_code(code):
         return None
 
-    for length, candidates in prefix_index.items():
+    for length, candidates_by_code in prefix_index.items():
         if length >= len(code):
             continue
-        for candidate in candidates:
+        for candidate in candidates_by_code.get(code[:length], ()):
             candidate_code = str(candidate.code or "")
             if not candidate_code or candidate_code == code:
                 continue
@@ -1336,6 +1490,16 @@ def _url_scope_token_list(entity: ScrapedAdminArea) -> tuple[str, ...]:
         _norm_name(entity.country_code),
     }
     tokens: list[str] = []
+    for segment in path.split("/"):
+        normalized_segment = _norm_name(segment)
+        if (
+            len(normalized_segment) >= 3
+            and normalized_segment not in generic
+            and not normalized_segment.replace(" ", "").isdigit()
+            and not normalized_segment.split()[0].isdigit()
+            and normalized_segment not in tokens
+        ):
+            tokens.append(normalized_segment)
     for token in raw_tokens:
         normalized = _norm_name(token)
         if len(normalized) < 3 or normalized in generic or normalized.isdigit():

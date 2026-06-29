@@ -15,6 +15,7 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from ciudades_del_mundo.models import WebTask
+from .log_retention import cleanup_old_logs
 from .task_progress import (
     WEB_TASK_ID_ENV,
     WEB_TASK_PROGRESS_PATH_ENV,
@@ -24,12 +25,20 @@ from .task_progress import (
 
 
 TERMINAL_STATUSES = {WebTask.Status.SUCCEEDED, WebTask.Status.FAILED, WebTask.Status.CANCELLED}
-# Tasks start immediately; only UI notification boxes are visually queued.
-MAX_RUNNING_TASKS = 0
+MAX_RUNNING_TASKS = 1
 MAX_PERSISTED_TASKS = 300
 TASK_LOG_DIR_NAME = ".web_task_logs"
 OUTPUT_TAIL_LINES = 240
 OUTPUT_STATUS_TAIL_CHARS = 12000
+
+
+def _bounded_max_running_tasks(value: int | str | None) -> int:
+    raw = value if value not in (None, "") else os.environ.get("CIUDADES_WEB_MAX_RUNNING_TASKS", MAX_RUNNING_TASKS)
+    try:
+        parsed = int(raw)
+    except (TypeError, ValueError):
+        parsed = MAX_RUNNING_TASKS
+    return min(3, max(1, parsed))
 
 
 class TaskManager:
@@ -44,20 +53,21 @@ class TaskManager:
         self,
         history_path: Path | None = None,
         *,
-        max_running_tasks: int = MAX_RUNNING_TASKS,
+        max_running_tasks: int | str | None = None,
     ) -> None:
         self._lock = threading.RLock()
         self._processes: dict[str, subprocess.Popen] = {}
         self._history_path = history_path or (Path(settings.BASE_DIR) / ".web_tasks.json")
         self._log_dir = Path(settings.BASE_DIR) / TASK_LOG_DIR_NAME
-        # Kept for backwards-compatible construction in tests/callers; it no longer throttles tasks.
-        self._max_running_tasks = max(0, int(max_running_tasks or 0))
+        self._max_running_tasks = _bounded_max_running_tasks(max_running_tasks)
         self._recovery_done = False
+        self._log_cleanup_done = False
 
     def start(self, *, key: str, label: str, args: list[str]) -> WebTask:
-        """Start a task immediately, cancelling the active task with the same key first."""
+        """Queue a task, cancelling the active task with the same key first."""
         self._ensure_recovered()
         process_to_terminate = None
+        task_ids_to_start: list[str] = []
         with self._lock:
             previous = self.latest_for_key(key)
             if previous and previous.is_active:
@@ -70,29 +80,34 @@ class TaskManager:
                 key=key,
                 label=label,
                 args=[str(arg) for arg in args],
-                status=WebTask.Status.RUNNING,
+                status=WebTask.Status.QUEUED,
                 created_at=now,
-                started_at=now,
-                log_path=self._relative_log_path(task_id),
+                log_path=self._relative_log_path(task_id, key),
             )
+            task_ids_to_start = self._dispatch_queued_locked()
             self._trim_history_locked()
 
         if process_to_terminate and process_to_terminate.poll() is None:
             process_to_terminate.terminate()
-        self._start_worker(task.id)
+        self._start_workers(task_ids_to_start)
+        task.refresh_from_db()
         return task
 
     def cancel(self, task_id: str) -> WebTask | None:
         self._ensure_recovered()
         process = None
+        task_ids_to_start: list[str] = []
         with self._lock:
             task = self.get(task_id)
             if not task or not task.is_active:
                 return task
             process = self._cancel_locked(task)
+            if task.status in TERMINAL_STATUSES:
+                task_ids_to_start = self._dispatch_queued_locked()
 
         if process and process.poll() is None:
             process.terminate()
+        self._start_workers(task_ids_to_start)
         return self.get(task_id)
 
     def get(self, task_id: str) -> WebTask | None:
@@ -184,15 +199,14 @@ class TaskManager:
         return process
 
     def _dispatch_queued_locked(self) -> list[str]:
-        """Legacy safeguard: promote any old queued rows immediately.
-
-        New web tasks are never queued in the backend. This method remains for
-        compatibility with older callers/tests and starts every non-cancelled
-        queued row instead of throttling them.
-        """
+        """Promote queued rows while respecting the backend process limit."""
+        running = WebTask.objects.filter(status=WebTask.Status.RUNNING, cancel_requested=False).count()
+        slots = max(0, self._max_running_tasks - running)
+        if slots <= 0:
+            return []
         queued = list(
             WebTask.objects.filter(status=WebTask.Status.QUEUED, cancel_requested=False)
-            .order_by("created_at", "id")
+            .order_by("created_at", "id")[:slots]
         )
         now = timezone.now()
         task_ids = []
@@ -229,6 +243,9 @@ class TaskManager:
             else:
                 should_stop = False
         if should_stop:
+            with self._lock:
+                task_ids_to_start = self._dispatch_queued_locked()
+            self._start_workers(task_ids_to_start)
             close_old_connections()
             return
 
@@ -259,6 +276,7 @@ class TaskManager:
                 bufsize=1,
             )
         except OSError as exc:
+            task_ids_to_start = []
             with self._lock:
                 task = self.get(task_id)
                 if task:
@@ -269,6 +287,8 @@ class TaskManager:
                         _("[ERROR] No se pudo iniciar la tarea: %(error)s\n") % {"error": exc},
                     )
                     task.save(update_fields=["status", "finished_at", "output", "log_path", "updated_at"])
+                task_ids_to_start = self._dispatch_queued_locked()
+            self._start_workers(task_ids_to_start)
             close_old_connections()
             return
 
@@ -299,6 +319,7 @@ class TaskManager:
 
         returncode = process.wait()
         close_old_connections()
+        task_ids_to_start = []
         with self._lock:
             task = self.get(task_id)
             if task:
@@ -314,6 +335,8 @@ class TaskManager:
                 task.save(update_fields=["returncode", "finished_at", "status", "output", "log_path", "updated_at"])
             self._processes.pop(task_id, None)
             self._trim_history_locked()
+            task_ids_to_start = self._dispatch_queued_locked()
+        self._start_workers(task_ids_to_start)
         close_old_connections()
 
     def _append_output_locked(self, task: WebTask, text: str) -> None:
@@ -332,7 +355,7 @@ class TaskManager:
 
     def _ensure_log_path_locked(self, task: WebTask) -> Path:
         if not task.log_path:
-            task.log_path = self._relative_log_path(task.id)
+            task.log_path = self._relative_log_path(task.id, task.key)
         return self._resolve_log_path(task) or (self._log_dir / f"{task.id}.log")
 
     def _resolve_log_path(self, task: WebTask) -> Path | None:
@@ -343,8 +366,8 @@ class TaskManager:
             return path
         return Path(settings.BASE_DIR) / path
 
-    def _relative_log_path(self, task_id: str) -> str:
-        return str(Path(TASK_LOG_DIR_NAME) / f"{task_id}.log")
+    def _relative_log_path(self, task_id: str, key: str = "") -> str:
+        return str(Path(TASK_LOG_DIR_NAME) / _task_log_group(key) / f"{task_id}.log")
 
     def _ensure_recovered(self) -> None:
         """Recover stale DB tasks lazily, outside Django app initialization.
@@ -359,6 +382,9 @@ class TaskManager:
         with self._lock:
             if self._recovery_done or os.environ.get("CIUDADES_WEB_TASK_CHILD") == "1":
                 return
+            if not self._log_cleanup_done:
+                cleanup_old_logs()
+                self._log_cleanup_done = True
             self._recover_interrupted_tasks()
             self._recovery_done = True
 
@@ -395,3 +421,16 @@ class TaskManager:
 ManagedTask = WebTask
 
 task_manager = TaskManager()
+
+
+def _task_log_group(key: str) -> str:
+    text = str(key or "").strip()
+    if ":" in text:
+        prefix, value = text.split(":", 1)
+        raw_group = value or prefix
+    else:
+        raw_group = text or "general"
+    if raw_group in {"all", "unpopulated"}:
+        raw_group = f"_{raw_group}"
+    group = "".join(char if char.isalnum() or char in {"-", "_", "."} else "_" for char in raw_group)
+    return group.strip("._") or "general"

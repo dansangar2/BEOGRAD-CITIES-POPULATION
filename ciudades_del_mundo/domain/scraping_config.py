@@ -38,6 +38,10 @@ class RepresentationSystem(StrEnum):
 class ScrapingPageConfig:
     """One logical scraping page after expanding grouped path arrays.
 
+    ``block_index`` identifies the original ``[[pages]]`` entry before a
+    multi-path block was expanded.  It lets the application validate and fail a
+    whole block before moving to the next configured block.
+
     ``table_levels`` and ``include_tables`` are optional hints for compound
     CityPopulation layouts.  They let a scraper use one table as parent lookup
     context while persisting another table at a different hierarchy level.
@@ -46,6 +50,8 @@ class ScrapingPageConfig:
     path: str
     html_format: str
     lowest_level: int = 1
+    block_index: int = 0
+    path_index: int = 0
     area_km2: Decimal | None = None
     area_overrides: dict[str, Decimal] = field(default_factory=dict)
     table_levels: dict[str, int] = field(default_factory=dict)
@@ -102,6 +108,8 @@ class ScrapingPageConfig:
         *,
         path: str,
         schema_version: int = 1,
+        block_index: int = 0,
+        path_index: int = 0,
     ) -> "ScrapingPageConfig":
         source = data.get("source", data.get("html_format"))
         if not source:
@@ -123,13 +131,17 @@ class ScrapingPageConfig:
             include_sections = _include_sections_from_include_spec(html_format, include_spec)
 
         include_root = bool(data.get("include_root", True))
-        if isinstance(include_spec, dict) and "infosection" in include_spec:
+        if "include_root" not in data and isinstance(include_spec, dict) and "infosection" in include_spec:
             include_root = bool(include_spec.get("infosection"))
+        if not include_root:
+            include_sections = tuple(section for section in include_sections if section != "infosection")
 
         return cls(
             path=str(path).strip("/"),
             html_format=html_format,
             lowest_level=_page_lowest_level(data, path=path, source=html_format, schema_version=schema_version),
+            block_index=int(block_index),
+            path_index=int(path_index),
             area_km2=_decimal_or_none(data.get("area_km2", data.get("size", data.get("custom_size")))),
             area_overrides=_parse_area_overrides(
                 data.get("area_overrides", data.get("size_overrides", data.get("custom_sizes")))
@@ -295,7 +307,9 @@ def parse_pages(
     schema_version: int = 1,
 ) -> list[ScrapingPageConfig]:
     pages = []
-    for item in items or []:
+    for block_index, item in enumerate(items or []):
+        if not _page_block_enabled(item):
+            continue
         raw_paths = item.get("path")
         if raw_paths is None:
             raise ValueError("PAGE debe declarar 'path'.")
@@ -304,10 +318,28 @@ def parse_pages(
         if not paths:
             raise ValueError("PAGE debe declarar al menos una ruta en 'path'.")
 
-        for raw_path in paths:
+        for path_index, raw_path in enumerate(paths):
             normalized = _normalize_page_path(slug, raw_path)
-            pages.append(ScrapingPageConfig.from_mapping(item, path=normalized, schema_version=schema_version))
+            pages.append(
+                ScrapingPageConfig.from_mapping(
+                    item,
+                    path=normalized,
+                    schema_version=schema_version,
+                    block_index=block_index,
+                    path_index=path_index,
+                )
+            )
     return pages
+
+
+def _page_block_enabled(item: dict) -> bool:
+    if "enabled" in item:
+        return bool(item.get("enabled"))
+    if "active" in item:
+        return bool(item.get("active"))
+    if "disabled" in item:
+        return not bool(item.get("disabled"))
+    return True
 
 
 
@@ -321,9 +353,17 @@ def _page_lowest_level(data: dict, *, path: str, source: str, schema_version: in
         return 1
 
     normalized_path = str(path or "").strip("/").casefold()
-    if source == DivisionSourceType.ADMIN.value and normalized_path.endswith("/admin"):
+    if _is_country_root_path(normalized_path):
         return 0
-    if source in {DivisionSourceType.CITIES.value, DivisionSourceType.CITIESADMIN.value} and normalized_path.endswith("/cities"):
+    if source == DivisionSourceType.ADMIN.value and _is_country_root_admin_path(normalized_path):
+        return 0
+    if (
+        source in {DivisionSourceType.CITIES.value, DivisionSourceType.CITIESADMIN.value}
+        and _is_country_root_admin_path(normalized_path)
+        and _include_spec_allows_infosection(data.get("include"))
+    ):
+        return 0
+    if source in {DivisionSourceType.CITIES.value, DivisionSourceType.CITIESADMIN.value} and _is_country_root_cities_path(normalized_path):
         # Country-level CityPopulation /cities/ pages usually expose the
         # country total in table#tl/tfoot instead of in a normal infosection.
         # Treat the page itself as level 0 so the cities scraper can parse and
@@ -332,6 +372,33 @@ def _page_lowest_level(data: dict, *, path: str, source: str, schema_version: in
     if "/localities/" in f"/{normalized_path}/":
         return 2
     return 1
+
+
+def _is_country_root_path(path: str) -> bool:
+    return len(_relative_path_segments(path)) == 1
+
+
+def _is_country_root_admin_path(path: str) -> bool:
+    segments = _relative_path_segments(path)
+    return len(segments) == 2 and segments[-1] == "admin"
+
+
+def _is_country_root_cities_path(path: str) -> bool:
+    segments = _relative_path_segments(path)
+    return len(segments) == 2 and segments[-1] == "cities"
+
+
+def _relative_path_segments(path: str) -> tuple[str, ...]:
+    normalized = str(path or "").strip("/").casefold()
+    if not normalized or normalized.startswith(("http://", "https://")):
+        return ()
+    return tuple(segment for segment in normalized.split("/") if segment)
+
+
+def _include_spec_allows_infosection(value) -> bool:
+    if isinstance(value, dict) and "infosection" in value:
+        return bool(value.get("infosection"))
+    return True
 
 
 def _include_tables_from_include_spec(source: str, value) -> tuple[str, ...]:
