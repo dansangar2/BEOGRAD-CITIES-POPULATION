@@ -256,7 +256,7 @@
       </div>
 
 
-      <div class="section-title asset-corrections-title">
+      <div class="section-title asset-corrections-title" hidden>
         <div>
           <h2>{% trans "Escudos y banderas" %}</h2>
           <p class="muted">{% trans "La populación usa una única búsqueda masiva en Wikidata. Después de popular por primera vez, usa esta subsección para reasignar manualmente banderas o escudos que hayan quedado mal asignados." %}</p>
@@ -275,8 +275,99 @@
       <input type="hidden" name="visual_asset_required_kinds" value="{{ manual.visual_assets.required_kinds|default:'flag, coat' }}">
       <input type="hidden" name="visual_asset_required_levels" value="{{ manual.visual_assets.required_levels }}">
 
+      <section class="config-cities-section" data-config-cities-section hidden>
+        <div class="section-title">
+          <div>
+            <h2>{% trans "Ciudades" %}</h2>
+          </div>
+          <div class="button-row config-city-section-actions">
+            {% if mode == "edit" %}
+            <form method="post" action="{% url 'ciudades_del_mundo:config_city_merge_import_toml' slug %}" data-config-export-form data-action-label="{% trans 'Importar TOML' %}" data-exporting-label="{% trans 'Importando TOML...' %}" data-export-success-label="{% trans 'TOML importado correctamente.' %}" data-export-error-label="{% trans 'No se pudo importar el TOML.' %}">
+              {% csrf_token %}
+              <button class="secondary" type="submit">{% trans "Importar TOML" %}</button>
+            </form>
+            <form method="post" action="{% url 'ciudades_del_mundo:config_city_merge_export_toml' slug %}" data-config-export-form data-action-label="{% trans 'Exportar TOML' %}" data-exporting-label="{% trans 'Exportando TOML...' %}" data-export-success-label="{% trans 'TOML exportado correctamente.' %}" data-export-error-label="{% trans 'No se pudo exportar el TOML.' %}">
+              {% csrf_token %}
+              <button class="secondary" type="submit">{% trans "Exportar TOML" %}</button>
+            </form>
+            {% endif %}
+            <button class="secondary" type="button" data-open-config-city-picker>{% trans "Añadir" %}</button>
+          </div>
+        </div>
+        <input type="hidden" name="config_cities_loaded" value="0" data-config-cities-loaded>
+        <input type="hidden" name="config_cities_json" value="[]" data-config-cities-json>
+        <div
+          class="config-city-builder"
+          data-config-city-builder
+          data-empty-label="{% trans 'Sin datos.' %}"
+          data-remove-label="{% trans 'Quitar' %}"
+          data-edit-label="{% trans 'Editar' %}"
+          data-available-label="{% trans 'Disponibles' %}"
+          data-selected-label="{% trans 'Ciudad unificada' %}"
+          data-name-label="{% trans 'Nombre de la ciudad' %}"
+          data-code-label="{% trans 'Codigo' %}"
+          data-parent-label="{% trans 'Subdivisión mayor' %}"
+          data-selected-count-label="{% trans 'Elementos seleccionados' %}"
+          data-unnamed-label="{% trans 'Sin nombre' %}"
+          data-loading-label="{% trans 'Cargando datos...' %}"
+          data-create-title-label="{% trans 'Nueva ciudad' %}"
+          data-edit-title-label="{% trans 'Editar ciudad' %}"
+          data-filter-name-label="{% trans 'Buscar por nombre' %}"
+          data-filter-type-label="{% trans 'Tipo' %}"
+          data-all-types-label="{% trans 'Todos los tipos' %}"
+          data-no-type-label="{% trans 'Sin tipo' %}"
+          hidden
+        >
+          <div class="config-city-modal" data-config-city-modal role="dialog" aria-modal="true" hidden>
+            <div class="config-city-modal-backdrop" data-close-config-city-modal></div>
+            <div class="config-city-modal-dialog" role="document">
+              <div class="config-city-modal-header">
+                <h3 data-config-city-modal-title>{% trans "Ciudad unificada" %}</h3>
+                <button class="config-city-modal-close" type="button" data-close-config-city-modal aria-label="{% trans 'Cerrar' %}">
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </div>
+              <div class="config-city-modal-body">
+                <div class="config-city-builder-controls" data-config-city-modal-parent-field>
+                  <label>
+                    {% trans "Subdivisión mayor" %}
+                    <select
+                      data-config-city-parent-select
+                      data-require-value="true"
+                      data-placeholder="{% trans 'Buscar' %}"
+                      data-empty-results-label="{% trans 'Sin datos.' %}"
+                    ></select>
+                  </label>
+                </div>
+                <div class="config-city-modal-content" data-config-city-modal-content></div>
+              </div>
+              <div class="config-city-modal-actions">
+                <button type="button" data-save-config-city-modal>{% trans "Guardar" %}</button>
+              </div>
+            </div>
+          </div>
+          <div class="table-wrap subtle config-city-table-wrap">
+            <table class="compact-table config-city-table">
+              <thead>
+                <tr>
+                  <th>{% trans "Ciudad unificada" %}</th>
+                  <th>{% trans "Subdivisión mayor" %}</th>
+                  <th>{% trans "Elementos" %}</th>
+                  <th>{% trans "Acciones" %}</th>
+                </tr>
+              </thead>
+              <tbody data-config-city-table>
+                <tr data-config-city-empty-row>
+                  <td colspan="4" class="table-empty-cell">{% trans "Sin datos." %}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       {% if not manual.asset_options.enabled %}
-      <p class="muted">{% trans "Las correcciones manuales se activarán cuando este país se haya populado al menos una vez." %}</p>
+      <p class="muted" hidden>{% trans "Las correcciones manuales se activarán cuando este país se haya populado al menos una vez." %}</p>
       {% endif %}
 
       <template data-asset-assignment-row-template>
@@ -317,7 +408,7 @@
         </tr>
       </template>
 
-      <div class="table-wrap subtle manual-asset-overrides-wrap">
+      <div class="table-wrap subtle manual-asset-overrides-wrap" hidden>
         <table class="compact-table manual-asset-overrides-table">
           <thead>
             <tr>
@@ -373,7 +464,7 @@
         </table>
       </div>
       {% if mode == "edit" %}
-      <div class="actions asset-corrections-actions">
+      <div class="actions asset-corrections-actions" hidden>
         <button type="submit" class="secondary" formaction="{% url 'ciudades_del_mundo:start_config_task' slug 'asset-corrections' %}" formmethod="post" data-config-action="asset-corrections" data-action-label="{% trans 'Guardar correcciones' %}" {% if not manual.asset_options.enabled %}disabled{% endif %}>{% trans "Guardar correcciones" %}</button>
       </div>
       {% endif %}
@@ -443,7 +534,7 @@
         {% trans "Proceso" %}
         <textarea class="task-console" data-generate-log readonly placeholder="{% trans 'Aquí aparecerá el proceso.' %}"></textarea>
       </label>
-      <div class="panel form-panel generated-config-preview" data-generated-config-form>
+      <div class="panel form-panel generated-config-preview" data-generated-config-form {% if mode == 'edit' %}hidden{% endif %}>
         <label>
           TOML
           <textarea spellcheck="false" data-generated-config readonly>{{ content }}</textarea>

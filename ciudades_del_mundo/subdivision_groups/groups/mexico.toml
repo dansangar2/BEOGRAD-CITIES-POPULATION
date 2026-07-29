@@ -1,0 +1,183 @@
+source_country_code = "mexico"
+
+CAMPECHE_A_CARMEN = [
+    "Carmen",
+    "Palizada",
+]
+
+CAMPECHE_A_GUATEMALA = [
+    "Calakmul",
+    "Escárcega",
+    "Candelaria",
+]
+
+CHIAPAS_A_EXCLUIR_A_GUATEMALA = [
+    "Ocosingo",
+]
+
+CHIAPAS_A_GUATEMALA = [
+    "Benemérito de las Américas",
+    "Marqués de Comillas",
+    "Ocosingo",
+    "Maravilla Tenejapa",
+    "Las Margaritas",
+    "Altamirano",
+    "La Independencia",
+    "Motozintla",
+    "Mazapa de Madero",
+    "El Porvenir",
+]
+
+COAHUILA_A_NUEVA_VIZCAYA = [
+    "Ocampo",
+    "Acuña",
+    "Sierra Mojada",
+]
+
+COAHUILA_EXCLUYE_MUN_A_NUEVA_VIZCAYA = [
+    "Ciudad Acuña",
+]
+
+COLIMA_A_MINCHOACAN = [
+    "Ixtlahuacán",
+]
+
+COLUMBIA_BRITANICA_A_TERRITORIO_DEL_NORTE = [
+    "Tumbler Ridge",
+    "Pouce Coupe",
+    "Dawson Creek",
+    "Chetwynd",
+    "East Moberly Lake 169",
+    "West Moberly Lake 168A",
+    "Hudson's Hope",
+    "Peace River C",
+    "Taylor",
+    "Fort St. John",
+    "Halfway River 168",
+    "Doig River 206",
+    "Blueberry River 205",
+    "Fort Nelson 2",
+    "Prophet River 4",
+]
+
+GUATEMALA_A_CHIAPAS = [
+    "La Blanca",
+    "Ocós",
+    "Ayutla",
+]
+
+GUERRERO_A_PUEBLA = [
+    "Olinalá",
+    "Xochihuehuetlán",
+    "Huamuxtitlán",
+    "Cualác",
+    "Alpoyeca",
+    "Tlapa de Comonfort",
+    "Tlalixtaquilla de Maldonado",
+    "Alcozauca de Guerrero",
+    "Xalpatláhuac",
+    "Metlatónoc",
+    "Cochoapa el Grande",
+    "Tlacoachistlahuaca",
+    "Xochistlahuaca",
+    "Ometepec",
+    "Cuajinicuilapa",
+    "Marquelia",
+    "Juchitán",
+    "Azoyú",
+    "Igualapa",
+    "Copala",
+    "Florencio Villarreal",
+    "Cuautepec",
+    "San Luis Acatlán",
+    "Ayutla de los Libres",
+    "Acatepec",
+    "Malinaltepec",
+    "Iliatenco",
+    "Tlacoapa",
+    "Zapotitlán Tablas",
+    "Atlamajalcingo del Monte",
+    "Copanatoyac",
+]
+
+GUERRERO_A_VALLADOLID = [
+    "Zirándaro",
+    "Coyuca de Catalán",
+    "Ajuchitlán del Progreso",
+    "Tlapehuala",
+    "Pungarabato",
+]
+
+MINCHOACAN_A_GUADALAJARA = [
+    "Marcos Castellanos",
+]
+
+MORELOS_A_PUEBLA = [
+    "Zacualtipán de Ángeles",
+    "Agua Blanca de Iturbide",
+    "San Bartolo Tutotepec",
+    "Tenango de Doria",
+    "Huehuetla",
+]
+
+QUERETARO_A_GUANAJUATO = [
+    "Peñamiller",
+]
+
+TABASCO_A_VERACRUZ = [
+    "Cárdenas",
+    "Huimanguillo",
+]
+
+VERACRUZ_A_OAXACA = [
+    "San Juan Evangelista",
+]
+
+VERACRUZ_A_PUEBLA = [
+    "Huayacocotla",
+    "Zacualpan",
+    "Texcatepec",
+    "Zontecomatlán de López y Fuentes",
+    "Tlachichilco",
+    "Benito Juárez",
+    "Ilamatlán",
+    "Ixhuatlán de Madero",
+    "Tihuatlán",
+    "Cazones de Herrera",
+    "Tuxpan",
+    "Castillo de Teayo",
+    "Álamo Temapache",
+    "Tamiahua",
+    "Chinampa de Gorostiza",
+    "Naranjos Amatlán",
+    "Tancoco",
+    "Cerro Azul",
+    "Tepetzintla",
+]
+
+YUKON_CIUDADES_A_NUTKA = [
+    "Beaver Creek",
+    "Faro",
+    "Carmacks",
+    "Ross River",
+    "Burwash Landing",
+    "Destruction Bay",
+    "Haines Junction",
+    "Champagne Landing 10",
+    "Macpherson - Grizzly Valley",
+    "Lake Laberge 1",
+    "Whitehorse, Unorganized",
+    "Ibex Valley",
+    "Whitehorse",
+    "Mt. Lorne",
+    "Marsh Lake",
+    "Carcross",
+    "Carcross 4",
+    "Tagish",
+    "Johnsons Crossing",
+    "Teslin Post 13",
+    "Teslin",
+    "Swift River",
+    "Watson Lake",
+    "Upper Liard",
+]

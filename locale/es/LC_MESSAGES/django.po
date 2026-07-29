@@ -56,6 +56,9 @@ msgstr "Poblacion por pais"
 msgid "Cargando datos..."
 msgstr "Cargando datos..."
 
+msgid "No se pudieron cargar los datos."
+msgstr "No se pudieron cargar los datos."
+
 msgid "No se pudo cargar la poblacion."
 msgstr "No se pudo cargar la poblacion."
 
@@ -1076,6 +1079,42 @@ msgstr "Graficas - Ciudades del Mundo"
 msgid "Grupo"
 msgstr "Grupo"
 
+msgid "Municipios"
+msgstr "Municipios"
+
+msgid "Buscar grupo"
+msgstr "Buscar grupo"
+
+msgid "Grupos"
+msgstr "Grupos"
+
+msgid "Selecciona un nivel"
+msgstr "Selecciona un nivel"
+
+msgid "Subdivisión"
+msgstr "Subdivisión"
+
+msgid "Selecciona una subdivisión"
+msgstr "Selecciona una subdivisión"
+
+msgid "Disponibles"
+msgstr "Disponibles"
+
+msgid "NUEVO GRUPO"
+msgstr "NUEVO GRUPO"
+
+msgid "Codigo interno"
+msgstr "Codigo interno"
+
+msgid "Un grupo por linea"
+msgstr "Un grupo por linea"
+
+msgid "Los grupos de la agrupacion no son JSON valido: %(error)s"
+msgstr "Los grupos de la agrupacion no son JSON valido: %(error)s"
+
+msgid "Los grupos de la agrupacion no son JSON valido."
+msgstr "Los grupos de la agrupacion no son JSON valido."
+
 msgid "Guarda la receta y lanza la tarea de creacion desde la lista de recetas. Si ya habia una creacion activa de esta receta, guardar cancela esa tarea y la reemplaza."
 msgstr "Guarda la receta y lanza la tarea de creacion desde la lista de recetas. Si ya habia una creacion activa de esta receta, guardar cancela esa tarea y la reemplaza."
 
@@ -1667,3 +1706,98 @@ msgstr "La seleccion contiene subdivisiones que no pertenecen al pais fuente."
 
 msgid "No existe el TOML semilla: %(path)s."
 msgstr "No existe el TOML semilla: %(path)s."
+msgid "Añadir"
+msgstr "Añadir"
+
+msgid "Buscar nivel"
+msgstr "Buscar nivel"
+
+msgid "NUEVA SUBDIVISION"
+msgstr "NUEVA SUBDIVISION"
+
+msgid "Seccion padre"
+msgstr "Seccion padre"
+
+msgid "Codigo propio"
+msgstr "Codigo propio"
+
+msgid "Codigo calculado"
+msgstr "Codigo calculado"
+
+msgid "Configuracion"
+msgstr "Configuracion"
+
+msgid "Accion"
+msgstr "Accion"
+
+msgid "Sumar"
+msgstr "Sumar"
+
+msgid "Restar"
+msgstr "Restar"
+
+msgid "Incluidos"
+msgstr "Incluidos"
+
+msgid "Excluidos"
+msgstr "Excluidos"
+
+msgid "Excluir"
+msgstr "Excluir"
+
+msgid "No hay grupos creados para este pais."
+msgstr "No hay grupos creados para este pais."
+
+msgid "Buscar subdivisión"
+msgstr "Buscar subdivisión"
+
+msgid "Página"
+msgstr "Página"
+
+msgid "La configuración de ciudades no es JSON válido."
+msgstr "La configuración de ciudades no es JSON válido."
+
+msgid "La configuración de ciudades debe ser una lista."
+msgstr "La configuración de ciudades debe ser una lista."
+
+msgid "Nombre de la ciudad"
+msgstr "Nombre de la ciudad"
+
+msgid "Sin nombre"
+msgstr "Sin nombre"
+
+msgid "El nombre de la ciudad unificada no puede estar vacío."
+msgstr "El nombre de la ciudad unificada no puede estar vacío."
+
+msgid "Nueva ciudad"
+msgstr "Nueva ciudad"
+
+msgid "Editar ciudad"
+msgstr "Editar ciudad"
+
+msgid "Cerrar"
+msgstr "Cerrar"
+
+msgid "Sin capital"
+msgstr "Sin capital"
+
+msgid "Buscar capital"
+msgstr "Buscar capital"
+
+msgid "Sin capitales"
+msgstr "Sin capitales"
+
+msgid "Quitar capital"
+msgstr "Quitar capital"
+
+msgid "Escribe al menos 2 letras"
+msgstr "Escribe al menos 2 letras"
+
+msgid "Sin resultados"
+msgstr "Sin resultados"
+
+msgid "Buscando..."
+msgstr "Buscando..."
+
+msgid "capitals debe ser una lista."
+msgstr "capitals debe ser una lista."

@@ -65,6 +65,9 @@ msgstr "Население по странам"
 msgid "Cargando datos..."
 msgstr "Загрузка данных..."
 
+msgid "No se pudieron cargar los datos."
+msgstr "Не удалось загрузить данные."
+
 msgid "No se pudo cargar la poblacion."
 msgstr "Не удалось загрузить население."
 
@@ -142,6 +145,42 @@ msgstr "Корневое имя"
 
 msgid "Grupo"
 msgstr "Группа"
+
+msgid "Municipios"
+msgstr "Муниципалитеты"
+
+msgid "Buscar grupo"
+msgstr "Поиск группы"
+
+msgid "Grupos"
+msgstr "Группы"
+
+msgid "Selecciona un nivel"
+msgstr "Выберите уровень"
+
+msgid "Subdivisión"
+msgstr "Подразделение"
+
+msgid "Selecciona una subdivisión"
+msgstr "Выберите подразделение"
+
+msgid "Disponibles"
+msgstr "Доступные"
+
+msgid "NUEVO GRUPO"
+msgstr "НОВАЯ ГРУППА"
+
+msgid "Codigo interno"
+msgstr "Внутренний код"
+
+msgid "Un grupo por linea"
+msgstr "Одна группа на строку"
+
+msgid "Los grupos de la agrupacion no son JSON valido: %(error)s"
+msgstr "Группы этой группировки не являются допустимым JSON: %(error)s"
+
+msgid "Los grupos de la agrupacion no son JSON valido."
+msgstr "Группы этой группировки не являются допустимым JSON."
 
 msgid "Filas creadas"
 msgstr "Созданные строки"
@@ -1673,3 +1712,98 @@ msgstr "????? ???????? ?????????????, ?? ????????????? ???????? ??????."
 
 msgid "No existe el TOML semilla: %(path)s."
 msgstr "TOML-?????? ?? ??????????: %(path)s."
+msgid "Añadir"
+msgstr "Добавить"
+
+msgid "Buscar nivel"
+msgstr "Найти уровень"
+
+msgid "NUEVA SUBDIVISION"
+msgstr "НОВОЕ ПОДРАЗДЕЛЕНИЕ"
+
+msgid "Seccion padre"
+msgstr "Родительский раздел"
+
+msgid "Codigo propio"
+msgstr "Собственный код"
+
+msgid "Codigo calculado"
+msgstr "Рассчитанный код"
+
+msgid "Configuracion"
+msgstr "Конфигурация"
+
+msgid "Accion"
+msgstr "Действие"
+
+msgid "Sumar"
+msgstr "Добавить"
+
+msgid "Restar"
+msgstr "Вычесть"
+
+msgid "Incluidos"
+msgstr "Включённые"
+
+msgid "Excluidos"
+msgstr "Исключённые"
+
+msgid "Excluir"
+msgstr "Исключить"
+
+msgid "No hay grupos creados para este pais."
+msgstr "Для этой страны нет созданных групп."
+
+msgid "Buscar subdivisión"
+msgstr "Найти подразделение"
+
+msgid "Página"
+msgstr "Страница"
+
+msgid "La configuración de ciudades no es JSON válido."
+msgstr "Конфигурация городов не является допустимым JSON."
+
+msgid "La configuración de ciudades debe ser una lista."
+msgstr "Конфигурация городов должна быть списком."
+
+msgid "Nombre de la ciudad"
+msgstr "Название города"
+
+msgid "Sin nombre"
+msgstr "Без названия"
+
+msgid "El nombre de la ciudad unificada no puede estar vacío."
+msgstr "Название объединенного города не может быть пустым."
+
+msgid "Nueva ciudad"
+msgstr "Новый город"
+
+msgid "Editar ciudad"
+msgstr "Редактировать город"
+
+msgid "Cerrar"
+msgstr "Закрыть"
+
+msgid "Sin capital"
+msgstr "Без столицы"
+
+msgid "Buscar capital"
+msgstr "Поиск столицы"
+
+msgid "Sin capitales"
+msgstr "Нет столиц"
+
+msgid "Quitar capital"
+msgstr "Удалить столицу"
+
+msgid "Escribe al menos 2 letras"
+msgstr "Введите минимум 2 буквы"
+
+msgid "Sin resultados"
+msgstr "Нет результатов"
+
+msgid "Buscando..."
+msgstr "Поиск..."
+
+msgid "capitals debe ser una lista."
+msgstr "capitals должен быть списком."

@@ -1,0 +1,170 @@
+source_country_code = "portugal"
+
+AVEIRO_A_DUERO_LITORAL = [
+    "Arouca",
+    "Castelo de Paiva",
+    "Espinho",
+    "Santa Maria da Feira",
+]
+
+COIMBRA_A_BEIRA_ALTA = [
+    "Oliveira do Hospital",
+    "Tábua",
+]
+
+COIMBRA_A_BEIRA_BAJA = [
+    "Pampilhosa da Serra",
+]
+
+CORVO = [
+    "Corvo",
+]
+
+FAIAL = [
+    "Horta",
+]
+
+FLORES = [
+    "Lajes das Flores",
+    "Santa Cruz das Flores",
+]
+
+GRACIOSA = [
+    "Santa Cruz da Graciosa",
+]
+
+GUARDA_A_TRAS_LOS_MONTES = [
+    "Vila Nova de Foz Côa",
+]
+
+GUARDA_A_VILA_REAL = [
+    "Vila Nova de Foz Côa",
+]
+
+ILHA_DA_MADEIRA = [
+    "Calheta",
+    "Câmara de Lobos",
+    "Funchal",
+    "Machico",
+    "Ponta do Sol",
+    "Porto Moniz",
+    "Ribeira Brava",
+    "Santa Cruz",
+    "Santana",
+    "São Vicente",
+]
+
+LEIRIA_A_ESTREMADURA = [
+    "Alcobaça",
+    "Bombarral",
+    "Caldas da Rainha",
+    "Marinha Grande",
+    "Nazaré",
+    "Óbidos",
+    "Peniche",
+    "Porto de Mós",
+]
+
+LEIRIA_A_ESTREMADURA_2 = [
+    "Alcobaça",
+    "Bombarral",
+    "Caldas da Rainha",
+    "Marinha Grande",
+    "Nazaré",
+    "Óbidos",
+    "Peniche",
+    "Porto de Mós",
+]
+
+LISBOA_A_RIBATEJO = [
+    "Arruda dos Vinhos",
+    "Azambuja",
+    "Vila Franca de Xira",
+]
+
+PICO = [
+    "Lajes do Pico",
+    "Madalena",
+    "São Roque do Pico",
+]
+
+PORTALEGRE_A_ESTREMADURA = [
+    "Ponte de Sor",
+]
+
+PORTALEGRE_A_RIBATEJO = [
+    "Ponte de Sor",
+]
+
+PORTO_SANTO = [
+    "Porto Santo",
+]
+
+SANTAREM_A_BEIRA = [
+    "Ourém",
+    "Mação",
+]
+
+SANTAREM_A_BEIRA_LITORAL = [
+    "Ourém",
+]
+
+SANTAREM_A_CASTELO_BRANCO = [
+    "Mação",
+]
+
+SANTA_MARIA = [
+    "Vila do Porto",
+]
+
+SAO_JORGE = [
+    "Calheta",
+    "Velas",
+]
+
+SAO_MIGUEL = [
+    "Lagoa",
+    "Nordeste",
+    "Ponta Delgada",
+    "Povoação",
+    "Ribeira Grande",
+    "Vila Franca do Campo",
+]
+
+SETUBAL_A_ALENTEJO = [
+    "Alcácer do Sal",
+    "Grândola",
+    "Santiago do Cacém",
+    "Sines",
+]
+
+SETUBAL_A_BAJO_ALENTEJO = [
+    "Alcácer do Sal",
+    "Grândola",
+    "Santiago do Cacém",
+    "Sines",
+]
+
+TERCEIRA = [
+    "Angra do Heroísmo",
+    "Vila da Praia da Vitória",
+]
+
+VISEU_A_DUERO_LITORAL = [
+    "Cinfães",
+    "Resende",
+]
+
+VISEU_A_TRAS_LOS_MONTES = [
+    "Armamar",
+    "Lamego",
+    "São João da Pesqueira",
+    "Tabuaço",
+]
+
+VISEU_A_VILA_REAL = [
+    "Armamar",
+    "Lamego",
+    "São João da Pesqueira",
+    "Tabuaço",
+]

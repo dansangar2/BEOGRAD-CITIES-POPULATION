@@ -1,0 +1,59 @@
+source_country_code = "guatemala"
+
+BELIZE_A_GUATEMALA = [
+    "Stann Creek",
+    "Cayo",
+    "Toledo",
+]
+
+COSTA_RICA_A_NICARAGUA = [
+    "Nandayure",
+    "Hojancha",
+    "Nicoya",
+    "Santa Cruz",
+    "Carrillo",
+    "Liberia",
+    "La Cruz",
+    "Upala",
+]
+
+COSTA_RICA_DISTR_A_NICARAGUA = [
+    "Cóbano",
+    "Paquera",
+    "Lepanto",
+    "Chira",
+    "Los Chiles",
+    "Caño Negro",
+    "Isla del Coco",
+]
+
+COSTA_RICA_DISTR_A_VERAGUAS = [
+    "Pavón",
+    "Laurel",
+    "La Cuesta",
+    "Canoas",
+    "Corredor",
+    "Aguabuena",
+    "Sabalito",
+    "Pittier",
+    "San Vito",
+    "Guaycará",
+    "Cahuita",
+    "Sixaola",
+    "Bratsi",
+]
+
+COSTA_RICA_EXCLUIR_DISTR_A_NICARAGUA = [
+    "Bijagua de Upala",
+]
+
+EL_SALVADOR_A_GUATEMALA = [
+    "Sonsonate",
+    "Ahuachapán",
+]
+
+GUATEMALA_A_CHIAPAS = [
+    "La Blanca",
+    "Ocós",
+    "Ayutla",
+]

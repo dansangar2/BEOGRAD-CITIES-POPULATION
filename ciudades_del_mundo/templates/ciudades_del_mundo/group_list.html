@@ -11,36 +11,258 @@
     <p class="muted">{{ seed_count }} {% trans "semillas TOML disponibles" %}</p>
   </div>
   <div class="actions">
-    <form method="post" action="{% url 'ciudades_del_mundo:group_import_toml' %}">
+    <form method="post" action="{% url 'ciudades_del_mundo:group_import_toml' %}" data-loading-submit>
       {% csrf_token %}
       <button class="secondary" type="submit">{% trans "Importar TOML" %}</button>
     </form>
-    <a class="button secondary" href="{% url 'ciudades_del_mundo:group_new' %}">{% trans "Nuevo grupo" %}</a>
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:new_country_new' %}">{% trans "Agregar pais" %}</a>
   </div>
 </section>
 
-<div class="table-wrap">
-  <table>
-    <thead>
-      <tr>
-        <th>Slug</th>
-        <th>{% trans "Nombre" %}</th>
-        <th>{% trans "Pais fuente" %}</th>
-        <th>{% trans "Acciones" %}</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for group in groups %}
-      <tr>
-        <td><code>{{ group.slug }}</code></td>
-        <td>{{ group.name }}</td>
-        <td>{{ group.source_country_code|default:"-" }}</td>
-        <td><a href="{% url 'ciudades_del_mundo:group_edit' group.slug %}">{% trans "Editar" %}</a></td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="4">{% trans "No hay grupos creados." %}</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+<section class="panel">
+  <div class="stats-country-grid" data-group-country-grid>
+    {% for country in country_cards %}
+    <button
+      class="stats-country-card group-country-card"
+      type="button"
+      data-group-country-card
+      data-group-country-key="{{ country.key }}"
+      data-group-detail-target="groups-country-detail-{{ forloop.counter }}"
+      aria-controls="groups-country-detail-{{ forloop.counter }}"
+      aria-expanded="false"
+    >
+      <span class="stats-country-flag">
+        {% if country.flag_url %}
+        <img src="{{ country.flag_url }}" alt="{{ country.label }}">
+        {% else %}
+        <span class="visual-placeholder visual-placeholder-flag" aria-hidden="true"></span>
+        {% endif %}
+      </span>
+      <strong>{{ country.label }}</strong>
+      <span class="stats-country-card-metrics">
+        <span>{% trans "Poblacion" %}: {{ country.population_text }}</span>
+        <span>{% trans "Terreno" %}: {{ country.area_text }}</span>
+      </span>
+    </button>
+    {% empty %}
+    <p class="empty">{% trans "Sin datos." %}</p>
+    {% endfor %}
+  </div>
+</section>
+
+{% for country in country_cards %}
+<section
+  id="groups-country-detail-{{ forloop.counter }}"
+  class="stats-country-detail group-country-detail"
+  data-group-country-detail
+  data-group-country-key="{{ country.key }}"
+  hidden
+>
+  <div class="group-country-panel" data-group-country-panel>
+    <div class="group-panel-loading table-loading" data-group-panel-loading hidden>
+      <span class="loading-spinner" aria-hidden="true"></span>
+      <span>{% trans "Cargando datos..." %}</span>
+    </div>
+    <div class="group-country-panel-content stats-country-detail-grid group-country-detail-grid" data-group-panel-content>
+      <section class="panel">
+        <div class="section-title">
+          <div>
+            <h2>{% trans "Agrupaciones" %}</h2>
+          </div>
+          <div class="button-row group-panel-actions group-icon-actions">
+            {% if country.code %}
+            <form method="post" action="{% url 'ciudades_del_mundo:group_import_toml' %}" data-loading-submit>
+              {% csrf_token %}
+              <input type="hidden" name="country_code" value="{{ country.code }}">
+              <button class="secondary icon-action-button" type="submit" aria-label="{% trans 'Importar TOML' %}" title="{% trans 'Importar TOML' %}" {% if not country.seed_count %}disabled{% endif %}>
+                <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+                  <path d="M12 3v12"></path>
+                  <path d="m7 10 5 5 5-5"></path>
+                  <path d="M5 21h14"></path>
+                </svg>
+              </button>
+            </form>
+            <form
+              method="post"
+              action="{{ country.export_url }}"
+              data-config-export-form
+              data-action-label="{% trans 'Exportar TOML' %}"
+              data-exporting-label="{% trans 'Exportando TOML...' %}"
+              data-export-success-label="{% trans 'TOML exportado correctamente.' %}"
+              data-export-error-label="{% trans 'No se pudo exportar el TOML.' %}"
+            >
+              {% csrf_token %}
+              <button class="secondary icon-action-button" type="submit" aria-label="{% trans 'Exportar TOML' %}" title="{% trans 'Exportar TOML' %}" {% if not country.group_count %}disabled{% endif %}>
+                <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+                  <path d="M12 21V9"></path>
+                  <path d="m7 14 5-5 5 5"></path>
+                  <path d="M5 3h14"></path>
+                </svg>
+              </button>
+            </form>
+            {% endif %}
+            <a class="button secondary icon-action-button" href="{{ country.new_group_url }}" aria-label="{% trans 'Nuevo grupo' %}" title="{% trans 'Nuevo grupo' %}">
+              <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="8"></circle>
+                <path d="M12 8v8"></path>
+                <path d="M8 12h8"></path>
+              </svg>
+            </a>
+          </div>
+        </div>
+
+        <div id="groups-table-{{ forloop.counter }}" data-empty-label="{% trans 'No hay agrupaciones creadas.' %}">
+          <div class="group-table-toolbar">
+            <form
+              class="group-table-controls async-table-form"
+              method="get"
+              data-local-table="1"
+              data-client-side-filter="1"
+              data-empty-label="{% trans 'No hay agrupaciones creadas.' %}"
+              data-target="#groups-table-{{ forloop.counter }}"
+            >
+              <label>
+                {% trans "Buscar" %}
+                <input type="search" name="q" autocomplete="off" placeholder="{% trans 'Buscar grupo' %}">
+              </label>
+              <label>
+                {% trans "Filas" %}
+                <select name="page_size">
+                  <option value="25" selected>25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+              </label>
+            </form>
+            <div class="country-table-pagination group-table-pagination" data-client-pagination data-initial-page-size="25" hidden></div>
+          </div>
+          <div class="table-wrap subtle group-aggregation-table-wrap">
+            <table class="group-aggregation-table">
+              <thead>
+                <tr>
+                  <th>{% trans "Grupo" %}</th>
+                  <th>{% trans "Grupos" %}</th>
+                </tr>
+              </thead>
+              <tbody data-client-page-rows>
+                {% for group in country.groups %}
+                <tr
+                  class="clickable-row"
+                  tabindex="0"
+                  data-row-href="{{ group.href }}"
+                  data-client-row
+                  data-search="{{ group.internal_name }} {{ group.municipality_count }}"
+                >
+                  <td><code>{{ group.internal_name }}</code></td>
+                  <td class="numeric group-municipality-count">{{ group.municipality_count_text }}</td>
+                </tr>
+                {% empty %}
+                <tr data-client-empty><td colspan="2">{% trans "No hay agrupaciones creadas." %}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="country-table-pagination group-table-pagination group-table-pagination-foot" data-client-pagination data-initial-page-size="25" hidden></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <div>
+            <h2>{% trans "Nuevas divisiones" %}</h2>
+          </div>
+          <div class="button-row">
+            {% if country.code %}
+            <form method="post" action="{% url 'ciudades_del_mundo:derived_subdivision_import_toml' %}" data-loading-submit>
+              {% csrf_token %}
+              <input type="hidden" name="country_code" value="{{ country.code }}">
+              <button class="secondary" type="submit" {% if not country.subdivision_seed_count %}disabled{% endif %}>{% trans "Importar TOML" %}</button>
+            </form>
+            <form
+              method="post"
+              action="{{ country.subdivision_export_url }}"
+              data-config-export-form
+              data-action-label="{% trans 'Exportar TOML' %}"
+              data-exporting-label="{% trans 'Exportando TOML...' %}"
+              data-export-success-label="{% trans 'TOML exportado correctamente.' %}"
+              data-export-error-label="{% trans 'No se pudo exportar el TOML.' %}"
+              >
+                {% csrf_token %}
+                <button class="secondary" type="submit" {% if not country.subdivision_count %}disabled{% endif %}>{% trans "Exportar TOML" %}</button>
+              </form>
+              <a class="button secondary" href="{{ country.new_subdivision_url }}">{% trans "Nueva subdivisión" %}</a>
+              {% endif %}
+            </div>
+        </div>
+
+        <div id="groups-divisions-table-{{ forloop.counter }}" data-empty-label="{% trans 'No hay subdivisiones creadas para este pais.' %}">
+          <div class="group-table-toolbar">
+            <form
+              class="group-table-controls group-division-table-controls async-table-form"
+              method="get"
+              data-local-table="1"
+              data-client-side-filter="1"
+              data-empty-label="{% trans 'No hay subdivisiones creadas para este pais.' %}"
+              data-target="#groups-divisions-table-{{ forloop.counter }}"
+            >
+              <label>
+                {% trans "Buscar" %}
+                <input type="search" name="q" autocomplete="off" placeholder="{% trans 'Buscar entidad' %}">
+              </label>
+              <label>
+                {% trans "Nivel" %}
+                <select name="level">
+                  <option value="">{% trans "Todos" %}</option>
+                  {% for level in country.level_rows %}
+                  <option value="{{ level.level }}">{{ level.label }}{% if level.type_text and level.type_text != "-" %} - {{ level.type_text }}{% endif %}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <label>
+                {% trans "Filas" %}
+                <select name="page_size">
+                  <option value="25" selected>25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+              </label>
+            </form>
+            <div class="country-table-pagination group-table-pagination" data-client-pagination data-initial-page-size="25" hidden></div>
+          </div>
+          <div class="table-wrap subtle group-division-table-wrap">
+            <table class="group-division-table">
+              <thead>
+                <tr>
+                  <th>{% trans "Nombre de la entidad" %}</th>
+                  <th>{% trans "Tipo (Nivel)" %}</th>
+                  <th>{% trans "Terreno" %}</th>
+                  <th>{% trans "Población" %}</th>
+                </tr>
+              </thead>
+              <tbody data-client-page-rows>
+                {% for row in country.division_rows %}
+                <tr
+                  {% if row.href %}class="clickable-row" tabindex="0" data-row-href="{{ row.href }}"{% endif %}
+                  data-client-row
+                  data-level="{{ row.level }}"
+                  data-search="{{ row.search_text }}"
+                >
+                  <td>{{ row.name }}</td>
+                  <td>{{ row.type_level_text }}</td>
+                  <td class="numeric">{{ row.area_text }}</td>
+                  <td class="numeric">{{ row.population_text }}</td>
+                </tr>
+                {% empty %}
+                <tr data-client-empty><td colspan="4">{% trans "No hay subdivisiones creadas para este pais." %}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="country-table-pagination group-table-pagination group-table-pagination-foot" data-client-pagination data-initial-page-size="25" hidden></div>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>
+{% endfor %}
 {% endblock %}

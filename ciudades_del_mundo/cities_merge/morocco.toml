@@ -1,0 +1,44 @@
+[[cities]]
+city = "Tanger"
+id = "5110"
+level = 3
+type = "City"
+from = { 2 = ["Tanger - Assilah"] }
+communes = ["5110103", "5110107", "5110106", "5110105"]
+keep_communes = false
+
+[[cities]]
+city = "Casablanca"
+id = "141"
+level = 3
+type = "City"
+from = { 2 = ["Casablanca"] }
+communes = ["1410111", "1410123", "1410101", "1410141", "1410121", "1410161", "1410103", "1410131", "1410125", "1410113", "1410171", "1410163", "1410107", "1410151", "1410153", "1410173"]
+keep_communes = false
+
+[[cities]]
+city = "Marrakech"
+id = "351"
+level = 3
+type = "City"
+from = { 2 = ["Marrakech"] }
+communes = ["3510103", "3510105", "3510109", "3510107", "3510111"]
+keep_communes = false
+
+[[cities]]
+city = "Rabat"
+id = "421"
+level = 3
+type = "City"
+from = { 2 = ["Rabat"] }
+communes = ["4210105", "4210103", "4210101", "4210106", "4210109"]
+keep_communes = false
+
+[[cities]]
+city = "Salé"
+id = "441"
+level = 3
+type = "City"
+from = { 2 = ["Salé"] }
+communes = ["4410105", "4410106", "4410107", "4410103", "4410109"]
+keep_communes = false

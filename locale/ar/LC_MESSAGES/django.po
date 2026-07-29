@@ -884,6 +884,42 @@ msgstr "Graficas de البيانات"
 msgid "Grupo"
 msgstr "Grupo"
 
+msgid "Municipios"
+msgstr "البلديات"
+
+msgid "Buscar grupo"
+msgstr "البحث عن مجموعة"
+
+msgid "Grupos"
+msgstr "المجموعات"
+
+msgid "Selecciona un nivel"
+msgstr "اختر مستوى"
+
+msgid "Subdivisión"
+msgstr "تقسيم فرعي"
+
+msgid "Selecciona una subdivisión"
+msgstr "اختر تقسيما فرعيا"
+
+msgid "Disponibles"
+msgstr "متاحة"
+
+msgid "NUEVO GRUPO"
+msgstr "مجموعة جديدة"
+
+msgid "Codigo interno"
+msgstr "الرمز الداخلي"
+
+msgid "Un grupo por linea"
+msgstr "مجموعة واحدة في كل سطر"
+
+msgid "Los grupos de la agrupacion no son JSON valido: %(error)s"
+msgstr "مجموعات التجميع ليست JSON صالحا: %(error)s"
+
+msgid "Los grupos de la agrupacion no son JSON valido."
+msgstr "مجموعات التجميع ليست JSON صالحا."
+
 msgid "Guarda la configuración antes de iniciar sesión."
 msgstr "Guarda la الإعداد antes de iniciar sesión."
 
@@ -1661,3 +1697,101 @@ msgstr "????? ???????? ??? ??????? ?? ????? ??? ????? ??????."
 
 msgid "No existe el TOML semilla: %(path)s."
 msgstr "???? TOML ??? ??????: %(path)s."
+msgid "Añadir"
+msgstr "إضافة"
+
+msgid "Buscar nivel"
+msgstr "بحث عن مستوى"
+
+msgid "NUEVA SUBDIVISION"
+msgstr "تقسيم جديد"
+
+msgid "Seccion padre"
+msgstr "القسم الأب"
+
+msgid "Codigo propio"
+msgstr "الرمز الخاص"
+
+msgid "Codigo calculado"
+msgstr "الرمز المحسوب"
+
+msgid "Configuracion"
+msgstr "الإعداد"
+
+msgid "Accion"
+msgstr "إجراء"
+
+msgid "Sumar"
+msgstr "إضافة"
+
+msgid "Restar"
+msgstr "طرح"
+
+msgid "Incluidos"
+msgstr "المدرجة"
+
+msgid "Excluidos"
+msgstr "المستبعدة"
+
+msgid "Excluir"
+msgstr "استبعاد"
+
+msgid "No hay grupos creados para este pais."
+msgstr "لا توجد مجموعات منشأة لهذا البلد."
+
+msgid "No se pudieron cargar los datos."
+msgstr "لا يمكن تحميل البيانات."
+
+msgid "Buscar subdivisión"
+msgstr "بحث عن تقسيم"
+
+msgid "Página"
+msgstr "الصفحة"
+
+msgid "La configuración de ciudades no es JSON válido."
+msgstr "تكوين المدن ليس JSON صالحًا."
+
+msgid "La configuración de ciudades debe ser una lista."
+msgstr "يجب أن يكون تكوين المدن قائمة."
+
+msgid "Nombre de la ciudad"
+msgstr "اسم المدينة"
+
+msgid "Sin nombre"
+msgstr "بدون اسم"
+
+msgid "El nombre de la ciudad unificada no puede estar vacío."
+msgstr "لا يمكن أن يكون اسم المدينة الموحّدة فارغًا."
+
+msgid "Nueva ciudad"
+msgstr "مدينة جديدة"
+
+msgid "Editar ciudad"
+msgstr "تعديل المدينة"
+
+msgid "Cerrar"
+msgstr "إغلاق"
+
+msgid "Sin capital"
+msgstr "بدون عاصمة"
+
+msgid "Buscar capital"
+msgstr "ابحث عن عاصمة"
+
+msgid "Sin capitales"
+msgstr "لا توجد عواصم"
+
+msgid "Quitar capital"
+msgstr "إزالة العاصمة"
+
+msgid "Escribe al menos 2 letras"
+msgstr "اكتب حرفين على الأقل"
+
+msgid "Sin resultados"
+msgstr "لا توجد نتائج"
+
+msgid "Buscando..."
+msgstr "جارٍ البحث..."
+
+msgid "capitals debe ser una lista."
+msgstr "يجب أن يكون capitals قائمة."

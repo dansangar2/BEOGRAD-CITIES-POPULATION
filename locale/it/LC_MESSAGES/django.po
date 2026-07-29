@@ -890,6 +890,42 @@ msgstr "Graficas de dati"
 msgid "Grupo"
 msgstr "Grupo"
 
+msgid "Municipios"
+msgstr "Comuni"
+
+msgid "Buscar grupo"
+msgstr "Cerca gruppo"
+
+msgid "Grupos"
+msgstr "Gruppi"
+
+msgid "Selecciona un nivel"
+msgstr "Seleziona un livello"
+
+msgid "Subdivisión"
+msgstr "Suddivisione"
+
+msgid "Selecciona una subdivisión"
+msgstr "Seleziona una suddivisione"
+
+msgid "Disponibles"
+msgstr "Disponibili"
+
+msgid "NUEVO GRUPO"
+msgstr "NUOVO GRUPPO"
+
+msgid "Codigo interno"
+msgstr "Codice interno"
+
+msgid "Un grupo por linea"
+msgstr "Un gruppo per riga"
+
+msgid "Los grupos de la agrupacion no son JSON valido: %(error)s"
+msgstr "I gruppi della raccolta non sono JSON valido: %(error)s"
+
+msgid "Los grupos de la agrupacion no son JSON valido."
+msgstr "I gruppi della raccolta non sono JSON valido."
+
 msgid "Guarda la configuración antes de iniciar sesión."
 msgstr "Guarda la configurazione antes de iniciar sesión."
 
@@ -1661,3 +1697,101 @@ msgstr "La selezione contiene suddivisioni che non appartengono al paese sorgent
 
 msgid "No existe el TOML semilla: %(path)s."
 msgstr "Il seed TOML non esiste: %(path)s."
+msgid "Añadir"
+msgstr "Aggiungi"
+
+msgid "Buscar nivel"
+msgstr "Cerca livello"
+
+msgid "NUEVA SUBDIVISION"
+msgstr "NUOVA SUDDIVISIONE"
+
+msgid "Seccion padre"
+msgstr "Sezione padre"
+
+msgid "Codigo propio"
+msgstr "Codice proprio"
+
+msgid "Codigo calculado"
+msgstr "Codice calcolato"
+
+msgid "Configuracion"
+msgstr "Configurazione"
+
+msgid "Accion"
+msgstr "Azione"
+
+msgid "Sumar"
+msgstr "Aggiungi"
+
+msgid "Restar"
+msgstr "Sottrai"
+
+msgid "Incluidos"
+msgstr "Inclusi"
+
+msgid "Excluidos"
+msgstr "Esclusi"
+
+msgid "Excluir"
+msgstr "Escludere"
+
+msgid "No hay grupos creados para este pais."
+msgstr "Non ci sono gruppi creati per questo paese."
+
+msgid "No se pudieron cargar los datos."
+msgstr "Non e stato possibile caricare i dati."
+
+msgid "Buscar subdivisión"
+msgstr "Cerca suddivisione"
+
+msgid "Página"
+msgstr "Pagina"
+
+msgid "La configuración de ciudades no es JSON válido."
+msgstr "La configurazione delle città non è JSON valido."
+
+msgid "La configuración de ciudades debe ser una lista."
+msgstr "La configurazione delle città deve essere un elenco."
+
+msgid "Nombre de la ciudad"
+msgstr "Nome della città"
+
+msgid "Sin nombre"
+msgstr "Senza nome"
+
+msgid "El nombre de la ciudad unificada no puede estar vacío."
+msgstr "Il nome della città unificata non può essere vuoto."
+
+msgid "Nueva ciudad"
+msgstr "Nuova città"
+
+msgid "Editar ciudad"
+msgstr "Modifica città"
+
+msgid "Cerrar"
+msgstr "Chiudi"
+
+msgid "Sin capital"
+msgstr "Nessuna capitale"
+
+msgid "Buscar capital"
+msgstr "Cerca capitale"
+
+msgid "Sin capitales"
+msgstr "Nessuna capitale"
+
+msgid "Quitar capital"
+msgstr "Rimuovi capitale"
+
+msgid "Escribe al menos 2 letras"
+msgstr "Digita almeno 2 lettere"
+
+msgid "Sin resultados"
+msgstr "Nessun risultato"
+
+msgid "Buscando..."
+msgstr "Ricerca..."
+
+msgid "capitals debe ser una lista."
+msgstr "capitals deve essere una lista."

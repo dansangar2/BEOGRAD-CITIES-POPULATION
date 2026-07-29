@@ -884,6 +884,42 @@ msgstr "Graficas de подаци"
 msgid "Grupo"
 msgstr "Grupo"
 
+msgid "Municipios"
+msgstr "Општине"
+
+msgid "Buscar grupo"
+msgstr "Претрага групе"
+
+msgid "Grupos"
+msgstr "Групе"
+
+msgid "Selecciona un nivel"
+msgstr "Изаберите ниво"
+
+msgid "Subdivisión"
+msgstr "Подела"
+
+msgid "Selecciona una subdivisión"
+msgstr "Изаберите поделу"
+
+msgid "Disponibles"
+msgstr "Доступно"
+
+msgid "NUEVO GRUPO"
+msgstr "НОВА ГРУПА"
+
+msgid "Codigo interno"
+msgstr "Интерни код"
+
+msgid "Un grupo por linea"
+msgstr "Једна група по реду"
+
+msgid "Los grupos de la agrupacion no son JSON valido: %(error)s"
+msgstr "Групе ове групе нису важећи JSON: %(error)s"
+
+msgid "Los grupos de la agrupacion no son JSON valido."
+msgstr "Групе ове групе нису важећи JSON."
+
 msgid "Guarda la configuración antes de iniciar sesión."
 msgstr "Guarda la конфигурација antes de iniciar sesión."
 
@@ -1661,3 +1697,101 @@ msgstr "????? ?????? ?????? ???? ?? ????????? ???????? ?????."
 
 msgid "No existe el TOML semilla: %(path)s."
 msgstr "TOML ?????? ?? ???????: %(path)s."
+msgid "Añadir"
+msgstr "Додај"
+
+msgid "Buscar nivel"
+msgstr "Претражи ниво"
+
+msgid "NUEVA SUBDIVISION"
+msgstr "НОВА ПОДЕЛА"
+
+msgid "Seccion padre"
+msgstr "Надређена секција"
+
+msgid "Codigo propio"
+msgstr "Сопствени код"
+
+msgid "Codigo calculado"
+msgstr "Израчунати код"
+
+msgid "Configuracion"
+msgstr "Конфигурација"
+
+msgid "Accion"
+msgstr "Радња"
+
+msgid "Sumar"
+msgstr "Додај"
+
+msgid "Restar"
+msgstr "Одузми"
+
+msgid "Incluidos"
+msgstr "Укључени"
+
+msgid "Excluidos"
+msgstr "Искључени"
+
+msgid "Excluir"
+msgstr "Искључи"
+
+msgid "No hay grupos creados para este pais."
+msgstr "Нема креираних група за ову земљу."
+
+msgid "No se pudieron cargar los datos."
+msgstr "Није могуће учитати податке."
+
+msgid "Buscar subdivisión"
+msgstr "Претражи поделу"
+
+msgid "Página"
+msgstr "Страница"
+
+msgid "La configuración de ciudades no es JSON válido."
+msgstr "Конфигурација градова није важећи JSON."
+
+msgid "La configuración de ciudades debe ser una lista."
+msgstr "Конфигурација градова мора бити листа."
+
+msgid "Nombre de la ciudad"
+msgstr "Назив града"
+
+msgid "Sin nombre"
+msgstr "Без назива"
+
+msgid "El nombre de la ciudad unificada no puede estar vacío."
+msgstr "Назив обједињеног града не може бити празан."
+
+msgid "Nueva ciudad"
+msgstr "Нови град"
+
+msgid "Editar ciudad"
+msgstr "Уреди град"
+
+msgid "Cerrar"
+msgstr "Затвори"
+
+msgid "Sin capital"
+msgstr "Без главног града"
+
+msgid "Buscar capital"
+msgstr "Претражи главни град"
+
+msgid "Sin capitales"
+msgstr "Нема главних градова"
+
+msgid "Quitar capital"
+msgstr "Уклони главни град"
+
+msgid "Escribe al menos 2 letras"
+msgstr "Унесите најмање 2 слова"
+
+msgid "Sin resultados"
+msgstr "Нема резултата"
+
+msgid "Buscando..."
+msgstr "Претрага..."
+
+msgid "capitals debe ser una lista."
+msgstr "capitals мора бити листа."

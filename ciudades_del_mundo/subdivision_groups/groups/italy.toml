@@ -1,0 +1,249 @@
+source_country_code = "italy"
+
+AGUILA_A_ABRUZOS_CITRA = [
+    "Ateleta",
+]
+
+AGUILA_A_TIERRA_DE_TRABAJO = [
+    "Castel di Sangro",
+    "Scontrone",
+    "Alfedena",
+    "Barrea",
+    "Villetta Barrea",
+    "Civitella Alfedena",
+    "Opi",
+    "Pescasseroli",
+    "Villavallelonga",
+    "Balsorano",
+    "Collelongo",
+    "San Vincenzo Valle Roveto",
+    "Civita d'Antino",
+    "Morino",
+]
+
+ANDRIA_TRANI_A_CAPITANIA = [
+    "San Ferdinando di Puglia",
+    "Trinitapoli",
+    "Margherita di Savoia",
+]
+
+AVELLINO_A_CAPITANIA = [
+    "Montaguto",
+    "Greci",
+]
+
+AVELLINO_A_PRINCIPADO_CITRA = [
+    "Calabritto",
+    "Senerchia",
+    "Sant'Andrea di Conza",
+    "Solofra",
+    "Montoro",
+    "Contrada",
+    "Forino",
+    "Quindici",
+    "Contrada",
+]
+
+AVELLINO_A_TIERRA_DE_TRABAJO = [
+    "Lauro",
+    "Domicella",
+    "Marzano di Nola",
+    "Baiano",
+    "Mugnano del Cardinale",
+]
+
+BENEVENTO = [
+    "Benevento",
+]
+
+BENEVENTO_A_CAPITANIA = [
+    "San Bartolomeo in Galdo",
+    "Castelfranco in Miscano",
+    "Ginestra degli Schiavoni",
+    "Montefalcone di Val Fortore",
+]
+
+BENEVENTO_A_MOLISE = [
+    "Morcone",
+    "Sassinoro",
+    "Pietraroja",
+    "Pontelandolfo",
+    "San Lupo",
+]
+
+BENEVENTO_A_TIERRA_DE_TRABAJO = [
+    "Cusano Mutri",
+    "Cerreto Sannita",
+    "San Lorenzo Maggiore",
+    "Guardia Sanframondi",
+    "San Lorenzello",
+    "Castelvenere",
+    "Faicchio",
+    "San Salvatore Telesino",
+    "Puglianello",
+    "Telese Terme",
+    "Amorosi",
+    "Solopaca",
+    "Melizzano",
+    "Frasso Telesino",
+    "Dugenta",
+    "Limatola",
+    "Forchia",
+    "Arpaia",
+    "Paolisi",
+]
+
+BRINDISI_A_TIERRA_DE_BARI = [
+    "Cisternino",
+    "Fasano",
+]
+
+CHIETI_A_MOLISE = [
+    "San Giovanni Lipioni",
+]
+
+FOGGIA_A_PRINCIPATO_ULTRA = [
+    "Rocchetta Sant'Antonio",
+]
+
+FROSIONE_A_ESTADOS_PONTIFICIOS = [
+    "Filettino",
+    "Trevi nel Lazio",
+    "Guarcino",
+    "Vico nel Lazio",
+    "Collepardo",
+    "Alatri",
+    "Fumone",
+    "Trivigliano",
+    "Torre Cajetani",
+    "Ferentino",
+    "Anagni",
+    "Acuto",
+    "Piglio",
+    "Serrone",
+    "Paliano",
+    "Sgurgola",
+    "Morolo",
+    "Supino",
+    "Patrica",
+    "Giuliano di Roma",
+    "Villa Santo Stefano",
+    "Amaseno",
+    "Ceccano",
+    "Frosinone",
+]
+
+GROSSETO_A_PRESIDIOS_DE_TOSCANA = [
+    "Orbetello",
+    "Monte Argentario",
+]
+
+ISERNIA_A_TIERRA_DE_TRABAJO = [
+    "Sesto Campano",
+    "Venafro",
+    "Conca Casale",
+    "Pozzilli",
+    "Montaquila",
+    "Filignano",
+    "Scapoli",
+    "Colli a Volturno",
+    "Rocchetta a Volturno",
+    "Cerro al Volturno",
+    "Castel San Vincenzo",
+    "Pizzone",
+    "Montenero Val Cocchiara",
+]
+
+LATINA_A_TIERRA_DE_TRABAJO = [
+    "Castelforte",
+    "Santi Cosma e Damiano",
+    "Minturno",
+    "Spigno Saturnia",
+    "Formia",
+    "Gaeta",
+    "Itri",
+    "Campodimele",
+    "Lenola",
+    "Fondi",
+    "Sperlonga",
+    "Monte San Biagio",
+    "Ponza",
+    "Ventotene",
+]
+
+LIVORNO_A_PIOMBINO = [
+    "Marciana Marina",
+    "Marciana",
+    "Campo nell'Elba",
+    "Rio",
+    "Piombino",
+    "Suvereto",
+    "Follonica",
+    "Scarlino",
+]
+
+LIVORNO_A_PRESIDIOS_DE_TOSCANA = [
+    "Capoliveri",
+    "Porto Azzurro",
+]
+
+NAPOLES_A_PRINCIPADO_CITRA = [
+    "Gragnano",
+    "Lettere",
+    "Pimonte",
+    "Agerola",
+    "Casola di Napoli",
+]
+
+PESCARA_A_ABRUZOS_CITRA = [
+    "Caramanico Terme",
+    "Salle",
+    "Tocco da Casauria",
+    "Castiglione a Casauria",
+    "Pescosansonesco",
+    "Corvara",
+    "Pietranico",
+    "Torre de' Passeri",
+    "Bolognano",
+    "Alanno",
+    "Scafa",
+    "San Valentino in Abruzzo Citeriore",
+    "Abbateggio",
+    "Roccamorice",
+    "Lettomanoppello",
+    "Turrivalignani",
+    "Manoppello",
+    "Serramonacesca",
+    "Rosciano",
+    "Cepagatti",
+    "Spoltore",
+    "Pescara",
+]
+
+PESCARA_A_ABRUZOS_ULTRA_II = [
+    "Sant'Eufemia a Maiella",
+    "Popoli",
+    "Bussi sul Tirino",
+]
+
+PONTECORVO = [
+    "Pontecorvo",
+]
+
+RIETI_A_ABRUZOS_ULTRA_II = [
+    "Borgorose",
+    "Pescorocchiano",
+    "Fiamignano",
+    "Petrella Salto",
+    "Cittaducale",
+    "Castel Sant'Angelo",
+    "Borgo Velino",
+    "Antrodoco",
+    "Micigliano",
+    "Posta",
+    "Borbona",
+    "Leonessa",
+    "Cittareale",
+    "Amatrice",
+    "Accumoli",
+]

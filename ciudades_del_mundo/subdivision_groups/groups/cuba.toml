@@ -1,0 +1,97 @@
+source_country_code = "cuba"
+
+ARTEMISA_A_LA_HABANA = [
+    "Caimito",
+    "Alquízar",
+    "Bauta",
+    "an Antonio de los Baños",
+    "Güira de Melena",
+]
+
+A_CUBA_CENTRAL = [
+    "Villa Clara",
+    "Cienfuegos",
+    "Sancti Spíritus",
+]
+
+A_CUBA_OCCIDENTAL = [
+    "Pinar del Río",
+    "Artemisa",
+    "Ciudad de la Habana",
+    "Mayabeque",
+    "Isla de la Juventud",
+    "Matanzas",
+]
+
+A_CUBA_ORIENTAL = [
+    "Guantánamo",
+    "Santiago de Cuba",
+    "Holguín",
+    "Granma",
+    "Las Tunas",
+]
+
+A_LA_HABANA = [
+    "Ciudad de la Habana",
+    "Mayabeque",
+    "Isla de la Juventud",
+]
+
+A_MATANZAS = [
+    "Matanzas",
+]
+
+A_PINAR_DEL_RIO = [
+    "Pinar del Río",
+    "Artemisa",
+]
+
+A_PUERTO_PRINCIPE = [
+    "Ciego de Ávila",
+    "Camagüey",
+]
+
+A_SANTA_CLARA = [
+    "Villa Clara",
+    "Cienfuegos",
+    "Sancti Spíritus",
+]
+
+A_SANTIAGO_DE_CUBA = [
+    "Las Tunas",
+    "Holguín",
+    "Granma",
+    "Santiago de Cuba",
+    "Guantánamo",
+]
+
+LAS_TUNAS_A_CENTRO = [
+    "Colombia",
+    "Amancio",
+]
+
+LAS_TUNAS_A_OCCIDENTAL = [
+    "Colombia",
+    "Amancio",
+]
+
+LAS_TUNAS_A_PUERTO_PRINCIPE = [
+    "Colombia",
+    "Amancio",
+]
+
+LAS_VILLAS_A_PUERTO_PRINCIPE = [
+    "Jatibonico",
+]
+
+MATANZAS_A_CENTRAL = [
+    "Ciénaga de Zapata",
+]
+
+MATANZAS_A_SANTA_CLARA = [
+    "Ciénaga de Zapata",
+]
+
+SANCTI_SPIRITUS_A_ORIENTAL = [
+    "Jatibonico",
+]

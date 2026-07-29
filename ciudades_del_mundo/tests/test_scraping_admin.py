@@ -1,7 +1,9 @@
 import unittest
 from pathlib import Path
+import tomllib
+from unittest.mock import patch
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, FeatureNotFound
 
 from ciudades_del_mundo.domain import ScrapingPageConfig, parse_pages
 from ciudades_del_mundo.infrastructure.scraping import (
@@ -13,7 +15,58 @@ from ciudades_del_mundo.infrastructure.scraping import (
     CityPopulationPageType,
     detect_citypopulation_page_profile,
 )
+from ciudades_del_mundo.infrastructure.scraping.city_population_client import (
+    CityPopulationClient,
+    CityPopulationHtmlFetcher,
+    _html_parser_available,
+)
 from ciudades_del_mundo.infrastructure.scraping.table import CityPopulationStructuredTableScraper
+
+
+class ScrapingSeedConfigTests(unittest.TestCase):
+    def test_morocco_regional_cities_use_province_rows_as_context_only(self):
+        config_path = Path(__file__).resolve().parents[1] / "subdivisions" / "morocco.toml"
+        data = tomllib.loads(config_path.read_text(encoding="utf-8"))
+
+        pages = parse_pages(
+            data.get("pages"),
+            slug="morocco",
+            schema_version=int(data.get("scrape_schema_version", 1)),
+        )
+        regional_city_pages = [
+            page
+            for page in pages
+            if page.html_format == "cities" and page.force_highest_level == 4
+        ]
+
+        self.assertEqual(len(regional_city_pages), 10)
+        self.assertTrue(all(page.parent_level == 2 for page in regional_city_pages))
+        self.assertTrue(all(page.include_cities for page in regional_city_pages))
+        self.assertTrue(all(not page.include_infosection for page in regional_city_pages))
+        self.assertTrue(all(not page.include_major_subdivision for page in regional_city_pages))
+
+
+class CityPopulationClientParserTests(unittest.TestCase):
+    def test_lxml_parser_falls_back_to_builtin_html_parser_when_unavailable(self):
+        _html_parser_available.cache_clear()
+
+        def soup_or_missing_lxml(markup, parser):
+            if parser == "lxml":
+                raise FeatureNotFound("lxml")
+            return BeautifulSoup(markup, "html.parser")
+
+        try:
+            with patch(
+                "ciudades_del_mundo.infrastructure.scraping.city_population_client.BeautifulSoup",
+                side_effect=soup_or_missing_lxml,
+            ):
+                client = CityPopulationClient(parser="lxml")
+                fetcher = CityPopulationHtmlFetcher(parser="lxml")
+        finally:
+            _html_parser_available.cache_clear()
+
+        self.assertEqual(client.parser, "html.parser")
+        self.assertEqual(fetcher.parser, "html.parser")
 
 
 class CityPopulationAdminScraperTests(unittest.TestCase):

@@ -6,6 +6,10 @@ from ciudades_del_mundo.domain import CITY_MERGE_SOURCE, CITY_MERGE_UNIFIED, Cit
 
 
 class ConfiguredCitiesTests(unittest.TestCase):
+    def test_city_merge_status_numeric_contract_matches_config_editor(self):
+        self.assertEqual(CITY_MERGE_UNIFIED, 1)
+        self.assertEqual(CITY_MERGE_SOURCE, 2)
+
     def test_configured_city_aggregates_communes_and_shifts_sources_below_city(self):
         entities = [
             ScrapedAdminArea(code="country", name="Country", level=0, country_code="x"),

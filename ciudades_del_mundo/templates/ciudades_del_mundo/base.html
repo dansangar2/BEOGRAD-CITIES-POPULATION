@@ -27,7 +27,7 @@
   </script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="{% static 'ciudades_del_mundo/app.css' %}?v=20260629-derived-sections">
+  <link rel="stylesheet" href="{% static 'ciudades_del_mundo/app.css' %}?v=20260729-derived-source-group-levels">
 </head>
 <body data-running-label="{% trans 'En ejecución' %}" data-queued-label="{% trans 'En cola' %}" data-succeeded-label="{% trans 'Correcto' %}" data-failed-label="{% trans 'Error' %}" data-cancelled-label="{% trans 'Cancelado' %}" data-log-label="{% trans 'Ver registro' %}">
   <header class="topbar">
@@ -38,6 +38,7 @@
       <a href="{% url 'ciudades_del_mundo:config_list' %}">{% trans "Scraping" %}</a>
       <a href="{% url 'ciudades_del_mundo:new_country_list' %}">{% trans "Nuevos paises" %}</a>
       <a href="{% url 'ciudades_del_mundo:group_list' %}">{% trans "Grupos" %}</a>
+      <a href="{% url 'ciudades_del_mundo:derived_subdivision_list' %}">{% trans "Subdivisiones" %}</a>
       <a href="{% url 'ciudades_del_mundo:admin_area_list' %}">{% trans "Datos fuente" %}</a>
       <a href="{% url 'ciudades_del_mundo:task_list' %}">{% trans "Tareas" %}</a>
       <a href="{% url 'ciudades_del_mundo:data_delete' %}">{% trans "Borrar" %}</a>
@@ -114,7 +115,7 @@
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="{% static 'ciudades_del_mundo/app.js' %}?v=20260629-derived-sections"></script>
+  <script src="{% static 'ciudades_del_mundo/app.js' %}?v=20260729-derived-source-group-levels"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

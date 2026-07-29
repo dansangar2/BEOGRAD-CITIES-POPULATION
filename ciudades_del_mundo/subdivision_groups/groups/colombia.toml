@@ -1,0 +1,83 @@
+source_country_code = "colombia"
+
+A_DARIEN = [
+    "Guna Yala",
+    "Darién",
+    "Emberá-Wounaan",
+]
+
+A_PANAMA = [
+    "Colón",
+    "Los Santos",
+    "Herrera",
+    "Coclé",
+    "Panamá Oeste",
+    "Panamá",
+]
+
+A_VERAGUAS = [
+    "Bocas del Toro",
+    "Chiriquí",
+    "Ngäbe-Buglé",
+    "Veraguas",
+]
+
+BOLIVAR_A_ANTIOQUIA = [
+    "Cantagallo",
+]
+
+COLON_DIS_A_PORTOBELO = [
+    "Santa Isabel",
+    "Portobelo",
+]
+
+COLON_MUN_A_PORTOBELO = [
+    "Salamanca",
+    "María Chiquita",
+    "Puerto Pilón",
+    "Sabanitas",
+    "Nueva Providencia",
+    "Limón",
+]
+
+COLON_MUN_EXC_A_DARIEN = [
+    "Santa Isabel",
+    "Palmira",
+]
+
+META_A_POPAYAN = [
+    "La Macarena",
+]
+
+PANAMA_MUN_A_DARIEN = [
+    "Cañita",
+    "Madungandí",
+    "Brujas",
+    "Gonzalo Vásquez",
+]
+
+RIOHACHA_A_SANTA_MARTA = [
+    "Dibulla",
+    "San Juan del Cesar",
+    "Villanueva",
+    "La Jagua del Pilar",
+    "Urumita",
+    "El Molino",
+    "Fonseca",
+    "Distracción",
+    "Barrancas",
+]
+
+VERAGUAS_DIS_A_PANAMA = [
+    "Calobre",
+]
+
+VERAGUAS_MUN_A_EXCLUIR_PANAMA = [
+    "Chitra",
+]
+
+VERAGUAS_MUN_A_PANAMA = [
+    "Los Canelos",
+    "Chupampa",
+    "Los Llanos",
+]

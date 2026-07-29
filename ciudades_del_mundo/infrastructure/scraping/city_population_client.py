@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from functools import lru_cache
 import re
 import time
 from dataclasses import dataclass
@@ -10,7 +11,7 @@ from typing import Optional
 from urllib.parse import urljoin, urlparse
 
 import requests
-from bs4 import Tag
+from bs4 import BeautifulSoup, FeatureNotFound, Tag
 
 from ciudades_del_mundo.ports import ScrapingPageNotFoundError
 
@@ -45,7 +46,7 @@ class CityPopulationHtmlFetcher:
 
     def __init__(self, debug: bool = False, parser: str = "lxml"):
         self.debug = debug
-        self.parser = parser
+        self.parser = _available_html_parser(parser)
 
     def get(self, url: str) -> str:
         return CityPopulationClient(debug=self.debug, parser=self.parser).get(url)
@@ -62,6 +63,24 @@ def _parent_hint_from_name(value: str | None) -> str | None:
     return parent_name or None
 
 
+def _available_html_parser(parser: str | None) -> str:
+    parser = str(parser or "lxml").strip()
+    if parser not in {"lxml", "html.parser"}:
+        parser = "html.parser"
+    if _html_parser_available(parser):
+        return parser
+    return "html.parser"
+
+
+@lru_cache(maxsize=None)
+def _html_parser_available(parser: str) -> bool:
+    try:
+        BeautifulSoup("", parser)
+    except FeatureNotFound:
+        return False
+    return True
+
+
 class CityPopulationClient:
     """Thin client around requests plus row parsing helpers for CityPopulation."""
 
@@ -72,7 +91,7 @@ class CityPopulationClient:
 
     def __init__(self, debug: bool = False, parser: str = "lxml"):
         self.debug = debug
-        self.parser = parser if parser in ("lxml", "html.parser") else "html.parser"
+        self.parser = _available_html_parser(parser)
         self._session = requests.Session()
         self._session.headers.update(self.BASE_HEADERS)
 

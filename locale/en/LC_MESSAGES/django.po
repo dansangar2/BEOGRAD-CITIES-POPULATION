@@ -65,6 +65,9 @@ msgstr "Population by country"
 msgid "Cargando datos..."
 msgstr "Loading data..."
 
+msgid "No se pudieron cargar los datos."
+msgstr "The data could not be loaded."
+
 msgid "No se pudo cargar la poblacion."
 msgstr "The population could not be loaded."
 
@@ -178,6 +181,42 @@ msgstr "Root name"
 
 msgid "Grupo"
 msgstr "Group"
+
+msgid "Municipios"
+msgstr "Municipalities"
+
+msgid "Buscar grupo"
+msgstr "Search group"
+
+msgid "Grupos"
+msgstr "Groups"
+
+msgid "Selecciona un nivel"
+msgstr "Select a level"
+
+msgid "Subdivisión"
+msgstr "Subdivision"
+
+msgid "Selecciona una subdivisión"
+msgstr "Select a subdivision"
+
+msgid "Disponibles"
+msgstr "Available"
+
+msgid "NUEVO GRUPO"
+msgstr "NEW GROUP"
+
+msgid "Codigo interno"
+msgstr "Internal code"
+
+msgid "Un grupo por linea"
+msgstr "One group per line"
+
+msgid "Los grupos de la agrupacion no son JSON valido: %(error)s"
+msgstr "The grouping groups are not valid JSON: %(error)s"
+
+msgid "Los grupos de la agrupacion no son JSON valido."
+msgstr "The grouping groups are not valid JSON."
 
 msgid "Filas creadas"
 msgstr "Created rows"
@@ -1667,3 +1706,98 @@ msgstr "The selection contains subdivisions that do not belong to the source cou
 
 msgid "No existe el TOML semilla: %(path)s."
 msgstr "The TOML seed does not exist: %(path)s."
+msgid "Añadir"
+msgstr "Add"
+
+msgid "Buscar nivel"
+msgstr "Search level"
+
+msgid "NUEVA SUBDIVISION"
+msgstr "NEW SUBDIVISION"
+
+msgid "Seccion padre"
+msgstr "Parent section"
+
+msgid "Codigo propio"
+msgstr "Own code"
+
+msgid "Codigo calculado"
+msgstr "Calculated code"
+
+msgid "Configuracion"
+msgstr "Configuration"
+
+msgid "Accion"
+msgstr "Action"
+
+msgid "Sumar"
+msgstr "Add"
+
+msgid "Restar"
+msgstr "Subtract"
+
+msgid "Incluidos"
+msgstr "Included"
+
+msgid "Excluidos"
+msgstr "Excluded"
+
+msgid "Excluir"
+msgstr "Exclude"
+
+msgid "No hay grupos creados para este pais."
+msgstr "No groups have been created for this country."
+
+msgid "Buscar subdivisión"
+msgstr "Search subdivision"
+
+msgid "Página"
+msgstr "Page"
+
+msgid "La configuración de ciudades no es JSON válido."
+msgstr "The city configuration is not valid JSON."
+
+msgid "La configuración de ciudades debe ser una lista."
+msgstr "The city configuration must be a list."
+
+msgid "Nombre de la ciudad"
+msgstr "City name"
+
+msgid "Sin nombre"
+msgstr "No name"
+
+msgid "El nombre de la ciudad unificada no puede estar vacío."
+msgstr "The unified city name cannot be empty."
+
+msgid "Nueva ciudad"
+msgstr "New city"
+
+msgid "Editar ciudad"
+msgstr "Edit city"
+
+msgid "Cerrar"
+msgstr "Close"
+
+msgid "Sin capital"
+msgstr "No capital"
+
+msgid "Buscar capital"
+msgstr "Search capital"
+
+msgid "Sin capitales"
+msgstr "No capitals"
+
+msgid "Quitar capital"
+msgstr "Remove capital"
+
+msgid "Escribe al menos 2 letras"
+msgstr "Type at least 2 letters"
+
+msgid "Sin resultados"
+msgstr "No results"
+
+msgid "Buscando..."
+msgstr "Searching..."
+
+msgid "capitals debe ser una lista."
+msgstr "capitals must be a list."

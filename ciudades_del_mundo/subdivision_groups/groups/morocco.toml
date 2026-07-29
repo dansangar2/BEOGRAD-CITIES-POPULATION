@@ -1,0 +1,28 @@
+source_country_code = "morocco"
+
+ALHUCEMAS_A_KERT = [
+    "Imzouren",
+    "Bni Bouayach",
+    "Nekkour",
+]
+
+FAHS_ANJRA_A_TANGER = [
+    "Al Bahraoyine",
+]
+
+TANGER_ASSILAH_A_YEBALA = [
+    "Sebt Azzinate",
+    "Dar Chaoui",
+    "Al Manzla",
+]
+
+TETOUAN_A_LOCUS = [
+    "Bni Leit",
+]
+
+ZONA_TANGER = [
+    "Tánger",
+    "Laaouama",
+    "Hjar Ennhal",
+    "Gueznaia",
+]

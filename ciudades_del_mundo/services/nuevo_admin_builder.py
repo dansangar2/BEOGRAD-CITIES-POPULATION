@@ -105,12 +105,14 @@ _CITY_MERGE_STATUS_ALIASES = {
     "none": AdminArea.CityMergeStatus.NONE,
     "normal": AdminArea.CityMergeStatus.NONE,
     "no unificada": AdminArea.CityMergeStatus.NONE,
-    "1": AdminArea.CityMergeStatus.SOURCE,
-    "source": AdminArea.CityMergeStatus.SOURCE,
-    "fuente": AdminArea.CityMergeStatus.SOURCE,
-    "2": AdminArea.CityMergeStatus.UNIFIED,
+    "1": AdminArea.CityMergeStatus.UNIFIED,
     "unified": AdminArea.CityMergeStatus.UNIFIED,
     "unificada": AdminArea.CityMergeStatus.UNIFIED,
+    "ciudad unificada": AdminArea.CityMergeStatus.UNIFIED,
+    "2": AdminArea.CityMergeStatus.SOURCE,
+    "source": AdminArea.CityMergeStatus.SOURCE,
+    "fuente": AdminArea.CityMergeStatus.SOURCE,
+    "fuente de ciudad unificada": AdminArea.CityMergeStatus.SOURCE,
 }
 
 
@@ -162,7 +164,11 @@ def _city_merge_status_preference(value=None) -> tuple[int, ...]:
         preferred = [_coerce_city_merge_status(item) for item in value]
 
     result: list[int] = []
-    for status in preferred + [0, 2, 1]:
+    for status in preferred + [
+        int(AdminArea.CityMergeStatus.NONE),
+        int(AdminArea.CityMergeStatus.UNIFIED),
+        int(AdminArea.CityMergeStatus.SOURCE),
+    ]:
         status = int(status)
         if status not in result:
             result.append(status)
@@ -526,6 +532,9 @@ def _lookup_many_with_preferences(
                 missing.append(f"{label} bajo {parent_label}")
                 continue
             lookup_qs = lookup_qs.filter(parent_id=parent.id)
+        lookup_qs = lookup_qs.filter(
+            city_merge_status__in=_child_city_merge_statuses(preference)
+        )
 
         obj = _resolve_adminarea_in_qs(
             lookup_qs,
@@ -557,12 +566,10 @@ def _child_city_merge_statuses(city_merge_status_preference=None) -> tuple[int, 
             int(AdminArea.CityMergeStatus.NONE),
             int(AdminArea.CityMergeStatus.SOURCE),
         )
-    if primary == int(AdminArea.CityMergeStatus.UNIFIED):
-        return (
-            int(AdminArea.CityMergeStatus.NONE),
-            int(AdminArea.CityMergeStatus.UNIFIED),
-        )
-    return (int(AdminArea.CityMergeStatus.NONE),)
+    return (
+        int(AdminArea.CityMergeStatus.NONE),
+        int(AdminArea.CityMergeStatus.UNIFIED),
+    )
 
 
 def _descendants_at_level(
@@ -636,7 +643,10 @@ def _to_atomic_ids(
 
     for area in items:
         if area.level == atomic_level:
-            result.add(area.id)
+            if int(area.city_merge_status or 0) in _child_city_merge_statuses(
+                city_merge_status_preference
+            ):
+                result.add(area.id)
         elif area.level < atomic_level:
             descendants = _descendants_at_level(
                 area,
@@ -1150,6 +1160,7 @@ def create_nuevo_area_from_spec(
     city_merge_status_preference=None,
     source_population_year: int | None = None,
     source_population_index_registry: SourcePopulationIndexRegistry | None = None,
+    allow_duplicate_source_data: bool = False,
 ) -> NuevoAdminArea:
     """Create or update one derived area from a canonical source ``spec``.
 
@@ -1320,7 +1331,8 @@ def create_nuevo_area_from_spec(
         lvl = int(key)
         _parse_restar_group(value, lvl, "restar")
 
-    _raise_duplicate_source_data(new_name, source_duplicates, municipal_duplicates)
+    if not allow_duplicate_source_data:
+        _raise_duplicate_source_data(new_name, source_duplicates, municipal_duplicates)
 
     mun_incluidos = mun_from_macros | mun_extra_incluidos
     sub_extra_final_ids = {
@@ -1345,35 +1357,25 @@ def create_nuevo_area_from_spec(
     macro_areas = list(
         macro_qs.only("id", "country_code", "code", "name", "parent_id", "pop_latest")
     )
-    agg_macro = macro_qs.aggregate(
-        total_area=Sum("area_km2"),
+
+    source_unit_ids = mun_final_ids | sub_extra_final_ids
+    source_unit_ids |= _usa_orphan_city_ids_inside(source_unit_ids)
+    source_units_qs = (
+        AdminArea.objects.filter(id__in=source_unit_ids)
+        if source_unit_ids
+        else macro_qs
     )
-    area_macro = agg_macro["total_area"] or Decimal("0")
-    pop_macro = _sum_source_population(
-        macro_qs,
+
+    agg_source = source_units_qs.aggregate(total_area=Sum("area_km2"))
+    area_source = agg_source["total_area"] or Decimal("0")
+    pop_source = _sum_source_population(
+        source_units_qs,
         source_population_year=source_population_year,
         source_population_index_registry=source_population_index_registry,
     )
 
-    extra_ids = mun_extra_incluidos | sub_extra_final_ids
-    restar_ids = mun_restar | sub_restar_final_ids
-
-    extra_qs = AdminArea.objects.filter(id__in=extra_ids)
-    restar_qs = AdminArea.objects.filter(id__in=restar_ids)
-
-    agg_extra = extra_qs.aggregate(
-        total_area=Sum("area_km2"),
-    )
-    agg_restar = restar_qs.aggregate(
-        total_area=Sum("area_km2"),
-    )
-
-    area_extra = agg_extra["total_area"] or Decimal("0")
-    pop_extra = _sum_source_population(
-        extra_qs,
-        source_population_year=source_population_year,
-        source_population_index_registry=source_population_index_registry,
-    )
+    restar_qs = AdminArea.objects.filter(id__in=sub_restar_final_ids)
+    agg_restar = restar_qs.aggregate(total_area=Sum("area_km2"))
 
     area_restar = agg_restar["total_area"] or Decimal("0")
     pop_restar = _sum_source_population(
@@ -1383,8 +1385,8 @@ def create_nuevo_area_from_spec(
         fallback_multiplier_areas=macro_areas,
     )
 
-    total_area = area_macro + area_extra - area_restar
-    total_pop = pop_macro + pop_extra - pop_restar
+    total_area = area_source - area_restar
+    total_pop = pop_source - pop_restar
 
     if forced_area_km2 is not None:
         try:
@@ -1437,14 +1439,7 @@ def create_nuevo_area_from_spec(
     if m2m is None:
         raise AttributeError(f"El campo M2M '{m2m_field}' no existe en NuevoAdminArea.")
 
-    source_unit_ids = mun_final_ids | sub_extra_final_ids
-    source_unit_ids |= _usa_orphan_city_ids_inside(source_unit_ids)
     atomic_qs = AdminArea.objects.filter(id__in=mun_final_ids) if mun_final_ids else AdminArea.objects.none()
-    source_units_qs = (
-        AdminArea.objects.filter(id__in=source_unit_ids)
-        if source_unit_ids
-        else macro_qs
-    )
     m2m.set(source_units_qs)
 
     # ---------------------------------------------------------
@@ -1471,6 +1466,7 @@ def create_nuevo_area_from_spec(
                     candidate_qs = AdminArea.objects.filter(
                         country_code=cc,
                         level=capital_level,
+                        city_merge_status__in=_child_city_merge_statuses(capital_preference),
                     )
                     candidate = _resolve_adminarea_in_qs(
                         candidate_qs,
@@ -1521,7 +1517,10 @@ def create_nuevo_area_from_spec(
                 )
                 for cc in territory_country_codes:
                     candidate = _resolve_adminarea_inside_sources(
-                        AdminArea.objects.filter(country_code=cc).order_by("-level"),
+                        AdminArea.objects.filter(
+                            country_code=cc,
+                            city_merge_status__in=_child_city_merge_statuses(capital_preference),
+                        ).order_by("-level"),
                         label,
                         city_merge_status_preference=capital_preference,
                         macro_ids=macro_ids,

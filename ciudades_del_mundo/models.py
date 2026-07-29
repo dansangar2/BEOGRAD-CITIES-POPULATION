@@ -16,8 +16,8 @@ class AdminArea(models.Model):
 
     class CityMergeStatus(models.IntegerChoices):
         NONE = 0, "No unificada"
-        SOURCE = 1, "Fuente de ciudad unificada"
-        UNIFIED = 2, "Ciudad unificada"
+        UNIFIED = 1, "Ciudad unificada"
+        SOURCE = 2, "Fuente de ciudad unificada"
 
     id               = models.CharField(max_length=128, primary_key=True)
     country_code     = models.CharField(max_length=64, db_index=True)
@@ -431,6 +431,30 @@ class SubdivisionGroup(models.Model):
         ordering = ["name", "slug"]
         indexes = [
             models.Index(fields=["source_country_code", "slug"], name="subgroup_source_slug_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.slug})"
+
+
+class DerivedSubdivision(models.Model):
+    """TOML-backed definition for one fictional or historical subdivision."""
+
+    slug = models.SlugField(max_length=128, primary_key=True)
+    internal_name = models.CharField(max_length=128, blank=True, default="")
+    name = models.CharField(max_length=255)
+    source_country_code = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    entity_type = models.CharField(max_length=80, blank=True, default="")
+    code = models.CharField(max_length=64, blank=True, default="")
+    description = models.TextField(blank=True, default="")
+    content = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["source_country_code", "name", "slug"]
+        indexes = [
+            models.Index(fields=["source_country_code", "slug"], name="dersub_source_slug_idx"),
         ]
 
     def __str__(self):

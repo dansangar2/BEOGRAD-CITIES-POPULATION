@@ -7,20 +7,25 @@ from django.utils.translation import gettext as _
 
 from ciudades_del_mundo.infrastructure.django.sqlite_write_lock import sqlite_write_lock_if_needed
 from ciudades_del_mundo.services.derived_config_seeds import (
+    bundled_derived_subdivision_paths,
     bundled_new_country_config_paths,
     bundled_subdivision_group_paths,
-    import_new_country_config_seed,
-    import_subdivision_group_seed,
+    import_derived_subdivision_path_records,
+    import_new_country_config_path,
+    import_subdivision_group_path_records,
 )
 
 
 class Command(BaseCommand):
-    help = _("Importa semillas TOML de new_country_configs/ y subdivision_groups/ en SQL.")
+    help = _(
+        "Importa semillas TOML de new_country_configs/, subdivision_groups/groups/<pais>.toml "
+        "y subdivision_groups/subdivisions/<pais>.toml en SQL."
+    )
 
     def add_arguments(self, parser):
         parser.add_argument(
             "section",
-            choices=["new-countries", "groups"],
+            choices=["new-countries", "groups", "subdivisions"],
             help=_("Seccion SQL que se va a importar."),
         )
         parser.add_argument(
@@ -38,15 +43,15 @@ class Command(BaseCommand):
         section = options["section"]
         slugs = list(options.get("slugs") or [])
         force = bool(options.get("force"))
-        paths = (
-            bundled_new_country_config_paths(slugs)
-            if section == "new-countries"
-            else bundled_subdivision_group_paths(slugs)
-        )
-        if slugs and len(paths) != len(slugs):
-            found = {path.stem for path in paths}
-            missing = sorted(set(slugs) - found)
-            raise CommandError(_("No existen semillas TOML para: %(slugs)s") % {"slugs": ", ".join(missing)})
+        paths = self._seed_paths(section, slugs)
+        if slugs:
+            missing = []
+            for slug in slugs:
+                matches = self._seed_paths(section, [slug])
+                if not matches:
+                    missing.append(slug)
+            if missing:
+                raise CommandError(_("No existen semillas TOML para: %(slugs)s") % {"slugs": ", ".join(missing)})
         if not paths:
             self.stdout.write(self.style.WARNING(_("No hay semillas TOML para importar.")))
             return
@@ -72,10 +77,24 @@ class Command(BaseCommand):
         for path in paths:
             slug = path.stem
             if section == "new-countries":
-                record = import_new_country_config_seed(slug, force=force)
+                record = import_new_country_config_path(path, force=force)
                 self.stdout.write(f"[new-countries] {record.country_id}/{record.slug}")
+                imported += 1
+            elif section == "groups":
+                records = import_subdivision_group_path_records(path, force=force)
+                for record in records:
+                    self.stdout.write(f"[groups] {record.slug}")
+                imported += len(records)
             else:
-                record = import_subdivision_group_seed(slug, force=force)
-                self.stdout.write(f"[groups] {record.slug}")
-            imported += 1
+                records = import_derived_subdivision_path_records(path, force=force)
+                for record in records:
+                    self.stdout.write(f"[subdivisions] {record.slug}")
+                imported += len(records)
         return imported
+
+    def _seed_paths(self, section, slugs):
+        if section == "new-countries":
+            return bundled_new_country_config_paths(slugs)
+        if section == "groups":
+            return bundled_subdivision_group_paths(slugs)
+        return bundled_derived_subdivision_paths(slugs)

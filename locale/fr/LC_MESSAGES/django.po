@@ -65,6 +65,9 @@ msgstr "Population par pays"
 msgid "Cargando datos..."
 msgstr "Chargement des données..."
 
+msgid "No se pudieron cargar los datos."
+msgstr "Les donnees n'ont pas pu etre chargees."
+
 msgid "No se pudo cargar la poblacion."
 msgstr "La population n'a pas pu être chargée."
 
@@ -142,6 +145,42 @@ msgstr "Nom racine"
 
 msgid "Grupo"
 msgstr "Groupe"
+
+msgid "Municipios"
+msgstr "Municipalites"
+
+msgid "Buscar grupo"
+msgstr "Rechercher un groupe"
+
+msgid "Grupos"
+msgstr "Groupes"
+
+msgid "Selecciona un nivel"
+msgstr "Selectionner un niveau"
+
+msgid "Subdivisión"
+msgstr "Subdivision"
+
+msgid "Selecciona una subdivisión"
+msgstr "Selectionner une subdivision"
+
+msgid "Disponibles"
+msgstr "Disponibles"
+
+msgid "NUEVO GRUPO"
+msgstr "NOUVEAU GROUPE"
+
+msgid "Codigo interno"
+msgstr "Code interne"
+
+msgid "Un grupo por linea"
+msgstr "Un groupe par ligne"
+
+msgid "Los grupos de la agrupacion no son JSON valido: %(error)s"
+msgstr "Les groupes de ce regroupement ne sont pas un JSON valide: %(error)s"
+
+msgid "Los grupos de la agrupacion no son JSON valido."
+msgstr "Les groupes de ce regroupement ne sont pas un JSON valide."
 
 msgid "Filas creadas"
 msgstr "Lignes créées"
@@ -1673,3 +1712,98 @@ msgstr "La s?lection contient des subdivisions qui n?appartiennent pas au pays s
 
 msgid "No existe el TOML semilla: %(path)s."
 msgstr "La graine TOML n?existe pas : %(path)s."
+msgid "Añadir"
+msgstr "Ajouter"
+
+msgid "Buscar nivel"
+msgstr "Rechercher un niveau"
+
+msgid "NUEVA SUBDIVISION"
+msgstr "NOUVELLE SUBDIVISION"
+
+msgid "Seccion padre"
+msgstr "Section parente"
+
+msgid "Codigo propio"
+msgstr "Code propre"
+
+msgid "Codigo calculado"
+msgstr "Code calcule"
+
+msgid "Configuracion"
+msgstr "Configuration"
+
+msgid "Accion"
+msgstr "Action"
+
+msgid "Sumar"
+msgstr "Ajouter"
+
+msgid "Restar"
+msgstr "Soustraire"
+
+msgid "Incluidos"
+msgstr "Inclus"
+
+msgid "Excluidos"
+msgstr "Exclus"
+
+msgid "Excluir"
+msgstr "Exclure"
+
+msgid "No hay grupos creados para este pais."
+msgstr "Aucun groupe n'a ete cree pour ce pays."
+
+msgid "Buscar subdivisión"
+msgstr "Rechercher une subdivision"
+
+msgid "Página"
+msgstr "Page"
+
+msgid "La configuración de ciudades no es JSON válido."
+msgstr "La configuration des villes n'est pas un JSON valide."
+
+msgid "La configuración de ciudades debe ser una lista."
+msgstr "La configuration des villes doit être une liste."
+
+msgid "Nombre de la ciudad"
+msgstr "Nom de la ville"
+
+msgid "Sin nombre"
+msgstr "Sans nom"
+
+msgid "El nombre de la ciudad unificada no puede estar vacío."
+msgstr "Le nom de la ville unifiée ne peut pas être vide."
+
+msgid "Nueva ciudad"
+msgstr "Nouvelle ville"
+
+msgid "Editar ciudad"
+msgstr "Modifier la ville"
+
+msgid "Cerrar"
+msgstr "Fermer"
+
+msgid "Sin capital"
+msgstr "Sans capitale"
+
+msgid "Buscar capital"
+msgstr "Rechercher une capitale"
+
+msgid "Sin capitales"
+msgstr "Aucune capitale"
+
+msgid "Quitar capital"
+msgstr "Retirer la capitale"
+
+msgid "Escribe al menos 2 letras"
+msgstr "Saisissez au moins 2 lettres"
+
+msgid "Sin resultados"
+msgstr "Aucun resultat"
+
+msgid "Buscando..."
+msgstr "Recherche..."
+
+msgid "capitals debe ser una lista."
+msgstr "capitals doit etre une liste."

@@ -8,8 +8,8 @@ from decimal import Decimal
 
 
 CITY_MERGE_NONE = 0
-CITY_MERGE_SOURCE = 1
-CITY_MERGE_UNIFIED = 2
+CITY_MERGE_UNIFIED = 1
+CITY_MERGE_SOURCE = 2
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,3087 @@
+{% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Subdivision" %} - {% trans "Ciudades del Mundo" %}{% endblock %}
+
+{% block content %}
+<section class="page-head compact">
+  <div>
+    <h1 data-derived-title>
+      {% if mode == "new" %}
+      {% trans "NUEVA SUBDIVISION" %}
+      {% else %}
+      {{ form.internal_name }}
+      {% endif %}
+    </h1>
+  </div>
+  <div class="actions">
+    {% if mode == "edit" %}
+    <form method="post" action="{% url 'ciudades_del_mundo:derived_subdivision_export_toml' country_code %}" data-config-export-form data-action-label="{% trans 'Exportar TOML' %}" data-exporting-label="{% trans 'Exportando TOML...' %}" data-export-success-label="{% trans 'TOML exportado correctamente.' %}" data-export-error-label="{% trans 'No se pudo exportar el TOML.' %}">
+      {% csrf_token %}
+      <button type="submit" class="secondary">{% trans "Exportar TOML" %}</button>
+    </form>
+    <form method="post" action="{% url 'ciudades_del_mundo:derived_subdivision_import_toml' %}" data-config-export-form data-refresh-on-success="1" data-action-label="{% trans 'Importar TOML' %}" data-exporting-label="{% trans 'Importando TOML...' %}" data-export-success-label="{% trans 'TOML importado correctamente.' %}" data-export-error-label="{% trans 'No se pudo importar el TOML.' %}">
+      {% csrf_token %}
+      <input type="hidden" name="country_code" value="{{ country_code }}">
+      <button type="submit" class="secondary">{% trans "Importar TOML" %}</button>
+    </form>
+    {% endif %}
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:group_list' %}">{% trans "Volver" %}</a>
+  </div>
+</section>
+
+{{ parent_options_json|json_script:"derived-subdivision-parent-options" }}
+{{ capital_options|json_script:"derived-subdivision-capital-options" }}
+{{ form.capitals|json_script:"derived-subdivision-capital-values" }}
+{{ include_items|json_script:"derived-subdivision-include-items" }}
+{{ subtract_items|json_script:"derived-subdivision-subtract-items" }}
+{{ source_countries|json_script:"derived-subdivision-source-countries" }}
+
+<form
+  class="group-entry-form derived-subdivision-entry-form{% if load_dynamic %} is-loading{% endif %}"
+  method="post"
+  data-derived-subdivision-form
+  data-source-url="{{ source_data_url }}"
+  data-root-code="{{ root_code }}"
+  data-derived-subdivision-load-url="{{ data_url }}"
+  data-derived-capital-options-url="{{ capital_options_url }}"
+  data-derived-load-on-start="{% if load_dynamic %}1{% else %}0{% endif %}"
+  data-load-error-label="{% trans 'No se pudieron cargar los datos.' %}"
+  data-capital-empty-label="{% trans 'Sin capital' %}"
+>
+  {% csrf_token %}
+  <input type="hidden" name="source_country_code" value="{{ country_code }}">
+  <input type="hidden" name="code" value="{{ form.code }}" data-derived-full-code>
+  <input type="hidden" name="parent_code" value="{{ root_code }}" data-derived-parent-code>
+  <input type="hidden" name="include_ids_json" data-derived-include-ids-json value="">
+  <input type="hidden" name="subtract_ids_json" data-derived-subtract-ids-json value="">
+  <input type="hidden" name="derived_source_dirty" data-derived-source-dirty value="0">
+  <textarea name="content" spellcheck="false" data-derived-content hidden>{{ form.content }}</textarea>
+  <textarea name="description" hidden>{{ form.description }}</textarea>
+
+  <div class="group-form-actions top">
+    <button type="submit" data-group-save-button>{% trans "Guardar" %}</button>
+  </div>
+
+  <section class="panel group-entry-main-box">
+    <div class="derived-subdivision-loading table-loading" data-derived-loading {% if not load_dynamic %}hidden{% endif %}>
+      <span class="loading-spinner" aria-hidden="true"></span>
+      <span>{% trans "Cargando datos..." %}</span>
+    </div>
+    <div class="form-grid compact-form-grid derived-subdivision-main-grid" data-derived-dynamic-section {% if load_dynamic %}hidden{% endif %}>
+      <label class="wide">
+        {% trans "Codigo interno" %}
+        <input
+          name="internal_name"
+          value="{{ form.internal_name }}"
+          placeholder="{{ country_code|upper }}"
+          pattern="[A-Za-z][A-Za-z0-9_]*"
+          autocomplete="off"
+          autocapitalize="characters"
+          required
+          data-derived-internal-name
+        >
+      </label>
+      <label>
+        {% trans "Nombre" %}
+        <input name="name" value="{{ form.name }}" required>
+      </label>
+      <label>
+        {% trans "Tipo" %}
+        <input name="entity_type" value="{{ form.entity_type }}">
+      </label>
+      <label>
+        {% trans "Nivel" %}
+        <input name="level" value="{{ form.level }}" min="1" max="5" step="1" type="number" required data-derived-level>
+      </label>
+      <label>
+        {% trans "Bandera" %}
+        <input name="flag_url" value="{{ form.flag_url }}" placeholder="https://..." type="url" autocomplete="url">
+      </label>
+      <label>
+        {% trans "Escudo" %}
+        <input name="coat_url" value="{{ form.coat_url }}" placeholder="https://..." type="url" autocomplete="url">
+      </label>
+      <label class="derived-capital-field">
+        {% trans "Capitales" %}
+        <div
+          class="derived-capital-picker"
+          data-derived-capital-picker
+          data-empty-label="{% trans 'Sin capitales' %}"
+          data-remove-label="{% trans 'Quitar capital' %}"
+        >
+          <div class="derived-capital-search-column">
+            <select
+              data-derived-capital-select
+              data-placeholder="{% trans 'Buscar capital' %}"
+              data-input-too-short-label="{% trans 'Escribe al menos 2 letras' %}"
+              data-no-results-label="{% trans 'Sin resultados' %}"
+              data-searching-label="{% trans 'Buscando...' %}"
+            ></select>
+          </div>
+          <div class="derived-capital-selected-column">
+            <div class="derived-capital-badge-rail" data-derived-capital-badges aria-live="polite"></div>
+            <div data-derived-capital-hidden-inputs></div>
+          </div>
+        </div>
+      </label>
+    </div>
+  </section>
+
+  <section class="panel derived-source-country-control-panel" data-derived-source-control data-derived-dynamic-section {% if load_dynamic %}hidden{% endif %}>
+    <div class="group-entry-control-grid derived-source-control-grid">
+      <label>
+        {% trans "Pais" %}
+        <select data-derived-country-add-select data-placeholder="{% trans 'Buscar pais' %}">
+          {% for source in source_countries %}
+          <option value="{{ source.value }}" {% if source.value == country_code %}selected{% endif %}>{{ source.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="group-entry-add-slot">
+        <button type="button" class="secondary" data-derived-add-country>{% trans "Añadir" %}</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="derived-subdivision-source-panels" data-derived-dynamic-section {% if load_dynamic %}hidden{% endif %}>
+    <section class="panel group-country-block derived-source-panel" data-derived-source-panel data-derived-operation="include">
+      <div class="group-country-block-head">
+        <div>
+          <h2>{% trans "Grupo" %}</h2>
+        </div>
+      </div>
+      <div class="group-country-blocks derived-source-country-blocks" data-derived-source-blocks></div>
+    </section>
+  </div>
+
+  <template data-group-country-block-template>
+    <section class="group-country-block derived-source-country-block" data-group-country-block>
+      <div class="group-country-block-head">
+        <div>
+          <h2 data-country-name-label></h2>
+        </div>
+        <button type="button" class="secondary" data-remove-country-block hidden>{% trans "Quitar" %}</button>
+      </div>
+      <div class="group-country-data-area" data-group-country-data-area>
+        <div class="group-country-data-loading table-loading" data-group-country-data-loading>
+          <span class="loading-spinner" aria-hidden="true"></span>
+          <span>{% trans "Cargando datos..." %}</span>
+        </div>
+        <div class="group-country-data-content" data-group-country-data-content hidden>
+          <div class="group-hierarchy-controls" data-group-hierarchy-controls></div>
+          <div class="table-wrap subtle group-section-table-wrap">
+            <table class="compact-table group-section-table">
+              <colgroup>
+                <col class="derived-source-included-col">
+                <col class="derived-source-excluded-col">
+                <col class="derived-source-level-col">
+                <col class="derived-source-actions-col">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>{% trans "Incluidos" %}</th>
+                  <th>{% trans "Excluidos" %}</th>
+                  <th>{% trans "Nivel" %}</th>
+                  <th>{% trans "Acciones" %}</th>
+                </tr>
+              </thead>
+              <tbody data-derived-source-item-table>
+                <tr data-derived-source-item-empty-row>
+                  <td colspan="4" class="table-empty-cell">{% trans "Sin datos." %}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </template>
+
+  <div class="config-city-modal group-section-modal" data-derived-source-item-modal role="dialog" aria-modal="true" hidden>
+    <div class="config-city-modal-backdrop" data-close-derived-source-item-modal></div>
+    <div class="config-city-modal-dialog" role="document">
+      <div class="config-city-modal-header">
+        <h3 data-derived-source-item-modal-title>{% trans "Entidad" %}</h3>
+        <button class="config-city-modal-close" type="button" data-close-derived-source-item-modal aria-label="{% trans 'Cerrar' %}">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="config-city-modal-body">
+        <div class="config-city-modal-content group-section-modal-content" data-derived-source-item-modal-content></div>
+      </div>
+      <div class="config-city-modal-actions">
+        <button type="button" data-save-derived-source-item-modal>{% trans "Guardar" %}</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions group-form-actions bottom">
+    <button type="submit" data-group-save-button>{% trans "Guardar" %}</button>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var form = document.querySelector("[data-derived-subdivision-form]");
+  if (!form) {
+    return;
+  }
+  var levelInput = form.querySelector("[data-derived-level]");
+  var internalNameInput = form.querySelector("[data-derived-internal-name]");
+  var parentInput = form.querySelector("[data-derived-parent-code]");
+  var capitalSelect = form.querySelector("[data-derived-capital-select]");
+  var capitalPicker = form.querySelector("[data-derived-capital-picker]");
+  var capitalBadgeRail = form.querySelector("[data-derived-capital-badges]");
+  var capitalHiddenInputs = form.querySelector("[data-derived-capital-hidden-inputs]");
+  var fullCodeInput = form.querySelector("[data-derived-full-code]");
+  var contentInput = form.querySelector("[data-derived-content]");
+  var titleNode = document.querySelector("[data-derived-title]");
+  var loadingNode = form.querySelector("[data-derived-loading]");
+  var dynamicSections = Array.prototype.slice.call(form.querySelectorAll("[data-derived-dynamic-section]"));
+  var includeItemsInput = form.querySelector("[data-derived-include-ids-json]");
+  var subtractItemsInput = form.querySelector("[data-derived-subtract-ids-json]");
+  var sourceDirtyInput = form.querySelector("[data-derived-source-dirty]");
+  var sourceControl = form.querySelector("[data-derived-source-control]");
+  var sourcePanels = Array.prototype.slice.call(form.querySelectorAll("[data-derived-source-panel]"));
+  var blockTemplate = form.querySelector("[data-group-country-block-template]");
+  var sectionTemplate = null;
+  var sectionModal = null;
+  var sectionModalTitle = null;
+  var sectionModalContent = null;
+  var sourceItemModal = form.querySelector("[data-derived-source-item-modal]");
+  var sourceItemModalTitle = form.querySelector("[data-derived-source-item-modal-title]");
+  var sourceItemModalContent = form.querySelector("[data-derived-source-item-modal-content]");
+  var optionsNode = document.getElementById("derived-subdivision-parent-options");
+  var capitalOptionsNode = document.getElementById("derived-subdivision-capital-options");
+  var capitalValuesNode = document.getElementById("derived-subdivision-capital-values");
+  var includeItemsNode = document.getElementById("derived-subdivision-include-items");
+  var subtractItemsNode = document.getElementById("derived-subdivision-subtract-items");
+  var sourceCountriesNode = document.getElementById("derived-subdivision-source-countries");
+  var loadUrl = form.dataset.derivedSubdivisionLoadUrl || "";
+  var capitalOptionsUrl = form.dataset.derivedCapitalOptionsUrl || "";
+  var sourceUrl = form.dataset.sourceUrl || "";
+  var loadOnStart = form.dataset.derivedLoadOnStart === "1";
+  var parentOptions = [];
+  var initialCapitalOptions = [];
+  var initialCapitalValues = [];
+  var selectedCapitals = [];
+  var includeItems = [];
+  var subtractItems = [];
+  var detachedSubtractItems = [];
+  var sourceCountries = [];
+  var countryDataCache = {};
+  var sectionDataCache = {};
+  var childDataCache = {};
+  var sectionModalState = null;
+  var sourceItemModalState = null;
+  var openSearchSelect = null;
+  try {
+    parentOptions = optionsNode ? JSON.parse(optionsNode.textContent || "[]") : [];
+  } catch (error) {
+    parentOptions = [];
+  }
+  try {
+    initialCapitalOptions = capitalOptionsNode ? JSON.parse(capitalOptionsNode.textContent || "[]") : [];
+  } catch (error) {
+    initialCapitalOptions = [];
+  }
+  try {
+    initialCapitalValues = capitalValuesNode ? JSON.parse(capitalValuesNode.textContent || "[]") : [];
+  } catch (error) {
+    initialCapitalValues = [];
+  }
+  try {
+    includeItems = includeItemsNode ? JSON.parse(includeItemsNode.textContent || "[]") : [];
+  } catch (error) {
+    includeItems = [];
+  }
+  try {
+    subtractItems = subtractItemsNode ? JSON.parse(subtractItemsNode.textContent || "[]") : [];
+  } catch (error) {
+    subtractItems = [];
+  }
+  try {
+    sourceCountries = sourceCountriesNode ? JSON.parse(sourceCountriesNode.textContent || "[]") : [];
+  } catch (error) {
+    sourceCountries = [];
+  }
+
+  function cleanCode(value) {
+    return String(value || "")
+      .trim()
+      .replace(/[^A-Za-z0-9_]+/g, "-")
+      .replace(/^[-_]+|[-_]+$/g, "")
+      .toUpperCase();
+  }
+
+  function setLoading(isLoading, message, isError) {
+    form.classList.toggle("is-loading", Boolean(isLoading));
+    form.classList.toggle("is-load-error", Boolean(isError));
+    if (loadingNode) {
+      loadingNode.hidden = !isLoading && !isError;
+      var textNode = loadingNode.querySelector("span:last-child");
+      if (textNode && message) {
+        textNode.textContent = message;
+      }
+    }
+    dynamicSections.forEach(function (section) {
+      section.hidden = Boolean(isLoading || isError);
+    });
+    form.querySelectorAll("[data-group-save-button]").forEach(function (button) {
+      button.disabled = Boolean(isLoading || isError);
+    });
+  }
+
+  function setFieldValue(selector, value) {
+    var field = form.querySelector(selector);
+    if (field) {
+      field.value = value == null ? "" : String(value);
+    }
+  }
+
+  function csrfToken() {
+    var token = form.querySelector('input[name="csrfmiddlewaretoken"]');
+    return token ? token.value : "";
+  }
+
+  function selectValue(element) {
+    return element ? element.value || "" : "";
+  }
+
+  function bindSelectValueChange(element, handler) {
+    if (!element) {
+      return;
+    }
+    element.addEventListener("change", handler);
+  }
+
+  function normalizeSearchText(value) {
+    return String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  }
+
+  function searchSelectLabel(element) {
+    var selected = Array.prototype.slice.call(element.options || []).find(function (option) {
+      return option.value === element.value;
+    });
+    return selected ? selected.textContent : element.dataset.placeholder || "";
+  }
+
+  function ensureSearchSelect(element) {
+    if (!element || element.__groupSearchWidget) {
+      return element ? element.__groupSearchWidget : null;
+    }
+    element.classList.add("group-native-select");
+    var widget = document.createElement("div");
+    widget.className = "group-search-select";
+    widget.innerHTML = [
+      '<button type="button" class="group-search-select-trigger" aria-haspopup="listbox" aria-expanded="false"></button>',
+      '<div class="group-search-select-menu" hidden>',
+      '<input type="search" class="group-search-select-input" autocomplete="off">',
+      '<div class="group-search-select-options" role="listbox"></div>',
+      '</div>'
+    ].join("");
+    element.insertAdjacentElement("afterend", widget);
+    element.__groupSearchWidget = widget;
+    var trigger = widget.querySelector(".group-search-select-trigger");
+    var input = widget.querySelector(".group-search-select-input");
+    trigger.addEventListener("click", function () {
+      if (element.disabled) {
+        return;
+      }
+      if (widget.classList.contains("is-open")) {
+        closeSearchSelect(element);
+      } else {
+        openSearchSelectDropdown(element);
+      }
+    });
+    input.addEventListener("input", function () {
+      renderSearchSelectOptions(element);
+    });
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        closeSearchSelect(element);
+        trigger.focus();
+      }
+    });
+    return widget;
+  }
+
+  function closeSearchSelect(element) {
+    var widget = element && element.__groupSearchWidget;
+    if (!widget) {
+      return;
+    }
+    widget.classList.remove("is-open");
+    widget.querySelector(".group-search-select-menu").hidden = true;
+    widget.querySelector(".group-search-select-trigger").setAttribute("aria-expanded", "false");
+    if (openSearchSelect === element) {
+      openSearchSelect = null;
+    }
+  }
+
+  function closeOpenSearchSelect(exceptElement) {
+    if (openSearchSelect && openSearchSelect !== exceptElement) {
+      closeSearchSelect(openSearchSelect);
+    }
+  }
+
+  function visibleSelectOptions(element) {
+    var options = element.__allOptions || [];
+    var widget = ensureSearchSelect(element);
+    var searchInput = widget ? widget.querySelector(".group-search-select-input") : null;
+    var query = normalizeSearchText(searchInput ? searchInput.value : "");
+    if (!query) {
+      return options.slice();
+    }
+    return options.filter(function (option) {
+      return normalizeSearchText((option.label || "") + " " + (option.value || "")).indexOf(query) !== -1;
+    });
+  }
+
+  function renderSearchSelectOptions(element) {
+    var widget = ensureSearchSelect(element);
+    if (!widget) {
+      return;
+    }
+    var list = widget.querySelector(".group-search-select-options");
+    list.innerHTML = "";
+    var options = visibleSelectOptions(element);
+    if (!options.length) {
+      var empty = document.createElement("div");
+      empty.className = "group-search-select-empty";
+      empty.textContent = "{% trans 'Sin resultados' %}";
+      list.appendChild(empty);
+      return;
+    }
+    options.forEach(function (option) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "group-search-select-option";
+      button.textContent = option.label;
+      button.dataset.value = option.value;
+      button.setAttribute("role", "option");
+      button.setAttribute("aria-selected", String(option.value) === String(element.value) ? "true" : "false");
+      button.addEventListener("click", function () {
+        element.value = option.value;
+        element.dispatchEvent(new Event("change", { bubbles: true }));
+        closeSearchSelect(element);
+        syncSearchSelect(element);
+      });
+      list.appendChild(button);
+    });
+  }
+
+  function syncSearchSelect(element) {
+    var widget = ensureSearchSelect(element);
+    if (!widget) {
+      return;
+    }
+    var trigger = widget.querySelector(".group-search-select-trigger");
+    trigger.textContent = searchSelectLabel(element);
+    trigger.disabled = element.disabled;
+    widget.classList.toggle("is-disabled", element.disabled);
+    if (widget.classList.contains("is-open")) {
+      renderSearchSelectOptions(element);
+    }
+  }
+
+  function openSearchSelectDropdown(element) {
+    var widget = ensureSearchSelect(element);
+    if (!widget || element.disabled) {
+      return;
+    }
+    closeOpenSearchSelect(element);
+    openSearchSelect = element;
+    widget.classList.add("is-open");
+    widget.querySelector(".group-search-select-menu").hidden = false;
+    widget.querySelector(".group-search-select-trigger").setAttribute("aria-expanded", "true");
+    var input = widget.querySelector(".group-search-select-input");
+    input.value = "";
+    input.placeholder = element.dataset.placeholder || "";
+    renderSearchSelectOptions(element);
+    window.setTimeout(function () {
+      input.focus();
+    }, 0);
+  }
+
+  function renderSelectOptions(element, selectedValue) {
+    if (!element) {
+      return;
+    }
+    element.innerHTML = "";
+    var options = visibleSelectOptions(element);
+    options.forEach(function (option) {
+      var node = document.createElement("option");
+      node.value = option.value;
+      node.textContent = option.label;
+      element.appendChild(node);
+    });
+    if (options.length) {
+      var hasSelectedValue = options.some(function (option) {
+        return String(option.value) === String(selectedValue || "");
+      });
+      element.value = hasSelectedValue ? selectedValue : String(options[0].value);
+    } else {
+      element.value = "";
+    }
+    element.disabled = element.__disableWhenEmpty !== false && !options.length;
+    syncSearchSelect(element);
+  }
+
+  function clearSelectSearch(element) {
+    var widget = ensureSearchSelect(element);
+    var searchInput = widget ? widget.querySelector(".group-search-select-input") : null;
+    if (searchInput) {
+      searchInput.value = "";
+    }
+  }
+
+  function setSelectOptions(element, options, selectedValue, allowClear, disableWhenEmpty) {
+    if (!element) {
+      return;
+    }
+    element.__allOptions = (options || []).map(function (option) {
+      return { value: String(option.value), label: option.label || String(option.value) };
+    });
+    element.__allowClear = allowClear;
+    element.__disableWhenEmpty = disableWhenEmpty;
+    renderSelectOptions(element, selectedValue);
+  }
+
+  document.addEventListener("click", function (event) {
+    if (openSearchSelect && openSearchSelect.__groupSearchWidget && !openSearchSelect.__groupSearchWidget.contains(event.target)) {
+      closeSearchSelect(openSearchSelect);
+    }
+  });
+
+  function countryLabel(countryCode) {
+    var option = sourceCountries.find(function (item) {
+      return item.value === countryCode;
+    });
+    return option ? option.label : countryCode;
+  }
+
+  function renderParentOptions(selectedValue) {
+    if (!parentInput) {
+      return;
+    }
+    parentInput.value = cleanCode(form.dataset.rootCode || selectedValue || parentInput.value);
+  }
+
+  function initCapitalSelect2(select) {
+    if (!select || !window.jQuery || !window.jQuery.fn || !window.jQuery.fn.select2) {
+      return;
+    }
+    var node = window.jQuery(select);
+    try {
+      if (node.data("select2")) {
+        node.select2("destroy");
+      } else if (select.nextElementSibling && select.nextElementSibling.classList.contains("select2-container")) {
+        select.nextElementSibling.remove();
+        select.classList.remove("select2-hidden-accessible");
+        select.removeAttribute("aria-hidden");
+        select.removeAttribute("tabindex");
+      }
+      node.select2({
+        width: "100%",
+        placeholder: node.data("placeholder") || "",
+        allowClear: true,
+        minimumInputLength: 2,
+        ajax: {
+          delay: 250,
+          data: function (params) {
+            return { term: params.term || "" };
+          },
+          transport: function (params, success, failure) {
+            var term = params && params.data ? params.data.term || "" : "";
+            var controller = window.AbortController ? new AbortController() : null;
+            postCapitalOptions(term, success, failure, controller);
+            return {
+              abort: function () {
+                if (controller) {
+                  controller.abort();
+                }
+              }
+            };
+          },
+          processResults: function (payload) {
+            var selected = selectedCapitalValues().reduce(function (acc, value) {
+              acc[value] = true;
+              return acc;
+            }, {});
+            return {
+              results: (payload.capital_options || []).map(function (option) {
+                return {
+                  id: option.value || "",
+                  text: option.label || option.name || option.value || ""
+                };
+              }).filter(function (option) {
+                return option.id && !selected[option.id];
+              })
+            };
+          }
+        },
+        language: {
+          inputTooShort: function () { return select.dataset.inputTooShortLabel || ""; },
+          noResults: function () { return select.dataset.noResultsLabel || ""; },
+          searching: function () { return select.dataset.searchingLabel || ""; }
+        },
+        dropdownCssClass: "select2-dropdown-search-visible"
+      });
+      node.off("select2:open.derivedCapitalSearch").on("select2:open.derivedCapitalSearch", function () {
+        window.setTimeout(function () {
+          var search = document.querySelector(".select2-container--open .select2-search__field");
+          if (search) {
+            search.placeholder = node.data("placeholder") || "";
+            search.focus();
+          }
+        }, 0);
+      });
+      node.off("select2:select.derivedCapitalPick").on("select2:select.derivedCapitalPick", function (event) {
+        var data = event.params && event.params.data ? event.params.data : {};
+        addSelectedCapital(data.id, data.text);
+        node.val(null).trigger("change.select2");
+      });
+      node.trigger("change.select2");
+    } catch (error) {}
+  }
+
+  function normalizedCapitalValues(values) {
+    if (values == null || values === "") {
+      return [];
+    }
+    if (!Array.isArray(values)) {
+      values = [values];
+    }
+    var seen = {};
+    return values.map(function (value) {
+      return String(value || "").trim();
+    }).filter(function (value) {
+      if (!value || seen[value]) {
+        return false;
+      }
+      seen[value] = true;
+      return true;
+    });
+  }
+
+  function selectedCapitalValues() {
+    return selectedCapitals.map(function (capital) {
+      return capital.value;
+    });
+  }
+
+  function capitalLabelFromOptions(value, options) {
+    var found = (options || []).find(function (option) {
+      return String(option.value || "") === String(value || "");
+    });
+    if (found) {
+      return found.label || found.name || found.value || value;
+    }
+    found = selectedCapitals.find(function (capital) {
+      return String(capital.value || "") === String(value || "");
+    });
+    return found ? found.label : value;
+  }
+
+  function setSelectedCapitals(values, options) {
+    var selected = normalizedCapitalValues(values);
+    selectedCapitals = selected.map(function (value) {
+      return {
+        value: value,
+        label: capitalLabelFromOptions(value, options)
+      };
+    });
+    renderCapitalBadges();
+  }
+
+  function addSelectedCapital(value, label) {
+    value = String(value || "").trim();
+    if (!value || selectedCapitalValues().indexOf(value) !== -1) {
+      return;
+    }
+    selectedCapitals.push({
+      value: value,
+      label: label || value
+    });
+    renderCapitalBadges();
+  }
+
+  function removeSelectedCapital(value) {
+    value = String(value || "");
+    selectedCapitals = selectedCapitals.filter(function (capital) {
+      return capital.value !== value;
+    });
+    renderCapitalBadges();
+  }
+
+  function renderCapitalBadges() {
+    if (!capitalBadgeRail || !capitalHiddenInputs) {
+      return;
+    }
+    capitalBadgeRail.innerHTML = "";
+    capitalHiddenInputs.innerHTML = "";
+    if (!selectedCapitals.length) {
+      var empty = document.createElement("span");
+      empty.className = "derived-capital-empty";
+      empty.textContent = capitalPicker ? capitalPicker.dataset.emptyLabel || "" : "";
+      capitalBadgeRail.appendChild(empty);
+      return;
+    }
+    selectedCapitals.forEach(function (capital) {
+      var input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "capitals";
+      input.value = capital.value;
+      capitalHiddenInputs.appendChild(input);
+
+      var badge = document.createElement("span");
+      badge.className = "derived-capital-badge";
+      badge.title = capital.label;
+      var label = document.createElement("span");
+      label.className = "derived-capital-badge-label";
+      label.textContent = capital.label;
+      var remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "derived-capital-badge-remove";
+      remove.textContent = "x";
+      remove.setAttribute("aria-label", (capitalPicker ? capitalPicker.dataset.removeLabel || "" : "") + " " + capital.label);
+      remove.addEventListener("click", function () {
+        removeSelectedCapital(capital.value);
+      });
+      badge.appendChild(label);
+      badge.appendChild(remove);
+      capitalBadgeRail.appendChild(badge);
+    });
+  }
+
+  function renderCapitalOptions(options, selectedValues) {
+    if (!capitalSelect) {
+      return;
+    }
+    if (options == null) {
+      initCapitalSelect2(capitalSelect);
+      return;
+    }
+    var selected = selectedValues == null ? selectedCapitalValues() : normalizedCapitalValues(selectedValues);
+    capitalSelect.innerHTML = '<option></option>';
+    var available = selected.reduce(function (acc, value) {
+      acc[value] = true;
+      return acc;
+    }, {});
+    (options || []).forEach(function (option) {
+      var node = document.createElement("option");
+      node.value = option.value || "";
+      node.textContent = option.label || option.name || option.value || "";
+      if (node.value) {
+        available[node.value] = true;
+      }
+      capitalSelect.appendChild(node);
+    });
+    selected = selected.filter(function (value) {
+      return available[value];
+    });
+    setSelectedCapitals(selected, options || []);
+    initCapitalSelect2(capitalSelect);
+    if (window.jQuery && window.jQuery.fn && window.jQuery.fn.select2) {
+      try {
+        window.jQuery(capitalSelect).val(null).trigger("change.select2");
+      } catch (error) {}
+    }
+  }
+
+  function postCapitalOptions(query, onSuccess, onFailure, controller) {
+    var selected = selectedCapitalValues();
+    refreshSourceHidden(false);
+    fetch(capitalOptionsUrl, {
+      method: "POST",
+      credentials: "same-origin",
+      signal: controller ? controller.signal : undefined,
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrfToken(),
+        "X-Requested-With": "XMLHttpRequest"
+      },
+      body: JSON.stringify({
+        content: contentInput ? contentInput.value || "" : "",
+        source_dirty: sourceDirtyInput ? sourceDirtyInput.value || "0" : "0",
+        include_ids_json: includeItemsInput ? includeItemsInput.value || "[]" : "[]",
+        subtract_ids_json: subtractItemsInput ? subtractItemsInput.value || "[]" : "[]",
+        capitals: selected,
+        capital: selected[0] || "",
+        query: query || ""
+      })
+    })
+      .then(function (response) {
+        return response.json().then(function (payload) {
+          if (!response.ok || !payload.ok) {
+            throw new Error(payload.error || "Error");
+          }
+          return payload;
+        });
+      })
+      .then(onSuccess)
+      .catch(function (error) {
+        if (error && error.name === "AbortError") {
+          return;
+        }
+        if (onFailure) {
+          onFailure(error);
+        }
+      });
+  }
+
+  function updateFullCode() {
+    var parentCode = cleanCode(parentInput ? parentInput.value : form.dataset.rootCode);
+    var suffix = cleanCode(internalNameInput ? internalNameInput.value : "");
+    var fullCode = suffix && parentCode && suffix.indexOf(parentCode + "-") !== 0 ? parentCode + "-" + suffix : suffix;
+    if (fullCodeInput) {
+      fullCodeInput.value = fullCode;
+    }
+  }
+
+  function fetchJson(params) {
+    if (!sourceUrl) {
+      return Promise.resolve({});
+    }
+    var url = new URL(sourceUrl, window.location.href);
+    Object.keys(params || {}).forEach(function (key) {
+      if (params[key] !== undefined && params[key] !== null && params[key] !== "") {
+        url.searchParams.set(key, params[key]);
+      }
+    });
+    return fetch(url.toString(), { headers: { "Accept": "application/json" } }).then(function (response) {
+      if (!response.ok) {
+        throw new Error("HTTP " + response.status);
+      }
+      return response.json();
+    });
+  }
+
+  function postSourceData(payload) {
+    if (!sourceUrl) {
+      return Promise.resolve({});
+    }
+    return fetch(new URL(sourceUrl, window.location.href).toString(), {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrfToken()
+      },
+      body: JSON.stringify(payload || {})
+    }).then(function (response) {
+      if (!response.ok) {
+        throw new Error("HTTP " + response.status);
+      }
+      return response.json();
+    });
+  }
+
+  function setBlockLoading(block, loading) {
+    var loadingBox = block ? block.querySelector("[data-group-country-data-loading]") : null;
+    var content = block ? block.querySelector("[data-group-country-data-content]") : null;
+    if (loadingBox) {
+      loadingBox.hidden = !loading;
+    }
+    if (content) {
+      content.hidden = !!loading;
+    }
+    if (block) {
+      block.classList.toggle("is-loading", !!loading);
+    }
+  }
+
+  function hydrateBlockData(blockData) {
+    var countryCode = blockData.country_code || "{{ country_code|escapejs }}";
+    var names = Array.isArray(blockData.names) ? blockData.names : [];
+    if (!names.length) {
+      return Promise.resolve(blockData);
+    }
+    return postSourceData({
+      country_code: countryCode,
+      names: names,
+      sections: blockData.sections || []
+    }).then(function (payload) {
+      return {
+        country_code: countryCode,
+        names: payload.names || [],
+        sections: payload.sections || []
+      };
+    }).catch(function () {
+      return blockData;
+    });
+  }
+
+  function loadCountryData(countryCode) {
+    if (countryDataCache[countryCode]) {
+      return Promise.resolve(countryDataCache[countryCode]);
+    }
+    countryDataCache[countryCode] = fetchJson({ country_code: countryCode }).then(function (data) {
+      countryDataCache[countryCode] = data || { levels: [] };
+      return countryDataCache[countryCode];
+    }).catch(function () {
+      countryDataCache[countryCode] = { levels: [] };
+      return countryDataCache[countryCode];
+    });
+    return Promise.resolve(countryDataCache[countryCode]);
+  }
+
+  function loadSections(countryCode, level, sectionParentId) {
+    var parentKey = sectionParentId || "";
+    var key = countryCode + "::" + level + "::" + parentKey;
+    if (sectionDataCache[key]) {
+      return Promise.resolve(sectionDataCache[key]);
+    }
+    sectionDataCache[key] = fetchJson({ country_code: countryCode, level: level, section_parent_id: parentKey }).then(function (data) {
+      sectionDataCache[key] = data.sections || [];
+      return sectionDataCache[key];
+    }).catch(function () {
+      sectionDataCache[key] = [];
+      return sectionDataCache[key];
+    });
+    return Promise.resolve(sectionDataCache[key]);
+  }
+
+  function loadChildren(countryCode, parentId) {
+    var key = countryCode + "::" + parentId;
+    if (childDataCache[key]) {
+      return Promise.resolve(childDataCache[key]);
+    }
+    childDataCache[key] = fetchJson({ country_code: countryCode, parent_id: parentId, include_groups: "1" }).then(function (data) {
+      childDataCache[key] = data.children || [];
+      return childDataCache[key];
+    }).catch(function () {
+      childDataCache[key] = [];
+      return childDataCache[key];
+    });
+    return Promise.resolve(childDataCache[key]);
+  }
+
+  function sectionIdsForBlock(block) {
+    return Array.prototype.slice.call(block.querySelectorAll("[data-group-section-block]")).reduce(function (ids, section) {
+      if (section.dataset.sectionId) {
+        ids[section.dataset.sectionId] = true;
+      }
+      return ids;
+    }, {});
+  }
+
+  function selectedAncestorIdsForRows(rows, rowIndex) {
+    var ancestorIds = [];
+    rows.slice(0, rowIndex).forEach(function (row) {
+      var selectedId = selectValue(hierarchyRowSelect(row));
+      if (selectedId) {
+        ancestorIds.push(selectedId);
+      }
+    });
+    return ancestorIds;
+  }
+
+  function hasSelectedAncestor(sectionData, selectedIds) {
+    return (sectionData.ancestor_ids || []).some(function (ancestorId) {
+      return selectedIds[String(ancestorId)];
+    });
+  }
+
+  function removeDescendantSections(block, ancestorId) {
+    var removed = false;
+    Array.prototype.slice.call(block.querySelectorAll("[data-group-section-block]")).forEach(function (section) {
+      var state = section.__sectionState || {};
+      if (String(state.area_id || section.dataset.sectionId || "") === String(ancestorId)) {
+        return;
+      }
+      if ((state.ancestor_ids || []).some(function (item) { return String(item) === String(ancestorId); })) {
+        section.remove();
+        removed = true;
+      }
+    });
+    return removed;
+  }
+
+  function hierarchyRowsForBlock(block) {
+    return Array.prototype.slice.call(block.querySelectorAll("[data-group-hierarchy-row]"));
+  }
+
+  function hierarchyRowSelect(row) {
+    return row ? row.querySelector("[data-group-section-select]") : null;
+  }
+
+  function hierarchyRowButton(row) {
+    return row ? row.querySelector("[data-add-group-section]") : null;
+  }
+
+  function updateHierarchyAddButton(row) {
+    var button = hierarchyRowButton(row);
+    if (button) {
+      button.disabled = !selectValue(hierarchyRowSelect(row));
+    }
+  }
+
+  function clearHierarchyRows(rows, startIndex) {
+    rows.slice(startIndex).forEach(function (row) {
+      var selectElement = hierarchyRowSelect(row);
+      row.__loadToken = (row.__loadToken || 0) + 1;
+      row.__sectionOptions = [];
+      clearSelectSearch(selectElement);
+      setSelectOptions(selectElement, [], "", true, true);
+      updateHierarchyAddButton(row);
+    });
+  }
+
+  function renderLevelRows(block, levels) {
+    var container = block.querySelector("[data-group-hierarchy-controls]");
+    if (!container) {
+      return;
+    }
+    container.innerHTML = "";
+    (levels || []).forEach(function (level, index) {
+      var levelValue = String(level.value);
+      var levelLabel = level.label || level.name || ("Nivel " + levelValue);
+      var row = document.createElement("div");
+      row.className = "group-hierarchy-row";
+      row.dataset.groupHierarchyRow = "";
+      row.dataset.level = levelValue;
+      row.dataset.rowIndex = String(index);
+      row.innerHTML = [
+        '<label>',
+        '<span class="group-hierarchy-label"></span>',
+        '<select data-group-section-select disabled></select>',
+        '</label>',
+        '<div class="group-entry-add-slot">',
+        '<button type="button" class="secondary" data-add-group-section>{% trans "Añadir" %}</button>',
+        '</div>'
+      ].join("");
+      row.querySelector(".group-hierarchy-label").textContent = levelLabel;
+      var sectionSelect = hierarchyRowSelect(row);
+      sectionSelect.dataset.placeholder = levelLabel;
+      bindSelectValueChange(sectionSelect, function () {
+        updateHierarchyAddButton(row);
+        updateHierarchyFrom(block, index + 1);
+      });
+      hierarchyRowButton(row).addEventListener("click", function () {
+        addSelectedSectionFromRow(block, row);
+      });
+      container.appendChild(row);
+      setSelectOptions(sectionSelect, [], "", true, true);
+      updateHierarchyAddButton(row);
+    });
+  }
+
+  function updateHierarchyFrom(block, startIndex) {
+    var rows = hierarchyRowsForBlock(block);
+    if (startIndex >= rows.length) {
+      return;
+    }
+    var row = rows[startIndex];
+    var sectionSelect = hierarchyRowSelect(row);
+    var selectedValue = selectValue(sectionSelect);
+    var parentId = startIndex === 0 ? "" : selectValue(hierarchyRowSelect(rows[startIndex - 1]));
+    clearHierarchyRows(rows, startIndex);
+    if (startIndex > 0 && !parentId) {
+      return;
+    }
+    var token = (row.__loadToken || 0) + 1;
+    row.__loadToken = token;
+    var ancestorIds = selectedAncestorIdsForRows(rows, startIndex);
+    loadSections(block.dataset.countryCode || "", row.dataset.level || "", parentId).then(function (sections) {
+      if (row.__loadToken !== token) {
+        return;
+      }
+      var used = sectionIdsForBlock(block);
+      var normalizedSections = sections.map(function (section) {
+        section.ancestor_ids = (section.ancestor_ids || ancestorIds).map(function (item) {
+          return String(item);
+        });
+        if (parentId && !section.parent_id) {
+          section.parent_id = parentId;
+        }
+        return section;
+      });
+      var options = normalizedSections.filter(function (section) {
+        return !used[section.id] && !hasSelectedAncestor(section, used);
+      }).map(function (section) {
+        return { value: section.id, label: section.label || section.name || section.id };
+      });
+      row.__sectionOptions = normalizedSections;
+      setSelectOptions(sectionSelect, options, selectedValue, true, true);
+      updateHierarchyAddButton(row);
+      updateHierarchyFrom(block, startIndex + 1);
+    });
+  }
+
+  function addSelectedSectionFromRow(block, row) {
+    var sectionSelect = hierarchyRowSelect(row);
+    var sectionId = selectValue(sectionSelect);
+    if (!sectionId || sectionIdsForBlock(block)[sectionId]) {
+      return;
+    }
+    var sectionData = (row.__sectionOptions || []).find(function (item) {
+      return String(item.id) === String(sectionId);
+    });
+    if (!sectionData) {
+      return;
+    }
+    var section = renderSection(block, {
+      area_id: sectionData.id,
+      area_name: sectionData.name || sectionData.label || sectionData.id,
+      area_label: sectionData.label || sectionData.name || sectionData.id,
+      level: sectionData.level,
+      parent_id: sectionData.parent_id || "",
+      ancestor_ids: sectionData.ancestor_ids || [],
+      selected: []
+    });
+    if (section) {
+      openSectionModal(block, section, { isNew: true });
+    }
+    updateHierarchyFrom(block, Number(row.dataset.rowIndex || 0));
+  }
+
+  function selectedSet(section) {
+    return section.__selectedIds || {};
+  }
+
+  function renderBadge(container, child, target) {
+    var badge = document.createElement("button");
+    badge.type = "button";
+    badge.className = "group-transfer-badge";
+    badge.textContent = child.label || child.name || child.id;
+    badge.dataset.childId = child.id;
+    badge.dataset.target = target;
+    container.appendChild(badge);
+  }
+
+  function setBadgeListLoading(section, loading) {
+    Array.prototype.slice.call(section.querySelectorAll("[data-available-badges], [data-selected-badges]")).forEach(function (box) {
+      if (!loading) {
+        return;
+      }
+      box.innerHTML = "";
+      var loadingNode = document.createElement("div");
+      loadingNode.className = "group-badge-loading table-loading";
+      loadingNode.innerHTML = '<span class="loading-spinner" aria-hidden="true"></span><span>{% trans "Cargando datos..." %}</span>';
+      box.appendChild(loadingNode);
+    });
+  }
+
+  function renderSectionBadges(section, markDirty) {
+    var state = section.__sectionState || {};
+    var selected = selectedSet(section);
+    var availableBox = section.querySelector("[data-available-badges]");
+    var selectedBox = section.querySelector("[data-selected-badges]");
+    var availableFragment = document.createDocumentFragment();
+    var selectedFragment = document.createDocumentFragment();
+    (state.children || []).forEach(function (child) {
+      if (selected[child.id]) {
+        renderBadge(selectedFragment, child, "selected");
+      } else {
+        renderBadge(availableFragment, child, "available");
+      }
+    });
+    availableBox.replaceChildren(availableFragment);
+    selectedBox.replaceChildren(selectedFragment);
+    if (section.__ownerBlock) {
+      renderSectionTable(section.__ownerBlock);
+    }
+    refreshSourceHidden(Boolean(markDirty));
+  }
+
+  function selectedItemsForSection(section) {
+    var state = section.__sectionState || {};
+    var selected = selectedSet(section);
+    if (!(state.children || []).length && (state.pendingSelected || []).length) {
+      return state.pendingSelected;
+    }
+    return (state.children || []).filter(function (child) {
+      return selected[child.id];
+    }).map(function (child) {
+      return { id: child.id, name: child.name || child.label || "", label: child.label || child.name || "", level: child.level || 0 };
+    });
+  }
+
+  function sectionSelectedLabels(section) {
+    return selectedItemsForSection(section).map(function (item) {
+      return item.name || item.label || item.id || "";
+    }).filter(Boolean);
+  }
+
+  function sectionListForBlock(block) {
+    return block ? block.querySelector("[data-group-section-list]") : null;
+  }
+
+  function sectionTableForBlock(block) {
+    return block ? block.querySelector("[data-group-section-table]") : null;
+  }
+
+  function sectionById(block, sectionId) {
+    var sectionList = sectionListForBlock(block);
+    if (!sectionList) {
+      return null;
+    }
+    return Array.prototype.slice.call(sectionList.querySelectorAll("[data-group-section-block]")).find(function (section) {
+      return String(section.dataset.sectionId || "") === String(sectionId || "");
+    }) || null;
+  }
+
+  function renderSectionTable(block) {
+    var tbody = sectionTableForBlock(block);
+    var sectionList = sectionListForBlock(block);
+    if (!tbody || !sectionList) {
+      return;
+    }
+    tbody.innerHTML = "";
+    var sections = Array.prototype.slice.call(sectionList.querySelectorAll("[data-group-section-block]"));
+    if (!sections.length) {
+      var emptyRow = document.createElement("tr");
+      emptyRow.dataset.groupSectionEmptyRow = "";
+      var emptyCell = document.createElement("td");
+      emptyCell.colSpan = 4;
+      emptyCell.className = "table-empty-cell";
+      emptyCell.textContent = "{% trans 'Sin datos.' %}";
+      emptyRow.appendChild(emptyCell);
+      tbody.appendChild(emptyRow);
+      return;
+    }
+    sections.forEach(function (section) {
+      var state = section.__sectionState || {};
+      var row = document.createElement("tr");
+      row.dataset.sectionId = state.area_id || section.dataset.sectionId || "";
+      var nameCell = document.createElement("td");
+      nameCell.textContent = state.area_label || state.area_name || state.area_id || "";
+      var levelCell = document.createElement("td");
+      levelCell.className = "numeric";
+      levelCell.textContent = state.level || "";
+      var selectedCell = document.createElement("td");
+      var selectedList = document.createElement("div");
+      selectedList.className = "config-city-entity-list";
+      var selectedLabels = sectionSelectedLabels(section);
+      if (!selectedLabels.length) {
+        var empty = document.createElement("span");
+        empty.className = "muted";
+        empty.textContent = "{% trans 'Sin datos.' %}";
+        selectedList.appendChild(empty);
+      } else {
+        selectedLabels.forEach(function (label) {
+          var chip = document.createElement("span");
+          chip.className = "config-city-entity-chip";
+          chip.textContent = label;
+          selectedList.appendChild(chip);
+        });
+      }
+      selectedCell.appendChild(selectedList);
+      var actionCell = document.createElement("td");
+      actionCell.className = "group-section-table-actions-cell";
+      var actions = document.createElement("div");
+      actions.className = "button-row compact";
+      [
+        { action: "edit", label: "{% trans 'Editar' %}", className: "secondary" },
+        { action: "remove", label: "{% trans 'Quitar' %}", className: "secondary danger-text" }
+      ].forEach(function (config) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.className = config.className;
+        button.dataset.groupSectionRowAction = config.action;
+        button.dataset.sectionId = row.dataset.sectionId;
+        button.textContent = config.label;
+        actions.appendChild(button);
+      });
+      actionCell.appendChild(actions);
+      [nameCell, levelCell, selectedCell, actionCell].forEach(function (cell) {
+        row.appendChild(cell);
+      });
+      tbody.appendChild(row);
+    });
+  }
+
+  function selectedIdsSnapshot(section) {
+    return Object.assign({}, selectedSet(section));
+  }
+
+  function restoreSelectedIds(section, snapshot) {
+    section.__selectedIds = Object.assign({}, snapshot || {});
+  }
+
+  function closeSectionModal(saveChanges) {
+    if (!sectionModalState) {
+      return;
+    }
+    var state = sectionModalState;
+    var block = state.block;
+    var section = state.section;
+    var targetList = state.originalParent || sectionListForBlock(block);
+    if (saveChanges) {
+      var sectionState = section.__sectionState || {};
+      if (sectionState.area_id) {
+        removeDescendantSections(block, sectionState.area_id);
+      }
+      if (state.placeholder && state.placeholder.parentNode) {
+        state.placeholder.parentNode.insertBefore(section, state.placeholder);
+        state.placeholder.remove();
+      } else if (targetList) {
+        targetList.appendChild(section);
+      }
+      renderSectionTable(block);
+      updateHierarchyFrom(block, 0);
+      refreshSourceHidden(true);
+    } else {
+      if (state.isNew) {
+        if (state.placeholder && state.placeholder.parentNode) {
+          state.placeholder.remove();
+        }
+        section.remove();
+      } else {
+        restoreSelectedIds(section, state.selectedSnapshot);
+        if (state.placeholder && state.placeholder.parentNode) {
+          state.placeholder.parentNode.insertBefore(section, state.placeholder);
+          state.placeholder.remove();
+        } else if (targetList) {
+          targetList.appendChild(section);
+        }
+        renderSectionBadges(section, false);
+      }
+      renderSectionTable(block);
+      updateHierarchyFrom(block, 0);
+      refreshSourceHidden(false);
+    }
+    if (sectionModalContent) {
+      sectionModalContent.innerHTML = "";
+    }
+    if (sectionModal) {
+      sectionModal.hidden = true;
+    }
+    sectionModalState = null;
+  }
+
+  function openSectionModal(block, section, options) {
+    options = options || {};
+    if (!sectionModal || !sectionModalContent || !section) {
+      return;
+    }
+    if (sectionModalState) {
+      closeSectionModal(false);
+    }
+    var originalParent = section.parentNode;
+    var placeholder = document.createComment("group-section-placeholder");
+    if (originalParent) {
+      originalParent.insertBefore(placeholder, section);
+    }
+    sectionModalState = {
+      block: block,
+      section: section,
+      originalParent: originalParent,
+      placeholder: placeholder,
+      isNew: Boolean(options.isNew),
+      selectedSnapshot: selectedIdsSnapshot(section)
+    };
+    if (sectionModalTitle) {
+      var sectionState = section.__sectionState || {};
+      sectionModalTitle.textContent = sectionState.area_label || sectionState.area_name || "{% trans 'Grupo' %}";
+    }
+    sectionModalContent.replaceChildren(section);
+    sectionModal.hidden = false;
+  }
+
+  function readBlocksFromPanel(panel, includeExcluded) {
+    var blocksContainer = panel ? panel.querySelector("[data-derived-source-blocks]") : null;
+    if (!blocksContainer) {
+      return [];
+    }
+    return Array.prototype.slice.call(blocksContainer.querySelectorAll("[data-group-country-block]")).map(function (block) {
+      return {
+        country_code: block.dataset.countryCode || "",
+        names: block.__legacyNames || [],
+        sections: Array.prototype.slice.call(block.querySelectorAll("[data-group-section-block]")).map(function (section) {
+          var state = section.__sectionState || {};
+          return {
+            area_id: state.area_id || "",
+            area_name: state.area_name || "",
+            area_label: state.area_label || state.area_name || "",
+            level: state.level || 0,
+            parent_id: state.parent_id || "",
+            ancestor_ids: state.ancestor_ids || [],
+            selected: selectedItemsForSection(section)
+          };
+        })
+      };
+    });
+  }
+
+  function refreshSourceHidden(markDirty) {
+    var byOperation = { include: [], subtract: [] };
+    sourcePanels.forEach(function (panel) {
+      var operation = panel.dataset.derivedOperation === "subtract" ? "subtract" : "include";
+      byOperation[operation] = readBlocksFromPanel(panel);
+    });
+    if (includeItemsInput) {
+      includeItemsInput.value = JSON.stringify(byOperation.include);
+    }
+    if (subtractItemsInput) {
+      subtractItemsInput.value = JSON.stringify(byOperation.subtract);
+    }
+    if (markDirty && sourceDirtyInput) {
+      sourceDirtyInput.value = "1";
+    }
+  }
+
+  function renderSection(block, sectionData) {
+    if (!sectionData || !sectionData.area_id || sectionIdsForBlock(block)[sectionData.area_id]) {
+      return null;
+    }
+    var fragment = sectionTemplate.content.cloneNode(true);
+    var section = fragment.querySelector("[data-group-section-block]");
+    var countryCode = block.dataset.countryCode || "";
+    section.dataset.sectionId = sectionData.area_id;
+    section.__ownerBlock = block;
+    section.querySelector("[data-section-name-label]").textContent = sectionData.area_label || sectionData.area_name || sectionData.area_id;
+    section.__sectionState = {
+      area_id: sectionData.area_id,
+      area_name: sectionData.area_name || "",
+      area_label: sectionData.area_label || sectionData.area_name || "",
+      level: sectionData.level || 0,
+      parent_id: sectionData.parent_id || "",
+      ancestor_ids: (sectionData.ancestor_ids || []).map(function (item) { return String(item); }),
+      children: [],
+      pendingSelected: sectionData.selected || []
+    };
+    section.__selectedIds = {};
+    setBadgeListLoading(section, true);
+    section.querySelector("[data-remove-group-section]").addEventListener("click", function () {
+      section.remove();
+      updateHierarchyFrom(block, 0);
+      renderSectionTable(block);
+      refreshSourceHidden(true);
+    });
+    section.addEventListener("click", function (event) {
+      var badge = event.target.closest("[data-child-id]");
+      if (!badge || !section.contains(badge)) {
+        return;
+      }
+      var childId = badge.dataset.childId || "";
+      if (!childId) {
+        return;
+      }
+      if (badge.dataset.target === "available") {
+        section.__selectedIds[childId] = true;
+      } else {
+        delete section.__selectedIds[childId];
+      }
+      renderSectionBadges(section, true);
+    });
+    block.querySelector("[data-group-section-list]").appendChild(fragment);
+    renderSectionTable(block);
+    loadChildren(countryCode, sectionData.area_id).then(function (children) {
+      if (!children.length && (section.__sectionState.pendingSelected || []).length) {
+        children = section.__sectionState.pendingSelected.map(function (item) {
+          return {
+            id: item.id || item.name || "",
+            name: item.name || item.label || item.id || "",
+            label: item.label || item.name || item.id || "",
+            level: item.level || 0
+          };
+        }).filter(function (item) {
+          return item.id || item.name;
+        });
+      }
+      section.__sectionState.children = children;
+      var selectedById = {};
+      var selectedByName = {};
+      (sectionData.selected || []).forEach(function (item) {
+        if (item.id) {
+          selectedById[item.id] = true;
+        }
+        if (item.name) {
+          selectedByName[item.name] = true;
+        }
+      });
+      children.forEach(function (child) {
+        if (selectedById[child.id] || selectedByName[child.name] || selectedByName[child.label]) {
+          section.__selectedIds[child.id] = true;
+        }
+      });
+      section.__sectionState.pendingSelected = [];
+      renderSectionBadges(section, false);
+    }).catch(function () {
+      renderSectionBadges(section, false);
+    });
+    return section;
+  }
+
+  function renderBlock(panel, blockData, removable) {
+    var blocksContainer = panel.querySelector("[data-derived-source-blocks]");
+    if (!blocksContainer || !blockTemplate || !sectionTemplate) {
+      return null;
+    }
+    var fragment = blockTemplate.content.cloneNode(true);
+    var block = fragment.querySelector("[data-group-country-block]");
+    var countryCode = blockData.country_code || "{{ country_code|escapejs }}";
+    block.dataset.countryCode = countryCode;
+    block.dataset.derivedOperation = panel.dataset.derivedOperation || "include";
+    block.__legacyNames = Array.isArray(blockData.names) ? blockData.names : [];
+    block.querySelector("[data-country-name-label]").textContent = countryLabel(countryCode);
+    var removeButton = block.querySelector("[data-remove-country-block]");
+    removeButton.hidden = !removable;
+    removeButton.addEventListener("click", function () {
+      block.remove();
+      refreshSourceHidden(true);
+      updateCountrySelectOptions();
+    });
+    var sectionTable = sectionTableForBlock(block);
+    if (sectionTable) {
+      sectionTable.addEventListener("click", function (event) {
+        var actionButton = event.target.closest("[data-group-section-row-action]");
+        if (!actionButton || !sectionTable.contains(actionButton)) {
+          return;
+        }
+        var section = sectionById(block, actionButton.dataset.sectionId);
+        if (!section) {
+          return;
+        }
+        if (actionButton.dataset.groupSectionRowAction === "remove") {
+          section.remove();
+          renderSectionTable(block);
+          updateHierarchyFrom(block, 0);
+          refreshSourceHidden(true);
+          return;
+        }
+        openSectionModal(block, section, { isNew: false });
+      });
+    }
+    blocksContainer.appendChild(fragment);
+    setBlockLoading(block, true);
+    Promise.all([
+      loadCountryData(countryCode),
+      hydrateBlockData({ country_code: countryCode, names: block.__legacyNames, sections: blockData.sections || [] })
+    ]).then(function (results) {
+      var data = results[0] || {};
+      var hydrated = results[1] || blockData;
+      block.__legacyNames = Array.isArray(hydrated.names) ? hydrated.names : [];
+      renderLevelRows(block, data.levels || [], data.root || null);
+      (hydrated.sections || []).forEach(function (sectionData) {
+        renderSection(block, sectionData);
+      });
+      updateHierarchyFrom(block, 0);
+      refreshSourceHidden(false);
+    }).finally(function () {
+      setBlockLoading(block, false);
+    });
+    return block;
+  }
+
+  function usedCountryCodes(panel) {
+    var blocksContainer = panel ? panel.querySelector("[data-derived-source-blocks]") : null;
+    return Array.prototype.slice.call(blocksContainer ? blocksContainer.querySelectorAll("[data-group-country-block]") : []).reduce(function (used, block) {
+      if (block.dataset.countryCode) {
+        used[block.dataset.countryCode] = true;
+      }
+      return used;
+    }, {});
+  }
+
+  function updateCountrySelectOptions(panel) {
+    var select = panel ? panel.querySelector("[data-derived-country-add-select]") : null;
+    var addButton = panel ? panel.querySelector("[data-derived-add-country]") : null;
+    if (!select) {
+      return;
+    }
+    var used = usedCountryCodes(panel);
+    var available = sourceCountries.filter(function (option) {
+      return !used[option.value];
+    });
+    clearSelectSearch(select);
+    setSelectOptions(select, available, "", true);
+    if (addButton) {
+      addButton.disabled = !selectValue(select);
+    }
+  }
+
+  function addCountryBlock(panel, countryCode) {
+    if (!panel || !countryCode || usedCountryCodes(panel)[countryCode]) {
+      return;
+    }
+    var blocksContainer = panel.querySelector("[data-derived-source-blocks]");
+    var block = renderBlock(panel, { country_code: countryCode, names: [], sections: [] }, blocksContainer && blocksContainer.children.length > 0);
+    refreshSourceHidden(true);
+    updateCountrySelectOptions();
+    if (block && block.scrollIntoView) {
+      block.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  function normalizedSourceBlocks(blocks) {
+    if (!Array.isArray(blocks) || !blocks.length) {
+      return [{ country_code: "{{ country_code|escapejs }}", names: [], sections: [] }];
+    }
+    return blocks;
+  }
+
+  function renderSourcePanel(panel, blocks, markDirty) {
+    var blocksContainer = panel ? panel.querySelector("[data-derived-source-blocks]") : null;
+    if (!panel || !blocksContainer) {
+      return;
+    }
+    blocksContainer.innerHTML = "";
+    normalizedSourceBlocks(blocks).forEach(function (block, index) {
+      renderBlock(panel, block, index > 0);
+    });
+    updateCountrySelectOptions(panel);
+    refreshSourceHidden(Boolean(markDirty));
+  }
+
+  function renderDerivedSourcePanels(markDirty) {
+    sourcePanels.forEach(function (panel) {
+      var operation = panel.dataset.derivedOperation === "subtract" ? "subtract" : "include";
+      renderSourcePanel(panel, operation === "subtract" ? subtractItems : includeItems, markDirty);
+    });
+  }
+
+  function sourceItemKind(item) {
+    item = item || {};
+    var itemId = String(item.id || item.value || "").trim();
+    var kind = String(item.source_kind || item.item_type || "").trim().toLowerCase();
+    if (!kind && (item.group_key || itemId.indexOf("group::") === 0)) {
+      kind = "group";
+    }
+    return kind;
+  }
+
+  function normalizeSourceItem(item, countryCode) {
+    item = item || {};
+    var itemId = String(item.id || item.value || "").trim();
+    if (!itemId) {
+      return null;
+    }
+    var itemKind = sourceItemKind(item);
+    var groupParts = itemId.indexOf("group::") === 0 ? itemId.split("::") : [];
+    var itemCountryCode = item.country_code || countryCode || (groupParts.length >= 3 ? groupParts[1] : "");
+    var groupKey = item.group_key || (itemKind === "group" && groupParts.length >= 3 ? groupParts.slice(2).join("::") : "");
+    return {
+      id: itemId,
+      value: itemId,
+      source_kind: itemKind,
+      item_type: itemKind,
+      country_code: itemCountryCode,
+      code: item.code || "",
+      name: item.name || item.label || itemId,
+      label: item.label || item.name || itemId,
+      level: item.level || 0,
+      entity_type: item.entity_type || "",
+      parent_id: item.parent_id || "",
+      ancestor_ids: Array.isArray(item.ancestor_ids) ? item.ancestor_ids.map(function (value) { return String(value); }) : [],
+      group_key: groupKey,
+      group_slug: item.group_slug || "",
+      member_count: item.member_count || 0,
+      member_text: item.member_text || "",
+      description: item.description || "",
+      member_names: Array.isArray(item.member_names) ? item.member_names.map(function (value) { return String(value); }) : [],
+      member_ids: Array.isArray(item.member_ids) ? item.member_ids.map(function (value) { return String(value); }) : [],
+      excluded_items: normalizeSourceItems(item.excluded_items || item.subtract_items || [], item.country_code || countryCode || "")
+    };
+  }
+
+  function normalizeSourceItems(items, countryCode) {
+    var seen = {};
+    return (Array.isArray(items) ? items : []).map(function (item) {
+      return normalizeSourceItem(item, countryCode);
+    }).filter(function (item) {
+      if (!item || seen[item.id]) {
+        return false;
+      }
+      seen[item.id] = true;
+      return true;
+    });
+  }
+
+  function stripSourceItemForJson(item) {
+    item = normalizeSourceItem(item, item ? item.country_code : "");
+    if (!item) {
+      return null;
+    }
+    return {
+      id: item.id,
+      value: item.value,
+      country_code: item.country_code || "",
+      code: item.code || "",
+      name: item.name || item.label || item.id,
+      label: item.label || item.name || item.id,
+      level: item.level || 0,
+      entity_type: item.entity_type || "",
+      parent_id: item.parent_id || "",
+      ancestor_ids: item.ancestor_ids || [],
+      source_kind: item.source_kind || "",
+      item_type: item.item_type || "",
+      group_key: item.group_key || "",
+      group_slug: item.group_slug || "",
+      member_count: item.member_count || 0
+    };
+  }
+
+  function pushUniqueSourceItem(items, item, countryCode) {
+    item = normalizeSourceItem(item, countryCode);
+    if (!item || items.some(function (candidate) { return String(candidate.id) === String(item.id); })) {
+      return;
+    }
+    items.push(item);
+  }
+
+  function sourceItemIsChildOf(child, parent) {
+    if (!child || !parent || !parent.id) {
+      return false;
+    }
+    if (String(child.parent_id || "") === String(parent.id)) {
+      return true;
+    }
+    if ((child.ancestor_ids || []).some(function (ancestorId) { return String(ancestorId) === String(parent.id); })) {
+      return true;
+    }
+    return Number(parent.level || 0) === 0 && parent.country_code && child.country_code === parent.country_code;
+  }
+
+  function sourceItemBlocksFromFlatItems(items, fallbackCountryCode) {
+    var grouped = {};
+    normalizeSourceItems(items, fallbackCountryCode).forEach(function (item) {
+      var countryCode = item.country_code || fallbackCountryCode || "{{ country_code|escapejs }}";
+      if (!grouped[countryCode]) {
+        grouped[countryCode] = { country_code: countryCode, items: [] };
+      }
+      pushUniqueSourceItem(grouped[countryCode].items, item, countryCode);
+    });
+    return Object.keys(grouped).sort().map(function (countryCode) {
+      return grouped[countryCode];
+    });
+  }
+
+  function sourceItemBlocksFromExcludedItems(blocks) {
+    var excluded = [];
+    (blocks || []).forEach(function (block) {
+      normalizeSourceItems(block.items || [], block.country_code || "{{ country_code|escapejs }}").forEach(function (item) {
+        (item.excluded_items || []).forEach(function (excludedItem) {
+          excluded.push(excludedItem);
+        });
+      });
+    });
+    detachedSubtractItems.forEach(function (item) {
+      excluded.push(item);
+    });
+    return sourceItemBlocksFromFlatItems(excluded, "{{ country_code|escapejs }}");
+  }
+
+  function sourceBlocksWithExcludedItems(includeBlocks, subtractBlocks) {
+    var blocks = normalizedSourceItemBlocks(includeBlocks);
+    var allIncludeItems = [];
+    blocks.forEach(function (block) {
+      block.items = normalizeSourceItems(block.items || [], block.country_code || "{{ country_code|escapejs }}");
+      block.items.forEach(function (item) {
+        item.excluded_items = [];
+        allIncludeItems.push(item);
+      });
+    });
+    detachedSubtractItems = [];
+    normalizedSourceItemBlocks(subtractBlocks).forEach(function (block) {
+      normalizeSourceItems(block.items || [], block.country_code || "{{ country_code|escapejs }}").forEach(function (excludedItem) {
+        var parent = allIncludeItems.filter(function (item) {
+          return item.country_code === excludedItem.country_code && sourceItemIsChildOf(excludedItem, item);
+        }).sort(function (left, right) {
+          return Number(right.level || 0) - Number(left.level || 0);
+        })[0];
+        if (parent) {
+          pushUniqueSourceItem(parent.excluded_items, excludedItem, parent.country_code || block.country_code || "");
+        } else {
+          pushUniqueSourceItem(detachedSubtractItems, excludedItem, block.country_code || "");
+        }
+      });
+    });
+    return blocks;
+  }
+
+  function loadCountryData(countryCode) {
+    if (countryDataCache[countryCode]) {
+      return Promise.resolve(countryDataCache[countryCode]);
+    }
+    countryDataCache[countryCode] = fetchJson({ country_code: countryCode }).then(function (data) {
+      countryDataCache[countryCode] = data || { levels: [] };
+      return countryDataCache[countryCode];
+    }).catch(function () {
+      countryDataCache[countryCode] = { levels: [] };
+      return countryDataCache[countryCode];
+    });
+    return Promise.resolve(countryDataCache[countryCode]);
+  }
+
+  function loadSections(countryCode, level, sectionParentId) {
+    var parentKey = sectionParentId || "";
+    var key = "sections::" + countryCode + "::" + level + "::" + parentKey;
+    if (sectionDataCache[key]) {
+      return Promise.resolve(sectionDataCache[key]);
+    }
+    sectionDataCache[key] = fetchJson({
+      country_code: countryCode,
+      level: level,
+      section_parent_id: parentKey
+    }).then(function (data) {
+      sectionDataCache[key] = data.sections || [];
+      return sectionDataCache[key];
+    }).catch(function () {
+      sectionDataCache[key] = [];
+      return sectionDataCache[key];
+    });
+    return Promise.resolve(sectionDataCache[key]);
+  }
+
+  function loadSourceItems(countryCode, level, sectionParentId) {
+    var parentKey = sectionParentId || "";
+    var key = "items::" + countryCode + "::" + level + "::" + parentKey;
+    if (sectionDataCache[key]) {
+      return Promise.resolve(sectionDataCache[key]);
+    }
+    sectionDataCache[key] = fetchJson({
+      country_code: countryCode,
+      level: level,
+      section_parent_id: parentKey,
+      source_mode: "items",
+      include_groups: "1"
+    }).then(function (data) {
+      sectionDataCache[key] = data.sections || [];
+      return sectionDataCache[key];
+    }).catch(function () {
+      sectionDataCache[key] = [];
+      return sectionDataCache[key];
+    });
+    return Promise.resolve(sectionDataCache[key]);
+  }
+
+  function loadDescendants(countryCode, parentIds) {
+    parentIds = (parentIds || []).map(function (value) {
+      return String(value || "").trim();
+    }).filter(Boolean);
+    if (!countryCode || !parentIds.length) {
+      return Promise.resolve([]);
+    }
+    var parentKey = parentIds.join(",");
+    var key = "descendants::" + countryCode + "::" + parentKey;
+    if (childDataCache[key]) {
+      return Promise.resolve(childDataCache[key]);
+    }
+    childDataCache[key] = fetchJson({
+      country_code: countryCode,
+      source_mode: "descendants",
+      descendant_parent_ids: parentKey,
+      include_groups: "1"
+    }).then(function (data) {
+      childDataCache[key] = data.children || [];
+      return childDataCache[key];
+    }).catch(function () {
+      childDataCache[key] = [];
+      return childDataCache[key];
+    });
+    return Promise.resolve(childDataCache[key]);
+  }
+
+  function hierarchyRowsForBlock(block) {
+    return Array.prototype.slice.call(block.querySelectorAll("[data-group-hierarchy-row]"));
+  }
+
+  function hierarchyRowSelect(row) {
+    return row ? row.querySelector("[data-derived-source-item-select]") : null;
+  }
+
+  function hierarchyRowButton(row) {
+    return row ? row.querySelector("[data-add-derived-source-item]") : null;
+  }
+
+  function hierarchyRowIsRoot(row) {
+    return row && row.dataset.groupHierarchyRoot === "1";
+  }
+
+  function hierarchyRowRootOption(row) {
+    return row && row.__itemOptions && row.__itemOptions.length ? row.__itemOptions[0] : null;
+  }
+
+  function hierarchyRowSelectedId(row) {
+    if (hierarchyRowIsRoot(row)) {
+      var root = hierarchyRowRootOption(row);
+      return root ? root.id : "";
+    }
+    return selectValue(hierarchyRowSelect(row));
+  }
+
+  function updateHierarchyAddButton(row) {
+    var button = hierarchyRowButton(row);
+    if (button) {
+      if (hierarchyRowIsRoot(row)) {
+        var root = hierarchyRowRootOption(row);
+        button.disabled = !root || !root.id;
+        return;
+      }
+      button.disabled = !selectValue(hierarchyRowSelect(row));
+    }
+  }
+
+  function selectedSourceItemIds(block) {
+    return (block.__selectedItems || []).reduce(function (used, item) {
+      if (item.id) {
+        used[item.id] = true;
+      }
+      return used;
+    }, {});
+  }
+
+  function selectedSourceItemIdsFromList(items) {
+    return (items || []).reduce(function (used, item) {
+      if (item && item.id) {
+        used[item.id] = true;
+      }
+      return used;
+    }, {});
+  }
+
+  function sourceItemLevelValue(itemOrLevel) {
+    var level = itemOrLevel && typeof itemOrLevel === "object" ? itemOrLevel.level : itemOrLevel;
+    return level === undefined || level === null ? "" : String(level);
+  }
+
+  function sourceItemScopeKey(item, countryCode) {
+    item = item || {};
+    return [
+      String(item.country_code || countryCode || ""),
+      sourceItemKind(item) || "area",
+      sourceItemLevelValue(item),
+      String(item.parent_id || "")
+    ].join("::");
+  }
+
+  function sourceItemMatchesEditScope(item, countryCode, level, parentId, itemKind) {
+    if (!item) {
+      return false;
+    }
+    var scopeCountry = String(countryCode || item.country_code || "");
+    var itemCountry = String(item.country_code || countryCode || "");
+    var expectedKind = String(itemKind || "").trim();
+    return itemCountry === scopeCountry
+      && sourceItemLevelValue(item) === sourceItemLevelValue(level)
+      && (!expectedKind || (sourceItemKind(item) || "area") === expectedKind)
+      && String(item.parent_id || "") === String(parentId || "");
+  }
+
+  function selectedSourceItemsInEditScope(block, countryCode, level, parentId, itemKind) {
+    return normalizeSourceItems(block && block.__selectedItems || [], countryCode).filter(function (item) {
+      return sourceItemMatchesEditScope(item, countryCode, level, parentId, itemKind);
+    });
+  }
+
+  function selectedSourceItemGroups(block) {
+    var groups = [];
+    var groupsByKey = {};
+    var fallbackCountryCode = block ? block.dataset.countryCode || "" : "";
+    normalizeSourceItems(block && block.__selectedItems || [], fallbackCountryCode).forEach(function (item) {
+      var countryCode = item.country_code || fallbackCountryCode;
+      var key = sourceItemScopeKey(item, countryCode);
+      if (!groupsByKey[key]) {
+        groupsByKey[key] = {
+          key: key,
+          country_code: countryCode,
+          kind: sourceItemKind(item) || "area",
+          level: sourceItemLevelValue(item),
+          parent_id: item.parent_id || "",
+          items: []
+        };
+        groups.push(groupsByKey[key]);
+      }
+      groupsByKey[key].items.push(item);
+    });
+    return groups;
+  }
+
+  function sourceItemGroupByKey(block, groupKey) {
+    return selectedSourceItemGroups(block).find(function (group) {
+      return String(group.key || "") === String(groupKey || "");
+    }) || null;
+  }
+
+  function sourceItemGroupItemsFromBlock(block, groupKey) {
+    var fallbackCountryCode = block ? block.dataset.countryCode || "" : "";
+    return (block && block.__selectedItems || []).filter(function (item) {
+      return sourceItemScopeKey(item, fallbackCountryCode) === String(groupKey || "");
+    });
+  }
+
+  function sourceItemGroupExcludedItems(group) {
+    var excludedItems = [];
+    (group && group.items || []).forEach(function (item) {
+      (item.excluded_items || []).forEach(function (excludedItem) {
+        pushUniqueSourceItem(excludedItems, excludedItem, item.country_code || group.country_code || "");
+      });
+    });
+    return excludedItems;
+  }
+
+  function clearHierarchyRows(rows, startIndex) {
+    rows.slice(startIndex).forEach(function (row) {
+      if (hierarchyRowIsRoot(row)) {
+        row.__loadToken = (row.__loadToken || 0) + 1;
+        updateHierarchyAddButton(row);
+        return;
+      }
+      var selectElement = hierarchyRowSelect(row);
+      row.__loadToken = (row.__loadToken || 0) + 1;
+      row.__itemOptions = [];
+      if (!selectElement) {
+        updateHierarchyAddButton(row);
+        return;
+      }
+      clearSelectSearch(selectElement);
+      setSelectOptions(selectElement, [], "", true, true);
+      updateHierarchyAddButton(row);
+    });
+  }
+
+  function renderRootHierarchyRow(block, root, levels) {
+    if (!root || !root.id) {
+      return null;
+    }
+    var row = document.createElement("div");
+    row.className = "group-hierarchy-row group-hierarchy-root-row";
+    row.dataset.groupHierarchyRow = "";
+    row.dataset.groupHierarchyRoot = "1";
+    row.dataset.level = "0";
+    row.dataset.rowIndex = "0";
+    row.__ownerBlock = block;
+    row.__itemOptions = [root];
+    row.innerHTML = [
+      '<div class="group-hierarchy-static">',
+      '<span class="group-hierarchy-label"></span>',
+      '<span class="group-hierarchy-static-value"></span>',
+      '</div>',
+      '<div class="group-entry-add-slot">',
+      '<button type="button" class="secondary" data-add-derived-source-item>{% trans "Añadir" %}</button>',
+      '</div>'
+    ].join("");
+    var rootLevel = (levels || [])[0] || {};
+    row.querySelector(".group-hierarchy-label").textContent = "{% trans 'Pais' %}";
+    row.querySelector(".group-hierarchy-static-value").textContent = (root.label || root.name || countryLabel(block.dataset.countryCode || "")) + (rootLevel.label ? " - " + rootLevel.label : "");
+    hierarchyRowButton(row).addEventListener("click", function () {
+      addSelectedSourceItemFromRow(block, row);
+    });
+    updateHierarchyAddButton(row);
+    return row;
+  }
+
+  function renderLevelRows(block, levels, root) {
+    var container = block.querySelector("[data-group-hierarchy-controls]");
+    if (!container) {
+      return;
+    }
+    container.innerHTML = "";
+    var rootRow = renderRootHierarchyRow(block, root, levels || []);
+    if (rootRow) {
+      container.appendChild(rootRow);
+    }
+    (levels || []).forEach(function (level, index) {
+      var levelValue = String(level.value);
+      var levelLabel = level.label || level.name || ("Nivel " + levelValue);
+      var row = document.createElement("div");
+      row.className = "group-hierarchy-row";
+      row.dataset.groupHierarchyRow = "";
+      row.dataset.level = levelValue;
+      row.dataset.rowIndex = String(index + (rootRow ? 1 : 0));
+      row.innerHTML = [
+        '<label>',
+        '<span class="group-hierarchy-label"></span>',
+        '<select data-derived-source-item-select disabled></select>',
+        '</label>',
+        '<div class="group-entry-add-slot">',
+        '<button type="button" class="secondary" data-add-derived-source-item>{% trans "Añadir" %}</button>',
+        '</div>'
+      ].join("");
+      row.querySelector(".group-hierarchy-label").textContent = levelLabel;
+      var itemSelect = hierarchyRowSelect(row);
+      itemSelect.dataset.placeholder = levelLabel;
+      bindSelectValueChange(itemSelect, function () {
+        updateHierarchyAddButton(row);
+        updateHierarchyFrom(block, Number(row.dataset.rowIndex || 0) + 1);
+      });
+      hierarchyRowButton(row).addEventListener("click", function () {
+        addSelectedSourceItemFromRow(block, row);
+      });
+      container.appendChild(row);
+      setSelectOptions(itemSelect, [], "", true, true);
+      updateHierarchyAddButton(row);
+    });
+  }
+
+  function updateHierarchyFrom(block, startIndex) {
+    var rows = hierarchyRowsForBlock(block);
+    if (startIndex >= rows.length) {
+      return;
+    }
+    var row = rows[startIndex];
+    if (hierarchyRowIsRoot(row)) {
+      updateHierarchyAddButton(row);
+      updateHierarchyFrom(block, startIndex + 1);
+      return;
+    }
+    var itemSelect = hierarchyRowSelect(row);
+    var selectedValue = selectValue(itemSelect);
+    var parentId = startIndex === 0 ? "" : hierarchyRowSelectedId(rows[startIndex - 1]);
+    clearHierarchyRows(rows, startIndex);
+    if (startIndex > 0 && !parentId) {
+      return;
+    }
+    var token = (row.__loadToken || 0) + 1;
+    row.__loadToken = token;
+    loadSections(block.dataset.countryCode || "", row.dataset.level || "", parentId).then(function (items) {
+      if (row.__loadToken !== token) {
+        return;
+      }
+      var used = selectedSourceItemIds(block);
+      var normalizedItems = normalizeSourceItems(items, block.dataset.countryCode || "").filter(function (item) {
+        return !used[item.id];
+      });
+      row.__itemOptions = normalizedItems;
+      setSelectOptions(itemSelect, normalizedItems.map(function (item) {
+        return { value: item.id, label: item.label || item.name || item.id };
+      }), selectedValue, true, true);
+      updateHierarchyAddButton(row);
+      updateHierarchyFrom(block, startIndex + 1);
+    });
+  }
+
+  function addSelectedSourceItemFromRow(block, row) {
+    openSourceItemModal(block, row);
+  }
+
+  function selectedSourceItemFromRow(row) {
+    var itemId = hierarchyRowSelectedId(row);
+    if (!itemId) {
+      return null;
+    }
+    var item = (row.__itemOptions || []).find(function (candidate) {
+      return String(candidate.id) === String(itemId);
+    });
+    return normalizeSourceItem(item, "");
+  }
+
+  function openSourceItemModal(block, row) {
+    if (!sourceItemModal || !sourceItemModalContent || !block || !row) {
+      return;
+    }
+    var sectionId = hierarchyRowSelectedId(row);
+    if (!sectionId) {
+      return;
+    }
+    var sectionData = (row.__itemOptions || []).find(function (candidate) {
+      return String(candidate.id) === String(sectionId);
+    });
+    if (!sectionData) {
+      return;
+    }
+    sourceItemModalState = {
+      mode: "include",
+      block: block,
+      row: row,
+      items: [],
+      selected: {},
+      filterQuery: "",
+      filterCursor: 0,
+      groupsOnly: false
+    };
+    if (sourceItemModalTitle) {
+      sourceItemModalTitle.textContent = sectionData.label || sectionData.name || "{% trans 'Entidad' %}";
+    }
+    sourceItemModal.hidden = false;
+    sourceItemModalContent.innerHTML = '<div class="table-loading"><span class="loading-spinner" aria-hidden="true"></span><span>{% trans "Cargando datos..." %}</span></div>';
+    loadChildren(block.dataset.countryCode || "", sectionId).then(function (children) {
+      if (!sourceItemModalState || sourceItemModalState.block !== block || sourceItemModalState.row !== row) {
+        return;
+      }
+      var used = selectedSourceItemIds(block);
+      var modalItems = children || [];
+      if (hierarchyRowIsRoot(row)) {
+        modalItems = [sectionData].concat(modalItems.filter(function (item) {
+          return String(item.id || item.value || "") !== String(sectionData.id || sectionData.value || "");
+        }));
+      }
+      sourceItemModalState.items = normalizeSourceItems(modalItems, block.dataset.countryCode || "").filter(function (item) {
+        return !used[item.id];
+      });
+      sourceItemModalState.selected = {};
+      renderSourceItemModalContent();
+    }).catch(function () {
+      if (!sourceItemModalState) {
+        return;
+      }
+      sourceItemModalState.items = [];
+      sourceItemModalState.selected = {};
+      renderSourceItemModalContent();
+    });
+  }
+
+  function openSourceExcludeModal(block, groupKey) {
+    if (!sourceItemModal || !sourceItemModalContent || !block || !groupKey) {
+      return;
+    }
+    var group = sourceItemGroupByKey(block, groupKey);
+    if (!group || !group.items.length) {
+      return;
+    }
+    var existing = sourceItemGroupExcludedItems(group);
+    sourceItemModalState = {
+      mode: "exclude",
+      block: block,
+      group: group,
+      items: [],
+      selected: selectedSourceItemIdsFromList(existing),
+      filterQuery: "",
+      filterCursor: 0,
+      groupsOnly: false
+    };
+    if (sourceItemModalTitle) {
+      sourceItemModalTitle.textContent = group.items.map(sourceItemLabel).join(", ") || "{% trans 'Entidad' %}";
+    }
+    sourceItemModal.hidden = false;
+    sourceItemModalContent.innerHTML = '<div class="table-loading"><span class="loading-spinner" aria-hidden="true"></span><span>{% trans "Cargando datos..." %}</span></div>';
+    loadDescendants(group.country_code || block.dataset.countryCode || "", group.items.filter(function (item) {
+      return sourceItemKind(item) !== "group";
+    }).map(function (item) {
+      return item.id;
+    })).then(function (children) {
+      if (!sourceItemModalState || sourceItemModalState.block !== block || sourceItemModalState.group !== group) {
+        return;
+      }
+      var childItems = normalizeSourceItems(children || [], group.country_code || block.dataset.countryCode || "");
+      if (!childItems.length && existing.length) {
+        childItems = existing;
+      }
+      sourceItemModalState.items = childItems;
+      var existingIds = selectedSourceItemIdsFromList(existing);
+      sourceItemModalState.selected = {};
+      childItems.forEach(function (child) {
+        if (existingIds[child.id]) {
+          sourceItemModalState.selected[child.id] = true;
+        }
+      });
+      renderSourceItemModalContent();
+    }).catch(function () {
+      if (!sourceItemModalState) {
+        return;
+      }
+      sourceItemModalState.items = existing;
+      sourceItemModalState.selected = selectedSourceItemIdsFromList(existing);
+      renderSourceItemModalContent();
+    });
+  }
+
+  function closeSourceItemModal(saveChanges) {
+    if (!sourceItemModalState) {
+      return;
+    }
+    var state = sourceItemModalState;
+    if (saveChanges && state.mode === "exclude") {
+      var selectedExcludedItems = state.items.filter(function (item) {
+        return state.selected[item.id];
+      });
+      if (state.group) {
+        var groupItems = sourceItemGroupItemsFromBlock(state.block, state.group.key);
+        groupItems.forEach(function (item) {
+          item.excluded_items = [];
+        });
+        selectedExcludedItems.forEach(function (excludedItem) {
+          var parent = groupItems.filter(function (item) {
+            return sourceItemIsChildOf(excludedItem, item);
+          }).sort(function (left, right) {
+            return Number(right.level || 0) - Number(left.level || 0);
+          })[0];
+          if (parent) {
+            pushUniqueSourceItem(parent.excluded_items, excludedItem, parent.country_code || state.group.country_code || "");
+          }
+        });
+      } else if (state.item) {
+        state.item.excluded_items = selectedExcludedItems;
+      }
+      renderSelectedSourceItems(state.block);
+      refreshSourceHidden(true);
+    } else if (saveChanges && state.mode === "edit") {
+      var scope = state.editScope || {};
+      var selectedById = {};
+      state.items.forEach(function (item) {
+        if (state.selected[item.id]) {
+          selectedById[item.id] = normalizeSourceItem(item, scope.country_code || "");
+        }
+      });
+      state.block.__selectedItems = (state.block.__selectedItems || []).reduce(function (items, existing) {
+        if (!sourceItemMatchesEditScope(existing, scope.country_code || "", scope.level, scope.parent_id || "", scope.kind || "")) {
+          items.push(existing);
+          return items;
+        }
+        var replacement = selectedById[existing.id];
+        if (replacement) {
+          replacement.excluded_items = existing.excluded_items || replacement.excluded_items || [];
+          items.push(replacement);
+          delete selectedById[existing.id];
+        }
+        return items;
+      }, []);
+      Object.keys(selectedById).forEach(function (itemId) {
+        var item = selectedById[itemId];
+        if (item) {
+          item.excluded_items = item.excluded_items || [];
+          state.block.__selectedItems.push(item);
+        }
+      });
+      renderSelectedSourceItems(state.block);
+      updateHierarchyFrom(state.block, 0);
+      refreshSourceHidden(true);
+    } else if (saveChanges) {
+      var used = selectedSourceItemIds(state.block);
+      state.items.forEach(function (item) {
+        if (state.selected[item.id] && !used[item.id]) {
+          state.block.__selectedItems = state.block.__selectedItems || [];
+          item.excluded_items = item.excluded_items || [];
+          state.block.__selectedItems.push(item);
+          used[item.id] = true;
+        }
+      });
+      renderSelectedSourceItems(state.block);
+      updateHierarchyFrom(state.block, state.row ? Number(state.row.dataset.rowIndex || 0) : 0);
+      refreshSourceHidden(true);
+    }
+    if (sourceItemModalContent) {
+      sourceItemModalContent.innerHTML = "";
+    }
+    if (sourceItemModal) {
+      sourceItemModal.hidden = true;
+    }
+    sourceItemModalState = null;
+  }
+
+  function renderSourceItemModalBadge(container, item, target) {
+    var badge = document.createElement("button");
+    var kind = sourceItemKind(item) || "area";
+    badge.type = "button";
+    badge.className = "group-transfer-badge" + (kind === "group" ? " derived-source-group-chip" : "");
+    badge.textContent = item.label || item.name || item.id;
+    badge.title = sourceItemTitle(item);
+    badge.dataset.sourceKind = kind;
+    badge.dataset.derivedSourceModalItemId = item.id;
+    badge.dataset.target = target;
+    container.appendChild(badge);
+  }
+
+  function appendSourceItemModalEmpty(container) {
+    var empty = document.createElement("span");
+    empty.className = "muted";
+    empty.textContent = "{% trans 'Sin datos.' %}";
+    container.appendChild(empty);
+  }
+
+  function sourceItemModalFilterText(item) {
+    item = item || {};
+    var parts = [
+      item.label,
+      item.name,
+      item.code,
+      item.entity_type,
+      item.group_key,
+      item.member_text,
+      Array.isArray(item.member_names) ? item.member_names.join(" ") : ""
+    ];
+    return parts.filter(Boolean).join(" ");
+  }
+
+  function sourceItemModalFilteredItems(items) {
+    var query = normalizeSearchText(sourceItemModalState ? sourceItemModalState.filterQuery || "" : "");
+    var groupsOnly = Boolean(sourceItemModalState && sourceItemModalState.groupsOnly);
+    if (!query && !groupsOnly) {
+      return items || [];
+    }
+    return (items || []).filter(function (item) {
+      if (groupsOnly && sourceItemKind(item) !== "group") {
+        return false;
+      }
+      return !query || normalizeSearchText(sourceItemModalFilterText(item)).indexOf(query) !== -1;
+    });
+  }
+
+  function sourceItemModalLevelGroups(items) {
+    var groups = [];
+    var groupsByKey = {};
+    (items || []).forEach(function (item) {
+      var level = sourceItemLevelValue(item);
+      var kind = sourceItemKind(item) === "group" ? "group" : "area";
+      var key = kind + "::" + (level || "__empty__");
+      if (!groupsByKey[key]) {
+        groupsByKey[key] = { kind: kind, level: level, items: [] };
+        groups.push(groupsByKey[key]);
+      }
+      groupsByKey[key].items.push(item);
+    });
+    return groups.sort(function (left, right) {
+      var leftNumber = Number(left.level);
+      var rightNumber = Number(right.level);
+      if (!Number.isNaN(leftNumber) && !Number.isNaN(rightNumber) && leftNumber !== rightNumber) {
+        return leftNumber - rightNumber;
+      }
+      if (left.kind !== right.kind) {
+        return left.kind === "area" ? -1 : 1;
+      }
+      return String(left.level || "").localeCompare(String(right.level || ""));
+    });
+  }
+
+  function sourceItemModalLevelGroupTitle(group) {
+    if (group.kind === "group") {
+      return "{% trans 'Grupos' %}" + (group.level ? " - {% trans 'Nivel' %} " + group.level : "");
+    }
+    return "{% trans 'Nivel' %}" + (group.level ? " " + group.level : "");
+  }
+
+  function renderSourceItemModalLevelGroups(container, items, target) {
+    var groups = sourceItemModalLevelGroups(items);
+    if (!groups.length) {
+      appendSourceItemModalEmpty(container);
+      return 0;
+    }
+    groups.forEach(function (group) {
+      var block = document.createElement("div");
+      block.className = "derived-source-modal-level-block" + (group.kind === "group" ? " is-group-source" : "");
+      var title = document.createElement("h5");
+      title.textContent = sourceItemModalLevelGroupTitle(group);
+      var badgeList = document.createElement("div");
+      badgeList.className = "derived-source-modal-level-badges";
+      group.items.forEach(function (item) {
+        renderSourceItemModalBadge(badgeList, item, target);
+      });
+      block.appendChild(title);
+      block.appendChild(badgeList);
+      container.appendChild(block);
+    });
+    return items.length;
+  }
+
+  function renderSourceItemModalContent(preserveFilterFocus) {
+    if (!sourceItemModalState || !sourceItemModalContent) {
+      return;
+    }
+    var filterWasFocused = Boolean(preserveFilterFocus);
+    var selectedTitle = sourceItemModalState.mode === "exclude" ? "{% trans 'Restar' %}" : (sourceItemModalState.mode === "edit" ? "{% trans 'Incluidos' %}" : "{% trans 'Grupo' %}");
+    var section = document.createElement("section");
+    section.className = "group-section-block derived-source-item-modal-section";
+    section.innerHTML = [
+      '<div class="derived-source-modal-filter-row">',
+      '<input type="search" class="group-search-select-input derived-source-modal-filter" data-derived-source-modal-filter placeholder="{% trans "Buscar" %}" autocomplete="off">',
+      '<label class="check-inline derived-source-modal-groups-only">',
+      '<input type="checkbox" data-derived-source-modal-groups-only>',
+      '<span>{% trans "Grupos" %}</span>',
+      '</label>',
+      '</div>',
+      '<div class="group-transfer-grid">',
+      '<div class="group-transfer-pane">',
+      '<h4>{% trans "Disponibles" %}</h4>',
+      '<div class="group-badge-list" data-derived-source-modal-available></div>',
+      '</div>',
+      '<div class="group-transfer-pane">',
+      '<h4>' + selectedTitle + '</h4>',
+      '<div class="group-badge-list" data-derived-source-modal-selected></div>',
+      '</div>',
+      '</div>'
+    ].join("");
+    var filterInput = section.querySelector("[data-derived-source-modal-filter]");
+    var groupsOnlyInput = section.querySelector("[data-derived-source-modal-groups-only]");
+    var availableBox = section.querySelector("[data-derived-source-modal-available]");
+    var selectedBox = section.querySelector("[data-derived-source-modal-selected]");
+    if (filterInput) {
+      filterInput.value = sourceItemModalState.filterQuery || "";
+      filterInput.addEventListener("input", function () {
+        if (!sourceItemModalState) {
+          return;
+        }
+        sourceItemModalState.filterQuery = filterInput.value || "";
+        sourceItemModalState.filterCursor = filterInput.selectionStart || filterInput.value.length;
+        renderSourceItemModalContent(true);
+      });
+    }
+    if (groupsOnlyInput) {
+      groupsOnlyInput.checked = Boolean(sourceItemModalState.groupsOnly);
+      groupsOnlyInput.addEventListener("change", function () {
+        if (!sourceItemModalState) {
+          return;
+        }
+        sourceItemModalState.groupsOnly = groupsOnlyInput.checked;
+        renderSourceItemModalContent(false);
+      });
+    }
+    var availableCount = 0;
+    var selectedCount = 0;
+    if (sourceItemModalState.mode === "exclude") {
+      availableBox.classList.add("derived-source-modal-levels");
+      selectedBox.classList.add("derived-source-modal-levels");
+      var availableItems = [];
+      var selectedItems = [];
+      sourceItemModalState.items.forEach(function (item) {
+        if (sourceItemModalState.selected[item.id]) {
+          selectedItems.push(item);
+        } else {
+          availableItems.push(item);
+        }
+      });
+      availableCount = renderSourceItemModalLevelGroups(availableBox, sourceItemModalFilteredItems(availableItems), "available");
+      selectedCount = renderSourceItemModalLevelGroups(selectedBox, sourceItemModalFilteredItems(selectedItems), "selected");
+      sourceItemModalContent.replaceChildren(section);
+      restoreSourceItemModalFilterFocus(filterWasFocused);
+      return;
+    }
+    availableBox.classList.add("derived-source-modal-levels");
+    selectedBox.classList.add("derived-source-modal-levels");
+    var availableItems = [];
+    var selectedItems = [];
+    sourceItemModalState.items.forEach(function (item) {
+      if (sourceItemModalState.selected[item.id]) {
+        selectedItems.push(item);
+      } else {
+        availableItems.push(item);
+      }
+    });
+    availableCount = renderSourceItemModalLevelGroups(availableBox, sourceItemModalFilteredItems(availableItems), "available");
+    selectedCount = renderSourceItemModalLevelGroups(selectedBox, sourceItemModalFilteredItems(selectedItems), "selected");
+    sourceItemModalContent.replaceChildren(section);
+    restoreSourceItemModalFilterFocus(filterWasFocused);
+  }
+
+  function restoreSourceItemModalFilterFocus(shouldFocus) {
+    if (!shouldFocus || !sourceItemModalContent || !sourceItemModalState) {
+      return;
+    }
+    window.requestAnimationFrame(function () {
+      var input = sourceItemModalContent.querySelector("[data-derived-source-modal-filter]");
+      if (!input) {
+        return;
+      }
+      var cursor = sourceItemModalState.filterCursor || input.value.length;
+      input.focus();
+      try {
+        input.setSelectionRange(cursor, cursor);
+      } catch (error) {
+        // Some older browsers do not expose selection on search inputs.
+      }
+    });
+  }
+
+  function toggleSourceItemModalSelection(itemId, target) {
+    if (!sourceItemModalState || !itemId) {
+      return;
+    }
+    if (target === "available") {
+      sourceItemModalState.selected[itemId] = true;
+    } else {
+      delete sourceItemModalState.selected[itemId];
+    }
+    renderSourceItemModalContent();
+  }
+
+  function appendSelectedSourceItem(block, row) {
+    var item = selectedSourceItemFromRow(row);
+    if (!item) {
+      return;
+    }
+    block.__selectedItems = block.__selectedItems || [];
+    block.__selectedItems.push(item);
+    renderSelectedSourceItems(block);
+    updateHierarchyFrom(block, Number(row.dataset.rowIndex || 0));
+    refreshSourceHidden(true);
+  }
+
+  function selectedSourceTableForBlock(block) {
+    return block ? block.querySelector("[data-derived-source-item-table]") : null;
+  }
+
+  function sourceItemLabel(item) {
+    return item ? item.label || item.name || item.id || "" : "";
+  }
+
+  function sourceItemTitle(item) {
+    if (!item) {
+      return "";
+    }
+    var label = sourceItemLabel(item);
+    if (sourceItemKind(item) !== "group") {
+      return label;
+    }
+    var detail = item.member_text || item.description || "";
+    if (!detail && Array.isArray(item.member_names) && item.member_names.length) {
+      detail = item.member_names.join(", ");
+    }
+    return detail ? label + "\n" + detail : label;
+  }
+
+  function appendSourceTableChip(container, item, className) {
+    var chip = document.createElement("span");
+    var kind = sourceItemKind(item) || "area";
+    chip.className = "config-city-entity-chip " + (className || "") + (kind === "group" ? " derived-source-group-chip" : "");
+    chip.textContent = sourceItemLabel(item);
+    chip.title = sourceItemTitle(item);
+    chip.dataset.sourceKind = kind;
+    container.appendChild(chip);
+    return chip;
+  }
+
+  function appendSourceTableEmpty(container, text) {
+    var empty = document.createElement("span");
+    empty.className = "muted";
+    empty.textContent = text || "{% trans 'Sin datos.' %}";
+    container.appendChild(empty);
+  }
+
+  function renderExcludedItemsList(group, list) {
+    var excludedItems = sourceItemGroupExcludedItems(group);
+    list.innerHTML = "";
+    if (!excludedItems.length) {
+      appendSourceTableEmpty(list);
+      return;
+    }
+    excludedItems.forEach(function (excludedItem) {
+      appendSourceTableChip(list, excludedItem, "derived-source-excluded-chip");
+    });
+  }
+
+  function openSourceEditModal(block, groupKey) {
+    if (!sourceItemModal || !sourceItemModalContent || !block || !groupKey) {
+      return;
+    }
+    var group = sourceItemGroupByKey(block, groupKey);
+    if (!group || !group.items.length) {
+      return;
+    }
+    var item = group.items[0];
+    var countryCode = group.country_code || item.country_code || block.dataset.countryCode || "";
+    var level = sourceItemLevelValue(group.level || item.level);
+    var parentId = group.parent_id || item.parent_id || "";
+    var itemKind = group.kind || sourceItemKind(item) || "area";
+    var selectedInScope = selectedSourceItemsInEditScope(block, countryCode, level, parentId, itemKind);
+    sourceItemModalState = {
+      mode: "edit",
+      block: block,
+      row: null,
+      item: item,
+      editScope: {
+        country_code: countryCode,
+        level: level,
+        parent_id: parentId,
+        kind: itemKind
+      },
+      items: [],
+      selected: selectedSourceItemIdsFromList(selectedInScope),
+      filterQuery: "",
+      filterCursor: 0,
+      groupsOnly: false
+    };
+    if (sourceItemModalTitle) {
+      sourceItemModalTitle.textContent = group.items.map(sourceItemLabel).join(", ") || "{% trans 'Entidad' %}";
+    }
+    sourceItemModal.hidden = false;
+    sourceItemModalContent.innerHTML = '<div class="table-loading"><span class="loading-spinner" aria-hidden="true"></span><span>{% trans "Cargando datos..." %}</span></div>';
+    loadSourceItems(countryCode, level, parentId).then(function (sections) {
+      if (!sourceItemModalState || sourceItemModalState.block !== block || sourceItemModalState.item !== item) {
+        return;
+      }
+      var modalItems = normalizeSourceItems(sections || [], countryCode);
+      var modalIds = selectedSourceItemIdsFromList(modalItems);
+      selectedInScope.forEach(function (selectedItem) {
+        if (!modalIds[selectedItem.id]) {
+          modalItems.push(selectedItem);
+          modalIds[selectedItem.id] = true;
+        }
+      });
+      sourceItemModalState.items = modalItems;
+      sourceItemModalState.selected = selectedSourceItemIdsFromList(selectedInScope);
+      renderSourceItemModalContent();
+    }).catch(function () {
+      if (!sourceItemModalState) {
+        return;
+      }
+      sourceItemModalState.items = selectedInScope;
+      sourceItemModalState.selected = selectedSourceItemIdsFromList(selectedInScope);
+      renderSourceItemModalContent();
+    });
+  }
+
+  function renderSelectedSourceItems(block) {
+    var tbody = selectedSourceTableForBlock(block);
+    if (!tbody) {
+      return;
+    }
+    tbody.innerHTML = "";
+    var items = block.__selectedItems || [];
+    if (!items.length) {
+      var emptyRow = document.createElement("tr");
+      var emptyCell = document.createElement("td");
+      emptyCell.colSpan = 4;
+      emptyCell.className = "table-empty-cell";
+      emptyCell.textContent = "{% trans 'Sin datos.' %}";
+      emptyRow.appendChild(emptyCell);
+      tbody.appendChild(emptyRow);
+      return;
+    }
+    selectedSourceItemGroups(block).forEach(function (group) {
+      var row = document.createElement("tr");
+      row.dataset.sourceGroupKey = group.key || "";
+      var includeCell = document.createElement("td");
+      var includeList = document.createElement("div");
+      includeList.className = "config-city-entity-list derived-source-table-chip-list";
+      group.items.forEach(function (item) {
+        appendSourceTableChip(includeList, item, "derived-source-included-chip");
+      });
+      includeCell.appendChild(includeList);
+      var subtractCell = document.createElement("td");
+      var subtractList = document.createElement("div");
+      subtractList.className = "config-city-entity-list derived-source-table-chip-list";
+      subtractCell.appendChild(subtractList);
+      renderExcludedItemsList(group, subtractList);
+      var levelCell = document.createElement("td");
+      levelCell.className = "numeric";
+      levelCell.textContent = group.level || "";
+      var actionCell = document.createElement("td");
+      actionCell.className = "group-section-table-actions-cell";
+      var actions = document.createElement("div");
+      actions.className = "button-row compact";
+      var editButton = document.createElement("button");
+      editButton.type = "button";
+      editButton.className = "secondary";
+      editButton.dataset.editDerivedSourceGroup = group.key || "";
+      editButton.textContent = "{% trans 'Editar' %}";
+      var excludeButton = document.createElement("button");
+      excludeButton.type = "button";
+      excludeButton.className = "secondary";
+      excludeButton.dataset.excludeDerivedSourceGroup = group.key || "";
+      excludeButton.textContent = "{% trans 'Excluir' %}";
+      var removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.className = "secondary danger-text";
+      removeButton.dataset.removeDerivedSourceGroup = group.key || "";
+      removeButton.textContent = "{% trans 'Quitar' %}";
+      actions.appendChild(editButton);
+      actions.appendChild(excludeButton);
+      actions.appendChild(removeButton);
+      actionCell.appendChild(actions);
+      row.appendChild(includeCell);
+      row.appendChild(subtractCell);
+      row.appendChild(levelCell);
+      row.appendChild(actionCell);
+      tbody.appendChild(row);
+    });
+  }
+
+  function readBlocksFromPanel(panel, includeExcluded) {
+    var blocksContainer = panel ? panel.querySelector("[data-derived-source-blocks]") : null;
+    if (!blocksContainer) {
+      return [];
+    }
+    return Array.prototype.slice.call(blocksContainer.querySelectorAll("[data-group-country-block]")).map(function (block) {
+      return {
+        country_code: block.dataset.countryCode || "",
+        items: normalizeSourceItems(block.__selectedItems || [], block.dataset.countryCode || "").map(function (item) {
+          return includeExcluded ? item : stripSourceItemForJson(item);
+        }).filter(Boolean)
+      };
+    });
+  }
+
+  function refreshSourceHidden(markDirty) {
+    var panel = panelForOperation();
+    var panelBlocks = readBlocksFromPanel(panel, true);
+    var includeBlocks = panelBlocks.map(function (block) {
+      return {
+        country_code: block.country_code || "",
+        items: normalizeSourceItems(block.items || [], block.country_code || "").map(stripSourceItemForJson).filter(Boolean)
+      };
+    });
+    if (includeItemsInput) {
+      includeItemsInput.value = JSON.stringify(includeBlocks);
+    }
+    if (subtractItemsInput) {
+      subtractItemsInput.value = JSON.stringify(sourceItemBlocksFromExcludedItems(panelBlocks));
+    }
+    if (markDirty && sourceDirtyInput) {
+      sourceDirtyInput.value = "1";
+    }
+  }
+
+  function renderBlock(panel, blockData, removable) {
+    var blocksContainer = panel.querySelector("[data-derived-source-blocks]");
+    if (!blocksContainer || !blockTemplate) {
+      return null;
+    }
+    var fragment = blockTemplate.content.cloneNode(true);
+    var block = fragment.querySelector("[data-group-country-block]");
+    var countryCode = blockData.country_code || "{{ country_code|escapejs }}";
+    block.dataset.countryCode = countryCode;
+    block.dataset.derivedOperation = panel.dataset.derivedOperation || "include";
+    block.__selectedItems = normalizeSourceItems(blockData.items || [], countryCode);
+    block.querySelector("[data-country-name-label]").textContent = countryLabel(countryCode);
+    var removeButton = block.querySelector("[data-remove-country-block]");
+    removeButton.hidden = !removable;
+    removeButton.addEventListener("click", function () {
+      block.remove();
+      refreshSourceHidden(true);
+      updateCountrySelectOptions();
+    });
+    var itemTable = selectedSourceTableForBlock(block);
+    if (itemTable) {
+      itemTable.addEventListener("click", function (event) {
+        var editItemButton = event.target.closest("[data-edit-derived-source-group]");
+        if (editItemButton && itemTable.contains(editItemButton)) {
+          openSourceEditModal(block, editItemButton.dataset.editDerivedSourceGroup || "");
+          return;
+        }
+        var excludeItemButton = event.target.closest("[data-exclude-derived-source-group]");
+        if (excludeItemButton && itemTable.contains(excludeItemButton)) {
+          openSourceExcludeModal(block, excludeItemButton.dataset.excludeDerivedSourceGroup || "");
+          return;
+        }
+        var removeItemButton = event.target.closest("[data-remove-derived-source-group]");
+        if (!removeItemButton || !itemTable.contains(removeItemButton)) {
+          return;
+        }
+        var groupKey = removeItemButton.dataset.removeDerivedSourceGroup || "";
+        block.__selectedItems = (block.__selectedItems || []).filter(function (item) {
+          return sourceItemScopeKey(item, block.dataset.countryCode || "") !== String(groupKey);
+        });
+        renderSelectedSourceItems(block);
+        updateHierarchyFrom(block, 0);
+        refreshSourceHidden(true);
+      });
+    }
+    blocksContainer.appendChild(fragment);
+    renderSelectedSourceItems(block);
+    setBlockLoading(block, true);
+    loadCountryData(countryCode).then(function (data) {
+      renderLevelRows(block, data.levels || [], data.root || null);
+      updateHierarchyFrom(block, 0);
+      refreshSourceHidden(false);
+    }).finally(function () {
+      setBlockLoading(block, false);
+    });
+    return block;
+  }
+
+  function usedCountryCodes(panel) {
+    var blocksContainer = panel ? panel.querySelector("[data-derived-source-blocks]") : null;
+    return Array.prototype.slice.call(blocksContainer ? blocksContainer.querySelectorAll("[data-group-country-block]") : []).reduce(function (used, block) {
+      if (block.dataset.countryCode) {
+        used[block.dataset.countryCode] = true;
+      }
+      return used;
+    }, {});
+  }
+
+  function panelForOperation(operation) {
+    return sourcePanels[0] || null;
+  }
+
+  function updateCountrySelectOptions() {
+    var select = sourceControl ? sourceControl.querySelector("[data-derived-country-add-select]") : null;
+    if (!select) {
+      return;
+    }
+    var currentValue = selectValue(select);
+    clearSelectSearch(select);
+    var panel = panelForOperation();
+    var used = usedCountryCodes(panel);
+    var available = sourceCountries.filter(function (option) {
+      return String(option.value || "") === String(currentValue || "") || !used[option.value];
+    });
+    setSelectOptions(select, available, currentValue, true);
+    var countryCode = selectValue(select);
+    Array.prototype.slice.call(sourceControl.querySelectorAll("[data-derived-add-country]")).forEach(function (button) {
+      button.disabled = !countryCode || !panel || Boolean(usedCountryCodes(panel)[countryCode]);
+    });
+  }
+
+  function addCountryBlock(panel, countryCode) {
+    if (!panel || !countryCode || usedCountryCodes(panel)[countryCode]) {
+      return;
+    }
+    var blocksContainer = panel.querySelector("[data-derived-source-blocks]");
+    var block = renderBlock(panel, { country_code: countryCode, items: [] }, blocksContainer && blocksContainer.children.length > 0);
+    refreshSourceHidden(true);
+    updateCountrySelectOptions();
+    if (block && block.scrollIntoView) {
+      block.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  function normalizedSourceItemBlocks(blocks) {
+    if (!Array.isArray(blocks) || !blocks.length) {
+      return [{ country_code: "{{ country_code|escapejs }}", items: [] }];
+    }
+    return blocks.map(function (block) {
+      return {
+        country_code: block.country_code || "{{ country_code|escapejs }}",
+        items: normalizeSourceItems(block.items || [], block.country_code || "{{ country_code|escapejs }}")
+      };
+    });
+  }
+
+  function renderSourcePanel(panel, blocks, markDirty) {
+    var blocksContainer = panel ? panel.querySelector("[data-derived-source-blocks]") : null;
+    if (!panel || !blocksContainer) {
+      return;
+    }
+    blocksContainer.innerHTML = "";
+    normalizedSourceItemBlocks(blocks).forEach(function (block, index) {
+      renderBlock(panel, block, index > 0);
+    });
+    updateCountrySelectOptions();
+    refreshSourceHidden(Boolean(markDirty));
+  }
+
+  function renderDerivedSourcePanels(markDirty) {
+    renderSourcePanel(panelForOperation(), sourceBlocksWithExcludedItems(includeItems, subtractItems), markDirty);
+  }
+
+  function hydrateForm(payload) {
+    var data = payload && payload.form ? payload.form : {};
+    if (titleNode && payload && payload.title) {
+      titleNode.textContent = payload.title;
+    }
+    setFieldValue("[data-derived-internal-name]", data.internal_name);
+    setFieldValue('input[name="name"]', data.name);
+    setFieldValue('input[name="entity_type"]', data.entity_type);
+    setFieldValue("[data-derived-level]", data.level || "1");
+    setFieldValue('input[name="flag_url"]', data.flag_url);
+    setFieldValue('input[name="coat_url"]', data.coat_url);
+    setFieldValue("[data-derived-full-code]", data.code);
+    setFieldValue("[data-derived-parent-code]", form.dataset.rootCode || data.parent_code);
+    setFieldValue('textarea[name="description"]', data.description);
+    if (contentInput) {
+      contentInput.value = data.content || "";
+    }
+    parentOptions = payload.parent_options || [];
+    renderParentOptions(data.parent_code);
+    renderCapitalOptions(payload.capital_options || [], data.capitals || (data.capital ? [data.capital] : []));
+    includeItems = payload.include_items || includeItems;
+    subtractItems = payload.subtract_items || subtractItems;
+    renderDerivedSourcePanels(false);
+    updateFullCode();
+  }
+
+  function loadFormData() {
+    if (!loadUrl) {
+      setLoading(false);
+      renderParentOptions();
+      updateFullCode();
+      return;
+    }
+    setLoading(true);
+    fetch(loadUrl, { credentials: "same-origin", headers: { "X-Requested-With": "XMLHttpRequest" } })
+      .then(function (response) {
+        return response.json().then(function (payload) {
+          if (!response.ok || !payload.ok) {
+            throw new Error(payload.error || form.dataset.loadErrorLabel || "Error");
+          }
+          return payload;
+        });
+      })
+      .then(function (payload) {
+        hydrateForm(payload);
+        setLoading(false);
+      })
+      .catch(function (error) {
+        setLoading(false, error.message || form.dataset.loadErrorLabel, true);
+      });
+  }
+
+  if (levelInput) {
+    levelInput.addEventListener("input", function () {
+      renderParentOptions();
+      updateFullCode();
+    });
+  }
+  if (internalNameInput) {
+    internalNameInput.addEventListener("input", function () {
+      updateFullCode();
+    });
+  }
+  if (sourceControl) {
+    var sourceCountrySelect = sourceControl.querySelector("[data-derived-country-add-select]");
+    if (sourceCountrySelect) {
+      bindSelectValueChange(sourceCountrySelect, updateCountrySelectOptions);
+    }
+    Array.prototype.slice.call(sourceControl.querySelectorAll("[data-derived-add-country]")).forEach(function (button) {
+      button.addEventListener("click", function () {
+        addCountryBlock(panelForOperation(), selectValue(sourceCountrySelect));
+      });
+    });
+  }
+  if (sectionModal) {
+    sectionModal.addEventListener("click", function (event) {
+      if (event.target.closest("[data-close-group-section-modal]")) {
+        event.preventDefault();
+        closeSectionModal(false);
+      }
+    });
+    sectionModal.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        closeSectionModal(false);
+      }
+    });
+    var sectionModalSave = sectionModal.querySelector("[data-save-group-section-modal]");
+    if (sectionModalSave) {
+      sectionModalSave.addEventListener("click", function () {
+        closeSectionModal(true);
+      });
+    }
+  }
+  if (sourceItemModal) {
+    sourceItemModal.addEventListener("click", function (event) {
+      if (event.target.closest("[data-close-derived-source-item-modal]")) {
+        event.preventDefault();
+        closeSourceItemModal(false);
+      }
+    });
+    sourceItemModal.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        closeSourceItemModal(false);
+      }
+    });
+    var sourceItemModalSave = sourceItemModal.querySelector("[data-save-derived-source-item-modal]");
+    if (sourceItemModalSave) {
+      sourceItemModalSave.addEventListener("click", function () {
+        closeSourceItemModal(true);
+      });
+    }
+  }
+  if (sourceItemModalContent) {
+    sourceItemModalContent.addEventListener("click", function (event) {
+      var badge = event.target.closest("[data-derived-source-modal-item-id]");
+      if (!badge || !sourceItemModalContent.contains(badge)) {
+        return;
+      }
+      toggleSourceItemModalSelection(badge.dataset.derivedSourceModalItemId || "", badge.dataset.target || "");
+    });
+  }
+  form.addEventListener("submit", function () {
+    if (sectionModalState) {
+      closeSectionModal(true);
+    }
+    if (sourceItemModalState) {
+      closeSourceItemModal(true);
+    }
+    refreshSourceHidden(false);
+  });
+  if (loadOnStart) {
+    loadFormData();
+  } else {
+    renderParentOptions();
+    renderCapitalOptions(initialCapitalOptions, initialCapitalValues);
+    renderDerivedSourcePanels(false);
+    updateFullCode();
+  }
+})();
+</script>
+{% endblock %}

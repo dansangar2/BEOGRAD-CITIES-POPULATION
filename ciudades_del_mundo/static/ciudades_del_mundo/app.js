@@ -76,23 +76,314 @@
     }
   }
 
+  function getSelect2Instance(select) {
+    if (!select || !window.jQuery || !window.jQuery.fn || !window.jQuery.fn.select2) {
+      return null;
+    }
+    var instance = window.jQuery(select).data("select2");
+    return instance && typeof instance === "object" && typeof instance.destroy === "function" ? instance : null;
+  }
+
+  function normalizeSearchText(value) {
+    var text = String(value || "");
+    if (text.normalize) {
+      text = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    }
+    return text.toLocaleLowerCase();
+  }
+
+  function select2NormalizedMatcher(params, data) {
+    var term = normalizeSearchText(params && params.term);
+    if (!term) {
+      return data;
+    }
+    if (data && data.children && data.children.length) {
+      var children = data.children.map(function (child) {
+        return select2NormalizedMatcher(params, child);
+      }).filter(Boolean);
+      if (children.length) {
+        var match = window.jQuery ? window.jQuery.extend(true, {}, data) : Object.assign({}, data);
+        match.children = children;
+        return match;
+      }
+    }
+    if (normalizeSearchText(data && data.text).indexOf(term) !== -1) {
+      return data;
+    }
+    return null;
+  }
+
+  var openNativeSearchSelect = null;
+
+  function nativeSearchSelectOptions(element) {
+    return Array.prototype.slice.call((element && element.options) || []).filter(function (option) {
+      return String(option.value || "").trim();
+    }).map(function (option) {
+      return { value: String(option.value), label: option.textContent || option.value };
+    });
+  }
+
+  function nativeSearchSelectLabel(element) {
+    var selected = Array.prototype.slice.call((element && element.options) || []).find(function (option) {
+      return option.value === element.value;
+    });
+    return selected ? selected.textContent : element.dataset.placeholder || "";
+  }
+
+  function closeNativeSearchSelect(element) {
+    var widget = element && element.__nativeSearchWidget;
+    if (!widget) {
+      return;
+    }
+    widget.classList.remove("is-open");
+    widget.querySelector(".group-search-select-menu").hidden = true;
+    widget.querySelector(".group-search-select-trigger").setAttribute("aria-expanded", "false");
+    if (openNativeSearchSelect === element) {
+      openNativeSearchSelect = null;
+    }
+  }
+
+  function closeOpenNativeSearchSelect(exceptElement) {
+    if (openNativeSearchSelect && openNativeSearchSelect !== exceptElement) {
+      closeNativeSearchSelect(openNativeSearchSelect);
+    }
+  }
+
+  function ensureNativeSearchSelect(element) {
+    if (!element) {
+      return null;
+    }
+    if (element.__nativeSearchWidget) {
+      return element.__nativeSearchWidget;
+    }
+    element.classList.add("group-native-select");
+    var widget = document.createElement("div");
+    widget.className = "group-search-select";
+    widget.innerHTML = [
+      '<button type="button" class="group-search-select-trigger" aria-haspopup="listbox" aria-expanded="false"></button>',
+      '<div class="group-search-select-menu" hidden>',
+      '<input type="search" class="group-search-select-input" autocomplete="off">',
+      '<div class="group-search-select-options" role="listbox"></div>',
+      '</div>'
+    ].join("");
+    element.insertAdjacentElement("afterend", widget);
+    element.__nativeSearchWidget = widget;
+    var trigger = widget.querySelector(".group-search-select-trigger");
+    var input = widget.querySelector(".group-search-select-input");
+    trigger.addEventListener("click", function () {
+      if (element.disabled) {
+        return;
+      }
+      if (widget.classList.contains("is-open")) {
+        closeNativeSearchSelect(element);
+      } else {
+        openNativeSearchSelectDropdown(element);
+      }
+    });
+    input.addEventListener("input", function () {
+      renderNativeSearchSelectOptions(element);
+    });
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        closeNativeSearchSelect(element);
+        trigger.focus();
+      }
+    });
+    return widget;
+  }
+
+  function visibleNativeSearchSelectOptions(element) {
+    var widget = ensureNativeSearchSelect(element);
+    var input = widget ? widget.querySelector(".group-search-select-input") : null;
+    var query = normalizeSearchText(input ? input.value : "");
+    var options = nativeSearchSelectOptions(element);
+    if (!query) {
+      return options;
+    }
+    return options.filter(function (option) {
+      return normalizeSearchText((option.label || "") + " " + (option.value || "")).indexOf(query) !== -1;
+    });
+  }
+
+  function renderNativeSearchSelectOptions(element) {
+    var widget = ensureNativeSearchSelect(element);
+    if (!widget) {
+      return;
+    }
+    var list = widget.querySelector(".group-search-select-options");
+    list.innerHTML = "";
+    var options = visibleNativeSearchSelectOptions(element);
+    if (!options.length) {
+      var empty = document.createElement("div");
+      empty.className = "group-search-select-empty";
+      empty.textContent = element.dataset.emptyResultsLabel || "Sin datos.";
+      list.appendChild(empty);
+      return;
+    }
+    options.forEach(function (option) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "group-search-select-option";
+      button.textContent = option.label;
+      button.dataset.value = option.value;
+      button.setAttribute("role", "option");
+      button.setAttribute("aria-selected", String(option.value) === String(element.value) ? "true" : "false");
+      button.addEventListener("click", function () {
+        element.value = option.value;
+        element.dispatchEvent(new Event("change", { bubbles: true }));
+        closeNativeSearchSelect(element);
+        syncNativeSearchSelect(element);
+      });
+      list.appendChild(button);
+    });
+  }
+
+  function syncNativeSearchSelect(element) {
+    var widget = ensureNativeSearchSelect(element);
+    if (!widget) {
+      return;
+    }
+    var trigger = widget.querySelector(".group-search-select-trigger");
+    trigger.textContent = nativeSearchSelectLabel(element);
+    trigger.disabled = element.disabled;
+    widget.classList.toggle("is-disabled", element.disabled);
+    if (element.disabled) {
+      closeNativeSearchSelect(element);
+    }
+    if (widget.classList.contains("is-open")) {
+      renderNativeSearchSelectOptions(element);
+    }
+  }
+
+  function openNativeSearchSelectDropdown(element) {
+    var widget = ensureNativeSearchSelect(element);
+    if (!widget || element.disabled) {
+      return;
+    }
+    closeOpenNativeSearchSelect(element);
+    openNativeSearchSelect = element;
+    widget.classList.add("is-open");
+    widget.querySelector(".group-search-select-menu").hidden = false;
+    widget.querySelector(".group-search-select-trigger").setAttribute("aria-expanded", "true");
+    var input = widget.querySelector(".group-search-select-input");
+    input.value = "";
+    input.placeholder = element.dataset.placeholder || "";
+    renderNativeSearchSelectOptions(element);
+    window.setTimeout(function () {
+      input.focus();
+    }, 0);
+  }
+
+  document.addEventListener("click", function (event) {
+    if (openNativeSearchSelect && openNativeSearchSelect.__nativeSearchWidget && !openNativeSearchSelect.__nativeSearchWidget.contains(event.target)) {
+      closeNativeSearchSelect(openNativeSearchSelect);
+    }
+  });
+
+  function cleanupSelect2State(select) {
+    if (!select || !window.jQuery) {
+      return;
+    }
+    window.jQuery(select).removeData("select2");
+    select.classList.remove("select2-hidden-accessible");
+    select.removeAttribute("aria-hidden");
+    select.removeAttribute("tabindex");
+    var next = select.nextElementSibling;
+    if (next && next.classList.contains("select2-container")) {
+      next.remove();
+    }
+  }
+
+  function destroySelect2(select) {
+    if (!getSelect2Instance(select)) {
+      if (select && (select.classList.contains("select2-hidden-accessible") || (select.nextElementSibling && select.nextElementSibling.classList.contains("select2-container")))) {
+        cleanupSelect2State(select);
+      }
+      return;
+    }
+    try {
+      window.jQuery(select).select2("destroy");
+    } catch (error) {
+      cleanupSelect2State(select);
+    }
+  }
+
+  function initSelect2Element(element) {
+    if (!element || getSelect2Instance(element)) {
+      return;
+    }
+    if (element.classList.contains("select2-hidden-accessible") || (element.nextElementSibling && element.nextElementSibling.classList.contains("select2-container"))) {
+      cleanupSelect2State(element);
+    }
+    var select = window.jQuery(element);
+    var forceSearch = select.data("select2Search") === "always";
+    var requireValue = select.data("requireValue") === true || select.data("requireValue") === "true";
+    try {
+      select.select2({
+        width: "100%",
+        placeholder: select.data("placeholder") || "",
+        allowClear: !requireValue,
+        minimumResultsForSearch: 0,
+        matcher: select2NormalizedMatcher,
+        dropdownCssClass: forceSearch ? "select2-dropdown-search-visible" : ""
+      });
+    } catch (error) {
+      cleanupSelect2State(element);
+      return;
+    }
+    if (forceSearch) {
+      select.off("select2:open.globalSearch").on("select2:open.globalSearch", function () {
+        window.setTimeout(function () {
+          var search = document.querySelector(".select2-container--open .select2-search__field");
+          if (search) {
+            search.placeholder = select.data("placeholder") || "";
+            search.focus();
+          }
+        }, 0);
+      });
+    }
+  }
+
   function initSelect2(root) {
     if (!window.jQuery || !window.jQuery.fn || !window.jQuery.fn.select2) {
       return;
     }
-    window.jQuery(root || document)
-      .find("select[data-select2]")
-      .each(function () {
-        var select = window.jQuery(this);
-        if (select.data("select2")) {
-          return;
+    var scope = window.jQuery(root || document);
+    var selects = scope.find("select[data-select2]");
+    if (scope.is && scope.is("select[data-select2]")) {
+      selects = scope.add(selects);
+    }
+    selects.each(function () {
+      initSelect2Element(this);
+    });
+  }
+
+  function refreshSelect2Element(select) {
+    if (!select || !select.matches("select[data-select2]")) {
+      return;
+    }
+    destroySelect2(select);
+    initSelect2Element(select);
+  }
+
+  function refreshSelect2OpenHandler(select) {
+    if (!select || !window.jQuery || !getSelect2Instance(select)) {
+      return;
+    }
+    var selectElement = window.jQuery(select);
+    var forceSearch = selectElement.data("select2Search") === "always";
+    if (!forceSearch) {
+      return;
+    }
+    selectElement.off("select2:open.globalSearch").on("select2:open.globalSearch", function () {
+      window.setTimeout(function () {
+        var search = document.querySelector(".select2-container--open .select2-search__field");
+        if (search) {
+          search.placeholder = selectElement.data("placeholder") || "";
+          search.focus();
         }
-        select.select2({
-          width: "100%",
-          placeholder: select.data("placeholder") || "",
-          allowClear: true
-        });
       });
+    });
   }
 
   function createStatusElement(className, message, loading) {
@@ -196,6 +487,16 @@
         }
       }
     }
+    var levelSelect = form.querySelector("select[name='level']");
+    if (levelSelect) {
+      var selectedLevel = normalizedClientValue(levelSelect.value);
+      if (selectedLevel) {
+        var rowLevel = normalizedClientValue(row.dataset.level || "");
+        if (rowLevel !== selectedLevel) {
+          return false;
+        }
+      }
+    }
     return true;
   }
 
@@ -279,9 +580,78 @@
     return row;
   }
 
+  function clientPaginationPages(page, pageCount) {
+    var pages = [];
+    if (pageCount <= 7) {
+      for (var simplePage = 1; simplePage <= pageCount; simplePage += 1) {
+        pages.push(simplePage);
+      }
+      return pages;
+    }
+    if (page <= 4) {
+      for (var earlyPage = 1; earlyPage <= 5; earlyPage += 1) {
+        pages.push(earlyPage);
+      }
+      pages.push("ellipsis", pageCount);
+      return pages;
+    }
+    if (page >= pageCount - 3) {
+      pages.push(1, "ellipsis");
+      for (var latePage = pageCount - 4; latePage <= pageCount; latePage += 1) {
+        pages.push(latePage);
+      }
+      return pages;
+    }
+    return [1, "ellipsis", page - 1, page, page + 1, "ellipsis", pageCount];
+  }
+
+  function renderClientPaginationNav(nav, page, pageCount, visibleCount) {
+    nav.innerHTML = "";
+    var previous = document.createElement("button");
+    previous.type = "button";
+    previous.dataset.clientPage = "previous";
+    previous.textContent = "<";
+    previous.title = "Anterior";
+    previous.setAttribute("aria-label", "Anterior");
+    previous.disabled = page <= 1 || visibleCount === 0;
+    nav.appendChild(previous);
+
+    clientPaginationPages(page, pageCount).forEach(function (entry) {
+      if (entry === "ellipsis") {
+        var ellipsis = document.createElement("span");
+        ellipsis.className = "client-page-ellipsis";
+        ellipsis.textContent = "...";
+        ellipsis.setAttribute("aria-hidden", "true");
+        nav.appendChild(ellipsis);
+        return;
+      }
+      var number = document.createElement("button");
+      number.type = "button";
+      number.dataset.clientPageNumber = String(entry);
+      number.textContent = String(entry);
+      number.title = "Pagina " + entry;
+      number.setAttribute("aria-label", "Pagina " + entry);
+      if (entry === page) {
+        number.classList.add("is-current");
+        number.setAttribute("aria-current", "page");
+        number.disabled = true;
+      }
+      nav.appendChild(number);
+    });
+
+    var next = document.createElement("button");
+    next.type = "button";
+    next.dataset.clientPage = "next";
+    next.textContent = ">";
+    next.title = "Siguiente";
+    next.setAttribute("aria-label", "Siguiente");
+    next.disabled = page >= pageCount || visibleCount === 0;
+    nav.appendChild(next);
+  }
+
   function renderClientPagination(target, form, requestedPage) {
-    var nav = target.querySelector("[data-client-pagination]");
-    if (!nav) {
+    var navs = Array.prototype.slice.call(target.querySelectorAll("[data-client-pagination]"));
+    if (!navs.length) {
       return false;
     }
     var rows = Array.prototype.slice.call(target.querySelectorAll("[data-client-row]"));
@@ -289,7 +659,7 @@
       return row.dataset.clientFilterHidden !== "1";
     });
     var emptyRow = ensureClientEmptyRow(target, form);
-    var initialSize = parseInt(nav.dataset.initialPageSize || "25", 10);
+    var initialSize = parseInt(navs[0].dataset.initialPageSize || "25", 10);
     var pageSize = pageSizeForForm(form, initialSize);
     var pageCount = Math.max(1, Math.ceil(visibleRows.length / pageSize));
     var page = parseInt(requestedPage || target.dataset.clientPage || "1", 10);
@@ -313,17 +683,10 @@
     if (emptyRow) {
       emptyRow.hidden = visibleRows.length > 0;
     }
-    nav.hidden = visibleRows.length <= pageSize;
-    nav.querySelectorAll("[data-client-page='previous']").forEach(function (button) {
-      button.disabled = page <= 1 || visibleRows.length === 0;
+    navs.forEach(function (nav) {
+      nav.hidden = visibleRows.length <= pageSize;
+      renderClientPaginationNav(nav, visibleRows.length ? page : 1, visibleRows.length ? pageCount : 1, visibleRows.length);
     });
-    nav.querySelectorAll("[data-client-page='next']").forEach(function (button) {
-      button.disabled = page >= pageCount || visibleRows.length === 0;
-    });
-    var status = nav.querySelector("[data-client-page-status]");
-    if (status) {
-      status.textContent = visibleRows.length ? page + " / " + pageCount : "0 / 0";
-    }
     target.dataset.clientPage = String(page);
     target.dataset.clientPaginationReady = "1";
     return true;
@@ -519,7 +882,7 @@
     if (target.dataset.clientPaginationDelegated !== "1") {
       target.dataset.clientPaginationDelegated = "1";
       target.addEventListener("click", function (event) {
-        var button = event.target.closest("button[data-client-page]");
+        var button = event.target.closest("button[data-client-page], button[data-client-page-number]");
         if (!button || !target.contains(button)) {
           return;
         }
@@ -531,7 +894,21 @@
         if (!Number.isFinite(current) || current < 1) {
           current = 1;
         }
-        var next = button.dataset.clientPage === "next" ? current + 1 : current - 1;
+        var next = parseInt(button.dataset.clientPageNumber || "", 10);
+        if (!Number.isFinite(next)) {
+          next = button.dataset.clientPage === "next" ? current + 1 : current - 1;
+        }
+        renderClientPagination(target, formForTableTarget(target) || form, next);
+      });
+      target.addEventListener("change", function (event) {
+        var select = event.target.closest("select[data-client-page-select]");
+        if (!select || !target.contains(select)) {
+          return;
+        }
+        var next = parseInt(select.value || "1", 10);
+        if (!Number.isFinite(next) || next < 1) {
+          next = 1;
+        }
         renderClientPagination(target, formForTableTarget(target) || form, next);
       });
     }
@@ -931,6 +1308,40 @@
         return;
       }
       form.dataset.asyncTableBound = "1";
+      if (form.dataset.localTable === "1") {
+        var localTarget = tableTarget(form);
+        if (!localTarget) {
+          return;
+        }
+        initClientSorting(localTarget, form);
+        initClickableRows(localTarget);
+        initClientPagination(localTarget, form, 1);
+        form.addEventListener("submit", function (event) {
+          event.preventDefault();
+          applyClientFilters(localTarget, form, 1);
+        });
+        form.addEventListener("reset", function () {
+          window.setTimeout(function () {
+            applyClientFilters(localTarget, form, 1);
+          }, 0);
+        });
+        form.querySelectorAll("input[type='search']").forEach(function (input) {
+          input.addEventListener("input", function () {
+            if (form._dynamicFilterTimer) {
+              window.clearTimeout(form._dynamicFilterTimer);
+            }
+            form._dynamicFilterTimer = window.setTimeout(function () {
+              applyClientFilters(localTarget, form, 1);
+            }, ASYNC_TABLE_DYNAMIC_FILTER_MS);
+          });
+        });
+        form.querySelectorAll("select").forEach(function (select) {
+          select.addEventListener("change", function () {
+            applyClientFilters(localTarget, form, 1);
+          });
+        });
+        return;
+      }
       loadTable(form);
       form.addEventListener("submit", function (event) {
         event.preventDefault();
@@ -5441,11 +5852,21 @@
             button.disabled = false;
           }
           updateConfigRow(summaryUrl, tableContainer).finally(function () {
-            if (!summaryUrl) {
-              refreshConfigTables();
+            var actionKey = String(actionKind || "").toLowerCase();
+            var editor = null;
+            if (terminalStatus === "succeeded" && (actionKey === "scrape" || actionKey === "clear")) {
+              editor = tableContainer && tableContainer.matches && tableContainer.matches("[data-config-editor]")
+                ? tableContainer
+                : document.querySelector("[data-config-editor]");
             }
-            refreshTaskTables();
-            scheduleConfigToastDismiss(toast, CONFIG_TOAST_DONE_VISIBLE_MS);
+            var editorRefresh = editor ? refreshConfigEditorData(editor) : Promise.resolve();
+            editorRefresh.finally(function () {
+              if (!summaryUrl) {
+                refreshConfigTables();
+              }
+              refreshTaskTables();
+              scheduleConfigToastDismiss(toast, CONFIG_TOAST_DONE_VISIBLE_MS);
+            });
           });
         })
         .catch(function (error) {
@@ -5490,6 +5911,16 @@
         }).then(parseJsonResponseText).then(function (data) {
           setConfigToastStatus(toast, "succeeded", data.message || form.dataset.exportSuccessLabel || "TOML exportado correctamente.");
           toast.element.classList.add("is-success");
+          if (form.dataset.refreshOnSuccess === "1" || data.refresh) {
+            window.setTimeout(function () {
+              if (data.redirect_url) {
+                window.location.href = data.redirect_url;
+              } else {
+                window.location.reload();
+              }
+            }, 250);
+            return;
+          }
           scheduleConfigToastDismiss(toast, CONFIG_TOAST_DONE_VISIBLE_MS);
         }).catch(function (error) {
           setConfigToastStatus(toast, "failed", error.message || form.dataset.exportErrorLabel || "No se pudo exportar el TOML.");
@@ -5620,6 +6051,13 @@
       var active = panel.dataset.configPanel === name;
       panel.classList.toggle("is-active", active);
       panel.hidden = !active;
+      if (active && name === "scraping") {
+        var preview = panel.querySelector("[data-generated-config-form]");
+        var output = panel.querySelector("[data-generated-config]");
+        if (preview && output && String(output.value || "").trim()) {
+          preview.hidden = false;
+        }
+      }
     });
   }
 
@@ -5982,14 +6420,17 @@
     }
   }
 
-  function loadConfigEditorData(editor) {
-    if (!editor || editor.dataset.editorDataLoaded === "1" || !editor.dataset.editorDataUrl) {
+  function loadConfigEditorData(editor, options) {
+    options = options || {};
+    if (!editor || (!options.force && editor.dataset.editorDataLoaded === "1") || !editor.dataset.editorDataUrl) {
       setConfigEditorLoading(editor, false);
-      return;
+      return Promise.resolve();
     }
     editor.dataset.editorDataLoaded = "1";
-    setConfigEditorLoading(editor, true, editor.dataset.loadingLabel || "Cargando datos...");
-    fetch(editor.dataset.editorDataUrl, {
+    if (!options.silent) {
+      setConfigEditorLoading(editor, true, editor.dataset.loadingLabel || "Cargando datos...");
+    }
+    return fetch(editor.dataset.editorDataUrl, {
       headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
       credentials: "same-origin"
     }).then(parseJsonResponse).then(function (data) {
@@ -5998,7 +6439,7 @@
       }
       editor.dataset.configHydrating = "1";
       try {
-        updateConfigEditorFromGeneratedContent(editor, data.content || "", data.manual || null);
+        updateConfigEditorFromGeneratedContent(editor, data.content || "", data.manual || null, { updateGeneratedPreview: false });
       } finally {
         delete editor.dataset.configHydrating;
       }
@@ -6012,14 +6453,25 @@
     });
   }
 
+  function refreshConfigEditorData(editor) {
+    if (!editor) {
+      return Promise.resolve();
+    }
+    delete editor.dataset.editorDataLoaded;
+    return loadConfigEditorData(editor, { force: true, silent: true });
+  }
+
   function initConfigEditor(root) {
-    initConfigTabs(root);
+    try {
+      initConfigTabs(root);
+    } catch (error) {
+      window.console && window.console.error && window.console.error("Error inicializando pesta\u00f1as de configuraci\u00f3n", error);
+    }
     (root || document).querySelectorAll("[data-config-editor]").forEach(function (editor) {
       if (editor.dataset.configEditorReady === "true") {
         return;
       }
       editor.dataset.configEditorReady = "true";
-      initConfigEditorSubmitGuards(editor);
       var sourceScript = editor.querySelector("[data-source-entities-json]");
       var sourceEntities = [];
       try {
@@ -6029,16 +6481,17 @@
       }
       try {
         editor.dataset.configHydrating = "1";
+        initConfigEditorSubmitGuards(editor);
         initManualPages(editor);
         initManualAssetOverrides(editor);
         initCityTransfer(editor, sourceEntities);
         initConfigGenerator(editor);
         initAiLoginLinks(editor);
+      } catch (error) {
+        window.console && window.console.error && window.console.error("Error inicializando configuraci\u00f3n", error);
+      } finally {
         delete editor.dataset.configHydrating;
         loadConfigEditorData(editor);
-      } catch (error) {
-        delete editor.dataset.configHydrating;
-        window.console && window.console.error && window.console.error("Error inicializando configuraci\u00f3n", error);
       }
       var params = new URLSearchParams(window.location.search || "");
       var tab = params.get("tab") || editor.dataset.restoreTab || "";
@@ -6896,6 +7349,886 @@
     }
   }
 
+  function normalizeConfigCityChild(child) {
+    child = child || {};
+    return {
+      id: String(child.id || ""),
+      code: String(child.code || ""),
+      name: String(child.name || ""),
+      label: String(child.label || child.name || child.code || child.id || ""),
+      population_text: String(child.population_text || ""),
+      level: child.level === undefined || child.level === null ? "" : String(child.level),
+      type_text: String(child.type_text || child.entity_type || "")
+    };
+  }
+
+  function normalizeConfigCityBuilderData(builder) {
+    builder = builder || {};
+    var parents = Array.isArray(builder.parent_options) ? builder.parent_options : [];
+    var childrenByParent = builder.children_by_parent || {};
+    var normalized = {
+      enabled: Boolean(builder.enabled),
+      legal_level: builder.legal_level === undefined || builder.legal_level === null ? "" : String(builder.legal_level),
+      parent_level: builder.parent_level === undefined || builder.parent_level === null ? "" : String(builder.parent_level),
+      country_code: String(builder.country_code || ""),
+      children_url: String(builder.children_url || ""),
+      parent_options: parents.map(function (parent) {
+        parent = parent || {};
+        return {
+          id: String(parent.id || ""),
+          code: String(parent.code || ""),
+          name: String(parent.name || ""),
+          label: String(parent.label || parent.name || parent.code || parent.id || ""),
+          level: parent.level === undefined || parent.level === null ? "" : String(parent.level),
+          type_text: String(parent.type_text || "")
+        };
+      }).filter(function (parent) { return parent.id; }),
+      children_by_parent: {},
+      sections: []
+    };
+    Object.keys(childrenByParent || {}).forEach(function (parentId) {
+      normalized.children_by_parent[String(parentId)] = (childrenByParent[parentId] || []).map(function (child) {
+        return normalizeConfigCityChild(child);
+      }).filter(function (child) { return child.id; });
+    });
+    normalized.sections = (Array.isArray(builder.sections) ? builder.sections : [])
+      .map(function (section) { return normalizeConfigCitySection(section, normalized); })
+      .filter(Boolean);
+    return normalized;
+  }
+
+  function configCityParentById(builder, parentId) {
+    parentId = String(parentId || "");
+    return (builder.parent_options || []).find(function (parent) {
+      return parent.id === parentId;
+    }) || null;
+  }
+
+  function configCityChildById(builder, parentId, childId) {
+    childId = String(childId || "");
+    return (builder.children_by_parent[String(parentId || "")] || []).find(function (child) {
+      return child.id === childId;
+    }) || null;
+  }
+
+  function normalizeConfigCitySection(section, builder) {
+    section = section || {};
+    var parentId = String(section.parent_id || "");
+    var parent = configCityParentById(builder, parentId);
+    if (!parent) {
+      return null;
+    }
+    var selectedIds = uniqueValues((section.selected_ids || []).map(function (id) {
+      return String(id || "");
+    }).filter(function (id) {
+      return id && configCityChildById(builder, parentId, id);
+    }));
+    return {
+      parent_id: parentId,
+      parent_name: String(section.parent_name || parent.name || ""),
+      parent_label: String(section.parent_label || parent.label || parent.name || ""),
+      parent_code: String(section.parent_code || parent.code || ""),
+      parent_level: section.parent_level === undefined || section.parent_level === null || section.parent_level === ""
+        ? builder.parent_level
+        : String(section.parent_level),
+      city: String(section.city || parent.name || ""),
+      code: String(section.code || parent.code || parent.id || ""),
+      level: section.level === undefined || section.level === null || section.level === ""
+        ? builder.legal_level
+        : String(section.level),
+      type: String(section.type || "City"),
+      selected_ids: selectedIds,
+      keep_communes: Boolean(section.keep_communes)
+    };
+  }
+
+  function configCityDestroySelect(select) {
+    destroySelect2(select);
+  }
+
+  function configCityRefreshSelect(select) {
+    syncNativeSearchSelect(select);
+  }
+
+  function ensureConfigCityChildren(form, parentId) {
+    var state = form ? form._configCityBuilderState : null;
+    parentId = String(parentId || "");
+    if (!state || !parentId) {
+      return Promise.resolve([]);
+    }
+    if ((state.data.children_by_parent[parentId] || []).length) {
+      return Promise.resolve(state.data.children_by_parent[parentId]);
+    }
+    state.childrenLoading = state.childrenLoading || {};
+    if (state.childrenLoading[parentId]) {
+      return state.childrenLoading[parentId];
+    }
+    if (!state.data.children_url) {
+      state.data.children_by_parent[parentId] = [];
+      return Promise.resolve([]);
+    }
+    var url = new URL(state.data.children_url, window.location.href);
+    url.searchParams.set("country_code", state.data.country_code || "");
+    url.searchParams.set("parent_id", parentId);
+    state.childrenLoading[parentId] = fetchJson(relativeUrlFrom(url.toString())).then(function (payload) {
+      var legalLevel = String(state.data.legal_level || "");
+      var children = (payload.children || []).map(function (child) {
+        return normalizeConfigCityChild(child);
+      }).filter(function (child) {
+        return child.id && (!legalLevel || String(child.level || "") === legalLevel);
+      });
+      state.data.children_by_parent[parentId] = children;
+      return children;
+    }).catch(function (error) {
+      state.data.children_by_parent[parentId] = [];
+      throw error;
+    }).finally(function () {
+      delete state.childrenLoading[parentId];
+    });
+    return state.childrenLoading[parentId];
+  }
+
+  function configCityLabels(builderElement) {
+    return {
+      empty: builderElement.dataset.emptyLabel || "Sin datos.",
+      remove: builderElement.dataset.removeLabel || "Quitar",
+      edit: builderElement.dataset.editLabel || "Editar",
+      available: builderElement.dataset.availableLabel || "Disponibles",
+      selected: builderElement.dataset.selectedLabel || "Ciudad unificada",
+      name: builderElement.dataset.nameLabel || "Nombre",
+      code: builderElement.dataset.codeLabel || "Codigo",
+      parent: builderElement.dataset.parentLabel || "Subdivisión mayor",
+      selectedCount: builderElement.dataset.selectedCountLabel || "Elementos seleccionados",
+      unnamed: builderElement.dataset.unnamedLabel || "Sin nombre",
+      loading: builderElement.dataset.loadingLabel || "Cargando datos...",
+      createTitle: builderElement.dataset.createTitleLabel || "Nueva ciudad",
+      editTitle: builderElement.dataset.editTitleLabel || "Editar ciudad",
+      filterName: builderElement.dataset.filterNameLabel || "Buscar por nombre",
+      filterType: builderElement.dataset.filterTypeLabel || "Tipo",
+      allTypes: builderElement.dataset.allTypesLabel || "Todos los tipos",
+      noType: builderElement.dataset.noTypeLabel || "Sin tipo"
+    };
+  }
+
+  function syncConfigCitiesJson(form, notify) {
+    var hidden = form ? form.querySelector("[data-config-cities-json]") : null;
+    var state = form ? form._configCityBuilderState : null;
+    if (!hidden || !state) {
+      return;
+    }
+    var payload = state.sections.map(function (section) {
+      var children = state.data.children_by_parent[section.parent_id] || [];
+      var childById = {};
+      children.forEach(function (child) {
+        childById[child.id] = child;
+      });
+      var selectedIds = section.selected_ids.filter(function (id) {
+        return Boolean(childById[id]);
+      });
+      return {
+        parent_id: section.parent_id,
+        parent_name: section.parent_name,
+        parent_label: section.parent_label,
+        parent_code: section.parent_code,
+        parent_level: section.parent_level,
+        city: section.city,
+        code: section.code,
+        level: section.level,
+        type: section.type,
+        selected_ids: selectedIds,
+        communes: selectedIds.map(function (id) {
+          return childById[id].code || childById[id].id;
+        }),
+        keep_communes: section.keep_communes
+      };
+    });
+    hidden.value = JSON.stringify(payload);
+    if (notify) {
+      notifyConfigFormChanged(hidden);
+    }
+  }
+
+  function renderConfigCityTable(form) {
+    var state = form ? form._configCityBuilderState : null;
+    var builderElement = form ? form.querySelector("[data-config-city-builder]") : null;
+    var tbody = form ? form.querySelector("[data-config-city-table]") : null;
+    if (!state || !builderElement || !tbody) {
+      return;
+    }
+    var labels = configCityLabels(builderElement);
+    tbody.innerHTML = "";
+    if (!state.sections.length) {
+      var emptyRow = document.createElement("tr");
+      emptyRow.dataset.configCityEmptyRow = "";
+      var emptyCell = document.createElement("td");
+      emptyCell.colSpan = 4;
+      emptyCell.className = "table-empty-cell";
+      emptyCell.textContent = labels.empty;
+      emptyRow.appendChild(emptyCell);
+      tbody.appendChild(emptyRow);
+      return;
+    }
+    state.sections.forEach(function (section) {
+      var children = state.data.children_by_parent[section.parent_id] || [];
+      var childById = {};
+      children.forEach(function (child) {
+        childById[child.id] = child;
+      });
+      var row = document.createElement("tr");
+      row.dataset.configCityTableRow = section.parent_id;
+      if (!String(section.city || "").trim()) {
+        row.classList.add("is-invalid");
+      }
+      var nameCell = document.createElement("td");
+      nameCell.textContent = String(section.city || "").trim() || labels.unnamed;
+      row.appendChild(nameCell);
+
+      var parentCell = document.createElement("td");
+      parentCell.textContent = section.parent_label || section.parent_name || "";
+      row.appendChild(parentCell);
+
+      var elementsCell = document.createElement("td");
+      var elementsList = document.createElement("div");
+      elementsList.className = "config-city-entity-list";
+      if (section.selected_ids.length) {
+        section.selected_ids.forEach(function (id) {
+          var child = childById[id];
+          var item = document.createElement("span");
+          item.className = "config-city-entity-chip";
+          item.textContent = child ? child.label : id;
+          if (child && child.population_text) {
+            item.title = child.population_text;
+          }
+          elementsList.appendChild(item);
+        });
+      } else {
+        var emptyElements = document.createElement("span");
+        emptyElements.className = "config-city-empty";
+        emptyElements.textContent = labels.empty;
+        elementsList.appendChild(emptyElements);
+      }
+      elementsCell.appendChild(elementsList);
+      row.appendChild(elementsCell);
+
+      var actionsCell = document.createElement("td");
+      var actions = document.createElement("div");
+      actions.className = "manual-action-buttons config-city-table-actions";
+      [
+        { action: "edit", label: labels.edit, className: "secondary mini-button" },
+        { action: "remove", label: labels.remove, className: "quiet danger-text" }
+      ].forEach(function (buttonInfo) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.className = buttonInfo.className;
+        button.dataset.configCityTableAction = buttonInfo.action;
+        button.dataset.parentId = section.parent_id;
+        button.textContent = buttonInfo.label;
+        actions.appendChild(button);
+      });
+      actionsCell.appendChild(actions);
+      row.appendChild(actionsCell);
+      tbody.appendChild(row);
+    });
+  }
+
+  function configCityChildTypeKey(child) {
+    return String((child && child.type_text) || "").trim() || "__none__";
+  }
+
+  function configCityTypeOptions(children, labels) {
+    var seen = {};
+    return (children || []).map(function (child) {
+      var key = configCityChildTypeKey(child);
+      if (seen[key]) {
+        return null;
+      }
+      seen[key] = true;
+      return { value: key, label: key === "__none__" ? labels.noType : key };
+    }).filter(Boolean).sort(function (a, b) {
+      return a.label.localeCompare(b.label);
+    });
+  }
+
+  function configCityChildMatchesAvailableFilter(child, filters) {
+    filters = filters || {};
+    var query = normalizeSearchText(filters.name || "");
+    if (query) {
+      var haystack = normalizeSearchText([child.label, child.name, child.code, child.type_text].join(" "));
+      if (haystack.indexOf(query) === -1) {
+        return false;
+      }
+    }
+    var type = String(filters.type || "");
+    if (type && configCityChildTypeKey(child) !== type) {
+      return false;
+    }
+    return true;
+  }
+
+  function renderConfigCityBadges(list, children, selectedIds, side, filters) {
+    list.innerHTML = "";
+    var selectedMap = {};
+    selectedIds.forEach(function (id) {
+      selectedMap[id] = true;
+    });
+    children.forEach(function (child) {
+      var isSelected = Boolean(selectedMap[child.id]);
+      if ((side === "selected") !== isSelected) {
+        return;
+      }
+      if (side === "available" && !configCityChildMatchesAvailableFilter(child, filters)) {
+        return;
+      }
+      var badge = document.createElement("button");
+      badge.type = "button";
+      badge.className = "group-transfer-badge config-city-badge";
+      badge.dataset.configCityChild = child.id;
+      badge.dataset.side = side;
+      badge.textContent = child.label;
+      if (child.population_text) {
+        badge.title = child.population_text;
+      }
+      list.appendChild(badge);
+    });
+    if (!list.children.length) {
+      var empty = document.createElement("span");
+      empty.className = "config-city-empty";
+      empty.textContent = list.dataset.emptyLabel || "Sin datos.";
+      list.appendChild(empty);
+    }
+  }
+
+  function cloneConfigCitySection(section) {
+    section = section || {};
+    return {
+      parent_id: String(section.parent_id || ""),
+      parent_name: String(section.parent_name || ""),
+      parent_label: String(section.parent_label || ""),
+      parent_code: String(section.parent_code || ""),
+      parent_level: section.parent_level === undefined || section.parent_level === null ? "" : String(section.parent_level),
+      city: String(section.city || ""),
+      code: String(section.code || ""),
+      level: section.level === undefined || section.level === null ? "" : String(section.level),
+      type: String(section.type || "City"),
+      selected_ids: (section.selected_ids || []).map(function (id) { return String(id || ""); }).filter(Boolean),
+      keep_communes: Boolean(section.keep_communes)
+    };
+  }
+
+  function createConfigCitySectionElement(form, section, options) {
+    options = options || {};
+    var state = form._configCityBuilderState;
+    var builderElement = form.querySelector("[data-config-city-builder]");
+    var labels = configCityLabels(builderElement);
+    var children = state.data.children_by_parent[section.parent_id] || [];
+    var wrapper = document.createElement("div");
+    wrapper.className = "config-city-section";
+    if (options.flat) {
+      wrapper.classList.add("is-flat");
+    }
+    wrapper.dataset.configCitySection = "";
+    wrapper.dataset.parentId = section.parent_id;
+
+    if (options.showHeader !== false) {
+      var header = document.createElement("div");
+      header.className = "config-city-section-header";
+      var title = document.createElement("strong");
+      title.textContent = section.parent_label;
+      header.appendChild(title);
+      if (options.showRemove !== false) {
+        var remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "secondary small-button";
+        remove.dataset.removeConfigCitySection = section.parent_id;
+        remove.textContent = labels.remove;
+        header.appendChild(remove);
+      }
+      wrapper.appendChild(header);
+    }
+
+    var fields = document.createElement("div");
+    fields.className = "config-city-fields";
+    [
+      { key: "city", label: labels.name },
+      { key: "code", label: labels.code }
+    ].forEach(function (fieldInfo) {
+      var label = document.createElement("label");
+      label.textContent = fieldInfo.label;
+      var input = document.createElement("input");
+      input.type = "text";
+      input.value = section[fieldInfo.key] || "";
+      input.dataset.configCityField = fieldInfo.key;
+      input.dataset.parentId = section.parent_id;
+      if (fieldInfo.key === "city") {
+        input.required = true;
+        input.setAttribute("aria-required", "true");
+        input.className = "config-city-name-input";
+        input.placeholder = labels.name;
+      }
+      label.appendChild(input);
+      fields.appendChild(label);
+    });
+    wrapper.appendChild(fields);
+
+    var currentName = document.createElement("div");
+    currentName.className = "config-city-current-name";
+    currentName.dataset.configCityCurrentName = "";
+    currentName.textContent = String(section.city || "").trim() || labels.unnamed;
+    wrapper.appendChild(currentName);
+
+    var panels = document.createElement("div");
+    panels.className = "config-city-badge-panels";
+    [
+      { side: "available", label: labels.available },
+      { side: "selected", label: labels.selected }
+    ].forEach(function (panelInfo) {
+      var panel = document.createElement("div");
+      panel.className = "config-city-badge-panel";
+      if (panelInfo.side === "available") {
+        panel.classList.add("has-filters");
+      }
+      var panelTitle = document.createElement("span");
+      panelTitle.className = "config-city-panel-label";
+      panelTitle.textContent = panelInfo.label;
+      panel.appendChild(panelTitle);
+      if (panelInfo.side === "available") {
+        var filters = document.createElement("div");
+        filters.className = "config-city-available-filters";
+        var search = document.createElement("input");
+        search.type = "search";
+        search.placeholder = labels.filterName;
+        search.setAttribute("aria-label", labels.filterName);
+        search.value = (state.modalFilters || {}).name || "";
+        search.dataset.configCityAvailableFilter = "name";
+        filters.appendChild(search);
+        var typeSelect = document.createElement("select");
+        typeSelect.setAttribute("aria-label", labels.filterType);
+        typeSelect.dataset.configCityAvailableFilter = "type";
+        var allOption = document.createElement("option");
+        allOption.value = "";
+        allOption.textContent = labels.allTypes;
+        typeSelect.appendChild(allOption);
+        configCityTypeOptions(children, labels).forEach(function (typeOption) {
+          var option = document.createElement("option");
+          option.value = typeOption.value;
+          option.textContent = typeOption.label;
+          typeSelect.appendChild(option);
+        });
+        typeSelect.value = (state.modalFilters || {}).type || "";
+        if (typeSelect.value !== ((state.modalFilters || {}).type || "")) {
+          typeSelect.value = "";
+        }
+        filters.appendChild(typeSelect);
+        panel.appendChild(filters);
+      }
+      var list = document.createElement("div");
+      list.className = "group-badge-list config-city-badge-list";
+      list.dataset.emptyLabel = labels.empty;
+      renderConfigCityBadges(list, children, section.selected_ids, panelInfo.side, state.modalFilters);
+      panel.appendChild(list);
+      panels.appendChild(panel);
+    });
+    wrapper.appendChild(panels);
+    return wrapper;
+  }
+
+  function configCityModalElements(form) {
+    var modal = form ? form.querySelector("[data-config-city-modal]") : null;
+    return {
+      modal: modal,
+      title: modal ? modal.querySelector("[data-config-city-modal-title]") : null,
+      parentField: modal ? modal.querySelector("[data-config-city-modal-parent-field]") : null,
+      parentSelect: modal ? modal.querySelector("[data-config-city-parent-select]") : null,
+      content: modal ? modal.querySelector("[data-config-city-modal-content]") : null
+    };
+  }
+
+  function configCityParentOptionsForModal(state) {
+    var originalParentId = state ? String(state.modalOriginalParentId || "") : "";
+    var usedParents = {};
+    (state.sections || []).forEach(function (section) {
+      if (section.parent_id !== originalParentId) {
+        usedParents[section.parent_id] = true;
+      }
+    });
+    return (state.data.parent_options || []).filter(function (parent) {
+      return !usedParents[parent.id] || parent.id === originalParentId;
+    });
+  }
+
+  function populateConfigCityModalParentSelect(form, selectedParentId) {
+    var state = form ? form._configCityBuilderState : null;
+    var elements = configCityModalElements(form);
+    var select = elements.parentSelect;
+    if (!state || !select) {
+      return "";
+    }
+    var options = configCityParentOptionsForModal(state);
+    configCityDestroySelect(select);
+    select.innerHTML = "";
+    options.forEach(function (parent) {
+      var option = document.createElement("option");
+      option.value = parent.id;
+      option.textContent = parent.label;
+      select.appendChild(option);
+    });
+    select.disabled = options.length < 1;
+    var selected = String(selectedParentId || "");
+    if (options.length) {
+      select.value = options.some(function (parent) { return parent.id === selected; }) ? selected : options[0].id;
+      selected = select.value;
+    } else {
+      select.value = "";
+      selected = "";
+    }
+    configCityRefreshSelect(select);
+    return selected;
+  }
+
+  function renderConfigCityModalLoading(form) {
+    var elements = configCityModalElements(form);
+    var builderElement = form ? form.querySelector("[data-config-city-builder]") : null;
+    var labels = builderElement ? configCityLabels(builderElement) : { loading: "Cargando datos..." };
+    if (!elements.content) {
+      return;
+    }
+    elements.content.innerHTML = "";
+    elements.content.appendChild(createStatusElement("table-loading", labels.loading, true));
+  }
+
+  function renderConfigCityModalContent(form) {
+    var state = form ? form._configCityBuilderState : null;
+    var elements = configCityModalElements(form);
+    if (!state || !elements.content) {
+      return;
+    }
+    elements.content.innerHTML = "";
+    if (!state.modalDraft) {
+      return;
+    }
+    elements.content.appendChild(createConfigCitySectionElement(form, state.modalDraft, {
+      flat: true,
+      showHeader: false,
+      showRemove: false
+    }));
+  }
+
+  function updateConfigCityModalParent(form, parentId, options) {
+    options = options || {};
+    var state = form ? form._configCityBuilderState : null;
+    var parent = state ? configCityParentById(state.data, parentId) : null;
+    if (!state || !parent) {
+      renderConfigCityModalContent(form);
+      return;
+    }
+    if (!options.keepFilters) {
+      state.modalFilters = { name: "", type: "" };
+    }
+    var previousDraft = state.modalDraft || {};
+    var keepSelection = options.keepSelection && previousDraft.parent_id === parent.id;
+    state.modalDraft = normalizeConfigCitySection({
+      parent_id: parent.id,
+      parent_name: parent.name,
+      parent_label: parent.label,
+      parent_code: parent.code,
+      parent_level: state.data.parent_level,
+      city: keepSelection ? previousDraft.city : parent.name,
+      code: keepSelection ? previousDraft.code : (parent.code || parent.id),
+      level: keepSelection ? previousDraft.level : state.data.legal_level,
+      type: keepSelection ? previousDraft.type : "City",
+      selected_ids: keepSelection ? previousDraft.selected_ids : []
+    }, state.data);
+    renderConfigCityModalLoading(form);
+    ensureConfigCityChildren(form, parent.id).then(function () {
+      state.modalDraft = normalizeConfigCitySection(state.modalDraft, state.data);
+      renderConfigCityModalContent(form);
+    }).catch(function (error) {
+      window.console && window.console.error && window.console.error("No se pudieron cargar las ciudades", error);
+      renderConfigCityModalContent(form);
+    });
+  }
+
+  function closeConfigCityModal(form) {
+    var state = form ? form._configCityBuilderState : null;
+    var elements = configCityModalElements(form);
+    if (!elements.modal) {
+      return;
+    }
+    closeNativeSearchSelect(elements.parentSelect);
+    elements.modal.hidden = true;
+    if (state) {
+      state.modalDraft = null;
+      state.modalMode = "";
+      state.modalOriginalParentId = "";
+      state.modalOriginalIndex = -1;
+    }
+  }
+
+  function openConfigCityModal(form, section) {
+    var state = form ? form._configCityBuilderState : null;
+    var builderElement = form ? form.querySelector("[data-config-city-builder]") : null;
+    var elements = configCityModalElements(form);
+    if (!state || !builderElement || !elements.modal) {
+      return;
+    }
+    var labels = configCityLabels(builderElement);
+    var editing = Boolean(section);
+    state.modalMode = editing ? "edit" : "create";
+    state.modalOriginalParentId = editing ? String(section.parent_id || "") : "";
+    state.modalOriginalIndex = editing ? state.sections.findIndex(function (entry) {
+      return entry.parent_id === state.modalOriginalParentId;
+    }) : -1;
+    if (elements.title) {
+      elements.title.textContent = editing ? labels.editTitle : labels.createTitle;
+    }
+    state.modalFilters = { name: "", type: "" };
+    elements.modal.hidden = false;
+    var selectedParentId = populateConfigCityModalParentSelect(form, editing ? section.parent_id : "");
+    if (editing) {
+      state.modalDraft = cloneConfigCitySection(section);
+      updateConfigCityModalParent(form, state.modalDraft.parent_id, { keepSelection: true });
+    } else {
+      state.modalDraft = null;
+      updateConfigCityModalParent(form, selectedParentId);
+    }
+    window.setTimeout(function () {
+      var select = elements.parentSelect;
+      if (select && !select.disabled) {
+        openNativeSearchSelectDropdown(select);
+      } else {
+        var first = elements.modal.querySelector("[data-config-city-field]");
+        if (first) {
+          first.focus();
+        }
+      }
+    }, 0);
+  }
+
+  function saveConfigCityModal(form) {
+    var state = form ? form._configCityBuilderState : null;
+    var elements = configCityModalElements(form);
+    if (!state || !state.modalDraft) {
+      return;
+    }
+    var nameInput = elements.modal ? elements.modal.querySelector('[data-config-city-field="city"]') : null;
+    if (!String(state.modalDraft.city || "").trim()) {
+      if (nameInput && nameInput.reportValidity) {
+        nameInput.reportValidity();
+      }
+      return;
+    }
+    var saved = normalizeConfigCitySection(state.modalDraft, state.data);
+    if (!saved) {
+      return;
+    }
+    var nextSections = state.sections.filter(function (section) {
+      return section.parent_id !== state.modalOriginalParentId && section.parent_id !== saved.parent_id;
+    });
+    if (state.modalMode === "edit" && state.modalOriginalIndex >= 0 && state.modalOriginalIndex <= nextSections.length) {
+      nextSections.splice(state.modalOriginalIndex, 0, saved);
+    } else {
+      nextSections.push(saved);
+    }
+    state.sections = nextSections;
+    closeConfigCityModal(form);
+    renderConfigCityBuilder(form, { notify: true });
+  }
+
+  function updateConfigCityAvailableFilter(form, field) {
+    var state = form ? form._configCityBuilderState : null;
+    if (!state || !field) {
+      return;
+    }
+    var filterKey = field.dataset.configCityAvailableFilter;
+    if (!filterKey) {
+      return;
+    }
+    state.modalFilters = state.modalFilters || { name: "", type: "" };
+    state.modalFilters[filterKey] = field.value || "";
+    var selectionStart = typeof field.selectionStart === "number" ? field.selectionStart : null;
+    renderConfigCityModalContent(form);
+    var nextField = form.querySelector('[data-config-city-available-filter="' + filterKey + '"]');
+    if (nextField && document.activeElement !== nextField) {
+      nextField.focus();
+      if (selectionStart !== null && nextField.setSelectionRange) {
+        nextField.setSelectionRange(selectionStart, selectionStart);
+      }
+    }
+  }
+
+  function renderConfigCityBuilder(form, options) {
+    options = options || {};
+    var state = form ? form._configCityBuilderState : null;
+    var builderElement = form ? form.querySelector("[data-config-city-builder]") : null;
+    if (!state || !builderElement) {
+      return false;
+    }
+    var enabled = state.data.enabled && state.data.parent_options.length > 0;
+    builderElement.hidden = !enabled;
+    if (!enabled) {
+      closeConfigCityModal(form);
+      syncConfigCitiesJson(form, false);
+      return false;
+    }
+    renderConfigCityTable(form);
+    var opener = form ? form.querySelector("[data-open-config-city-picker]") : null;
+    if (opener) {
+      opener.disabled = configCityParentOptionsForModal(state).length < 1;
+    }
+    syncConfigCitiesJson(form, Boolean(options.notify));
+    return true;
+  }
+
+  function bindConfigCityBuilder(form) {
+    var builderElement = form ? form.querySelector("[data-config-city-builder]") : null;
+    if (!form || !builderElement || builderElement.dataset.configCityBuilderReady === "true") {
+      return;
+    }
+    builderElement.dataset.configCityBuilderReady = "true";
+    var opener = form.querySelector("[data-open-config-city-picker]");
+    var elements = configCityModalElements(form);
+    if (opener) {
+      opener.addEventListener("click", function () {
+        openConfigCityModal(form, null);
+      });
+    }
+    if (elements.parentSelect) {
+      elements.parentSelect.addEventListener("change", function () {
+        updateConfigCityModalParent(form, String(elements.parentSelect.value || ""));
+      });
+    }
+    if (elements.modal) {
+      elements.modal.addEventListener("click", function (event) {
+        if (event.target.closest("[data-close-config-city-modal]")) {
+          event.preventDefault();
+          closeConfigCityModal(form);
+        }
+      });
+      elements.modal.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          closeConfigCityModal(form);
+        }
+      });
+      var saveButton = elements.modal.querySelector("[data-save-config-city-modal]");
+      if (saveButton) {
+        saveButton.addEventListener("click", function () {
+          saveConfigCityModal(form);
+        });
+      }
+    }
+    builderElement.addEventListener("click", function (event) {
+      var tableAction = event.target.closest("[data-config-city-table-action]");
+      var badge = event.target.closest("[data-config-city-child]");
+      var state = form._configCityBuilderState;
+      if (!state) {
+        return;
+      }
+      if (tableAction && builderElement.contains(tableAction)) {
+        event.preventDefault();
+        var actionParentId = String(tableAction.dataset.parentId || "");
+        if (tableAction.dataset.configCityTableAction === "remove") {
+          state.sections = state.sections.filter(function (section) {
+            return section.parent_id !== actionParentId;
+          });
+          renderConfigCityBuilder(form, { notify: true });
+          return;
+        }
+        var sectionToEdit = state.sections.find(function (section) {
+          return section.parent_id === actionParentId;
+        });
+        if (sectionToEdit) {
+          openConfigCityModal(form, sectionToEdit);
+        }
+        return;
+      }
+      if (!badge || !builderElement.contains(badge)) {
+        return;
+      }
+      event.preventDefault();
+      var sectionElement = badge.closest("[data-config-city-section]");
+      var parentId = sectionElement ? String(sectionElement.dataset.parentId || "") : "";
+      var section = state.modalDraft && state.modalDraft.parent_id === parentId ? state.modalDraft : null;
+      if (!section) {
+        return;
+      }
+      var childId = String(badge.dataset.configCityChild || "");
+      if (badge.dataset.side === "selected") {
+        section.selected_ids = section.selected_ids.filter(function (id) { return id !== childId; });
+      } else if (section.selected_ids.indexOf(childId) < 0) {
+        section.selected_ids.push(childId);
+      }
+      renderConfigCityModalContent(form);
+    });
+    builderElement.addEventListener("input", function (event) {
+      var availableFilter = event.target.closest("[data-config-city-available-filter]");
+      if (availableFilter && builderElement.contains(availableFilter)) {
+        updateConfigCityAvailableFilter(form, availableFilter);
+        return;
+      }
+      var field = event.target.closest("[data-config-city-field]");
+      var state = form._configCityBuilderState;
+      if (!field || !state) {
+        return;
+      }
+      var parentId = String(field.dataset.parentId || "");
+      var section = state.modalDraft && state.modalDraft.parent_id === parentId ? state.modalDraft : null;
+      if (!section) {
+        return;
+      }
+      section[field.dataset.configCityField] = field.value || "";
+      if (field.dataset.configCityField === "city") {
+        var sectionElement = field.closest("[data-config-city-section]");
+        var currentName = sectionElement ? sectionElement.querySelector("[data-config-city-current-name]") : null;
+        if (currentName) {
+          currentName.textContent = String(section.city || "").trim() || configCityLabels(builderElement).unnamed;
+        }
+      }
+    });
+    builderElement.addEventListener("change", function (event) {
+      var availableFilter = event.target.closest("[data-config-city-available-filter]");
+      if (availableFilter && builderElement.contains(availableFilter)) {
+        updateConfigCityAvailableFilter(form, availableFilter);
+      }
+    });
+  }
+
+  function runPageInitializer(label, callback) {
+    try {
+      callback();
+    } catch (error) {
+      window.console && window.console.error && window.console.error("Error inicializando " + label, error);
+    }
+  }
+
+  function updateConfigCityBuilder(form, builderData) {
+    var builderElement = form ? form.querySelector("[data-config-city-builder]") : null;
+    var hidden = form ? form.querySelector("[data-config-cities-json]") : null;
+    var loaded = form ? form.querySelector("[data-config-cities-loaded]") : null;
+    if (!form || !builderElement || !hidden) {
+      return false;
+    }
+    bindConfigCityBuilder(form);
+    var data = normalizeConfigCityBuilderData(builderData);
+    form._configCityBuilderState = {
+      data: data,
+      sections: []
+    };
+    if (loaded) {
+      loaded.value = data.enabled ? "1" : "0";
+    }
+    form._configCityBuilderState.sections = form._configCityBuilderState.data.sections.slice();
+    return renderConfigCityBuilder(form, { notify: false });
+  }
+
+  function updateManualConfigCities(form, rows, builderData) {
+    var section = form ? form.querySelector("[data-config-cities-section]") : null;
+    if (!section) {
+      return;
+    }
+    var builderVisible = updateConfigCityBuilder(form, builderData || {});
+    section.hidden = !builderVisible;
+  }
+
   function updateManualConfigForm(editor, manual) {
     var form = editor ? editor.querySelector(".config-manual-form") : null;
     var tbody = form ? form.querySelector("[data-manual-pages]") : null;
@@ -6912,6 +8245,7 @@
     }
     updateManualVisualAssetsForm(form, manual.visual_assets || {});
     updateManualAssetOverridesForm(form, manual.asset_overrides || []);
+    updateManualConfigCities(form, manual.config_cities || [], manual.city_builder || {});
     var pages = Array.isArray(manual.pages) ? manual.pages : [];
     if (!pages.length) {
       pages = [{ source: "admin", paths: ["admin"], force_highest_level: "" }];
@@ -6984,12 +8318,19 @@
     rawTextarea.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
-  function updateConfigEditorFromGeneratedContent(editor, content, manual) {
+  function updateConfigEditorFromGeneratedContent(editor, content, manual, options) {
+    options = options || {};
     var output = editor ? editor.querySelector("[data-generated-config]") : null;
     if (output) {
       output.value = content || "";
-      output.dispatchEvent(new Event("input", { bubbles: true }));
-      output.dispatchEvent(new Event("change", { bubbles: true }));
+      if (options.updateGeneratedPreview !== false) {
+        output.dispatchEvent(new Event("input", { bubbles: true }));
+        output.dispatchEvent(new Event("change", { bubbles: true }));
+        var preview = output.closest("[data-generated-config-form]");
+        if (preview) {
+          preview.hidden = false;
+        }
+      }
     }
     updateRawConfigForm(editor, content || "");
     updateManualConfigForm(editor, manual);
@@ -7057,9 +8398,9 @@
       if (!select) {
         return;
       }
-      var hasSelect2 = window.jQuery && window.jQuery.fn && window.jQuery.fn.select2 && window.jQuery(select).data("select2");
+      var hasSelect2 = Boolean(getSelect2Instance(select));
       if (hasSelect2) {
-        window.jQuery(select).select2("destroy");
+        destroySelect2(select);
       }
       values = values || [];
       var requireValue = select.dataset.requireValue === "true";
@@ -7068,7 +8409,7 @@
       select.innerHTML = "";
       if (!values.length && disableWhenEmpty) {
         select.disabled = true;
-        if (window.jQuery && window.jQuery.fn && window.jQuery.fn.select2 && window.jQuery(select).data("select2")) {
+        if (getSelect2Instance(select)) {
           window.jQuery(select).val(null).trigger("change.select2");
         }
         return;
@@ -7093,12 +8434,9 @@
       if (select.value !== current) {
         select.value = requireValue && values.length ? String(values[0].value) : "";
       }
-      if (window.jQuery && window.jQuery.fn && window.jQuery.fn.select2 && select.matches("select[data-select2]")) {
-        window.jQuery(select).select2({
-          width: "100%",
-          placeholder: window.jQuery(select).data("placeholder") || "",
-          allowClear: !requireValue
-        });
+      if (select.matches("select[data-select2]")) {
+        initSelect2Element(select);
+        refreshSelect2OpenHandler(select);
       }
     }
 
@@ -7609,31 +8947,162 @@
     document.head.appendChild(style);
   }
 
-  document.addEventListener("DOMContentLoaded", function () {
-    initStatsSplitChildrenLayout();
-    initLanguageStatePreservation(document);
-    initConfigTabs(document);
-    try {
-      restorePageStateAfterLanguageChange();
-    } catch (error) {
-      window.console && window.console.warn && window.console.warn("No se pudo restaurar el estado tras cambiar idioma", error);
+  function ensureLoadingSpinner(container, className) {
+    if (!container) {
+      return null;
     }
-    initThemeSelector(document);
-    initSelect2(document);
-    initLocalDateTimes(document);
-    initTaskDetailLog(document);
-    initConfigBootstrap(document);
-    initAsyncTables(document);
-    initConfigTables(document);
-    initConfigLoadingDots(document);
-    initConfigTaskActions(document);
-    initConfigExportActions(document);
-    refreshConfigActionButtons(document);
-    initConfigEditor(document);
-    initDataCharts(document);
-    initDashboardCountryDetail(document);
-    initStatsCountries(document);
-    initMap();
-    initVisualIdentity();
+    var spinner = container.querySelector("." + className);
+    if (!spinner) {
+      spinner = document.createElement("span");
+      spinner.className = "loading-spinner " + className;
+      spinner.setAttribute("aria-hidden", "true");
+      container.insertBefore(spinner, container.firstChild);
+    }
+    spinner.hidden = false;
+    return spinner;
+  }
+
+  function initLoadingSubmitForms(root) {
+    (root || document).querySelectorAll("form[data-loading-submit]").forEach(function (form) {
+      if (form.dataset.loadingSubmitReady === "true") {
+        return;
+      }
+      form.dataset.loadingSubmitReady = "true";
+      form.addEventListener("submit", function (event) {
+        if (event.defaultPrevented) {
+          return;
+        }
+        var button = event.submitter || form.querySelector("button[type='submit']");
+        if (!button || button.disabled) {
+          return;
+        }
+        button.disabled = true;
+        button.classList.add("is-loading");
+        ensureLoadingSpinner(button, "button-loading-spinner");
+      });
+    });
+  }
+
+  function initLoadingLinks(root) {
+    (root || document).querySelectorAll("[data-loading-link]").forEach(function (link) {
+      if (link.dataset.loadingLinkReady === "true") {
+        return;
+      }
+      link.dataset.loadingLinkReady = "true";
+      link.addEventListener("click", function (event) {
+        if (
+          event.defaultPrevented ||
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey ||
+          (link.target && link.target !== "_self")
+        ) {
+          return;
+        }
+        link.classList.add("is-loading");
+        ensureLoadingSpinner(link.querySelector(".stats-country-flag") || link, "group-card-loading-spinner");
+      });
+    });
+  }
+
+  function resetGroupCountryDetailLoading(panel) {
+    var loading;
+    var panelBox;
+    if (!panel) {
+      return;
+    }
+    loading = panel.querySelector("[data-group-panel-loading]");
+    panelBox = panel.querySelector("[data-group-country-panel]");
+    if (loading) {
+      loading.hidden = true;
+    }
+    if (panelBox) {
+      panelBox.classList.remove("is-loading");
+    }
+  }
+
+  function initGroupCountryCards(root) {
+    var scope = root || document;
+    var cards = Array.prototype.slice.call(scope.querySelectorAll("[data-group-country-card]"));
+    if (!cards.length) {
+      return;
+    }
+    var details = Array.prototype.slice.call(scope.querySelectorAll("[data-group-country-detail]"));
+    cards.forEach(function (card) {
+      if (card.dataset.groupCountryReady === "true") {
+        return;
+      }
+      card.dataset.groupCountryReady = "true";
+      card.addEventListener("click", function () {
+        var targetId = card.dataset.groupDetailTarget || "";
+        var target = targetId ? document.getElementById(targetId) : null;
+        if (!target) {
+          return;
+        }
+        cards.forEach(function (item) {
+          if (item !== card) {
+            item.classList.remove("is-selected");
+            item.setAttribute("aria-expanded", "false");
+            delete item.dataset.groupCountryActivation;
+          }
+        });
+        details.forEach(function (panel) {
+          if (panel !== target) {
+            resetGroupCountryDetailLoading(panel);
+            panel.hidden = true;
+          }
+        });
+        var activation = String(Date.now()) + String(Math.random());
+        var loading = target.querySelector("[data-group-panel-loading]");
+        var panelBox = target.querySelector("[data-group-country-panel]");
+        card.dataset.groupCountryActivation = activation;
+        card.classList.add("is-selected");
+        card.setAttribute("aria-expanded", "true");
+        target.hidden = false;
+        if (loading && panelBox) {
+          panelBox.classList.add("is-loading");
+          loading.hidden = false;
+        }
+        window.setTimeout(function () {
+          if (card.dataset.groupCountryActivation !== activation) {
+            return;
+          }
+          resetGroupCountryDetailLoading(target);
+          initClickableRows(target);
+        }, 120);
+      });
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    runPageInitializer("select2", function () { initSelect2(document); });
+    runPageInitializer("editor de configuraci\u00f3n", function () { initConfigEditor(document); });
+    runPageInitializer("layout de estad\u00edsticas", initStatsSplitChildrenLayout);
+    runPageInitializer("estado de idioma", function () { initLanguageStatePreservation(document); });
+    runPageInitializer("formularios con carga", function () { initLoadingSubmitForms(document); });
+    runPageInitializer("enlaces con carga", function () { initLoadingLinks(document); });
+    runPageInitializer("filas clicables", function () { initClickableRows(document); });
+    runPageInitializer("tarjetas de grupos", function () { initGroupCountryCards(document); });
+    runPageInitializer("pesta\u00f1as de configuraci\u00f3n", function () { initConfigTabs(document); });
+    runPageInitializer("restauraci\u00f3n de idioma", function () {
+      restorePageStateAfterLanguageChange();
+    });
+    runPageInitializer("tema", function () { initThemeSelector(document); });
+    runPageInitializer("fechas locales", function () { initLocalDateTimes(document); });
+    runPageInitializer("detalle de tareas", function () { initTaskDetailLog(document); });
+    runPageInitializer("bootstrap de configuraciones", function () { initConfigBootstrap(document); });
+    runPageInitializer("tablas as\u00edncronas", function () { initAsyncTables(document); });
+    runPageInitializer("tablas de configuraci\u00f3n", function () { initConfigTables(document); });
+    runPageInitializer("puntos de carga", function () { initConfigLoadingDots(document); });
+    runPageInitializer("acciones de tareas", function () { initConfigTaskActions(document); });
+    runPageInitializer("acciones de exportaci\u00f3n", function () { initConfigExportActions(document); });
+    runPageInitializer("botones de configuraci\u00f3n", function () { refreshConfigActionButtons(document); });
+    runPageInitializer("gr\u00e1ficos", function () { initDataCharts(document); });
+    runPageInitializer("detalle de pa\u00eds en dashboard", function () { initDashboardCountryDetail(document); });
+    runPageInitializer("estad\u00edsticas por pa\u00eds", function () { initStatsCountries(document); });
+    runPageInitializer("mapa", initMap);
+    runPageInitializer("identidad visual", initVisualIdentity);
   });
 })();

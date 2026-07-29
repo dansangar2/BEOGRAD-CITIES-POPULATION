@@ -6,61 +6,1318 @@
 {% block content %}
 <section class="page-head compact">
   <div>
-    <p class="eyebrow">{% trans "Grupos" %}</p>
     <h1>
-      {% if group %}
-      {{ group.name }}
+      {% if mode == "new" %}
+      {% trans "NUEVO GRUPO" %}
       {% else %}
-      {% trans "Nuevo grupo" %}
+      {{ form.internal_name }}
       {% endif %}
     </h1>
   </div>
-  <a class="button secondary" href="{% url 'ciudades_del_mundo:group_list' %}">{% trans "Volver" %}</a>
-</section>
-
-<section class="editor-layout">
-  <form class="panel form-panel" method="post">
-    {% csrf_token %}
-    {% if not group %}
-    <label>
-      Slug
-      <input name="slug" value="{{ form.slug }}" required>
-    </label>
+  <div class="actions">
+    {% if record %}
+    <form method="post" action="{% url 'ciudades_del_mundo:group_export_toml' record.slug %}" data-config-export-form data-action-label="{% trans 'Exportar TOML' %}" data-exporting-label="{% trans 'Exportando TOML...' %}" data-export-success-label="{% trans 'TOML exportado correctamente.' %}" data-export-error-label="{% trans 'No se pudo exportar el TOML.' %}">
+      {% csrf_token %}
+      <button type="submit" class="secondary">{% trans "Exportar TOML" %}</button>
+    </form>
+    <form method="post" action="{% url 'ciudades_del_mundo:group_import_toml_slug' record.slug %}" data-config-export-form data-refresh-on-success="1" data-action-label="{% trans 'Importar TOML' %}" data-exporting-label="{% trans 'Importando TOML...' %}" data-export-success-label="{% trans 'TOML importado correctamente.' %}" data-export-error-label="{% trans 'No se pudo importar el TOML.' %}">
+      {% csrf_token %}
+      <button type="submit" class="secondary" data-group-import-button>{% trans "Importar TOML" %}</button>
+    </form>
     {% endif %}
-    <label>
-      {% trans "Nombre" %}
-      <input name="name" value="{{ form.name }}" required>
-    </label>
-    <label>
-      {% trans "Pais fuente" %}
-      <input name="source_country_code" value="{{ form.source_country_code }}">
-    </label>
-    <label>
-      {% trans "Descripcion" %}
-      <textarea name="description" rows="4">{{ form.description }}</textarea>
-    </label>
-    <label>
-      TOML
-      <textarea name="content" spellcheck="false">{{ form.content }}</textarea>
-    </label>
-    <div class="actions">
-      <button type="submit">{% trans "Guardar" %}</button>
-    </div>
-  </form>
-
-  <aside class="panel help-panel">
-    <h2>{% trans "Uso futuro" %}</h2>
-    <p>{% trans "Los grupos guardan selecciones reutilizables de AdminArea para que una configuracion de nuevo pais pueda referenciarlas por slug." %}</p>
-    <pre><code>kind = "subdivision_group"
-
-[selection]
-source_country_code = ""
-include_ids = []
-subtract_ids = []
-include_codes = []
-subtract_codes = []
-include_levels = []
-include_names = []</code></pre>
-  </aside>
+    <a class="button secondary" href="{% url 'ciudades_del_mundo:group_list' %}">{% trans "Volver" %}</a>
+  </div>
 </section>
+
+{{ blocks|json_script:"group-blocks-data" }}
+{{ existing_group_keys|json_script:"group-existing-keys-data" }}
+
+<form class="group-entry-form" method="post" data-group-entry-form data-source-url="{{ source_data_url }}">
+  {% csrf_token %}
+  <input type="hidden" name="country_code" value="{{ country_code }}">
+  <input type="hidden" name="blocks_json" data-group-blocks-json value="{{ form.blocks_json }}">
+
+  <div class="group-form-actions top">
+    <button type="submit" data-group-save-button>{% trans "Guardar" %}</button>
+  </div>
+
+  <section class="panel group-entry-main-box">
+    <div class="group-entry-control-grid">
+      <label>
+        {% trans "Codigo interno" %}
+        <input
+          name="internal_name"
+          value="{{ form.internal_name }}"
+          placeholder="{{ country_code|upper }}"
+          pattern="[A-Za-z][A-Za-z0-9_]*"
+          autocomplete="off"
+          autocapitalize="characters"
+          data-group-internal-code
+          required
+        >
+        <span class="group-duplicate-warning" data-group-duplicate-warning aria-hidden="true">{% trans "Ya existe un grupo con este codigo interno para este pais." %}</span>
+      </label>
+      <label>
+        {% trans "Pais" %}
+        <select data-group-country-add-select data-placeholder="{% trans 'Buscar pais' %}">
+          {% for source in source_countries %}
+          <option value="{{ source.value }}" {% if source.value == country_code %}selected{% endif %}>{{ source.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="group-entry-add-slot">
+        <button type="button" class="secondary" data-group-add-country>{% trans "Añadir" %}</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="group-country-blocks" data-group-country-blocks></div>
+
+  <template data-group-country-block-template>
+    <section class="panel group-country-block" data-group-country-block>
+      <div class="group-country-block-head">
+        <div>
+          <h2 data-country-name-label></h2>
+        </div>
+        <button type="button" class="secondary" data-remove-country-block hidden>{% trans "Quitar" %}</button>
+      </div>
+      <div class="group-country-data-area" data-group-country-data-area>
+        <div class="group-country-data-loading table-loading" data-group-country-data-loading>
+          <span class="loading-spinner" aria-hidden="true"></span>
+          <span>{% trans "Cargando datos..." %}</span>
+        </div>
+        <div class="group-country-data-content" data-group-country-data-content hidden>
+          <div class="group-hierarchy-controls" data-group-hierarchy-controls></div>
+          <div class="table-wrap subtle group-section-table-wrap">
+            <table class="compact-table group-section-table">
+              <thead>
+                <tr>
+                  <th>{% trans "Entidad" %}</th>
+                  <th>{% trans "Nivel" %}</th>
+                  <th>{% trans "Elementos" %}</th>
+                  <th>{% trans "Acciones" %}</th>
+                </tr>
+              </thead>
+              <tbody data-group-section-table>
+                <tr data-group-section-empty-row>
+                  <td colspan="4" class="table-empty-cell">{% trans "Sin datos." %}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="group-section-list" data-group-section-list hidden></div>
+        </div>
+      </div>
+    </section>
+  </template>
+
+  <template data-group-section-template>
+    <section class="group-section-block" data-group-section-block>
+      <div class="group-section-head">
+        <h3 data-section-name-label></h3>
+        <button type="button" class="secondary" data-remove-group-section>{% trans "Quitar" %}</button>
+      </div>
+      <div class="group-transfer-grid">
+        <div class="group-transfer-pane">
+          <h4>{% trans "Disponibles" %}</h4>
+          <div class="group-badge-list" data-available-badges></div>
+        </div>
+        <div class="group-transfer-pane">
+          <h4>{% trans "Grupo" %}</h4>
+          <div class="group-badge-list" data-selected-badges></div>
+        </div>
+      </div>
+    </section>
+  </template>
+
+  <div class="config-city-modal group-section-modal" data-group-section-modal role="dialog" aria-modal="true" hidden>
+    <div class="config-city-modal-backdrop" data-close-group-section-modal></div>
+    <div class="config-city-modal-dialog" role="document">
+      <div class="config-city-modal-header">
+        <h3 data-group-section-modal-title>{% trans "Grupo" %}</h3>
+        <button class="config-city-modal-close" type="button" data-close-group-section-modal aria-label="{% trans 'Cerrar' %}">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="config-city-modal-body">
+        <div class="config-city-modal-content group-section-modal-content" data-group-section-modal-content></div>
+      </div>
+      <div class="config-city-modal-actions">
+        <button type="button" data-save-group-section-modal>{% trans "Guardar" %}</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions group-form-actions bottom">
+    <button type="submit" data-group-save-button>{% trans "Guardar" %}</button>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var form = document.querySelector("[data-group-entry-form]");
+  if (!form) {
+    return;
+  }
+  var hidden = form.querySelector("[data-group-blocks-json]");
+  var select = form.querySelector("[data-group-country-add-select]");
+  var addButton = form.querySelector("[data-group-add-country]");
+  var internalInput = form.querySelector("[data-group-internal-code]");
+  var duplicateWarning = form.querySelector("[data-group-duplicate-warning]");
+  var blocksContainer = form.querySelector("[data-group-country-blocks]");
+  var blockTemplate = form.querySelector("[data-group-country-block-template]");
+  var sectionTemplate = form.querySelector("[data-group-section-template]");
+  var sectionModal = form.querySelector("[data-group-section-modal]");
+  var sectionModalTitle = form.querySelector("[data-group-section-modal-title]");
+  var sectionModalContent = form.querySelector("[data-group-section-modal-content]");
+  var blocksNode = document.getElementById("group-blocks-data");
+  var existingKeysNode = document.getElementById("group-existing-keys-data");
+  var sourceUrl = form.dataset.sourceUrl || "";
+  var sourceCountries = Array.prototype.slice.call(select ? select.options : []).filter(function (option) {
+    return option.value;
+  }).map(function (option) {
+    return { value: option.value, label: option.textContent || option.value };
+  });
+  var countryDataCache = {};
+  var sectionDataCache = {};
+  var childDataCache = {};
+  var blocks = [];
+  var existingKeys = [];
+  var sectionModalState = null;
+
+  try {
+    blocks = blocksNode ? JSON.parse(blocksNode.textContent || "[]") : [];
+  } catch (error) {
+    blocks = [];
+  }
+  try {
+    existingKeys = existingKeysNode ? JSON.parse(existingKeysNode.textContent || "[]") : [];
+  } catch (error) {
+    existingKeys = [];
+  }
+  if (!Array.isArray(blocks) || !blocks.length) {
+    blocks = [{ country_code: "{{ country_code|escapejs }}", names: [] }];
+  }
+
+  var openSearchSelect = null;
+
+  function selectValue(element) {
+    return element ? element.value || "" : "";
+  }
+
+  function bindSelectValueChange(element, handler) {
+    if (!element) {
+      return;
+    }
+    element.addEventListener("change", handler);
+  }
+
+  function normalizeSearchText(value) {
+    return String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  }
+
+  function searchSelectLabel(element) {
+    var selected = Array.prototype.slice.call(element.options || []).find(function (option) {
+      return option.value === element.value;
+    });
+    return selected ? selected.textContent : element.dataset.placeholder || "";
+  }
+
+  function ensureSearchSelect(element) {
+    if (!element || element.__groupSearchWidget) {
+      return element ? element.__groupSearchWidget : null;
+    }
+    element.classList.add("group-native-select");
+    var widget = document.createElement("div");
+    widget.className = "group-search-select";
+    widget.innerHTML = [
+      '<button type="button" class="group-search-select-trigger" aria-haspopup="listbox" aria-expanded="false"></button>',
+      '<div class="group-search-select-menu" hidden>',
+      '<input type="search" class="group-search-select-input" autocomplete="off">',
+      '<div class="group-search-select-options" role="listbox"></div>',
+      '</div>'
+    ].join("");
+    element.insertAdjacentElement("afterend", widget);
+    element.__groupSearchWidget = widget;
+    var trigger = widget.querySelector(".group-search-select-trigger");
+    var input = widget.querySelector(".group-search-select-input");
+    trigger.addEventListener("click", function () {
+      if (element.disabled) {
+        return;
+      }
+      if (widget.classList.contains("is-open")) {
+        closeSearchSelect(element);
+      } else {
+        openSearchSelectDropdown(element);
+      }
+    });
+    input.addEventListener("input", function () {
+      renderSearchSelectOptions(element);
+    });
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        closeSearchSelect(element);
+        trigger.focus();
+      }
+    });
+    return widget;
+  }
+
+  function closeSearchSelect(element) {
+    var widget = element && element.__groupSearchWidget;
+    if (!widget) {
+      return;
+    }
+    widget.classList.remove("is-open");
+    widget.querySelector(".group-search-select-menu").hidden = true;
+    widget.querySelector(".group-search-select-trigger").setAttribute("aria-expanded", "false");
+    if (openSearchSelect === element) {
+      openSearchSelect = null;
+    }
+  }
+
+  function closeOpenSearchSelect(exceptElement) {
+    if (openSearchSelect && openSearchSelect !== exceptElement) {
+      closeSearchSelect(openSearchSelect);
+    }
+  }
+
+  function visibleSelectOptions(element) {
+    var options = element.__allOptions || [];
+    var widget = ensureSearchSelect(element);
+    var searchInput = widget ? widget.querySelector(".group-search-select-input") : null;
+    var query = normalizeSearchText(searchInput ? searchInput.value : "");
+    if (!query) {
+      return options.slice();
+    }
+    return options.filter(function (option) {
+      return normalizeSearchText((option.label || "") + " " + (option.value || "")).indexOf(query) !== -1;
+    });
+  }
+
+  function renderSearchSelectOptions(element) {
+    var widget = ensureSearchSelect(element);
+    if (!widget) {
+      return;
+    }
+    var list = widget.querySelector(".group-search-select-options");
+    list.innerHTML = "";
+    var options = visibleSelectOptions(element);
+    if (!options.length) {
+      var empty = document.createElement("div");
+      empty.className = "group-search-select-empty";
+      empty.textContent = "{% trans 'Sin resultados' %}";
+      list.appendChild(empty);
+      return;
+    }
+    options.forEach(function (option) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "group-search-select-option";
+      button.textContent = option.label;
+      button.dataset.value = option.value;
+      button.setAttribute("role", "option");
+      button.setAttribute("aria-selected", String(option.value) === String(element.value) ? "true" : "false");
+      button.addEventListener("click", function () {
+        element.value = option.value;
+        element.dispatchEvent(new Event("change", { bubbles: true }));
+        closeSearchSelect(element);
+        syncSearchSelect(element);
+      });
+      list.appendChild(button);
+    });
+  }
+
+  function syncSearchSelect(element) {
+    var widget = ensureSearchSelect(element);
+    if (!widget) {
+      return;
+    }
+    var trigger = widget.querySelector(".group-search-select-trigger");
+    trigger.textContent = searchSelectLabel(element);
+    trigger.disabled = element.disabled;
+    widget.classList.toggle("is-disabled", element.disabled);
+    if (widget.classList.contains("is-open")) {
+      renderSearchSelectOptions(element);
+    }
+  }
+
+  function openSearchSelectDropdown(element) {
+    var widget = ensureSearchSelect(element);
+    if (!widget || element.disabled) {
+      return;
+    }
+    closeOpenSearchSelect(element);
+    openSearchSelect = element;
+    widget.classList.add("is-open");
+    widget.querySelector(".group-search-select-menu").hidden = false;
+    widget.querySelector(".group-search-select-trigger").setAttribute("aria-expanded", "true");
+    var input = widget.querySelector(".group-search-select-input");
+    input.value = "";
+    input.placeholder = element.dataset.placeholder || "";
+    renderSearchSelectOptions(element);
+    window.setTimeout(function () {
+      input.focus();
+    }, 0);
+  }
+
+  function renderSelectOptions(element, selectedValue) {
+    if (!element) {
+      return;
+    }
+    element.innerHTML = "";
+    var options = visibleSelectOptions(element);
+    options.forEach(function (option) {
+      var node = document.createElement("option");
+      node.value = option.value;
+      node.textContent = option.label;
+      element.appendChild(node);
+    });
+    if (options.length) {
+      var hasSelectedValue = options.some(function (option) {
+        return String(option.value) === String(selectedValue || "");
+      });
+      element.value = hasSelectedValue ? selectedValue : String(options[0].value);
+    } else {
+      element.value = "";
+    }
+    element.disabled = element.__disableWhenEmpty !== false && !options.length;
+    syncSearchSelect(element);
+  }
+
+  function clearSelectSearch(element) {
+    var widget = ensureSearchSelect(element);
+    var searchInput = widget ? widget.querySelector(".group-search-select-input") : null;
+    if (searchInput) {
+      searchInput.value = "";
+    }
+  }
+
+  function setSelectOptions(element, options, selectedValue, allowClear, disableWhenEmpty) {
+    if (!element) {
+      return;
+    }
+    element.__allOptions = (options || []).map(function (option) {
+      return { value: String(option.value), label: option.label || String(option.value) };
+    });
+    element.__allowClear = allowClear;
+    element.__disableWhenEmpty = disableWhenEmpty;
+    renderSelectOptions(element, selectedValue);
+  }
+
+  document.addEventListener("click", function (event) {
+    if (openSearchSelect && openSearchSelect.__groupSearchWidget && !openSearchSelect.__groupSearchWidget.contains(event.target)) {
+      closeSearchSelect(openSearchSelect);
+    }
+  });
+
+  function countryLabel(countryCode) {
+    var option = sourceCountries.find(function (item) {
+      return item.value === countryCode;
+    });
+    return option ? option.label : countryCode;
+  }
+
+  function sanitizeInternalCode() {
+    if (!internalInput) {
+      return;
+    }
+    var value = (internalInput.value || "").toUpperCase().replace(/[^A-Z0-9_]/g, "_");
+    value = value.replace(/_+/g, "_").replace(/^_+/, "");
+    while (value && !/^[A-Z]/.test(value)) {
+      value = value.slice(1);
+    }
+    internalInput.value = value;
+  }
+
+  function internalSlug(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9_]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  }
+
+  function updateDuplicateState() {
+    var slug = internalSlug(internalInput ? internalInput.value : "");
+    var duplicate = slug && existingKeys.some(function (item) {
+      return internalSlug(item.slug || item.internal_name || "") === slug;
+    });
+    if (duplicateWarning) {
+      duplicateWarning.classList.toggle("is-visible", !!duplicate);
+      duplicateWarning.setAttribute("aria-hidden", duplicate ? "false" : "true");
+    }
+    Array.prototype.slice.call(document.querySelectorAll("[data-group-save-button], [data-group-import-button]")).forEach(function (button) {
+      button.disabled = !!duplicate;
+    });
+    form.classList.toggle("has-group-duplicate", !!duplicate);
+    return !!duplicate;
+  }
+
+  function usedCountryCodes() {
+    return Array.prototype.slice.call(blocksContainer.querySelectorAll("[data-group-country-block]")).reduce(function (used, block) {
+      if (block.dataset.countryCode) {
+        used[block.dataset.countryCode] = true;
+      }
+      return used;
+    }, {});
+  }
+
+  function updateCountrySelectOptions() {
+    if (!select) {
+      return;
+    }
+    var used = usedCountryCodes();
+    var available = sourceCountries.filter(function (option) {
+      return !used[option.value];
+    });
+    clearSelectSearch(select);
+    setSelectOptions(select, available, "", true);
+    if (addButton) {
+      addButton.disabled = !selectValue(select);
+    }
+  }
+
+  function fetchJson(params) {
+    if (!sourceUrl) {
+      return Promise.resolve({});
+    }
+    var url = new URL(sourceUrl, window.location.href);
+    Object.keys(params || {}).forEach(function (key) {
+      if (params[key] !== undefined && params[key] !== null && params[key] !== "") {
+        url.searchParams.set(key, params[key]);
+      }
+    });
+    return fetch(url.toString(), { headers: { "Accept": "application/json" } }).then(function (response) {
+      if (!response.ok) {
+        throw new Error("HTTP " + response.status);
+      }
+      return response.json();
+    });
+  }
+
+  function setBlockLoading(block, loading) {
+    var loadingBox = block ? block.querySelector("[data-group-country-data-loading]") : null;
+    var content = block ? block.querySelector("[data-group-country-data-content]") : null;
+    if (loadingBox) {
+      loadingBox.hidden = !loading;
+    }
+    if (content) {
+      content.hidden = !!loading;
+    }
+    if (block) {
+      block.classList.toggle("is-loading", !!loading);
+    }
+  }
+
+  function loadCountryData(countryCode) {
+    if (countryDataCache[countryCode]) {
+      return Promise.resolve(countryDataCache[countryCode]);
+    }
+    return fetchJson({ country_code: countryCode }).then(function (data) {
+      countryDataCache[countryCode] = data || { levels: [] };
+      return countryDataCache[countryCode];
+    }).catch(function () {
+      countryDataCache[countryCode] = { levels: [] };
+      return countryDataCache[countryCode];
+    });
+  }
+
+  function loadSections(countryCode, level, sectionParentId) {
+    var parentKey = sectionParentId || "";
+    var key = countryCode + "::" + level + "::" + parentKey;
+    if (sectionDataCache[key]) {
+      return Promise.resolve(sectionDataCache[key]);
+    }
+    return fetchJson({ country_code: countryCode, level: level, section_parent_id: parentKey }).then(function (data) {
+      sectionDataCache[key] = data.sections || [];
+      return sectionDataCache[key];
+    }).catch(function () {
+      sectionDataCache[key] = [];
+      return sectionDataCache[key];
+    });
+  }
+
+  function loadChildren(countryCode, parentId) {
+    var key = countryCode + "::" + parentId;
+    if (childDataCache[key]) {
+      return Promise.resolve(childDataCache[key]);
+    }
+    return fetchJson({ country_code: countryCode, parent_id: parentId }).then(function (data) {
+      childDataCache[key] = data.children || [];
+      return childDataCache[key];
+    }).catch(function () {
+      childDataCache[key] = [];
+      return childDataCache[key];
+    });
+  }
+
+  function sectionIdsForBlock(block) {
+    return Array.prototype.slice.call(block.querySelectorAll("[data-group-section-block]")).reduce(function (ids, section) {
+      if (section.dataset.sectionId) {
+        ids[section.dataset.sectionId] = true;
+      }
+      return ids;
+    }, {});
+  }
+
+  function selectedAncestorIdsForRows(rows, rowIndex) {
+    var ancestorIds = [];
+    rows.slice(0, rowIndex).forEach(function (row) {
+      var selectedId = hierarchyRowSelectedId(row);
+      if (selectedId) {
+        ancestorIds.push(selectedId);
+      }
+    });
+    return ancestorIds;
+  }
+
+  function hasSelectedAncestor(sectionData, selectedIds) {
+    return (sectionData.ancestor_ids || []).some(function (ancestorId) {
+      return selectedIds[String(ancestorId)];
+    });
+  }
+
+  function removeDescendantSections(block, ancestorId) {
+    var removed = false;
+    Array.prototype.slice.call(block.querySelectorAll("[data-group-section-block]")).forEach(function (section) {
+      var state = section.__sectionState || {};
+      if (String(state.area_id || section.dataset.sectionId || "") === String(ancestorId)) {
+        return;
+      }
+      if ((state.ancestor_ids || []).some(function (item) { return String(item) === String(ancestorId); })) {
+        section.remove();
+        removed = true;
+      }
+    });
+    return removed;
+  }
+
+  function hierarchyRowsForBlock(block) {
+    return Array.prototype.slice.call(block.querySelectorAll("[data-group-hierarchy-row]"));
+  }
+
+  function hierarchyRowSelect(row) {
+    return row ? row.querySelector("[data-group-section-select]") : null;
+  }
+
+  function hierarchyRowButton(row) {
+    return row ? row.querySelector("[data-add-group-section]") : null;
+  }
+
+  function hierarchyRowIsRoot(row) {
+    return row && row.dataset.groupHierarchyRoot === "1";
+  }
+
+  function hierarchyRowRootOption(row) {
+    return row && row.__sectionOptions && row.__sectionOptions.length ? row.__sectionOptions[0] : null;
+  }
+
+  function hierarchyRowSelectedId(row) {
+    if (hierarchyRowIsRoot(row)) {
+      var root = hierarchyRowRootOption(row);
+      return root ? root.id : "";
+    }
+    return selectValue(hierarchyRowSelect(row));
+  }
+
+  function updateHierarchyAddButton(row) {
+    var button = hierarchyRowButton(row);
+    if (button) {
+      if (hierarchyRowIsRoot(row)) {
+        var root = hierarchyRowRootOption(row);
+        var used = row.__ownerBlock ? sectionIdsForBlock(row.__ownerBlock) : {};
+        button.disabled = !root || !root.id || Boolean(used[root.id]);
+        return;
+      }
+      button.disabled = !selectValue(hierarchyRowSelect(row));
+    }
+  }
+
+  function clearHierarchyRows(rows, startIndex) {
+    rows.slice(startIndex).forEach(function (row) {
+      if (hierarchyRowIsRoot(row)) {
+        row.__loadToken = (row.__loadToken || 0) + 1;
+        updateHierarchyAddButton(row);
+        return;
+      }
+      var selectElement = hierarchyRowSelect(row);
+      row.__loadToken = (row.__loadToken || 0) + 1;
+      row.__sectionOptions = [];
+      if (!selectElement) {
+        updateHierarchyAddButton(row);
+        return;
+      }
+      clearSelectSearch(selectElement);
+      setSelectOptions(selectElement, [], "", true, true);
+      updateHierarchyAddButton(row);
+    });
+  }
+
+  function renderRootHierarchyRow(block, root, levels) {
+    if (!root || !root.id) {
+      return null;
+    }
+    var row = document.createElement("div");
+    row.className = "group-hierarchy-row group-hierarchy-root-row";
+    row.dataset.groupHierarchyRow = "";
+    row.dataset.groupHierarchyRoot = "1";
+    row.dataset.level = "0";
+    row.dataset.rowIndex = "0";
+    row.__ownerBlock = block;
+    row.__sectionOptions = [root];
+    row.innerHTML = [
+      '<div class="group-hierarchy-static">',
+      '<span class="group-hierarchy-label"></span>',
+      '<span class="group-hierarchy-static-value"></span>',
+      '</div>',
+      '<div class="group-entry-add-slot">',
+      '<button type="button" class="secondary" data-add-group-section>{% trans "Añadir" %}</button>',
+      '</div>'
+    ].join("");
+    var rootLevel = (levels || [])[0] || {};
+    row.querySelector(".group-hierarchy-label").textContent = "{% trans 'Pais' %}";
+    row.querySelector(".group-hierarchy-static-value").textContent = (root.label || root.name || countryLabel(block.dataset.countryCode || "")) + (rootLevel.label ? " - " + rootLevel.label : "");
+    hierarchyRowButton(row).addEventListener("click", function () {
+      addSelectedSectionFromRow(block, row);
+    });
+    updateHierarchyAddButton(row);
+    return row;
+  }
+
+  function renderLevelRows(block, levels, root) {
+    var container = block.querySelector("[data-group-hierarchy-controls]");
+    if (!container) {
+      return;
+    }
+    container.innerHTML = "";
+    var rootRow = renderRootHierarchyRow(block, root, levels || []);
+    if (rootRow) {
+      container.appendChild(rootRow);
+    }
+    (levels || []).forEach(function (level, index) {
+      var levelValue = String(level.value);
+      var levelLabel = level.label || level.name || ("Nivel " + levelValue);
+      var row = document.createElement("div");
+      row.className = "group-hierarchy-row";
+      row.dataset.groupHierarchyRow = "";
+      row.dataset.level = levelValue;
+      row.dataset.rowIndex = String(index + (rootRow ? 1 : 0));
+      row.innerHTML = [
+        '<label>',
+        '<span class="group-hierarchy-label"></span>',
+        '<select data-group-section-select disabled></select>',
+        '</label>',
+        '<div class="group-entry-add-slot">',
+        '<button type="button" class="secondary" data-add-group-section>{% trans "Añadir" %}</button>',
+        '</div>'
+      ].join("");
+      row.querySelector(".group-hierarchy-label").textContent = levelLabel;
+      var sectionSelect = hierarchyRowSelect(row);
+      sectionSelect.dataset.placeholder = levelLabel;
+      bindSelectValueChange(sectionSelect, function () {
+        updateHierarchyAddButton(row);
+        updateHierarchyFrom(block, Number(row.dataset.rowIndex || 0) + 1);
+      });
+      hierarchyRowButton(row).addEventListener("click", function () {
+        addSelectedSectionFromRow(block, row);
+      });
+      container.appendChild(row);
+      setSelectOptions(sectionSelect, [], "", true, true);
+      updateHierarchyAddButton(row);
+    });
+  }
+
+  function updateHierarchyFrom(block, startIndex) {
+    var rows = hierarchyRowsForBlock(block);
+    if (startIndex >= rows.length) {
+      return;
+    }
+    var row = rows[startIndex];
+    if (hierarchyRowIsRoot(row)) {
+      updateHierarchyAddButton(row);
+      updateHierarchyFrom(block, startIndex + 1);
+      return;
+    }
+    var sectionSelect = hierarchyRowSelect(row);
+    var selectedValue = selectValue(sectionSelect);
+    var parentId = startIndex === 0 ? "" : hierarchyRowSelectedId(rows[startIndex - 1]);
+    clearHierarchyRows(rows, startIndex);
+    if (startIndex > 0 && !parentId) {
+      return;
+    }
+    var token = (row.__loadToken || 0) + 1;
+    row.__loadToken = token;
+    var ancestorIds = selectedAncestorIdsForRows(rows, startIndex);
+    loadSections(block.dataset.countryCode || "", row.dataset.level || "", parentId).then(function (sections) {
+      if (row.__loadToken !== token) {
+        return;
+      }
+      var used = sectionIdsForBlock(block);
+      var normalizedSections = sections.map(function (section) {
+        section.ancestor_ids = (section.ancestor_ids || ancestorIds).map(function (item) {
+          return String(item);
+        });
+        if (parentId && !section.parent_id) {
+          section.parent_id = parentId;
+        }
+        return section;
+      });
+      var options = normalizedSections.filter(function (section) {
+        return !used[section.id] && !hasSelectedAncestor(section, used);
+      }).map(function (section) {
+        return { value: section.id, label: section.label || section.name || section.id };
+      });
+      row.__sectionOptions = normalizedSections;
+      setSelectOptions(sectionSelect, options, selectedValue, true, true);
+      updateHierarchyAddButton(row);
+      updateHierarchyFrom(block, startIndex + 1);
+    });
+  }
+
+  function addSelectedSectionFromRow(block, row) {
+    var sectionId = hierarchyRowSelectedId(row);
+    if (!sectionId || sectionIdsForBlock(block)[sectionId]) {
+      return;
+    }
+    var sectionData = (row.__sectionOptions || []).find(function (item) {
+      return String(item.id) === String(sectionId);
+    });
+    if (!sectionData) {
+      return;
+    }
+    var section = renderSection(block, {
+      area_id: sectionData.id,
+      area_name: sectionData.name || sectionData.label || sectionData.id,
+      area_label: sectionData.label || sectionData.name || sectionData.id,
+      level: sectionData.level,
+      parent_id: sectionData.parent_id || "",
+      ancestor_ids: sectionData.ancestor_ids || [],
+      selected: []
+    });
+    if (section) {
+      openSectionModal(block, section, { isNew: true });
+    }
+    updateHierarchyFrom(block, Number(row.dataset.rowIndex || 0));
+  }
+
+  function selectedSet(section) {
+    return section.__selectedIds || {};
+  }
+
+  function renderBadge(container, child, target) {
+    var badge = document.createElement("button");
+    badge.type = "button";
+    badge.className = "group-transfer-badge";
+    badge.textContent = child.label || child.name || child.id;
+    badge.dataset.childId = child.id;
+    badge.dataset.target = target;
+    container.appendChild(badge);
+  }
+
+  function setBadgeListLoading(section, loading) {
+    Array.prototype.slice.call(section.querySelectorAll("[data-available-badges], [data-selected-badges]")).forEach(function (box) {
+      if (!loading) {
+        return;
+      }
+      box.innerHTML = "";
+      var loadingNode = document.createElement("div");
+      loadingNode.className = "group-badge-loading table-loading";
+      loadingNode.innerHTML = '<span class="loading-spinner" aria-hidden="true"></span><span>{% trans "Cargando datos..." %}</span>';
+      box.appendChild(loadingNode);
+    });
+  }
+
+  function renderSectionBadges(section) {
+    var state = section.__sectionState || {};
+    var selected = selectedSet(section);
+    var availableBox = section.querySelector("[data-available-badges]");
+    var selectedBox = section.querySelector("[data-selected-badges]");
+    var availableFragment = document.createDocumentFragment();
+    var selectedFragment = document.createDocumentFragment();
+    (state.children || []).forEach(function (child) {
+      if (selected[child.id]) {
+        renderBadge(selectedFragment, child, "selected");
+      } else {
+        renderBadge(availableFragment, child, "available");
+      }
+    });
+    availableBox.replaceChildren(availableFragment);
+    selectedBox.replaceChildren(selectedFragment);
+    if (section.__ownerBlock) {
+      renderSectionTable(section.__ownerBlock);
+    }
+    refreshHidden();
+  }
+
+  function ensureSectionChildrenLoaded(section) {
+    var state = section.__sectionState || {};
+    if (state.childrenLoaded) {
+      renderSectionBadges(section);
+      return Promise.resolve(state.children || []);
+    }
+    if (state.childrenLoading) {
+      return state.childrenLoading;
+    }
+    setBadgeListLoading(section, true);
+    var countryCode = section.__ownerBlock ? section.__ownerBlock.dataset.countryCode || "" : "";
+    state.childrenLoading = loadChildren(countryCode, state.area_id).then(function (children) {
+      if (Number(state.level || 0) === 0 && state.area_id) {
+        var rootChild = {
+          id: state.area_id,
+          name: state.area_name || state.area_label || state.area_id,
+          label: state.area_label || state.area_name || state.area_id,
+          level: 0,
+          parent_id: ""
+        };
+        children = [rootChild].concat((children || []).filter(function (child) {
+          return String(child.id || "") !== String(state.area_id);
+        }));
+      }
+      if (!children.length && (state.pendingSelected || []).length) {
+        children = state.pendingSelected.map(function (item) {
+          return {
+            id: item.id || item.name || "",
+            name: item.name || item.label || item.id || "",
+            label: item.label || item.name || item.id || ""
+          };
+        }).filter(function (item) {
+          return item.id || item.name;
+        });
+      }
+      state.children = children;
+      var selectedById = {};
+      var selectedByName = {};
+      (state.pendingSelected || []).forEach(function (item) {
+        if (item.id) {
+          selectedById[item.id] = true;
+        }
+        if (item.name) {
+          selectedByName[item.name] = true;
+        }
+      });
+      children.forEach(function (child) {
+        if (selectedById[child.id] || selectedByName[child.name] || selectedByName[child.label]) {
+          section.__selectedIds[child.id] = true;
+        }
+      });
+      state.pendingSelected = [];
+      state.childrenLoaded = true;
+      state.childrenLoading = null;
+      renderSectionBadges(section);
+      return children;
+    }).catch(function () {
+      state.childrenLoading = null;
+      renderSectionBadges(section);
+      return [];
+    });
+    return state.childrenLoading;
+  }
+
+  function selectedItemsForSection(section) {
+    var state = section.__sectionState || {};
+    var selected = selectedSet(section);
+    if (!(state.children || []).length && (state.pendingSelected || []).length) {
+      return state.pendingSelected;
+    }
+    return (state.children || []).filter(function (child) {
+      return selected[child.id];
+    }).map(function (child) {
+      return { id: child.id, name: child.name || child.label || "" };
+    });
+  }
+
+  function sectionSelectedLabels(section) {
+    return selectedItemsForSection(section).map(function (item) {
+      return item.name || item.label || item.id || "";
+    }).filter(Boolean);
+  }
+
+  function sectionListForBlock(block) {
+    return block ? block.querySelector("[data-group-section-list]") : null;
+  }
+
+  function sectionTableForBlock(block) {
+    return block ? block.querySelector("[data-group-section-table]") : null;
+  }
+
+  function sectionById(block, sectionId) {
+    var sectionList = sectionListForBlock(block);
+    if (!sectionList) {
+      return null;
+    }
+    return Array.prototype.slice.call(sectionList.querySelectorAll("[data-group-section-block]")).find(function (section) {
+      return String(section.dataset.sectionId || "") === String(sectionId || "");
+    }) || null;
+  }
+
+  function renderSectionTable(block) {
+    var tbody = sectionTableForBlock(block);
+    var sectionList = sectionListForBlock(block);
+    if (!tbody || !sectionList) {
+      return;
+    }
+    tbody.innerHTML = "";
+    var sections = Array.prototype.slice.call(sectionList.querySelectorAll("[data-group-section-block]"));
+    if (!sections.length) {
+      var emptyRow = document.createElement("tr");
+      emptyRow.dataset.groupSectionEmptyRow = "";
+      var emptyCell = document.createElement("td");
+      emptyCell.colSpan = 4;
+      emptyCell.className = "table-empty-cell";
+      emptyCell.textContent = "{% trans 'Sin datos.' %}";
+      emptyRow.appendChild(emptyCell);
+      tbody.appendChild(emptyRow);
+      return;
+    }
+    sections.forEach(function (section) {
+      var state = section.__sectionState || {};
+      var row = document.createElement("tr");
+      row.dataset.sectionId = state.area_id || section.dataset.sectionId || "";
+      var nameCell = document.createElement("td");
+      nameCell.textContent = state.area_label || state.area_name || state.area_id || "";
+      var levelCell = document.createElement("td");
+      levelCell.className = "numeric";
+      levelCell.textContent = state.level || "";
+      var selectedCell = document.createElement("td");
+      var selectedList = document.createElement("div");
+      selectedList.className = "config-city-entity-list";
+      var selectedLabels = sectionSelectedLabels(section);
+      if (!selectedLabels.length) {
+        var empty = document.createElement("span");
+        empty.className = "muted";
+        empty.textContent = "{% trans 'Sin datos.' %}";
+        selectedList.appendChild(empty);
+      } else {
+        selectedLabels.forEach(function (label) {
+          var chip = document.createElement("span");
+          chip.className = "config-city-entity-chip";
+          chip.textContent = label;
+          selectedList.appendChild(chip);
+        });
+      }
+      selectedCell.appendChild(selectedList);
+      var actionCell = document.createElement("td");
+      actionCell.className = "group-section-table-actions-cell";
+      var actions = document.createElement("div");
+      actions.className = "button-row compact";
+      [
+        { action: "edit", label: "{% trans 'Editar' %}", className: "secondary" },
+        { action: "remove", label: "{% trans 'Quitar' %}", className: "secondary danger-text" }
+      ].forEach(function (config) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.className = config.className;
+        button.dataset.groupSectionRowAction = config.action;
+        button.dataset.sectionId = row.dataset.sectionId;
+        button.textContent = config.label;
+        actions.appendChild(button);
+      });
+      actionCell.appendChild(actions);
+      [nameCell, levelCell, selectedCell, actionCell].forEach(function (cell) {
+        row.appendChild(cell);
+      });
+      tbody.appendChild(row);
+    });
+  }
+
+  function selectedIdsSnapshot(section) {
+    return Object.assign({}, selectedSet(section));
+  }
+
+  function restoreSelectedIds(section, snapshot) {
+    section.__selectedIds = Object.assign({}, snapshot || {});
+  }
+
+  function closeSectionModal(saveChanges) {
+    if (!sectionModalState) {
+      return;
+    }
+    var state = sectionModalState;
+    var block = state.block;
+    var section = state.section;
+    var targetList = state.originalParent || sectionListForBlock(block);
+    if (saveChanges) {
+      var sectionState = section.__sectionState || {};
+      if (sectionState.area_id) {
+        removeDescendantSections(block, sectionState.area_id);
+      }
+      if (state.placeholder && state.placeholder.parentNode) {
+        state.placeholder.parentNode.insertBefore(section, state.placeholder);
+        state.placeholder.remove();
+      } else if (targetList) {
+        targetList.appendChild(section);
+      }
+      renderSectionTable(block);
+      updateHierarchyFrom(block, 0);
+      refreshHidden();
+    } else {
+      if (state.isNew) {
+        if (state.placeholder && state.placeholder.parentNode) {
+          state.placeholder.remove();
+        }
+        section.remove();
+      } else {
+        restoreSelectedIds(section, state.selectedSnapshot);
+        if (state.placeholder && state.placeholder.parentNode) {
+          state.placeholder.parentNode.insertBefore(section, state.placeholder);
+          state.placeholder.remove();
+        } else if (targetList) {
+          targetList.appendChild(section);
+        }
+        renderSectionBadges(section);
+      }
+      renderSectionTable(block);
+      updateHierarchyFrom(block, 0);
+      refreshHidden();
+    }
+    if (sectionModalContent) {
+      sectionModalContent.innerHTML = "";
+    }
+    if (sectionModal) {
+      sectionModal.hidden = true;
+    }
+    sectionModalState = null;
+  }
+
+  function openSectionModal(block, section, options) {
+    options = options || {};
+    if (!sectionModal || !sectionModalContent || !section) {
+      return;
+    }
+    if (sectionModalState) {
+      closeSectionModal(false);
+    }
+    var originalParent = section.parentNode;
+    var placeholder = document.createComment("group-section-placeholder");
+    if (originalParent) {
+      originalParent.insertBefore(placeholder, section);
+    }
+    sectionModalState = {
+      block: block,
+      section: section,
+      originalParent: originalParent,
+      placeholder: placeholder,
+      isNew: Boolean(options.isNew),
+      selectedSnapshot: selectedIdsSnapshot(section)
+    };
+    if (sectionModalTitle) {
+      var sectionState = section.__sectionState || {};
+      sectionModalTitle.textContent = sectionState.area_label || sectionState.area_name || "{% trans 'Grupo' %}";
+    }
+    sectionModalContent.replaceChildren(section);
+    sectionModal.hidden = false;
+    ensureSectionChildrenLoaded(section).then(function () {
+      if (sectionModalState && sectionModalState.section === section && !sectionModalState.isNew) {
+        sectionModalState.selectedSnapshot = selectedIdsSnapshot(section);
+      }
+    });
+  }
+
+  function readBlocksFromDom() {
+    return Array.prototype.slice.call(blocksContainer.querySelectorAll("[data-group-country-block]")).map(function (block) {
+      return {
+        country_code: block.dataset.countryCode || "",
+        names: block.__legacyNames || [],
+        sections: Array.prototype.slice.call(block.querySelectorAll("[data-group-section-block]")).map(function (section) {
+          var state = section.__sectionState || {};
+          return {
+            area_id: state.area_id || "",
+            area_name: state.area_name || "",
+            area_label: state.area_label || state.area_name || "",
+            level: state.level || 0,
+            parent_id: state.parent_id || "",
+            ancestor_ids: state.ancestor_ids || [],
+            selected: selectedItemsForSection(section)
+          };
+        })
+      };
+    });
+  }
+
+  function refreshHidden() {
+    hidden.value = JSON.stringify(readBlocksFromDom());
+  }
+
+  function renderSection(block, sectionData) {
+    if (!sectionData || !sectionData.area_id || sectionIdsForBlock(block)[sectionData.area_id]) {
+      return;
+    }
+    var fragment = sectionTemplate.content.cloneNode(true);
+    var section = fragment.querySelector("[data-group-section-block]");
+    section.dataset.sectionId = sectionData.area_id;
+    section.__ownerBlock = block;
+    section.querySelector("[data-section-name-label]").textContent = sectionData.area_label || sectionData.area_name || sectionData.area_id;
+    section.__sectionState = {
+      area_id: sectionData.area_id,
+      area_name: sectionData.area_name || "",
+      area_label: sectionData.area_label || sectionData.area_name || "",
+      level: sectionData.level || 0,
+      parent_id: sectionData.parent_id || "",
+      ancestor_ids: (sectionData.ancestor_ids || []).map(function (item) { return String(item); }),
+      children: [],
+      pendingSelected: sectionData.selected || [],
+      childrenLoaded: false,
+      childrenLoading: null
+    };
+    section.__selectedIds = {};
+    section.querySelector("[data-remove-group-section]").addEventListener("click", function () {
+      section.remove();
+      updateHierarchyFrom(block, 0);
+      renderSectionTable(block);
+      refreshHidden();
+    });
+    section.addEventListener("click", function (event) {
+      var badge = event.target.closest("[data-child-id]");
+      if (!badge || !section.contains(badge)) {
+        return;
+      }
+      var childId = badge.dataset.childId || "";
+      if (!childId) {
+        return;
+      }
+      if (badge.dataset.target === "available") {
+        section.__selectedIds[childId] = true;
+      } else {
+        delete section.__selectedIds[childId];
+      }
+      renderSectionBadges(section);
+    });
+    block.querySelector("[data-group-section-list]").appendChild(fragment);
+    renderSectionTable(block);
+    renderSectionBadges(section);
+    return section;
+  }
+
+  function renderBlock(blockData, removable) {
+    var fragment = blockTemplate.content.cloneNode(true);
+    var block = fragment.querySelector("[data-group-country-block]");
+    var countryCode = blockData.country_code || "{{ country_code|escapejs }}";
+    block.dataset.countryCode = countryCode;
+    block.__legacyNames = Array.isArray(blockData.names) ? blockData.names : [];
+    block.querySelector("[data-country-name-label]").textContent = countryLabel(countryCode);
+    var removeButton = block.querySelector("[data-remove-country-block]");
+    removeButton.hidden = !removable;
+    removeButton.addEventListener("click", function () {
+      block.remove();
+      refreshHidden();
+      updateCountrySelectOptions();
+    });
+    var sectionTable = sectionTableForBlock(block);
+    if (sectionTable) {
+      sectionTable.addEventListener("click", function (event) {
+        var actionButton = event.target.closest("[data-group-section-row-action]");
+        if (!actionButton || !sectionTable.contains(actionButton)) {
+          return;
+        }
+        var section = sectionById(block, actionButton.dataset.sectionId);
+        if (!section) {
+          return;
+        }
+        if (actionButton.dataset.groupSectionRowAction === "remove") {
+          section.remove();
+          renderSectionTable(block);
+          updateHierarchyFrom(block, 0);
+          refreshHidden();
+          return;
+        }
+        openSectionModal(block, section, { isNew: false });
+      });
+    }
+    blocksContainer.appendChild(fragment);
+    setBlockLoading(block, true);
+    loadCountryData(countryCode).then(function (data) {
+      data = data || {};
+      block.__legacyNames = Array.isArray(blockData.names) ? blockData.names : [];
+      var levels = data.levels || [];
+      renderLevelRows(block, levels, data.root || null);
+      (blockData.sections || []).forEach(function (sectionData) {
+        renderSection(block, sectionData);
+      });
+      updateHierarchyFrom(block, 0);
+      refreshHidden();
+    }).finally(function () {
+      setBlockLoading(block, false);
+    });
+    return block;
+  }
+
+  function addCountryBlock(countryCode) {
+    if (!countryCode || usedCountryCodes()[countryCode]) {
+      return;
+    }
+    var block = renderBlock({ country_code: countryCode, names: [] }, blocksContainer.children.length > 0);
+    refreshHidden();
+    updateCountrySelectOptions();
+    if (block && block.scrollIntoView) {
+      block.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  blocksContainer.innerHTML = "";
+  blocks.forEach(function (block, index) {
+    renderBlock(block, index > 0);
+  });
+  refreshHidden();
+  updateCountrySelectOptions();
+
+  if (internalInput) {
+    sanitizeInternalCode();
+    updateDuplicateState();
+    internalInput.addEventListener("input", function () {
+      sanitizeInternalCode();
+      updateDuplicateState();
+    });
+    internalInput.addEventListener("blur", function () {
+      sanitizeInternalCode();
+      updateDuplicateState();
+    });
+  }
+
+  if (addButton) {
+    bindSelectValueChange(select, function () {
+      addButton.disabled = !selectValue(select);
+    });
+    addButton.addEventListener("click", function () {
+      addCountryBlock(selectValue(select));
+    });
+  }
+
+  if (sectionModal) {
+    sectionModal.addEventListener("click", function (event) {
+      if (event.target.closest("[data-close-group-section-modal]")) {
+        event.preventDefault();
+        closeSectionModal(false);
+      }
+    });
+    sectionModal.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        closeSectionModal(false);
+      }
+    });
+    var sectionModalSave = sectionModal.querySelector("[data-save-group-section-modal]");
+    if (sectionModalSave) {
+      sectionModalSave.addEventListener("click", function () {
+        closeSectionModal(true);
+      });
+    }
+  }
+
+  form.addEventListener("submit", function (event) {
+    if (sectionModalState) {
+      closeSectionModal(true);
+    }
+    if (updateDuplicateState()) {
+      event.preventDefault();
+      return;
+    }
+    refreshHidden();
+  });
+})();
+</script>
 {% endblock %}

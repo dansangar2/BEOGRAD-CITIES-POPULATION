@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from hashlib import sha256
+import json
 from pathlib import Path
 import sys
 import threading
@@ -25,6 +26,7 @@ from ciudades_del_mundo.models import ScrapingConfig
 
 CITYPOPULATION_BASE_URL = "https://www.citypopulation.de/en/"
 _BOOTSTRAP_LOCK = threading.RLock()
+CITY_MERGE_TOML_DIR = Path(settings.BASE_DIR) / "ciudades_del_mundo" / "cities_merge"
 
 
 def strip_config_base_url(content: str) -> str:
@@ -344,6 +346,192 @@ def export_scraping_configs_to_toml(
         path.write_text(content, encoding="utf-8")
         exported += 1
     return exported
+
+
+def bundled_city_merge_toml_paths(
+    slugs: list[str] | tuple[str, ...] | None = None,
+    *,
+    input_dir: str | Path | None = None,
+) -> list[Path]:
+    """Return per-country city merge TOML files available for explicit SQL import."""
+    root = Path(input_dir) if input_dir else CITY_MERGE_TOML_DIR
+    if not root.is_dir():
+        return []
+    allowed = set(slugs or [])
+    return sorted(
+        path
+        for path in root.glob("*.toml")
+        if not path.name.startswith("_") and (not allowed or path.stem in allowed)
+    )
+
+
+def export_city_merges_to_toml(
+    *,
+    force: bool = False,
+    slugs: list[str] | tuple[str, ...] | None = None,
+    output_dir: str | Path | None = None,
+) -> int:
+    """Export only [[cities]] city unification blocks to cities_merge TOML files."""
+    if not scraping_config_table_exists():
+        return 0
+    root = Path(output_dir) if output_dir else CITY_MERGE_TOML_DIR
+    root.mkdir(parents=True, exist_ok=True)
+    records = ScrapingConfig.objects.order_by("slug")
+    if slugs:
+        records = records.filter(slug__in=slugs)
+    exported = 0
+    for record in records:
+        path = root / f"{record.slug}.toml"
+        content = render_city_merge_toml(record.content)
+        if path.exists():
+            existing = path.read_text(encoding="utf-8")
+            if existing == content:
+                continue
+            if not force:
+                raise ValueError(f"{path} already exists and differs. Use --force to overwrite it.")
+        path.write_text(content, encoding="utf-8")
+        exported += 1
+    return exported
+
+
+def sync_city_merges_from_toml(
+    *,
+    force: bool = False,
+    slugs: list[str] | tuple[str, ...] | None = None,
+    input_dir: str | Path | None = None,
+) -> int:
+    """Import cities_merge TOML files into existing SQL ScrapingConfig rows.
+
+    This replaces only [[cities]] blocks. Pages, assets, scraping metadata and
+    other config fragments remain in the SQL config content.
+    """
+    if not scraping_config_table_exists():
+        return 0
+    paths = bundled_city_merge_toml_paths(slugs, input_dir=input_dir)
+    if not paths:
+        return 0
+    records = {record.slug: record for record in ScrapingConfig.objects.filter(slug__in=[path.stem for path in paths])}
+    imported = 0
+    with transaction.atomic():
+        for path in paths:
+            record = records.get(path.stem)
+            if record is None:
+                continue
+            merge_content = path.read_text(encoding="utf-8")
+            next_content = replace_city_merges_in_config(record.content, merge_content)
+            if next_content == record.content and not force:
+                continue
+            upsert_scraping_config(record.slug, next_content, source_path=record.source_path)
+            imported += 1
+    return imported
+
+
+def render_city_merge_toml(config_content: str) -> str:
+    """Render the [[cities]] blocks from a full config as standalone TOML."""
+    data = tomllib.loads(config_content or "")
+    cities = _city_merge_blocks_from_data(data)
+    return _render_city_merge_blocks(cities)
+
+
+def replace_city_merges_in_config(config_content: str, merge_content: str) -> str:
+    """Replace only [[cities]] blocks in a full config with standalone merge TOML."""
+    merge_data = tomllib.loads(merge_content or "")
+    cities = _city_merge_blocks_from_data(merge_data)
+    base = _remove_toml_table_blocks(config_content, {"cities"}).rstrip()
+    rendered = _render_city_merge_blocks(cities).rstrip()
+    if rendered:
+        return (base + "\n\n" + rendered).strip() + "\n"
+    return base.strip() + "\n"
+
+
+def _city_merge_blocks_from_data(data: dict) -> list[dict]:
+    raw_cities = data.get("cities")
+    if raw_cities is None:
+        return []
+    if not isinstance(raw_cities, list):
+        raise ValueError("El TOML de cities_merge debe definir bloques [[cities]].")
+    parse_cities(raw_cities)
+    return [city for city in raw_cities if isinstance(city, dict)]
+
+
+def _render_city_merge_blocks(cities: list[dict]) -> str:
+    lines: list[str] = []
+    for city in cities:
+        lines.append("[[cities]]")
+        lines.append(f"city = {_toml_string(city.get('city', ''))}")
+        lines.append(f"id = {_toml_string(city.get('id', ''))}")
+        lines.append(f"level = {int(city.get('level'))}")
+        lines.append(f"type = {_toml_string(city.get('type', 'City'))}")
+        if city.get("district_types"):
+            lines.append(f"district_types = {_toml_array(city.get('district_types') or [])}")
+        lines.append(f"from = {_toml_inline_table(city.get('from') or {})}")
+        if city.get("communes"):
+            lines.append(f"communes = {_toml_array(city.get('communes') or [])}")
+        lines.append(f"keep_communes = {_toml_bool(bool(city.get('keep_communes', True)))}")
+        if city.get("child_id") is not None:
+            lines.append(f"child_id = {_toml_string(city.get('child_id'))}")
+        if city.get("child_level") is not None:
+            lines.append(f"child_level = {int(city.get('child_level'))}")
+        if city.get("child_type") is not None:
+            lines.append(f"child_type = {_toml_string(city.get('child_type'))}")
+        lines.append("")
+    return "\n".join(lines).rstrip() + ("\n" if lines else "")
+
+
+def _remove_toml_table_blocks(content: str, table_names: set[str]) -> str:
+    output: list[str] = []
+    current_block: list[str] = []
+    skip_current = False
+
+    def flush_block() -> None:
+        nonlocal current_block, skip_current
+        if current_block and not skip_current:
+            output.extend(current_block)
+        current_block = []
+        skip_current = False
+
+    for raw_line in str(content or "").splitlines():
+        stripped = raw_line.strip()
+        if stripped.startswith("[") and stripped.endswith("]") and not stripped.startswith("#"):
+            flush_block()
+            current_block = [raw_line]
+            skip_current = _toml_header_name(stripped) in table_names
+            continue
+        if current_block:
+            current_block.append(raw_line)
+        else:
+            output.append(raw_line)
+    flush_block()
+    return "\n".join(output).rstrip() + "\n"
+
+
+def _toml_header_name(header: str) -> str:
+    text = str(header or "").strip()
+    while text.startswith("[") and text.endswith("]"):
+        text = text[1:-1].strip()
+    return text.split(".", 1)[0].strip()
+
+
+def _toml_string(value) -> str:
+    return json.dumps(str(value or ""), ensure_ascii=False)
+
+
+def _toml_array(values) -> str:
+    return "[" + ", ".join(_toml_string(value) for value in (values or [])) + "]"
+
+
+def _toml_bool(value: bool) -> str:
+    return "true" if value else "false"
+
+
+def _toml_inline_table(mapping) -> str:
+    if not isinstance(mapping, dict) or not mapping:
+        return "{}"
+    parts = []
+    for key in sorted(mapping, key=lambda value: int(value)):
+        values = mapping.get(key) or []
+        parts.append(f"{int(key)} = {_toml_array(values)}")
+    return "{ " + ", ".join(parts) + " }"
 
 
 def maybe_sync_scraping_configs_on_startup() -> None:

@@ -1,0 +1,34 @@
+source_country_code = "multi_country"
+
+FRISIA_A_HOLANDA = [
+    "Terschelling",
+    "Vlieland",
+]
+
+HOLANDA_A_UTRETCH = [
+    "Wijdemeren",
+]
+
+HOLANDA_NO = [
+    "Hollands Kroon",
+]
+
+HOLANDA_SUR_A_ZELANDA = [
+    "Goeree-Overflakkee",
+]
+
+UTRETCH_A_GUELDRES = [
+    "Veenendaal",
+]
+
+UTRETCH_A_HOLANDA = [
+    "Vijfheerenlanden",
+    "Lopik",
+    "Oudewater",
+]
+
+ZELANDA_A_FLANDES = [
+    "Sluis",
+    "Terneuzen",
+    "Hulst",
+]

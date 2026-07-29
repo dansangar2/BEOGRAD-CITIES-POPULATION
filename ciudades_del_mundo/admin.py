@@ -1,7 +1,14 @@
 """Admin site configuration for scraped and derived area models."""
 
 from django.contrib import admin
-from .models import AdminArea, DerivedCountry, DerivedCountryConfig, NuevoAdminArea, SubdivisionGroup
+from .models import (
+    AdminArea,
+    DerivedCountry,
+    DerivedCountryConfig,
+    DerivedSubdivision,
+    NuevoAdminArea,
+    SubdivisionGroup,
+)
 
 
 @admin.register(AdminArea)
@@ -73,3 +80,13 @@ class SubdivisionGroupAdmin(admin.ModelAdmin):
     list_filter = ("source_country_code",)
     search_fields = ("slug", "name", "description", "content")
     ordering = ("name", "slug")
+
+
+@admin.register(DerivedSubdivision)
+class DerivedSubdivisionAdmin(admin.ModelAdmin):
+    """Back-office listing for fictional or historical subdivision definitions."""
+
+    list_display = ("slug", "internal_name", "name", "source_country_code", "entity_type", "code", "updated_at")
+    list_filter = ("source_country_code", "entity_type")
+    search_fields = ("slug", "internal_name", "name", "description", "content", "code")
+    ordering = ("source_country_code", "name", "slug")
