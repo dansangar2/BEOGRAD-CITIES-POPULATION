@@ -19,6 +19,7 @@ from ciudades_del_mundo.models import (
     DerivedSubdivision,
     SubdivisionGroup,
 )
+from ciudades_del_mundo.services.derived_codes import derived_code_piece
 
 
 PACKAGE_ROOT = Path(settings.BASE_DIR) / "ciudades_del_mundo"
@@ -189,6 +190,7 @@ def import_derived_subdivision_path_records(path: Path, *, force: bool = True) -
     """Create or refresh `DerivedSubdivision` records from one TOML seed."""
     path = Path(path)
     records = _parse_derived_subdivision_seed_records(path)
+    default_source_country_code = _derived_subdivision_import_default_country_code(path)
     subdivisions: list[DerivedSubdivision] = []
     with transaction.atomic():
         for data in records:
@@ -199,6 +201,10 @@ def import_derived_subdivision_path_records(path: Path, *, force: bool = True) -
             entry_slug = normalize_seed_slug(internal_name.lower())
             slug = normalize_seed_slug(str(data.get("slug") or _derived_subdivision_record_slug(source_country_code, entry_slug)))
             existing = DerivedSubdivision.objects.filter(slug=slug).first()
+            if existing is None and force:
+                default_slug = _derived_subdivision_record_slug(default_source_country_code, entry_slug)
+                if default_slug != slug:
+                    DerivedSubdivision.objects.filter(slug=default_slug, internal_name__iexact=internal_name).delete()
             if existing and not force:
                 subdivisions.append(existing)
                 continue
@@ -216,6 +222,19 @@ def import_derived_subdivision_path_records(path: Path, *, force: bool = True) -
             )
             subdivisions.append(subdivision)
     return subdivisions
+
+
+def _derived_subdivision_import_default_country_code(path: Path) -> str:
+    country_code = _clean_country_code(_derived_subdivision_seed_country_from_path(path))
+    if country_code:
+        return country_code
+    try:
+        data = tomllib.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return ""
+    if isinstance(data, dict):
+        return _clean_country_code(data.get("source_country_code") or "")
+    return ""
 
 
 def export_subdivision_groups_to_toml(
@@ -309,6 +328,15 @@ def render_derived_country_selection_toml(
     source_country_code: str,
     derived_country_code: str,
     selected_ids: list[str],
+    selected_derived_subdivisions: list | tuple | None = None,
+    entity_name: str | None = None,
+    entity_code: str | None = None,
+    entity_type: str | None = None,
+    entity_mode: str = "final",
+    use_subdivisions: bool = False,
+    parent_config_slug: str = "",
+    entity_level: int = 1,
+    capitals: list[str] | tuple[str, ...] | None = None,
 ) -> str:
     """Render a structured TOML config from the web tree selection."""
     country_slug = normalize_seed_slug(country_slug)
@@ -316,11 +344,36 @@ def render_derived_country_selection_toml(
     source_country_code = _clean_country_code(source_country_code)
     derived_country_code = _clean_country_code(derived_country_code or config_slug) or config_slug
     selected_ids = [str(value) for value in selected_ids if str(value or "").strip()]
-    if not selected_ids:
+    selected_derived_subdivision_groups = _derived_country_selected_subdivisions_by_country(
+        selected_derived_subdivisions or [],
+        fallback_country_code=source_country_code,
+    )
+    use_subdivisions = bool(use_subdivisions)
+    parent_config_slug = normalize_seed_slug(parent_config_slug) if str(parent_config_slug or "").strip() else ""
+    try:
+        entity_level = int(entity_level or 1)
+    except (TypeError, ValueError):
+        entity_level = 1
+    entity_level = max(1, min(5, entity_level))
+    assigned_subdivision_level = max(1, min(5, entity_level + 1))
+    entity_mode = str(entity_mode or "final").strip().lower()
+    if entity_mode not in {"final", "intermediate"}:
+        entity_mode = "final"
+    if use_subdivisions:
+        entity_mode = "intermediate"
+    if use_subdivisions and not selected_derived_subdivision_groups and not selected_ids:
+        raise ValueError(_("Selecciona al menos una subdivision creada."))
+    if entity_mode == "final" and not selected_ids:
         raise ValueError(_("Selecciona al menos una subdivision fuente."))
 
     areas = list(
-        AdminArea.objects.filter(id__in=selected_ids, country_code__iexact=source_country_code)
+        AdminArea.objects.filter(
+            id__in=selected_ids,
+            city_merge_status__in=[
+                int(AdminArea.CityMergeStatus.NONE),
+                int(AdminArea.CityMergeStatus.UNIFIED),
+            ],
+        )
         .select_related("parent")
         .order_by("level", "name", "id")
     )
@@ -336,6 +389,7 @@ def render_derived_country_selection_toml(
         items.append(
             {
                 "id": str(area.id),
+                "country_code": str(area.country_code or source_country_code),
                 "code": str(area.code or ""),
                 "name": str(area.name or ""),
                 "level": int(area.level or 0),
@@ -346,16 +400,21 @@ def render_derived_country_selection_toml(
 
     include_items = [item for item in items if item["operation"] == "add"]
     subtract_items = [item for item in items if item["operation"] == "subtract"]
+    entity_label = str(entity_name or name or config_slug).strip()
+    entity_code_value = derived_code_piece(entity_code or config_slug)
+    entity_type_value = str(entity_type or ("Contenedor" if entity_mode == "intermediate" else "Subdivision")).strip()
+    capital_values = [str(value).strip() for value in (capitals or []) if str(value or "").strip()]
     lines = [
         "schema_version = 1",
         'kind = "derived_country_config"',
         f"country = {_toml_string(country_slug)}",
         f"slug = {_toml_string(config_slug)}",
         f"name = {_toml_string(name)}",
-        f"source_country_code = {_toml_string(source_country_code)}",
-        f"derived_country_code = {_toml_string(derived_country_code)}",
-        "groups = []",
-        "",
+            f"source_country_code = {_toml_string(source_country_code)}",
+            f"derived_country_code = {_toml_string(derived_country_code)}",
+            f"parent_config_slug = {_toml_string(parent_config_slug)}",
+            "groups = []",
+            "",
         "[selection]",
         f"source_country_code = {_toml_string(source_country_code)}",
         f"include_ids = {_toml_array([item['id'] for item in include_items])}",
@@ -370,6 +429,7 @@ def render_derived_country_selection_toml(
             [
                 "[[selection.items]]",
                 f"id = {_toml_string(item['id'])}",
+                f"country_code = {_toml_string(item['country_code'])}",
                 f"code = {_toml_string(item['code'])}",
                 f"name = {_toml_string(item['name'])}",
                 f"level = {item['level']}",
@@ -378,7 +438,114 @@ def render_derived_country_selection_toml(
                 "",
             ]
         )
+    lines.extend(
+        [
+            "[[entities]]",
+            f"mode = {_toml_string(entity_mode)}",
+            f"name = {_toml_string(entity_label)}",
+            f"code = {_toml_string(entity_code_value)}",
+            f"entity_type = {_toml_string(entity_type_value)}",
+            f"level = {entity_level}",
+            f"parent_config_slug = {_toml_string(parent_config_slug)}",
+            f"capitals = {_toml_array(capital_values)}",
+        ]
+    )
+    if use_subdivisions:
+        lines.append("use_selected_entities_as_children = true")
+        grouped_area_items: dict[tuple[str, int], list[str]] = {}
+        for item in items:
+            grouped_area_items.setdefault((item["country_code"], int(item["level"])), []).append(item["id"])
+        for (item_country_code, item_level), ids in sorted(grouped_area_items.items()):
+            lines.extend(
+                [
+                    "",
+                    "[[entities.include]]",
+                    f"country_code = {_toml_string(item_country_code)}",
+                    f"level = {item_level}",
+                    f"ids = {_toml_array(ids)}",
+                ]
+            )
+        for group_country_code, group_subdivision_keys in selected_derived_subdivision_groups.items():
+            lines.extend(
+                [
+                    "",
+                    "[[entities.include]]",
+                    f"country_code = {_toml_string(group_country_code)}",
+                    f"level = {assigned_subdivision_level}",
+                    f"derived_subdivisions = {_toml_array(group_subdivision_keys)}",
+                ]
+            )
+    elif entity_mode == "final":
+        lines.append("use_selected_entities_as_children = false")
+        for operation, selected in (("include", include_items), ("subtract", subtract_items)):
+            grouped: dict[tuple[str, int], list[str]] = {}
+            for item in selected:
+                grouped.setdefault((item["country_code"], int(item["level"])), []).append(item["id"])
+            for (item_country_code, level), ids in sorted(grouped.items()):
+                lines.extend(
+                    [
+                        "",
+                        f"[[entities.{operation}]]",
+                        f"country_code = {_toml_string(item_country_code)}",
+                        f"level = {level}",
+                        f"ids = {_toml_array(ids)}",
+                    ]
+                )
+    lines.append("")
     return "\n".join(lines)
+
+
+def _derived_country_selected_subdivisions_by_country(
+    values,
+    *,
+    fallback_country_code: str,
+) -> dict[str, list[str]]:
+    fallback_country_code = _clean_country_code(fallback_country_code)
+    grouped: dict[str, list[str]] = {}
+    seen: set[tuple[str, str]] = set()
+    if values in (None, ""):
+        return grouped
+    if not isinstance(values, (list, tuple)):
+        values = [values]
+    for value in values:
+        country_code = ""
+        subdivision_key = ""
+        if isinstance(value, dict):
+            encoded_country, encoded_key = _split_derived_subdivision_reference(
+                value.get("id") or value.get("value") or ""
+            )
+            country_code = _clean_country_code(
+                value.get("country_code") or value.get("source_country_code") or encoded_country or fallback_country_code
+            )
+            subdivision_key = str(
+                value.get("key")
+                or value.get("derived_subdivision_key")
+                or value.get("internal_name")
+                or encoded_key
+                or value.get("code")
+                or ""
+            ).strip()
+        else:
+            encoded_country, encoded_key = _split_derived_subdivision_reference(value)
+            country_code = _clean_country_code(encoded_country or fallback_country_code)
+            subdivision_key = encoded_key or str(value or "").strip()
+        subdivision_key = _safe_group_toml_key(subdivision_key) if str(subdivision_key or "").strip() else ""
+        marker = (country_code, subdivision_key.casefold())
+        if not country_code or not subdivision_key or marker in seen:
+            continue
+        seen.add(marker)
+        grouped.setdefault(country_code, []).append(subdivision_key)
+    return grouped
+
+
+def _split_derived_subdivision_reference(value) -> tuple[str, str]:
+    text = str(value or "").strip()
+    if not text.startswith("derived-subdivision::"):
+        return "", text
+    parts = text.split("::", 2)
+    if len(parts) < 3:
+        return "", ""
+    return _clean_country_code(parts[1]), parts[2]
 
 
 def render_subdivision_group_selection_toml(
@@ -417,6 +584,7 @@ def render_subdivision_group_selection_toml(
         items.append(
             {
                 "id": str(area.id),
+                "country_code": _clean_country_code(area.country_code or source_country_code),
                 "code": str(area.code or ""),
                 "name": str(area.name or ""),
                 "level": int(area.level or 0),
@@ -1014,7 +1182,15 @@ def _legacy_subdivision_record(
     source_country_code: str,
     path: Path,
 ) -> dict:
+    source_country_code = _clean_country_code(source_country_code)
     payload = _legacy_subdivision_payload(value, source_country_code=source_country_code)
+    inferred_source_country_code = _legacy_subdivision_primary_source_country(
+        payload,
+        default_country_code=source_country_code,
+    )
+    if inferred_source_country_code != source_country_code:
+        source_country_code = inferred_source_country_code
+        payload = _legacy_subdivision_payload(value, source_country_code=source_country_code)
     name = str(payload.get("name") or internal_name).strip()
     entry_slug = normalize_seed_slug(internal_name.lower())
     record = {
@@ -1032,6 +1208,17 @@ def _legacy_subdivision_record(
         payload=payload,
     )
     return record
+
+
+def _legacy_subdivision_primary_source_country(payload: dict, *, default_country_code: str) -> str:
+    countries = {
+        _clean_country_code(block.get("country_code"))
+        for block in payload.get("include") or []
+        if isinstance(block, dict) and _clean_country_code(block.get("country_code"))
+    }
+    if len(countries) == 1:
+        return next(iter(countries))
+    return _clean_country_code(default_country_code)
 
 
 def _legacy_subdivision_payload(value: ast.Dict, *, source_country_code: str) -> dict:
@@ -1208,9 +1395,15 @@ def _render_derived_subdivision_toml(*, internal_name: str, source_country_code:
         f"code = {_toml_string(payload.get('code') or '')}",
         f"entity_type = {_toml_string(payload.get('entity_type') or '')}",
         f"level = {int(payload.get('level') or 1)}",
-        f"generic_name = {_toml_string(payload.get('generic_name') or '')}",
-        f"capitals = {_toml_array([str(item) for item in payload.get('capitals') or []])}",
     ]
+    if "use_selected_entities_as_children" in payload:
+        lines.append(f"use_selected_entities_as_children = {_toml_bool(_form_bool(payload.get('use_selected_entities_as_children')))}")
+    lines.extend(
+        [
+            f"generic_name = {_toml_string(payload.get('generic_name') or '')}",
+            f"capitals = {_toml_array([str(item) for item in payload.get('capitals') or []])}",
+        ]
+    )
     if payload.get("flag_url"):
         lines.append(f"flag_url = {_toml_string(payload.get('flag_url') or '')}")
     if payload.get("coat_url"):
@@ -1227,6 +1420,12 @@ def _render_derived_subdivision_toml(*, internal_name: str, source_country_code:
                 f"code = {_toml_string(child.get('code') or '')}",
                 f"entity_type = {_toml_string(child.get('entity_type') or '')}",
                 f"level = {int(child.get('level') or 1)}",
+            ]
+        )
+        if "use_selected_entities_as_children" in child:
+            lines.append(f"use_selected_entities_as_children = {_toml_bool(_form_bool(child.get('use_selected_entities_as_children')))}")
+        lines.extend(
+            [
                 f"generic_name = {_toml_string(child.get('generic_name') or '')}",
                 f"capitals = {_toml_array([str(item) for item in child.get('capitals') or []])}",
                 "",
@@ -1268,7 +1467,10 @@ def _append_derived_subdivision_blocks(lines: list[str], table_name: str, blocks
                 f"country_code = {_toml_string(block.get('country_code') or '')}",
                 f"level = {int(block.get('level') or 0)}",
                 f"names = {_toml_array([str(item) for item in block.get('names') or []])}",
+                f"ids = {_toml_array([str(item) for item in block.get('ids') or []])}",
+                f"codes = {_toml_array([str(item) for item in block.get('codes') or []])}",
                 f"groups = {_toml_array([_safe_group_toml_key(item) for item in block.get('groups') or []])}",
+                f"derived_subdivisions = {_toml_array([_safe_group_toml_key(item) for item in block.get('derived_subdivisions') or []])}",
                 f"expressions = {_toml_array([str(item) for item in block.get('expressions') or []])}",
                 "",
             ]
@@ -1718,6 +1920,15 @@ def _title_from_slug(slug: str) -> str:
 
 def _toml_string(value: str) -> str:
     return json.dumps(str(value or ""), ensure_ascii=False)
+
+
+def _toml_bool(value: bool) -> str:
+    return "true" if value else "false"
+
+
+def _form_bool(value) -> bool:
+    text = str(value if value is not None else "").strip().lower()
+    return text in {"1", "true", "yes", "si", "sí", "on"}
 
 
 def _toml_array(values: list[str]) -> str:

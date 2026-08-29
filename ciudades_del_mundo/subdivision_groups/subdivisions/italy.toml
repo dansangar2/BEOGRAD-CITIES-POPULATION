@@ -1,19 +1,147 @@
 schema_version = 1
-kind = "subdivision_group"
-slug = "pre_italy_states"
-name = "Pre Italy States"
-source_python = "ciudades_del_mundo/historical_divisions/pre_italy_states.py"
-source_country_code = ""
+kind = "derived_subdivision_bundle"
+source_country_code = "italy"
 
-[selection]
-source_country_code = ""
-include_ids = []
-subtract_ids = []
-include_codes = []
-subtract_codes = []
-include_levels = []
-include_names = []
+[[subdivisions]]
+internal_name = "ABRUZOS_CITRA"
+name = "Abruzos Citra"
+code = "ACI"
+entity_type = "Magistrado"
+description = "Importada desde C:\\MisProyectos\\BEOGRAD-CITIES-POPULATION\\ciudades_del_mundo\\subdivision_groups\\subdivisions\\italy.toml."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"ABRUZOS_CITRA\"\nsource_country_code = \"italy\"\nname = \"Abruzos Citra\"\ncode = \"ACI\"\nentity_type = \"Magistrado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Chieti\"]\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 2\nnames = [\"Chieti\"]\ngroups = []\nexpressions = []\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\ngroups = [\"AGUILA_A_ABRUZOS_CITRA\", \"PESCARA_A_ABRUZOS_CITRA\"]\nexpressions = []\n\n[[subtract]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\ngroups = [\"CHIETI_A_MOLISE\"]\nexpressions = []\n"
 
-[legacy]
-# Mantiene la receta Python original hasta que el builder TOML cubra toda la l?gica.
-python_source = "BRINDISI_A_TIERRA_DE_BARI = [\"Cisternino\", \"Fasano\"]\nANDRIA_TRANI_A_CAPITANIA = [\"San Ferdinando di Puglia\", \"Trinitapoli\", \"Margherita di Savoia\"]\nFOGGIA_A_PRINCIPATO_ULTRA = [\"Rocchetta Sant'Antonio\"]\nNAPOLES_A_PRINCIPADO_CITRA = [\"Gragnano\", \"Lettere\", \"Pimonte\", \"Agerola\", \"Casola di Napoli\"]\nAVELLINO_A_PRINCIPADO_CITRA = [\"Calabritto\", \"Senerchia\", \"Sant'Andrea di Conza\", \n                               \"Solofra\", \"Montoro\", \"Contrada\", \"Forino\", \"Quindici\",\"Contrada\"]\nAVELLINO_A_TIERRA_DE_TRABAJO = [\"Lauro\",\"Domicella\",\"Marzano di Nola\", \n                                \"Baiano\",\"Mugnano del Cardinale\", ]\nAVELLINO_A_CAPITANIA = [\"Montaguto\", \"Greci\"]\nBENEVENTO = [\"Benevento\"]\nBENEVENTO_A_CAPITANIA = [\"San Bartolomeo in Galdo\", \"Castelfranco in Miscano\", \"Ginestra degli Schiavoni\", \"Montefalcone di Val Fortore\"]\nBENEVENTO_A_MOLISE = [\"Morcone\", \"Sassinoro\", \"Pietraroja\", \"Pontelandolfo\", \"San Lupo\"]\nBENEVENTO_A_TIERRA_DE_TRABAJO = [\"Cusano Mutri\", \"Cerreto Sannita\", \"San Lorenzo Maggiore\", \"Guardia Sanframondi\",\n                                 \"San Lorenzello\", \"Castelvenere\", \"Faicchio\", \"San Salvatore Telesino\",\n                                 \"Puglianello\", \"Telese Terme\", \"Amorosi\", \"Solopaca\", \"Melizzano\", \"Frasso Telesino\",\n                                 \"Dugenta\", \"Limatola\", \"Forchia\", \"Arpaia\", \"Paolisi\"]\nISERNIA_A_TIERRA_DE_TRABAJO = [\n    \"Sesto Campano\", \"Venafro\", \"Conca Casale\", \"Pozzilli\", \"Montaquila\",\"Filignano\", \"Scapoli\", \"Colli a Volturno\",\n    \"Rocchetta a Volturno\", \"Cerro al Volturno\", \"Castel San Vincenzo\", \"Pizzone\", \"Montenero Val Cocchiara\"\n]\nCHIETI_A_MOLISE = [\"San Giovanni Lipioni\"]\nPESCARA_A_ABRUZOS_ULTRA_II = [\"Sant'Eufemia a Maiella\",\"Popoli\", \"Bussi sul Tirino\"]\nPESCARA_A_ABRUZOS_CITRA = [\"Caramanico Terme\", \"Salle\", \"Tocco da Casauria\", \"Castiglione a Casauria\",\n                             \"Pescosansonesco\", \"Corvara\", \"Pietranico\", \"Torre de' Passeri\", \"Bolognano\",\n                             \"Alanno\", \"Scafa\", \"San Valentino in Abruzzo Citeriore\", \"Abbateggio\",\n                             \"Roccamorice\", \"Lettomanoppello\", \"Turrivalignani\", \"Manoppello\", \"Serramonacesca\",\n                             \"Rosciano\", \"Cepagatti\", \"Spoltore\", \"Pescara\"]\nAGUILA_A_ABRUZOS_CITRA = [\"Ateleta\"]\nAGUILA_A_TIERRA_DE_TRABAJO = [\"Castel di Sangro\", \"Scontrone\", \"Alfedena\", \"Barrea\", \"Villetta Barrea\",\n                              \"Civitella Alfedena\", \"Opi\", \"Pescasseroli\", \"Villavallelonga\", \"Balsorano\",\n                              \"Collelongo\", \"San Vincenzo Valle Roveto\", \"Civita d'Antino\", \"Morino\"]\nRIETI_A_ABRUZOS_ULTRA_II = [\n    \"Borgorose\", \"Pescorocchiano\", \"Fiamignano\", \"Petrella Salto\", \"Cittaducale\", \"Castel Sant'Angelo\", \"Borgo Velino\",\n    \"Antrodoco\", \"Micigliano\", \"Posta\", \"Borbona\", \"Leonessa\", \"Cittareale\", \"Amatrice\", \"Accumoli\"\n]\n\nLATINA_A_TIERRA_DE_TRABAJO = [\"Castelforte\", \"Santi Cosma e Damiano\", \"Minturno\", \"Spigno Saturnia\",\n                              \"Formia\", \"Gaeta\", \"Itri\", \"Campodimele\", \"Lenola\", \"Fondi\", \"Sperlonga\",\n                              \"Monte San Biagio\", \"Ponza\", \"Ventotene\"]\nFROSIONE_A_ESTADOS_PONTIFICIOS = [\"Filettino\", \"Trevi nel Lazio\", \"Guarcino\", \"Vico nel Lazio\", \"Collepardo\",\n                                  \"Alatri\", \"Fumone\", \"Trivigliano\", \"Torre Cajetani\", \"Ferentino\", \"Anagni\",\n                                  \"Acuto\", \"Piglio\", \"Serrone\", \"Paliano\", \"Sgurgola\", \"Morolo\", \"Supino\",\n                                  \"Patrica\", \"Giuliano di Roma\", \"Villa Santo Stefano\", \"Amaseno\", \"Ceccano\",\n                                  \"Frosinone\"]\nPONTECORVO = [\"Pontecorvo\"]\n\nCALABRIA_ULTRA = {\n            \"name\": \"Calabria Ultra\",\n            \"code\": \"CAU\",\n            \"entity_type\": \"Magistrado\",\n            \"capitals\": [\n                \"Reggio di Calabria\", \n                #\"Catanzaro\"\n            ],\n            \"spec\": {\n                2:{\"italy\": [\"Reggio di Calabria\", \"Catanzaro\", \"Crotone\", \"Vibo Valentia\"]},\n            }\n        }\n\nCALABRIA_CITRA = {\n            \"name\": \"Calabria Citra\",\n            \"code\": \"CAC\",\n            \"entity_type\": \"Magistrado\",\n            \"capitals\": [\"Cosenza\"],\n            \"spec\": {\n                2:{\"italy\": [\"Cosenza\"]},\n            }\n        }\n\nBASILICATA = {\n            \"name\": \"Basilicata\",\n            \"code\": \"BAS\",\n            \"entity_type\": \"Magistrado\",\n            \"capitals\": [\n                \"Lauria\",\n                #\"Lagonegro\",\n                #\"Potenza\",\n                #\"Stigliano\",\n                #\"Tolve\",\n                #\"Tursi\",\n                #\"Pignola\",\n                #\"Matera\", # <---\n                #\"Irsina\"\n            ],\n            \"spec\": {\n                1:{\"italy\": [\"Basilicata\"]},\n            }\n        }\n\nTERRA_DE_OTRANTO = {\n            \"name\": \"Tierra de Otranto\",\n            \"code\": \"TOT\",\n            \"entity_type\": \"Magistrado\",\n            \"capitals\": [\n                \"Lecce\",\n                #\"Otranto\",\n            ],\n            \"spec\": {\n                2:{\"italy\": [\"Lecce\", \"Brindisi\", \"Taranto\"]},\n                \"restar\": {3: {\"italy\": BRINDISI_A_TIERRA_DE_BARI}},\n            }\n}\n\nTERRA_DE_BARI = {\n            \"name\": \"Tierra de Bari\",\n            \"code\": \"TBA\",\n            \"entity_type\": \"Magistrado\",\n            \"capitals\": [\n                \"Bari\",\n                #\"Trani\",\n            ],\n            \"spec\": {\n                2: {\"italy\": [\"Bari\", \"Barletta-Andria-Trani\"]},\n                3: {\"italy\": BRINDISI_A_TIERRA_DE_BARI},\n                \"restar\": {3: {\"italy\": ANDRIA_TRANI_A_CAPITANIA }},\n            }\n}\n\nCAPITANIA = {\n            \"name\": \"Capitania\",\n            \"code\": \"CAP\",\n            \"entity_type\": \"Magistrado\",\n            \"capitals\": [\n                #\"Lucera\",\n                #\"San Severo\", \n                \"Foggia\",\n            ],\n            \"spec\": {\n                2: {\"italy\": [\"Foggia\"]},\n                3: {\"italy\": BENEVENTO_A_CAPITANIA + ANDRIA_TRANI_A_CAPITANIA + ANDRIA_TRANI_A_CAPITANIA},\n                \"restar\": {3: {\"italy\": FOGGIA_A_PRINCIPATO_ULTRA }},\n            }\n}\n\nPRINCIPADO_CITRA = {\n            \"name\": \"Principado Citra\",\n            \"code\": \"PCI\",\n            \"entity_type\": \"Magistrado\",\n            \"capitals\": [\n                \"Salerno\",\n            ],\n            \"spec\": {\n                2: {\"italy\": [\"Salerno\"]},\n                3: {\"italy\": NAPOLES_A_PRINCIPADO_CITRA + AVELLINO_A_PRINCIPADO_CITRA},\n            }\n}\n\nPRINCIPADO_ULTRA = {\n            \"name\": \"Principado Ultra\",\n            \"code\": \"PUL\",\n            \"entity_type\": \"Magistrado\",\n            \"capitals\": [\n                \"Montefusco\", \n                #\"Avellino\",\n            ],\n            \"spec\": {\n                2: {\"italy\": [\"Avellino\", \"Benevento\"]},\n                3: {\"italy\": FOGGIA_A_PRINCIPATO_ULTRA},\n                \"restar\": {3: {\"italy\": BENEVENTO_A_CAPITANIA+ BENEVENTO_A_MOLISE + BENEVENTO_A_TIERRA_DE_TRABAJO + BENEVENTO + AVELLINO_A_CAPITANIA + AVELLINO_A_PRINCIPADO_CITRA + AVELLINO_A_TIERRA_DE_TRABAJO }},\n            }\n}\n\nTIERRA_DE_TRABAJO = {\n            \"name\": \"Tierra de Trabajo\",\n            \"code\": \"TIT\",\n            \"entity_type\": \"Magistrado\",\n            \"capitals\": [\n                #\"Santa Maria\", \n                \"Capua\",\n                #\"Caserta\",\n            ],\n            \"spec\": {\n                2: {\"italy\": [\"Caserta\", \"Napoli\", \"Frosinone\"]},\n                3: {\"italy\": LATINA_A_TIERRA_DE_TRABAJO + AGUILA_A_TIERRA_DE_TRABAJO + ISERNIA_A_TIERRA_DE_TRABAJO + BENEVENTO_A_TIERRA_DE_TRABAJO + AVELLINO_A_TIERRA_DE_TRABAJO},\n                \"restar\": {3: {\"italy\": PONTECORVO + FROSIONE_A_ESTADOS_PONTIFICIOS + NAPOLES_A_PRINCIPADO_CITRA }},\n            }\n}\n\nMOLISE = {\n            \"name\": \"Molise\",\n            \"code\": \"MOL\",\n            \"entity_type\": \"Condado\",\n            \"capitals\": [\n                \"Bojano\",\n                #\"Campobasso\",\n            ],\n            \"spec\": {\n                2: {\"italy\": [\"Campobasso\", \"Isernia\"]},\n                3: {\"italy\": CHIETI_A_MOLISE + BENEVENTO_A_MOLISE},\n                \"restar\": {3: {\"italy\": ISERNIA_A_TIERRA_DE_TRABAJO }},\n            }\n}\n\nABRUZOS_CITRA = {\n            \"name\": \"Abruzos Citra\",\n            \"code\": \"ACI\",\n            \"entity_type\": \"Magistrado\",\n            \"capitals\": [\n                \"Chieti\",\n            ],\n            \"spec\": {\n                2: {\"italy\": [\"Chieti\"]},\n                3: {\"italy\": AGUILA_A_ABRUZOS_CITRA + PESCARA_A_ABRUZOS_CITRA},\n                \"restar\": {3: {\"italy\": CHIETI_A_MOLISE }},\n            }\n}\n\nABRUZOS_ULTRA = {\n            \"name\": \"Abruzos Ultra\",\n            \"code\": \"AUL\",\n            \"entity_type\": \"Magistrado\",\n            \"capitals\": [\n                \"L'Aquila\",\n            ],\n            \"spec\": {\n                2: {\"italy\": [\"Pescara\", \"Teramo\", \"L'Aquila\"]},\n                3: {\"italy\":  PESCARA_A_ABRUZOS_ULTRA_II},\n                \"restar\": {3: {\"italy\": PESCARA_A_ABRUZOS_CITRA + AGUILA_A_ABRUZOS_CITRA + AGUILA_A_TIERRA_DE_TRABAJO }},\n            }\n}\n\nGROSSETO_A_PRESIDIOS_DE_TOSCANA = [\"Orbetello\", \"Monte Argentario\"]\nLIVORNO_A_PIOMBINO = [\"Marciana Marina\", \"Marciana\", \"Campo nell'Elba\", \"Rio\",\n                                  \"Piombino\", \"Suvereto\", \"Follonica\", \"Scarlino\"]\nLIVORNO_A_PRESIDIOS_DE_TOSCANA = [\"Capoliveri\", \"Porto Azzurro\"]\n\nPRESIDIOS_DE_TOSCANA = {\n    \"name\": \"Presidios de Toscana\",\n    \"code\": \"TOS\",\n    \"entity_type\": \"Presidio\",\n    \"capitals\": [\"Orbetello\"],\n    \"spec\": {\n        3: {\"italy\":  LIVORNO_A_PRESIDIOS_DE_TOSCANA + GROSSETO_A_PRESIDIOS_DE_TOSCANA},\n    }\n}\n\nPIOMBINO = {\n    \"name\": \"Piombino\",\n    \"code\": \"PIO\",\n    \"entity_type\": \"Principado\",\n    \"capitals\": [\"Piombino\"],\n    \"spec\": {\n        3: {\"italy\":  LIVORNO_A_PIOMBINO },\n    }\n}\n\nREINO_NAPOLES = {\n    \"name\": \"Nápoles\",\n    \"code\": \"NAP\",\n    \"entity_type\": \"Reino\",\n    \"capitals\": [\"Napoli\"],\n    \"spec\": {\n        1:{\"italy\": [\"Basilicata\", \"Calabria\", \"Puglia\", \"Campania\", \"Molise\", \"Abruzzo\"]},\n        2: {\"italy\": [\"Frosinone\"]},\n        3: {\"italy\":  LATINA_A_TIERRA_DE_TRABAJO + RIETI_A_ABRUZOS_ULTRA_II },\n        \"restar\": {3: {\"italy\": PONTECORVO + BENEVENTO + FROSIONE_A_ESTADOS_PONTIFICIOS }},\n    }\n}\n\nMILAN = {\n    \"name\": \"Milán\",\n    \"code\": \"MIL\",\n    \"entity_type\": \"Ducado\",\n    #\"capitals\": [\"Milano\"],\n    #\"childs\": [],\n    #\"spec\": {\n        #1:{\"italy\": [\"Basilicata\", \"Calabria\", \"Puglia\", \"Campania\", \"Molise\", \"Abruzzo\"]},\n        #2: {\"italy\": [\"Frosinone\"]},\n        #3: {\"italy\":  LATINA_A_TIERRA_DE_TRABAJO + RIETI_A_ABRUZOS_ULTRA_II },\n        #\"restar\": {3: {\"italy\": PONTECORVO + BENEVENTO + FROSIONE_A_ESTADOS_PONTIFICIOS }},\n    #}\n}\n\nCERDENHA = {\n    \"name\": \"Cerdeña\",\n    \"code\": \"CER\",\n    \"entity_type\": \"Reino\",\n    \"capitals\": [\"Cagliari\"],\n    \"spec\": {\n        1:{\"italy\": \"Sardegna\"},\n    }\n}\n\nSICILIA = {\n    \"name\": \"Sicilia\",\n    \"code\": \"SIL\",\n    \"entity_type\": \"Reino\",\n    \"capitals\": [\"Palermo\"],\n    \"spec\": {\n        0: {\"malta\": \"malta\"},\n        1: {\"italy\": \"Sicilia\"},\n    }\n}"
+[[subdivisions]]
+internal_name = "ABRUZOS_ULTRA"
+name = "Abruzos Ultra"
+code = "AUL"
+entity_type = "Magistrado"
+description = "Importada desde C:\\MisProyectos\\BEOGRAD-CITIES-POPULATION\\ciudades_del_mundo\\subdivision_groups\\subdivisions\\italy.toml."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"ABRUZOS_ULTRA\"\nsource_country_code = \"italy\"\nname = \"Abruzos Ultra\"\ncode = \"AUL\"\nentity_type = \"Magistrado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"L'Aquila\"]\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 2\nnames = [\"Pescara\", \"Teramo\", \"L'Aquila\"]\ngroups = []\nexpressions = []\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\ngroups = [\"PESCARA_A_ABRUZOS_ULTRA_II\"]\nexpressions = []\n\n[[subtract]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\ngroups = [\"PESCARA_A_ABRUZOS_CITRA\", \"AGUILA_A_ABRUZOS_CITRA\", \"AGUILA_A_TIERRA_DE_TRABAJO\"]\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "BASILICATA"
+name = "Basilicata"
+code = "BAS"
+entity_type = "Magistrado"
+description = "Importada desde C:\\MisProyectos\\BEOGRAD-CITIES-POPULATION\\ciudades_del_mundo\\subdivision_groups\\subdivisions\\italy.toml."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"BASILICATA\"\nsource_country_code = \"italy\"\nname = \"Basilicata\"\ncode = \"BAS\"\nentity_type = \"Magistrado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Lauria\"]\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 1\nnames = [\"Basilicata\"]\ngroups = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "CALABRIA_CITRA"
+name = "Calabria Citra"
+code = "CAC"
+entity_type = "Magistrado"
+description = "Importada desde C:\\MisProyectos\\BEOGRAD-CITIES-POPULATION\\ciudades_del_mundo\\subdivision_groups\\subdivisions\\italy.toml."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"CALABRIA_CITRA\"\nsource_country_code = \"italy\"\nname = \"Calabria Citra\"\ncode = \"CAC\"\nentity_type = \"Magistrado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Cosenza\"]\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 2\nnames = [\"Cosenza\"]\ngroups = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "CALABRIA_ULTRA"
+name = "Calabria Ultra"
+code = "CAU"
+entity_type = "Magistrado"
+description = "Importada desde C:\\MisProyectos\\BEOGRAD-CITIES-POPULATION\\ciudades_del_mundo\\subdivision_groups\\subdivisions\\italy.toml."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"CALABRIA_ULTRA\"\nsource_country_code = \"italy\"\nname = \"Calabria Ultra\"\ncode = \"CAU\"\nentity_type = \"Magistrado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Reggio di Calabria\"]\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 2\nnames = [\"Reggio di Calabria\", \"Catanzaro\", \"Crotone\", \"Vibo Valentia\"]\ngroups = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "CAPITANIA"
+name = "Capitania"
+code = "CAP"
+entity_type = "Magistrado"
+description = "Importada desde C:\\MisProyectos\\BEOGRAD-CITIES-POPULATION\\ciudades_del_mundo\\subdivision_groups\\subdivisions\\italy.toml."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"CAPITANIA\"\nsource_country_code = \"italy\"\nname = \"Capitania\"\ncode = \"CAP\"\nentity_type = \"Magistrado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Foggia\"]\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 2\nnames = [\"Foggia\"]\ngroups = []\nexpressions = []\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\ngroups = [\"BENEVENTO_A_CAPITANIA\", \"ANDRIA_TRANI_A_CAPITANIA\"]\nexpressions = []\n\n[[subtract]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\ngroups = [\"FOGGIA_A_PRINCIPATO_ULTRA\"]\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "CERDENHA"
+name = "Cerdeña"
+code = "ITALY-CERDENHA"
+entity_type = "Reino"
+description = "Importada desde C:\\MisProyectos\\BEOGRAD-CITIES-POPULATION\\ciudades_del_mundo\\subdivision_groups\\subdivisions\\italy.toml."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"CERDENHA\"\nsource_country_code = \"italy\"\nname = \"Cerdeña\"\ncode = \"ITALY-CERDENHA\"\nparent_code = \"ITALY\"\nentity_type = \"Reino\"\nlevel = 2\ncapitals = [\"italy_092009\"]\nflag_url = \"https://upload.wikimedia.org/wikipedia/commons/a/a4/Flag_of_the_Kingdom_of_Sardinia_%281324-1720%29.svg\"\ncoat_url = \"https://upload.wikimedia.org/wikipedia/commons/d/d5/Cross_of_Alcoraz_Arms.svg\"\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 1\nnames = [\"Sardegna\"]\nids = []\ncodes = []\ngroups = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "MILAN"
+name = "Milán"
+code = "MIL"
+entity_type = "Ducado"
+description = "Importada desde C:\\MisProyectos\\BEOGRAD-CITIES-POPULATION\\ciudades_del_mundo\\subdivision_groups\\subdivisions\\italy.toml."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"MILAN\"\nsource_country_code = \"italy\"\nname = \"Milán\"\ncode = \"MIL\"\nentity_type = \"Ducado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = []\n"
+
+[[subdivisions]]
+internal_name = "MOLISE"
+name = "Molise"
+code = "MOL"
+entity_type = "Condado"
+description = "Importada desde C:\\MisProyectos\\BEOGRAD-CITIES-POPULATION\\ciudades_del_mundo\\subdivision_groups\\subdivisions\\italy.toml."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"MOLISE\"\nsource_country_code = \"italy\"\nname = \"Molise\"\ncode = \"MOL\"\nentity_type = \"Condado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Bojano\"]\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 2\nnames = [\"Campobasso\", \"Isernia\"]\ngroups = []\nexpressions = []\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\ngroups = [\"CHIETI_A_MOLISE\", \"BENEVENTO_A_MOLISE\"]\nexpressions = []\n\n[[subtract]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\ngroups = [\"ISERNIA_A_TIERRA_DE_TRABAJO\"]\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "PIOMBINO"
+name = "Piombino"
+code = "PIO"
+entity_type = "Principado"
+description = "Importada desde C:\\MisProyectos\\BEOGRAD-CITIES-POPULATION\\ciudades_del_mundo\\subdivision_groups\\subdivisions\\italy.toml."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"PIOMBINO\"\nsource_country_code = \"italy\"\nname = \"Piombino\"\ncode = \"PIO\"\nentity_type = \"Principado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Piombino\"]\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\ngroups = [\"LIVORNO_A_PIOMBINO\"]\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "PRESIDIOS_DE_TOSCANA"
+name = "Presidios de Toscana"
+code = "ITALY-PRESIDIOS_DE_TOSCANA"
+entity_type = "Presidio"
+description = "Importada desde C:\\MisProyectos\\BEOGRAD-CITIES-POPULATION\\ciudades_del_mundo\\subdivision_groups\\subdivisions\\italy.toml."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"PRESIDIOS_DE_TOSCANA\"\nsource_country_code = \"italy\"\nname = \"Presidios de Toscana\"\ncode = \"ITALY-PRESIDIOS_DE_TOSCANA\"\nparent_code = \"ITALY\"\nentity_type = \"Presidio\"\nlevel = 2\ncapitals = [\"italy_053018\"]\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"LIVORNO_A_PRESIDIOS_DE_TOSCANA\", \"GROSSETO_A_PRESIDIOS_DE_TOSCANA\"]\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "PRINCIPADO_CITRA"
+name = "Principado Citra"
+code = "PCI"
+entity_type = "Magistrado"
+description = "Importada desde C:\\MisProyectos\\BEOGRAD-CITIES-POPULATION\\ciudades_del_mundo\\subdivision_groups\\subdivisions\\italy.toml."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"PRINCIPADO_CITRA\"\nsource_country_code = \"italy\"\nname = \"Principado Citra\"\ncode = \"PCI\"\nentity_type = \"Magistrado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Salerno\"]\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 2\nnames = [\"Salerno\"]\ngroups = []\nexpressions = []\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\ngroups = [\"NAPOLES_A_PRINCIPADO_CITRA\", \"AVELLINO_A_PRINCIPADO_CITRA\"]\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "PRINCIPADO_ULTRA"
+name = "Principado Ultra"
+code = "PUL"
+entity_type = "Magistrado"
+description = "Importada desde C:\\MisProyectos\\BEOGRAD-CITIES-POPULATION\\ciudades_del_mundo\\subdivision_groups\\subdivisions\\italy.toml."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"PRINCIPADO_ULTRA\"\nsource_country_code = \"italy\"\nname = \"Principado Ultra\"\ncode = \"PUL\"\nentity_type = \"Magistrado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Montefusco\"]\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 2\nnames = [\"Avellino\", \"Benevento\"]\ngroups = []\nexpressions = []\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\ngroups = [\"FOGGIA_A_PRINCIPATO_ULTRA\"]\nexpressions = []\n\n[[subtract]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\ngroups = [\"BENEVENTO_A_CAPITANIA\", \"BENEVENTO_A_MOLISE\", \"BENEVENTO_A_TIERRA_DE_TRABAJO\", \"BENEVENTO\", \"AVELLINO_A_CAPITANIA\", \"AVELLINO_A_PRINCIPADO_CITRA\", \"AVELLINO_A_TIERRA_DE_TRABAJO\"]\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "REINO_NAPOLES"
+name = "Nápoles"
+code = "ITALY-REINO_NAPOLES"
+entity_type = "Reino"
+description = "Importada desde C:\\MisProyectos\\BEOGRAD-CITIES-POPULATION\\ciudades_del_mundo\\subdivision_groups\\subdivisions\\italy.toml."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"REINO_NAPOLES\"\nsource_country_code = \"italy\"\nname = \"Nápoles\"\ncode = \"ITALY-REINO_NAPOLES\"\nparent_code = \"ITALY\"\nentity_type = \"Reino\"\nlevel = 2\ncapitals = [\"italy_063049\"]\nflag_url = \"https://upload.wikimedia.org/wikipedia/commons/c/c6/Bandera_de_N%C3%A1poles_-_Trast%C3%A1mara.svg\"\ncoat_url = \"https://upload.wikimedia.org/wikipedia/commons/f/f7/Coat_of_Arms_of_Ferdinand_I_of_Naples.svg\"\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 1\nnames = [\"Basilicata\", \"Calabria\", \"Puglia\", \"Campania\", \"Molise\", \"Abruzzo\"]\nids = []\ncodes = []\ngroups = []\nexpressions = []\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 2\nnames = [\"Frosinone\"]\nids = []\ncodes = []\ngroups = []\nexpressions = []\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"LATINA_A_TIERRA_DE_TRABAJO\", \"RIETI_A_ABRUZOS_ULTRA_II\"]\nexpressions = []\n\n[[subtract]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"PONTECORVO\", \"BENEVENTO\", \"FROSIONE_A_ESTADOS_PONTIFICIOS\"]\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "SICILIA"
+name = "Sicilia"
+code = "ITALY-SICILIA"
+entity_type = "Reino"
+description = "Importada desde C:\\MisProyectos\\BEOGRAD-CITIES-POPULATION\\ciudades_del_mundo\\subdivision_groups\\subdivisions\\italy.toml."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"SICILIA\"\nsource_country_code = \"italy\"\nname = \"Sicilia\"\ncode = \"ITALY-SICILIA\"\nparent_code = \"ITALY\"\nentity_type = \"Reino\"\nlevel = 2\ncapitals = [\"italy_082053\"]\nflag_url = \"https://upload.wikimedia.org/wikipedia/commons/0/0a/Bandiera_del_Regno_di_Sicilia_4.svg\"\ncoat_url = \"https://upload.wikimedia.org/wikipedia/commons/8/8e/Arms_of_the_Aragonese_Kings_of_Sicily%28Crowned%29.svg\"\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 1\nnames = []\nids = [\"italy_19\"]\ncodes = []\ngroups = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "TERRA_DE_BARI"
+name = "Tierra de Bari"
+code = "TBA"
+entity_type = "Magistrado"
+description = "Importada desde C:\\MisProyectos\\BEOGRAD-CITIES-POPULATION\\ciudades_del_mundo\\subdivision_groups\\subdivisions\\italy.toml."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"TERRA_DE_BARI\"\nsource_country_code = \"italy\"\nname = \"Tierra de Bari\"\ncode = \"TBA\"\nentity_type = \"Magistrado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Bari\"]\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 2\nnames = [\"Bari\", \"Barletta-Andria-Trani\"]\ngroups = []\nexpressions = []\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\ngroups = [\"BRINDISI_A_TIERRA_DE_BARI\"]\nexpressions = []\n\n[[subtract]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\ngroups = [\"ANDRIA_TRANI_A_CAPITANIA\"]\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "TERRA_DE_OTRANTO"
+name = "Tierra de Otranto"
+code = "TOT"
+entity_type = "Magistrado"
+description = "Importada desde C:\\MisProyectos\\BEOGRAD-CITIES-POPULATION\\ciudades_del_mundo\\subdivision_groups\\subdivisions\\italy.toml."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"TERRA_DE_OTRANTO\"\nsource_country_code = \"italy\"\nname = \"Tierra de Otranto\"\ncode = \"TOT\"\nentity_type = \"Magistrado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Lecce\"]\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 2\nnames = [\"Lecce\", \"Brindisi\", \"Taranto\"]\ngroups = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\ngroups = [\"BRINDISI_A_TIERRA_DE_BARI\"]\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "TIERRA_DE_TRABAJO"
+name = "Tierra de Trabajo"
+code = "TIT"
+entity_type = "Magistrado"
+description = "Importada desde C:\\MisProyectos\\BEOGRAD-CITIES-POPULATION\\ciudades_del_mundo\\subdivision_groups\\subdivisions\\italy.toml."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"TIERRA_DE_TRABAJO\"\nsource_country_code = \"italy\"\nname = \"Tierra de Trabajo\"\ncode = \"TIT\"\nentity_type = \"Magistrado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Capua\"]\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 2\nnames = [\"Caserta\", \"Napoli\", \"Frosinone\"]\ngroups = []\nexpressions = []\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\ngroups = [\"LATINA_A_TIERRA_DE_TRABAJO\", \"AGUILA_A_TIERRA_DE_TRABAJO\", \"ISERNIA_A_TIERRA_DE_TRABAJO\", \"BENEVENTO_A_TIERRA_DE_TRABAJO\", \"AVELLINO_A_TIERRA_DE_TRABAJO\"]\nexpressions = []\n\n[[subtract]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\ngroups = [\"PONTECORVO\", \"FROSIONE_A_ESTADOS_PONTIFICIOS\", \"NAPOLES_A_PRINCIPADO_CITRA\"]\nexpressions = []\n"

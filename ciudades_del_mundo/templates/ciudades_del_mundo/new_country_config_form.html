@@ -14,39 +14,28 @@
       {% trans "Nueva configuracion" %}
       {% endif %}
     </h1>
+    {% if source_country_label %}
+    <p class="muted">{{ source_country_label }}</p>
+    {% endif %}
   </div>
   <div class="actions">
-    <a class="button secondary" href="{% url 'ciudades_del_mundo:new_country_detail' country.slug %}">{% trans "Volver" %}</a>
-    {% if config %}
-    <a class="button secondary" href="{% url 'ciudades_del_mundo:new_country_config_view' country.slug config.slug %}">{% trans "Vista" %}</a>
-    {% endif %}
+    <a class="button secondary" href="{{ country_detail_url }}">{% trans "Volver" %}</a>
   </div>
 </section>
 
 <section class="editor-layout">
   <form class="panel form-panel" method="post">
     {% csrf_token %}
+    <input type="hidden" name="source_country_code" value="{{ form.source_country_code }}">
     {% if not config %}
     <label>
-      Slug
-      <input name="slug" value="{{ form.slug }}" required>
+      {% trans "Codigo" %}
+      <input class="code-input" name="slug" value="{{ form.slug }}" autocomplete="off" autocapitalize="characters" spellcheck="false" data-uppercase-code-input required>
     </label>
     {% endif %}
     <label>
       {% trans "Nombre" %}
       <input name="name" value="{{ form.name }}" required>
-    </label>
-    <label>
-      {% trans "Pais fuente" %}
-      <input name="source_country_code" value="{{ form.source_country_code }}">
-    </label>
-    <label>
-      {% trans "Codigo derivado" %}
-      <input name="derived_country_code" value="{{ form.derived_country_code }}">
-    </label>
-    <label class="checkbox-row">
-      <input type="checkbox" name="is_active" value="1" {% if form.is_active %}checked{% endif %}>
-      <span>{% trans "Activa" %}</span>
     </label>
     <label>
       TOML

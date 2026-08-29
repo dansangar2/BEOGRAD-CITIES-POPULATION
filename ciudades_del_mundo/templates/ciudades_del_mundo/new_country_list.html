@@ -8,43 +8,128 @@
   <div>
     <p class="eyebrow">{% trans "NuevoAdminArea" %}</p>
     <h1>{% trans "Nuevos paises" %}</h1>
-    <p class="muted">{{ seed_count }} {% trans "semillas TOML disponibles" %}</p>
   </div>
   <div class="actions">
-    <form method="post" action="{% url 'ciudades_del_mundo:new_country_import_toml' %}">
+    <form method="post" action="{% url 'ciudades_del_mundo:new_country_import_toml' %}" data-config-task-form data-action-label="{% trans 'Importar TOML' %}">
       {% csrf_token %}
-      <button class="secondary" type="submit">{% trans "Importar TOML" %}</button>
+      <button class="secondary" type="submit" data-config-action="import-toml">{% trans "Importar TOML" %}</button>
     </form>
-    <a class="button secondary" href="{% url 'ciudades_del_mundo:new_country_new' %}">{% trans "Nuevo pais" %}</a>
   </div>
 </section>
 
-<div class="table-wrap">
-  <table>
-    <thead>
-      <tr>
-        <th>Slug</th>
-        <th>{% trans "Nombre" %}</th>
-        <th>{% trans "Pais fuente" %}</th>
-        <th>{% trans "Configuraciones" %}</th>
-        <th>{% trans "Acciones" %}</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for country in countries %}
-      <tr>
-        <td><code>{{ country.slug }}</code></td>
-        <td>{{ country.name }}</td>
-        <td>{{ country.source_country_code|default:"-" }}</td>
-        <td>{{ country.config_count }}</td>
-        <td>
-          <a href="{% url 'ciudades_del_mundo:new_country_detail' country.slug %}">{% trans "Ver" %}</a>
-        </td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="5">{% trans "No hay paises nuevos creados." %}</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+<section class="panel">
+  <div class="stats-country-grid" data-group-country-grid>
+    {% for country in country_cards %}
+    <button
+      class="stats-country-card group-country-card"
+      type="button"
+      data-group-country-card
+      data-group-country-key="{{ country.key }}"
+      data-group-detail-target="new-countries-source-detail-{{ forloop.counter }}"
+      aria-controls="new-countries-source-detail-{{ forloop.counter }}"
+      aria-expanded="false"
+    >
+      <span class="stats-country-flag">
+        {% if country.flag_url %}
+        <img src="{{ country.flag_url }}" alt="{{ country.label }}">
+        {% else %}
+        <span class="visual-placeholder visual-placeholder-flag" aria-hidden="true"></span>
+        {% endif %}
+      </span>
+      <strong>{{ country.label }}</strong>
+      <span class="stats-country-card-metrics">
+        <span>{% trans "Poblacion" %}: {{ country.population_text }}</span>
+        <span>{% trans "Terreno" %}: {{ country.area_text }}</span>
+      </span>
+    </button>
+    {% empty %}
+    <p class="empty">{% trans "Sin datos." %}</p>
+    {% endfor %}
+  </div>
+</section>
+
+{% for country in country_cards %}
+<section
+  id="new-countries-source-detail-{{ forloop.counter }}"
+  class="stats-country-detail group-country-detail"
+  data-group-country-detail
+  data-group-country-key="{{ country.key }}"
+  hidden
+>
+  <div class="group-country-panel" data-group-country-panel>
+    <div class="group-panel-loading table-loading" data-group-panel-loading hidden>
+      <span class="loading-spinner" aria-hidden="true"></span>
+      <span>{% trans "Cargando datos..." %}</span>
+    </div>
+    <div class="group-country-panel-content new-country-panel-content" data-group-panel-content>
+      <section class="panel">
+        <div class="stats-country-grid new-country-result-grid">
+          {% for item in country.configs %}
+          <article class="stats-country-card stats-country-card-editable new-country-result-card{% if not item.view_url %} is-unbuilt{% endif %}">
+            <div class="stats-country-card-actions">
+              {% if item.export_excel_url %}
+              <a class="stats-country-card-action" href="{{ item.export_excel_url }}" aria-label="{% trans 'Exportar Excel' %}" title="{% trans 'Exportar Excel' %}">XLS</a>
+              {% endif %}
+              <a class="stats-country-card-action" href="{{ item.edit_url }}" aria-label="{% trans 'Configuracion' %}" title="{% trans 'Configuracion' %}">CFG</a>
+            </div>
+            <button
+              class="stats-country-card-main new-country-result-main"
+              type="button"
+              data-new-country-detail-card
+              data-detail-url="{{ item.detail_api_url }}"
+              data-new-country-detail-target="new-country-detail-{{ forloop.parentloop.counter }}"
+              {% if not item.detail_api_url %}disabled{% endif %}
+            >
+              <span class="stats-country-flag">
+                {% if item.flag_url %}
+                <img src="{{ item.flag_url }}" alt="{{ item.display_name }}">
+                {% else %}
+                <span class="visual-placeholder visual-placeholder-flag" aria-hidden="true"></span>
+                {% endif %}
+              </span>
+              <strong>{{ item.display_name }}</strong>
+              <span class="stats-country-card-metrics">
+                <span>{% trans "Poblacion" %}: {{ item.population_text }}</span>
+                <span>{% trans "Terreno" %}: {{ item.area_text }}</span>
+              </span>
+              <span class="new-country-result-meta">
+                <code>{{ item.built_code }}</code>
+              </span>
+            </button>
+          </article>
+          {% empty %}
+          <p class="empty">{% trans "No hay paises nuevos creados para este pais." %}</p>
+          {% endfor %}
+        </div>
+      </section>
+      <section
+        id="new-country-detail-{{ forloop.counter }}"
+        class="stats-country-detail new-country-container-detail"
+        data-stats-country-detail
+        data-loading="{% trans 'Cargando pais...' %}"
+        data-error="{% trans 'No se pudo cargar el pais.' %}"
+        data-empty="{% trans 'Sin datos' %}"
+        data-general-title="{% trans 'Datos generales del pais' %}"
+        data-children-title="{% trans 'Subdivisiones directas' %}"
+        data-open-label="{% trans 'Ver datos' %}"
+        data-entity-type-label="{% trans 'Tipo' %}"
+        data-name-label="{% trans 'Nombre' %}"
+        data-page-size-label="{% trans 'Filas por pagina' %}"
+        data-previous-label="{% trans 'Anterior' %}"
+        data-next-label="{% trans 'Siguiente' %}"
+        data-official-name-label="{% trans 'Nombre oficial' %}"
+        data-official-language-label="{% trans 'Idioma oficial' %}"
+        data-capital-label="{% trans 'Capital' %}"
+        data-population-label="{% trans 'Poblacion' %}"
+        data-area-label="{% trans 'Terreno' %}"
+        data-density-label="{% trans 'Densidad' %}"
+        data-subdivision-count-label="{% trans 'Numero de subdivisiones' %}"
+        data-flag-label="{% trans 'Bandera' %}"
+        data-coat-label="{% trans 'Escudo' %}"
+        hidden
+      ></section>
+    </div>
+  </div>
+</section>
+{% endfor %}
 {% endblock %}

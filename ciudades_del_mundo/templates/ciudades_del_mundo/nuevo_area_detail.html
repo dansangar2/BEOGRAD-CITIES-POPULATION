@@ -12,9 +12,9 @@
   <div class="actions">
     <a class="button secondary" href="{% url 'ciudades_del_mundo:nuevo_area_list' %}">{% trans "Volver" %}</a>
     <a class="button secondary" href="{% url 'ciudades_del_mundo:area_map_detail' 'derived' root.id %}">{% trans "Mapa" %}</a>
-    <form method="post" action="{% url 'ciudades_del_mundo:start_recipe_task' root.id 'export-excel' %}">
+    <form method="post" action="{% url 'ciudades_del_mundo:start_recipe_task' root.id 'export-excel' %}" data-config-task-form data-action-label="Excel">
       {% csrf_token %}
-      <button type="submit">Excel</button>
+      <button type="submit" data-config-action="export-excel">Excel</button>
     </form>
   </div>
 </section>

@@ -14,6 +14,7 @@ LOG_DIRECTORIES = (
     ".web_scrape_block_errors",
     ".web_scrape_pages",
     ".web_ai_autoconfig",
+    ".web_export_logs",
     ".web_task_progress",
     ".web_scrape_resume",
 )

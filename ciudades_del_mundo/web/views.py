@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import ast
 from collections import Counter
+from collections.abc import Iterable
 import csv
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from itertools import zip_longest
 import json
 from pathlib import Path
@@ -22,9 +25,9 @@ from bs4 import BeautifulSoup
 from django.conf import settings
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db import OperationalError, ProgrammingError, connection
-from django.db.models import Count, Q, Sum
-from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
+from django.db import OperationalError, ProgrammingError, connection, transaction
+from django.db.models import Case, Count, IntegerField, Q, Sum, Value, When
+from django.http import Http404, HttpResponse, HttpResponseNotAllowed, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.translation import get_language
@@ -35,6 +38,11 @@ from ciudades_del_mundo.domain import (
     parse_cities,
     parse_entity_merges,
     parse_pages,
+)
+from ciudades_del_mundo.domain.nuevo_admin_export import CellMerge, Sheet, Table, Workbook
+from ciudades_del_mundo.application.export_nuevo_admin_areas import build_nuevo_admin_workbook
+from ciudades_del_mundo.infrastructure.django.nuevo_admin_area_export_repository import (
+    DjangoNuevoAdminAreaExportRepository,
 )
 from ciudades_del_mundo.models import (
     AdminArea,
@@ -53,6 +61,7 @@ from ciudades_del_mundo.infrastructure.scraping.page_types import (
     detect_citypopulation_page_profile,
 )
 from ciudades_del_mundo.infrastructure.django.sqlite_write_lock import sqlite_write_lock_if_needed
+from ciudades_del_mundo.infrastructure.excel import SimpleXlsxWriter
 
 from ciudades_del_mundo.services.scraping_configs import (
     bundled_city_merge_toml_paths,
@@ -82,6 +91,9 @@ from ciudades_del_mundo.services.config_asset_overrides import (
     load_config_asset_overrides,
     save_config_asset_overrides,
 )
+from ciudades_del_mundo.services.configured_city_materializer import (
+    materialize_configured_cities_for_record,
+)
 from ciudades_del_mundo.services.derived_config_seeds import (
     bundled_derived_subdivision_paths,
     bundled_new_country_config_paths,
@@ -93,7 +105,11 @@ from ciudades_del_mundo.services.derived_config_seeds import (
     render_derived_country_selection_toml,
 )
 from ciudades_del_mundo.services.derived_codes import derived_code_piece, derived_country_root_code
-from ciudades_del_mundo.services.nuevo_admin_builder import ORIGINAL_MUNICIPAL_LEVEL
+from ciudades_del_mundo.services.nuevo_admin_builder import (
+    ORIGINAL_MUNICIPAL_LEVEL,
+    effective_source_municipal_level,
+    refresh_nuevo_admin_most_populated,
+)
 from ciudades_del_mundo.services.status_codes import (
     get_program_message_catalog,
     program_message_payload,
@@ -104,7 +120,10 @@ from .task_progress import read_task_config_progress
 from .tasks import task_manager
 
 
-COUNTRY_LEVEL_OPTION_MAX_ROWS = 500
+COUNTRY_BROWSER_DEFAULT_PAGE_SIZE = 20
+COUNTRY_BROWSER_MAX_PAGE_SIZE = 100
+NEW_COUNTRY_OPTION_DEFAULT_PAGE_SIZE = 20
+NEW_COUNTRY_OPTION_MAX_PAGE_SIZE = 100
 
 
 
@@ -548,6 +567,11 @@ def api_country_summary(request):
     )
 
 
+def api_new_country_summary(request):
+    """Return derived-country summary cards for the shared country browser."""
+    return JsonResponse(_new_country_summary_payload())
+
+
 def api_country_detail(request, country_code):
     """Return one imported country's dashboard/detail payload."""
     return _country_detail_response(request, country_code)
@@ -565,6 +589,115 @@ def api_admin_area_detail(request, area_id):
     if not area:
         raise Http404(_("No existe AdminArea '%(area_id)s'.") % {"area_id": area_id})
     return JsonResponse(_admin_area_detail_payload(area))
+
+
+def api_new_country_detail(request, country_id):
+    """Return one built new country using the country-browser JSON contract."""
+    root = _nuevo_country_root_or_404(country_id)
+    return JsonResponse(
+        _nuevo_country_detail_payload(
+            root,
+            request.GET.get("level"),
+            page=request.GET.get("page"),
+            page_size=_country_browser_page_size(request),
+        )
+    )
+
+
+def api_new_country_container_detail(request, country_slug):
+    """Return one DerivedCountry using the shared country-browser JSON contract."""
+    country = _derived_country_or_404(country_slug)
+    requested_level = request.GET.get("level")
+    page_size = _country_browser_page_size(request)
+    configs = list(country.configs.order_by("name", "slug"))
+    available_levels = _new_country_config_available_levels_for_configs(configs)
+    selected_level, _selected_entity_types, _selected_filter = _resolve_country_level_selection(
+        requested_level,
+        available_levels,
+    )
+    rows = _new_country_config_rows(
+        configs,
+        include_assigned_subdivisions=selected_level is not None,
+        target_levels={selected_level} if selected_level is not None else None,
+    )
+    root = _new_country_detail_export_root(country, rows)
+    if root is not None:
+        return JsonResponse(
+            _nuevo_country_detail_payload(
+                root,
+                requested_level,
+                page=request.GET.get("page"),
+                page_size=page_size,
+            )
+        )
+    return JsonResponse(
+        _new_country_config_detail_payload(
+            country,
+            rows,
+            requested_level,
+            available_levels=available_levels,
+            page=request.GET.get("page"),
+            page_size=page_size,
+        )
+    )
+
+
+def api_new_country_config_tree(request, country_slug):
+    """Return a bounded page of editable DerivedCountryConfig tree rows."""
+    country = _derived_country_or_404(country_slug)
+    configs = list(country.configs.order_by("name", "slug"))
+    rows = _new_country_config_tree_request_rows(
+        country,
+        configs,
+        parent_tree_id=request.GET.get("parent", ""),
+        selected_level=request.GET.get("level", ""),
+    )
+    page_obj = _country_browser_page(rows, request.GET.get("page"), _country_browser_page_size(request))
+    return JsonResponse(
+        {
+            "ok": True,
+            "country": country.slug,
+            "rows": [_new_country_config_tree_row_payload(row) for row in page_obj.object_list],
+            "pagination": _pagination_payload(page_obj),
+        }
+    )
+
+
+def api_new_country_config_node_detail(request, country_slug, tree_id):
+    """Return one unbuilt DerivedCountryConfig tree node as an area detail."""
+    country = _derived_country_or_404(country_slug)
+    configs = list(country.configs.order_by("name", "slug"))
+    target_slug = _new_country_config_node_target_slug(country.slug, tree_id)
+    assigned_slugs = None
+    source_descendant_slugs = None
+    if target_slug:
+        direct_child_slugs = {
+            config.slug
+            for config in configs
+            if _new_country_config_parent_slug(config) == target_slug
+        }
+        assigned_slugs = {target_slug, *direct_child_slugs}
+        source_descendant_slugs = {target_slug}
+    rows = _new_country_config_rows(
+        configs,
+        include_assigned_subdivisions=True,
+        assigned_subdivision_config_slugs=assigned_slugs,
+        source_descendant_config_slugs=source_descendant_slugs,
+    )
+    return JsonResponse(_new_country_config_node_detail_payload(country, rows, tree_id))
+
+
+def api_new_area_detail(request, area_id):
+    """Return one built new-country area and its direct derived children."""
+    area = (
+        NuevoAdminArea.objects.select_related("parent")
+        .prefetch_related("capitals")
+        .filter(id=area_id)
+        .first()
+    )
+    if not area:
+        raise Http404(_("No existe NuevoAdminArea '%(area_id)s'.") % {"area_id": area_id})
+    return JsonResponse(_nuevo_area_detail_payload(area))
 
 
 def api_derived_summary(request):
@@ -621,6 +754,20 @@ def _task_payload(task, *, include_output: bool = False) -> dict:
     if include_output:
         payload["output"] = task_manager.output_tail_text(task)
     return payload
+
+
+def _task_started_payload(task, *, label: str = "", summary_url: str = "") -> dict:
+    """Return the compact JSON contract consumed by the shared task popup."""
+    task_id = getattr(task, "id", "")
+    return {
+        "ok": True,
+        "task_id": task_id,
+        "label": label or getattr(task, "label", ""),
+        "status": getattr(task, "status", "queued"),
+        "status_url": reverse("ciudades_del_mundo:task_status", kwargs={"task_id": task_id}),
+        "summary_url": summary_url,
+        "detail_url": reverse("ciudades_del_mundo:task_detail", kwargs={"task_id": task_id}),
+    }
 
 
 def dashboard_population_data(request):
@@ -680,6 +827,57 @@ def _country_summary_payload(*, detail_route: str, include_visual_assets: bool =
     }
 
 
+def _new_country_summary_payload() -> dict:
+    countries = _new_country_container_rows(
+        list(DerivedCountry.objects.prefetch_related("configs").order_by("name", "slug"))
+    )
+    population_total = sum(row.get("population") or 0 for row in countries)
+    area_total = sum(row.get("area_km2") or 0 for row in countries)
+    return {
+        "type": "donut",
+        "total": population_total,
+        "countries": countries,
+        "items": [
+            {
+                "key": row["key"],
+                "label": row["label"],
+                "value": row.get("population") or 0,
+                "detail_url": row["detail_url"],
+            }
+            for row in countries
+        ],
+        "charts": {
+            "population": {
+                "type": "donut",
+                "total": population_total,
+                "items": [
+                    {
+                        "key": row["key"],
+                        "label": row["label"],
+                        "value": row.get("population") or 0,
+                        "detail_url": row["detail_url"],
+                    }
+                    for row in countries
+                ],
+            },
+            "area": {
+                "type": "donut",
+                "total": area_total,
+                "items": [
+                    {
+                        "key": row["key"],
+                        "label": row["label"],
+                        "value": row.get("area_km2") or 0,
+                        "detail_url": row["detail_url"],
+                    }
+                    for row in sorted(countries, key=lambda item: item.get("area_km2") or 0, reverse=True)
+                    if row.get("area_km2")
+                ],
+            },
+        },
+    }
+
+
 def dashboard_derived_data(request):
     """Return derived-country population rows for the dashboard bar chart."""
     return JsonResponse(_derived_summary_payload())
@@ -707,7 +905,14 @@ def _country_detail_response(request, country_code):
     country_code = country_code.lower()
     if not _visible_admin_areas().filter(country_code=country_code).exists():
         raise Http404(_("No existe el pais '%(country_code)s'.") % {"country_code": country_code})
-    return JsonResponse(_country_detail_payload(country_code, request.GET.get("level")))
+    return JsonResponse(
+        _country_detail_payload(
+            country_code,
+            request.GET.get("level"),
+            page=request.GET.get("page"),
+            page_size=_country_browser_page_size(request),
+        )
+    )
 
 
 def admin_area_list(request):
@@ -822,6 +1027,19 @@ def config_tasks_table(request):
     )
 
 
+def _try_materialize_configured_city_rows(config_record: ScrapingConfig) -> None:
+    """Best-effort DB refresh for [[cities]] edited after a country was populated."""
+    try:
+        write_lock = sqlite_write_lock_if_needed()
+        if write_lock is None:
+            materialize_configured_cities_for_record(config_record)
+        else:
+            with write_lock:
+                materialize_configured_cities_for_record(config_record)
+    except (OperationalError, ProgrammingError, ValueError):
+        return
+
+
 def config_new(request):
     """Create a new SQL-backed scraping config."""
     wants_json = _wants_json(request)
@@ -840,8 +1058,9 @@ def config_new(request):
                 raise ValueError(_("Ya existe una configuración para '%(slug)s'.") % {"slug": slug})
             content = _config_content_from_request(request, slug, default_content, existing=False)
             _validate_config_text(slug, content)
-            upsert_scraping_config(slug, content)
+            saved_config = upsert_scraping_config(slug, content)
             _persist_manual_asset_overrides(slug, content)
+            _try_materialize_configured_city_rows(saved_config)
         except ValueError as exc:
             if wants_json:
                 return JsonResponse({"ok": False, "error": str(exc)}, status=400)
@@ -877,8 +1096,9 @@ def config_edit(request, slug):
         try:
             content = _config_content_from_request(request, slug, content, existing=True)
             _validate_config_text(slug, content)
-            upsert_scraping_config(slug, content, source_path=config_record.source_path)
+            saved_config = upsert_scraping_config(slug, content, source_path=config_record.source_path)
             _persist_manual_asset_overrides(slug, content)
+            _try_materialize_configured_city_rows(saved_config)
         except ValueError as exc:
             if wants_json:
                 return JsonResponse({"ok": False, "error": str(exc)}, status=400)
@@ -1442,8 +1662,9 @@ def start_config_task(request, slug, action):
                 raise ValueError(_("No existe la configuracion '%(slug)s'.") % {"slug": slug})
             content = _config_content_from_request(request, slug, config_record.content, existing=True)
             _validate_config_text(slug, content)
-            upsert_scraping_config(slug, content, source_path=config_record.source_path)
+            saved_config = upsert_scraping_config(slug, content, source_path=config_record.source_path)
             _persist_manual_asset_overrides(slug, content)
+            _try_materialize_configured_city_rows(saved_config)
             export_scraping_configs_to_toml(force=True, slugs=[slug])
         except ValueError as exc:
             if wants_json:
@@ -1846,7 +2067,10 @@ def recipe_edit(request, slug):
 
 def start_recipe_task(request, slug, action):
     """Start build/export tasks for a derived recipe."""
+    wants_json = _wants_json(request)
     if request.method != "POST":
+        if wants_json:
+            return JsonResponse({"ok": False, "error": _("Metodo no soportado.")}, status=405)
         return redirect("ciudades_del_mundo:recipe_list")
 
     slug = _normalize_recipe_slug(slug)
@@ -1856,7 +2080,10 @@ def start_recipe_task(request, slug, action):
         population_year = (request.POST.get("population_year") or "").strip()
         if population_year:
             if not population_year.isdigit():
-                messages.error(request, _("El ano de poblacion debe ser numerico."))
+                error = _("El ano de poblacion debe ser numerico.")
+                if wants_json:
+                    return JsonResponse({"ok": False, "error": error}, status=400)
+                messages.error(request, error)
                 return redirect("ciudades_del_mundo:recipe_list")
             args.extend(["--population-year", population_year])
         key = f"build:{slug}"
@@ -1870,24 +2097,66 @@ def start_recipe_task(request, slug, action):
         key = f"export-excel:{slug}"
         label = _("Exportar Excel: %(slug)s") % {"slug": slug}
     else:
-        raise Http404(_("Accion de receta no soportada."))
+        error = _("Accion de receta no soportada.")
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=404)
+        raise Http404(error)
 
-    task = task_manager.start(key=key, label=label, args=args)
+    try:
+        task = task_manager.start(key=key, label=label, args=args)
+    except (OperationalError, ProgrammingError) as exc:
+        error = _(
+            "No se pudo guardar la tarea en la base de datos. Ejecuta 'py manage.py migrate'. Detalle: %(error)s"
+        ) % {"error": exc}
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=503)
+        messages.error(request, error)
+        return redirect("ciudades_del_mundo:recipe_list")
+    except Exception as exc:  # noqa: BLE001 - AJAX must not receive a Django HTML debug page.
+        if wants_json:
+            return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+        raise
+
+    if wants_json:
+        return JsonResponse(_task_started_payload(task, label=label))
     messages.info(request, _("Tarea lanzada: %(label)s.") % {"label": label})
     return redirect("ciudades_del_mundo:task_detail", task_id=task.id)
 
 
 def new_country_import_toml(request):
     """Queue one SQL import task per new-country TOML seed."""
+    wants_json = _wants_json(request)
     if request.method != "POST":
+        if wants_json:
+            return JsonResponse({"ok": False, "error": _("Metodo no soportado.")}, status=405)
         return redirect("ciudades_del_mundo:new_country_list")
     paths = bundled_new_country_config_paths()
-    task_count = _queue_derived_seed_import_tasks(
-        paths,
-        section="new-countries",
-        key_prefix="import-new-country",
-        label_template=_("Importar pais nuevo TOML: %(slug)s"),
-    )
+    label_template = _("Importar pais nuevo TOML: %(slug)s")
+    try:
+        queued_tasks = _queue_derived_seed_import_tasks(
+            paths,
+            section="new-countries",
+            key_prefix="import-new-country",
+            label_template=label_template,
+        )
+    except (OperationalError, ProgrammingError) as exc:
+        error = _(
+            "No se pudo guardar la tarea en la base de datos. Ejecuta 'py manage.py migrate'. Detalle: %(error)s"
+        ) % {"error": exc}
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=503)
+        messages.error(request, error)
+        return redirect("ciudades_del_mundo:new_country_list")
+    except Exception as exc:  # noqa: BLE001 - AJAX must not receive a Django HTML debug page.
+        if wants_json:
+            return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+        raise
+    task_count = len(queued_tasks)
+    if wants_json:
+        if queued_tasks:
+            task, label = queued_tasks[0]
+            return JsonResponse(_task_started_payload(task, label=label))
+        return JsonResponse({"ok": False, "error": _("No hay semillas TOML de nuevos paises para importar.")}, status=404)
     if task_count:
         messages.info(
             request,
@@ -1901,18 +2170,41 @@ def new_country_import_toml(request):
 
 def group_import_toml(request):
     """Queue one SQL import task per subdivision-group TOML seed."""
+    wants_json = _wants_json(request)
     if request.method != "POST":
+        if wants_json:
+            return JsonResponse({"ok": False, "error": _("Metodo no soportado.")}, status=405)
         return redirect("ciudades_del_mundo:group_list")
     country_code = _normalize_group_country_key(request.POST.get("country_code"))
     paths = bundled_subdivision_group_paths()
     if country_code:
         paths = _subdivision_group_seed_paths_for_country(paths, country_code)
-    task_count = _queue_derived_seed_import_tasks(
-        paths,
-        section="groups",
-        key_prefix="import-group",
-        label_template=_("Importar grupo TOML: %(slug)s"),
-    )
+    label_template = _("Importar grupo TOML: %(slug)s")
+    try:
+        queued_tasks = _queue_derived_seed_import_tasks(
+            paths,
+            section="groups",
+            key_prefix="import-group",
+            label_template=label_template,
+        )
+    except (OperationalError, ProgrammingError) as exc:
+        error = _(
+            "No se pudo guardar la tarea en la base de datos. Ejecuta 'py manage.py migrate'. Detalle: %(error)s"
+        ) % {"error": exc}
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=503)
+        messages.error(request, error)
+        return redirect("ciudades_del_mundo:group_list")
+    except Exception as exc:  # noqa: BLE001 - AJAX must not receive a Django HTML debug page.
+        if wants_json:
+            return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+        raise
+    task_count = len(queued_tasks)
+    if wants_json:
+        if queued_tasks:
+            task, label = queued_tasks[0]
+            return JsonResponse(_task_started_payload(task, label=label))
+        return JsonResponse({"ok": False, "error": _("No hay semillas TOML de grupos para importar.")}, status=404)
     if task_count:
         messages.info(
             request,
@@ -1925,27 +2217,37 @@ def group_import_toml(request):
 
 
 def new_country_list(request):
-    """List derived-country containers and their editable TOML variants."""
-    countries = (
-        DerivedCountry.objects.annotate(config_count=Count("configs"))
-        .order_by("name", "slug")
-    )
+    """Render source-country cards with editable derived-country containers."""
+    countries = list(DerivedCountry.objects.prefetch_related("configs").order_by("name", "slug"))
     return render(
         request,
         "ciudades_del_mundo/new_country_list.html",
-        {"countries": countries, "seed_count": len(bundled_new_country_config_paths())},
+        {
+            "country_cards": _new_country_cards(countries),
+            "seed_count": len(bundled_new_country_config_paths()),
+        },
     )
 
 
-def new_country_new(request):
+def new_country_new(request, source_country_code=""):
     """Create a derived-country container."""
-    form = {"slug": "", "name": "", "source_country_code": "", "description": ""}
+    context_source_country_code = _normalize_group_country_key(
+        source_country_code or request.GET.get("source_country_code")
+    )
+    form = {
+        "slug": "",
+        "name": "",
+        "source_country_code": context_source_country_code,
+        "description": "",
+    }
     if request.method == "POST":
         form.update({key: request.POST.get(key, "") for key in form})
+        if context_source_country_code:
+            form["source_country_code"] = context_source_country_code
         try:
-            slug = _normalize_recipe_slug(form["slug"])
+            slug = _normalize_new_country_code(form["slug"])
             if DerivedCountry.objects.filter(slug=slug).exists():
-                raise ValueError(_("Ya existe un pais nuevo con slug '%(slug)s'.") % {"slug": slug})
+                raise ValueError(_("Ya existe un pais nuevo con codigo '%(code)s'.") % {"code": slug})
             name = str(form["name"] or "").strip()
             if not name:
                 raise ValueError(_("El nombre es obligatorio."))
@@ -1959,61 +2261,255 @@ def new_country_new(request):
             messages.error(request, str(exc))
         else:
             messages.success(request, _("Pais nuevo '%(name)s' creado.") % {"name": country.name})
-            return redirect("ciudades_del_mundo:new_country_detail", country_slug=country.slug)
-    return render(request, "ciudades_del_mundo/new_country_form.html", {"form": form, "mode": "country"})
-
-
-def new_country_detail(request, country_slug):
-    """List configurations for one derived-country container."""
-    country = _derived_country_or_404(country_slug)
-    configs = country.configs.order_by("name", "slug")
-    rows = []
-    for config in configs:
-        built_code = config.derived_country_code or config.slug
-        root = NuevoAdminArea.objects.filter(country_code=built_code, parent__isnull=True).order_by("name").first()
-        rows.append(
-            {
-                "config": config,
-                "built_code": built_code,
-                "root": root,
-                "built_count": NuevoAdminArea.objects.filter(country_code=built_code).count(),
-            }
-        )
+            return redirect(_new_country_detail_url(country))
     return render(
         request,
-        "ciudades_del_mundo/new_country_detail.html",
-        {"country": country, "rows": rows},
+        "ciudades_del_mundo/new_country_form.html",
+        {
+            "form": form,
+            "mode": "country",
+            "source_country_label": _source_country_display_label(form["source_country_code"]),
+        },
     )
 
 
-def new_country_config_new(request, country_slug):
+def new_country_detail(request, source_country_code="", country_slug=""):
+    """List configurations for one derived-country container."""
+    country = _derived_country_or_404(country_slug)
+    source_country_code = _normalize_group_country_key(source_country_code)
+    expected_source = _normalize_group_country_key(country.source_country_code)
+    if expected_source and source_country_code and source_country_code != expected_source:
+        raise Http404(_("El pais nuevo no pertenece a '%(country)s'.") % {"country": source_country_code})
+    if request.method == "POST":
+        name = str(request.POST.get("name") or "").strip()
+        description = str(request.POST.get("description") or "").strip()
+        if not name:
+            messages.error(request, _("El nombre es obligatorio."))
+        else:
+            country.name = name
+            country.description = description
+            country.save(update_fields=["name", "description"])
+            messages.success(request, _("Datos guardados."))
+        return redirect(_new_country_detail_url(country))
+    configs = list(country.configs.order_by("name", "slug"))
+    return render(
+        request,
+        "ciudades_del_mundo/new_country_detail.html",
+        {
+            "country": country,
+            "form": {
+                "slug": country.slug,
+                "name": country.name,
+                "description": country.description,
+            },
+            "tree_data_url": reverse(
+                "ciudades_del_mundo:api_new_country_config_tree",
+                kwargs={"country_slug": country.slug},
+            ),
+            "tree_levels": _new_country_config_level_options(configs),
+            "country_detail_url": _new_country_detail_url(country),
+            "export_excel_url": _new_country_detail_export_excel_url(country),
+            "new_country_config_new_url": _new_country_config_new_url(country),
+            "source_country_label": _source_country_display_label(country.source_country_code),
+        },
+    )
+
+
+def new_country_detail_export_excel(request, source_country_code="", country_slug=""):
+    """Download the visible new-country config hierarchy as an Excel workbook."""
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])
+    country = _derived_country_or_404(country_slug)
+    _validate_new_country_source_or_404(country, source_country_code)
+    rows = _new_country_config_rows(
+        list(country.configs.order_by("name", "slug")),
+        include_assigned_subdivisions=True,
+    )
+    workbook, export_rows, summary = _new_country_detail_export_workbook(country, rows)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = _safe_excel_filename(f"{country.slug}_{stamp}.xlsx")
+    source_code = _normalize_group_country_key(country.source_country_code) or "_"
+    output_path = Path(settings.BASE_DIR) / "excels" / "new-countries" / source_code / filename
+    SimpleXlsxWriter().write(workbook, output_path)
+    log_path = _write_new_country_detail_export_log(
+        country,
+        request=request,
+        output_path=output_path,
+        rows=export_rows,
+        summary=summary,
+    )
+    response = HttpResponse(
+        output_path.read_bytes(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response["X-Export-Log-Path"] = str(log_path)
+    return response
+
+
+def new_country_detail_export_excel_legacy(request, country_slug):
+    """Redirect old new-country export URLs to the source-qualified route."""
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])
+    country = _derived_country_or_404(country_slug)
+    source_country_code = _normalize_group_country_key(country.source_country_code)
+    if source_country_code:
+        return redirect(_new_country_detail_export_excel_url(country))
+    return new_country_detail_export_excel(request, country_slug=country_slug)
+
+
+def new_country_detail_legacy(request, country_slug):
+    """Redirect old /new-countries/<region>/ URLs to /new-countries/<country>/<region>/."""
+    country = _derived_country_or_404(country_slug)
+    source_country_code = _normalize_group_country_key(country.source_country_code)
+    if source_country_code:
+        return redirect(_new_country_detail_url(country))
+    return new_country_detail(request, country_slug=country_slug)
+
+
+def new_country_config_delete(request, source_country_code="", country_slug="", config_slug=""):
+    """Delete one SQL new-country entity configuration."""
+    wants_json = _wants_json(request)
+    if request.method != "POST":
+        if wants_json:
+            return JsonResponse({"ok": False, "error": _("Metodo no soportado.")}, status=405)
+        return HttpResponseNotAllowed(["POST"])
+    country = _derived_country_or_404(country_slug)
+    _validate_new_country_source_or_404(country, source_country_code)
+    config = _derived_country_config_or_404(country, config_slug)
+    record_slug = config.slug
+    parent_slug = _new_country_config_parent_slug(config)
+    with transaction.atomic():
+        reparented_slugs = _reparent_new_country_config_children_before_delete(
+            country,
+            deleted_slug=record_slug,
+            new_parent_slug=parent_slug,
+        )
+        materialized_deleted = _delete_materialized_rows_for_new_country_config(config)
+        config.delete()
+        _refresh_new_country_config_metrics_for_slugs(country, [parent_slug, *reparented_slugs])
+    if wants_json:
+        return JsonResponse(
+            {
+                "ok": True,
+                "deleted": True,
+                "country_slug": country.slug,
+                "config_slug": record_slug,
+                "reparented_slugs": reparented_slugs,
+                "materialized_deleted": materialized_deleted,
+                "redirect_url": _new_country_detail_url(country),
+            }
+        )
+    messages.success(request, _("Entidad eliminada."))
+    return redirect(_new_country_detail_url(country))
+
+
+def new_country_config_delete_legacy(request, country_slug, config_slug):
+    """Redirect old delete URLs to the source-qualified new-country delete route."""
+    country = _derived_country_or_404(country_slug)
+    source_country_code = _normalize_group_country_key(country.source_country_code)
+    if source_country_code:
+        return new_country_config_delete(
+            request,
+            source_country_code=source_country_code,
+            country_slug=country_slug,
+            config_slug=config_slug,
+        )
+    return new_country_config_delete(request, country_slug=country_slug, config_slug=config_slug)
+
+
+def new_country_config_clone(request, source_country_code="", country_slug="", config_slug=""):
+    """Clone one SQL new-country entity configuration."""
+    wants_json = _wants_json(request)
+    if request.method != "POST":
+        if wants_json:
+            return JsonResponse({"ok": False, "error": _("Metodo no soportado.")}, status=405)
+        return HttpResponseNotAllowed(["POST"])
+    country = _derived_country_or_404(country_slug)
+    _validate_new_country_source_or_404(country, source_country_code)
+    config = _derived_country_config_or_404(country, config_slug)
+    try:
+        with transaction.atomic():
+            clone = _clone_new_country_config(config)
+    except ValueError as exc:
+        if wants_json:
+            return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+        messages.error(request, str(exc))
+        return redirect(_new_country_detail_url(country))
+    redirect_url = _new_country_config_edit_url(clone)
+    if wants_json:
+        return JsonResponse(
+            {
+                "ok": True,
+                "cloned": True,
+                "country_slug": country.slug,
+                "config_slug": clone.slug,
+                "redirect_url": redirect_url,
+            }
+        )
+    messages.success(request, _("Entidad clonada."))
+    return redirect(redirect_url)
+
+
+def new_country_config_clone_legacy(request, country_slug, config_slug):
+    """Redirect old clone URLs to the source-qualified new-country clone route."""
+    country = _derived_country_or_404(country_slug)
+    source_country_code = _normalize_group_country_key(country.source_country_code)
+    if source_country_code:
+        return new_country_config_clone(
+            request,
+            source_country_code=source_country_code,
+            country_slug=country_slug,
+            config_slug=config_slug,
+        )
+    return new_country_config_clone(request, country_slug=country_slug, config_slug=config_slug)
+
+
+def new_country_config_new(request, source_country_code="", country_slug=""):
     """Create a TOML configuration for one derived country."""
     country = _derived_country_or_404(country_slug)
+    _validate_new_country_source_or_404(country, source_country_code)
+    fixed_source_country_code = _normalize_group_country_key(country.source_country_code)
     source_country_code = str(
-        request.POST.get("source_country_code")
+        fixed_source_country_code
+        or request.POST.get("source_country_code")
         or request.GET.get("source_country_code")
-        or country.source_country_code
         or ""
     ).strip().lower()
     form = {
         "slug": "",
         "name": "",
         "source_country_code": source_country_code,
-        "derived_country_code": "",
+        "parent_config_slug": "",
+        "parent_level": "0",
+        "entity_level": "1",
+        "use_subdivisions": "",
+        "entity_type": "Subdivision",
+        "capitals": [],
         "content": "",
-        "is_active": "1",
         "selection_json": "",
     }
     if request.method == "POST":
-        form.update({key: request.POST.get(key, "") for key in form})
+        form.update({key: request.POST.get(key, "") for key in form if key != "capitals"})
+        form["capitals"] = _derived_subdivision_capital_values_from_post(request.POST)
+        if fixed_source_country_code:
+            form["source_country_code"] = fixed_source_country_code
         try:
-            slug = _normalize_recipe_slug(form["slug"])
-            if country.configs.filter(slug=slug).exists():
-                raise ValueError(_("Ya existe una configuracion '%(slug)s' para este pais.") % {"slug": slug})
+            requested_code = _new_country_entity_code_from_form(form["slug"])
+            slug = _new_country_slug_from_entity_code(requested_code)
             name = str(form["name"] or "").strip()
             if not name:
                 raise ValueError(_("El nombre es obligatorio."))
-            derived_code = _normalize_recipe_slug(form["derived_country_code"] or slug)
+            derived_code = _normalize_new_country_code(country.slug)
+            use_subdivisions = _new_country_selection_uses_subdivisions(form["selection_json"])
+            sync_child_configs = _new_country_selection_has_child_config_slugs(form["selection_json"])
+            selected_child_config_slugs = _new_country_selected_child_config_slugs_from_selection_json(
+                form["selection_json"]
+            )
+            if use_subdivisions:
+                selected_child_config_slugs = []
+            parent_config_slug = _validate_new_country_config_parent(country, form["parent_config_slug"])
+            parent_level = _new_country_parent_level(country, parent_config_slug)
             content = _derived_country_content_from_create_post(
                 country=country,
                 slug=slug,
@@ -2022,33 +2518,58 @@ def new_country_config_new(request, country_slug):
                 derived_country_code=derived_code,
                 raw_content=form["content"],
                 selection_json=form["selection_json"],
+                parent_config_slug=parent_config_slug,
+                entity_level=parent_level + 1,
+                entity_code=requested_code,
+                entity_type=form["entity_type"],
+                capitals=form["capitals"],
             )
             _validate_plain_toml(content, expected_kind="derived_country_config")
-            config = DerivedCountryConfig.objects.create(
-                country=country,
-                slug=slug,
-                name=name,
-                source_country_code=str(form["source_country_code"] or "").strip().lower(),
-                derived_country_code=derived_code,
-                content=content,
-                is_active=bool(request.POST.get("is_active")),
-            )
+            with transaction.atomic():
+                selected_child_config_slugs = _rename_new_country_selected_child_slug_collision(
+                    country,
+                    slug=slug,
+                    use_subdivisions=use_subdivisions,
+                    selected_child_config_slugs=selected_child_config_slugs,
+                )
+                config = DerivedCountryConfig.objects.create(
+                    country=country,
+                    slug=slug,
+                    name=name,
+                    source_country_code=str(form["source_country_code"] or "").strip().lower(),
+                    derived_country_code=derived_code,
+                    content=content,
+                    is_active=True,
+                )
+                if sync_child_configs:
+                    metric_refresh_slugs = _new_country_metric_refresh_slugs_for_child_sync(
+                        country,
+                        parent_config=config,
+                        selected_child_slugs=selected_child_config_slugs,
+                    )
+                    _sync_new_country_config_children(
+                        country,
+                        parent_config=config,
+                        selected_child_slugs=selected_child_config_slugs,
+                    )
+                else:
+                    metric_refresh_slugs = []
+                _refresh_new_country_config_metrics_for_slugs(
+                    country,
+                    [config.slug, *metric_refresh_slugs],
+                )
         except ValueError as exc:
             messages.error(request, str(exc))
         else:
             messages.success(request, _("Configuracion '%(slug)s' creada.") % {"slug": config.slug})
-            return redirect(
-                "ciudades_del_mundo:new_country_config_edit",
-                country_slug=country.slug,
-                config_slug=config.slug,
-            )
+            return redirect(_new_country_config_edit_url(config))
     elif not form["content"]:
         form["content"] = _default_derived_country_toml(
             country=country,
             slug="nueva_configuracion",
             name="Nueva configuracion",
             source_country_code=country.source_country_code,
-            derived_country_code="nueva_configuracion",
+            derived_country_code=country.slug,
         )
     return render(
         request,
@@ -2057,71 +2578,558 @@ def new_country_config_new(request, country_slug):
             "country": country,
             "form": form,
             "config": None,
-            "source_countries": _derived_source_country_options(),
+            "country_detail_url": _new_country_detail_url(country),
+            "new_country_config_new_url": _new_country_config_new_url(country),
+            "parent_options": _new_country_config_parent_options(country),
+            "created_entity_options_url": reverse(
+                "ciudades_del_mundo:new_country_config_created_entity_options",
+                kwargs=_new_country_source_kwargs(country),
+            ),
+            "derived_subdivision_options": [],
+            "selected_derived_subdivision_keys": _new_country_selected_subdivision_keys_from_selection_json(
+                form.get("selection_json", ""),
+                fallback_country_code=form["source_country_code"],
+            ),
+            "capital_options": _new_country_config_capital_options_payload(
+                form["source_country_code"],
+                country=country,
+                selected_ids=form.get("capitals", []),
+                selected_derived_subdivisions=_new_country_selected_derived_subdivisions_from_selection_json(
+                    form.get("selection_json", ""),
+                    fallback_country_code=form["source_country_code"],
+                ),
+                selected_child_config_slugs=(
+                    []
+                    if _form_bool(form.get("use_subdivisions"), default=False)
+                    else _new_country_selected_child_config_slugs_from_selection_json(form.get("selection_json", ""))
+                ),
+                use_subdivisions=bool(form.get("use_subdivisions")),
+            ),
+            "capital_options_url": reverse(
+                "ciudades_del_mundo:new_country_config_capital_options",
+                kwargs=_new_country_source_kwargs(country),
+            ),
+            "derived_subdivision_options_url": reverse(
+                "ciudades_del_mundo:new_country_config_created_subdivision_options",
+                kwargs=_new_country_source_kwargs(country),
+            ),
+            "source_area_options_url": reverse(
+                "ciudades_del_mundo:new_country_config_source_area_options",
+                kwargs=_new_country_source_kwargs(country),
+            ),
+            "source_area_countries": _derived_source_country_options(),
+            "source_countries": _new_country_created_subdivision_country_options(),
+            "source_country_label": _source_country_display_label(form["source_country_code"]),
             "children_url": reverse("ciudades_del_mundo:new_country_source_children"),
         },
     )
 
 
-def new_country_config_edit(request, country_slug, config_slug):
+def new_country_config_created_subdivision_options(request, source_country_code="", country_slug=""):
+    """Return paginated created-subdivision options for a new-country config form."""
+    if request.method != "GET":
+        return JsonResponse({"ok": False, "error": _("Metodo no soportado.")}, status=405)
+    country = _derived_country_or_404(country_slug)
+    _validate_new_country_source_or_404(country, source_country_code)
+    search_term = str(request.GET.get("q") or request.GET.get("term") or "").strip()
+    country_filter = _normalize_group_country_key(request.GET.get("country") or request.GET.get("country_code"))
+    try:
+        queryset = _new_country_derived_subdivision_queryset(search_term, country_code=country_filter)
+        paginator = Paginator(queryset, _new_country_option_page_size(request))
+        page_obj = paginator.get_page(request.GET.get("page"))
+        options = _new_country_derived_subdivision_options_from_records(list(page_obj.object_list))
+    except (OperationalError, ProgrammingError):
+        return JsonResponse(
+            {
+                "ok": True,
+                "results": [],
+                "page": 1,
+                "page_size": NEW_COUNTRY_OPTION_DEFAULT_PAGE_SIZE,
+                "total": 0,
+                "num_pages": 1,
+                "has_next": False,
+                "has_previous": False,
+            }
+        )
+    return JsonResponse(
+        {
+            "ok": True,
+            "results": options,
+            "page": page_obj.number,
+            "page_size": page_obj.paginator.per_page,
+            "total": page_obj.paginator.count,
+            "num_pages": page_obj.paginator.num_pages,
+            "has_next": page_obj.has_next(),
+            "has_previous": page_obj.has_previous(),
+        }
+    )
+
+
+def new_country_config_source_area_options(request, source_country_code="", country_slug="", config_slug=""):
+    """Return paginated SQL AdminArea options for a new-country config form."""
+    if request.method != "GET":
+        return JsonResponse({"ok": False, "error": _("Metodo no soportado.")}, status=405)
+    country = _derived_country_or_404(country_slug)
+    _validate_new_country_source_or_404(country, source_country_code)
+    if config_slug and config_slug != "new":
+        _derived_country_config_or_404(country, config_slug)
+    country_filter = _normalize_group_country_key(
+        request.GET.get("country")
+        or request.GET.get("country_code")
+        or country.source_country_code
+        or source_country_code
+    )
+    page_size = _new_country_option_page_size(request)
+    try:
+        level_options = _source_level_filter_options_for_country(country_filter) if country_filter else []
+    except (OperationalError, ProgrammingError, ValueError):
+        level_options = []
+    empty_payload = {
+        "ok": True,
+        "results": [],
+        "levels": level_options,
+        "page": 1,
+        "page_size": page_size,
+        "total": 0,
+        "num_pages": 1,
+        "has_next": False,
+        "has_previous": False,
+    }
+    if not country_filter:
+        return JsonResponse(empty_payload)
+    raw_level = str(request.GET.get("level") or "").strip()
+    if not raw_level:
+        return JsonResponse(empty_payload)
+    try:
+        level = int(raw_level)
+    except (TypeError, ValueError):
+        return JsonResponse(empty_payload)
+    if level <= 0:
+        return JsonResponse(empty_payload)
+    search_term = str(request.GET.get("q") or request.GET.get("term") or "").strip()
+    try:
+        queryset = _group_source_admin_areas().filter(country_code__iexact=country_filter, level=level)
+        if search_term:
+            queryset = queryset.filter(
+                Q(id__icontains=search_term)
+                | Q(code__icontains=search_term)
+                | Q(name__icontains=search_term)
+                | Q(entity_type__icontains=search_term)
+                | Q(parent__name__icontains=search_term)
+            )
+            queryset = queryset.annotate(
+                search_rank=Case(
+                    When(name__iexact=search_term, then=Value(0)),
+                    When(code__iexact=search_term, then=Value(1)),
+                    When(id__iexact=search_term, then=Value(2)),
+                    When(name__icontains=search_term, then=Value(3)),
+                    When(code__icontains=search_term, then=Value(4)),
+                    When(id__icontains=search_term, then=Value(5)),
+                    When(entity_type__icontains=search_term, then=Value(6)),
+                    When(parent__name__icontains=search_term, then=Value(7)),
+                    default=Value(8),
+                    output_field=IntegerField(),
+                )
+            )
+        queryset = queryset.select_related("parent").only(
+            "id",
+            "country_code",
+            "code",
+            "name",
+            "level",
+            "entity_type",
+            "parent_id",
+            "parent__id",
+            "parent__country_code",
+            "parent__name",
+        )
+        if search_term:
+            queryset = queryset.order_by("search_rank", "name", "code", "id")
+        else:
+            queryset = queryset.order_by("name", "code", "id")
+        paginator = Paginator(queryset, page_size)
+        page_obj = paginator.get_page(request.GET.get("page"))
+        options = _new_country_source_area_options_from_records(list(page_obj.object_list))
+    except (OperationalError, ProgrammingError, ValueError):
+        return JsonResponse(empty_payload)
+    return JsonResponse(
+        {
+            "ok": True,
+            "results": options,
+            "levels": empty_payload["levels"],
+            "page": page_obj.number,
+            "page_size": page_obj.paginator.per_page,
+            "total": page_obj.paginator.count,
+            "num_pages": page_obj.paginator.num_pages,
+            "has_next": page_obj.has_next(),
+            "has_previous": page_obj.has_previous(),
+        }
+    )
+
+
+def new_country_config_created_entity_options(request, source_country_code="", country_slug="", config_slug=""):
+    """Return paginated created new-country entity options for a config form."""
+    if request.method != "GET":
+        return JsonResponse({"ok": False, "error": _("Metodo no soportado.")}, status=405)
+    country = _derived_country_or_404(country_slug)
+    _validate_new_country_source_or_404(country, source_country_code)
+    current_config = None
+    if config_slug and config_slug != "new":
+        current_config = _derived_country_config_or_404(country, config_slug)
+    search_term = str(request.GET.get("q") or request.GET.get("term") or "").strip()
+    try:
+        queryset = _new_country_created_entity_queryset(
+            country,
+            search_term,
+            current_config=current_config,
+        )
+        paginator = Paginator(queryset, _new_country_option_page_size(request))
+        page_obj = paginator.get_page(request.GET.get("page"))
+        options = _new_country_created_entity_options_from_records(list(page_obj.object_list))
+    except (OperationalError, ProgrammingError):
+        return JsonResponse(
+            {
+                "ok": True,
+                "results": [],
+                "page": 1,
+                "page_size": NEW_COUNTRY_OPTION_DEFAULT_PAGE_SIZE,
+                "total": 0,
+                "num_pages": 1,
+                "has_next": False,
+                "has_previous": False,
+            }
+        )
+    return JsonResponse(
+        {
+            "ok": True,
+            "results": options,
+            "page": page_obj.number,
+            "page_size": page_obj.paginator.per_page,
+            "total": page_obj.paginator.count,
+            "num_pages": page_obj.paginator.num_pages,
+            "has_next": page_obj.has_next(),
+            "has_previous": page_obj.has_previous(),
+        }
+    )
+
+
+def new_country_config_capital_options(request, source_country_code="", country_slug="", config_slug=""):
+    """Return capital options for a new-country config creation form."""
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": _("Metodo no soportado.")}, status=405)
+    country = _derived_country_or_404(country_slug)
+    _validate_new_country_source_or_404(country, source_country_code)
+    current_config = None
+    if config_slug and config_slug != "new":
+        current_config = _derived_country_config_or_404(country, config_slug)
+    country_code = _normalize_group_country_key(country.source_country_code or source_country_code)
+    try:
+        body = json.loads(request.body.decode("utf-8") or "{}")
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+    selected_values = _derived_subdivision_capital_values_from_payload(body)
+    current_data = None
+    current_entity = None
+
+    def current_config_entity() -> dict:
+        nonlocal current_data, current_entity
+        if current_config is None:
+            return {}
+        if current_data is None:
+            current_data = _new_country_config_toml(current_config)
+        if current_entity is None:
+            current_entity = _new_country_config_first_entity(current_data)
+        return current_entity
+
+    selection_touched = _form_bool(body.get("selection_touched"), default=False)
+    source_selection_touched = selection_touched or _form_bool(
+        body.get("source_selection_touched"),
+        default=False,
+    )
+    derived_selection_touched = selection_touched or _form_bool(
+        body.get("derived_subdivision_selection_touched"),
+        default=False,
+    )
+    selected_derived_subdivisions = _new_country_normalized_derived_subdivision_selections(
+        body.get("selected_derived_subdivisions")
+        or body.get("selected_subdivision_keys")
+        or body.get("derived_subdivisions")
+        or [],
+        fallback_country_code=country_code,
+    )
+    has_use_subdivisions_payload = "use_subdivisions" in body
+    use_subdivisions = body.get("use_subdivisions") in (True, "1", 1, "true", "True", "on")
+    if current_config is not None and not has_use_subdivisions_payload:
+        current_entity = current_config_entity()
+        use_subdivisions = bool(current_entity.get("use_selected_entities_as_children")) or bool(
+            _new_country_config_selected_derived_subdivisions(
+                current_entity,
+                fallback_country_code=country_code,
+            )
+        )
+    if current_config is not None and use_subdivisions and not selected_derived_subdivisions and not derived_selection_touched:
+        selected_derived_subdivisions = _new_country_config_selected_derived_subdivisions(
+            current_config_entity(),
+            fallback_country_code=country_code,
+        )
+    selected_source_ids = body.get("selected_ids") if isinstance(body.get("selected_ids"), list) else []
+    if current_config is not None and use_subdivisions and not selected_source_ids and not source_selection_touched:
+        if current_data is None:
+            current_data = _new_country_config_toml(current_config)
+        selected_source_ids = _new_country_config_selected_source_ids(
+            current_data,
+            current_config_entity(),
+        )
+    selected_child_config_slugs = [] if use_subdivisions else _new_country_child_config_slugs_for_capital_payload(
+        body,
+        country=country,
+        current_config=current_config,
+    )
+    search_term = str(body.get("query") or body.get("term") or "").strip()
+    options = _new_country_config_capital_options_payload(
+        country_code,
+        country=country,
+        selected_ids=selected_values,
+        selected_source_ids=selected_source_ids,
+        selected_derived_subdivisions=selected_derived_subdivisions,
+        selected_child_config_slugs=selected_child_config_slugs,
+        search_term=search_term,
+        use_subdivisions=use_subdivisions,
+    )
+    option_values = {option["value"] for option in options}
+    selected_values = [value for value in selected_values if value in option_values]
+    return JsonResponse(
+        {
+            "ok": True,
+            "capital": selected_values[0] if selected_values else "",
+            "capitals": selected_values,
+            "capital_options": options,
+        }
+    )
+
+
+def new_country_config_new_legacy(request, country_slug):
+    """Redirect old config-create URLs to the source-qualified route."""
+    country = _derived_country_or_404(country_slug)
+    return redirect(_new_country_config_new_url(country))
+
+
+def new_country_config_edit(request, source_country_code="", country_slug="", config_slug=""):
     """Edit one TOML-backed derived-country configuration."""
     country = _derived_country_or_404(country_slug)
+    _validate_new_country_source_or_404(country, source_country_code)
     config = _derived_country_config_or_404(country, config_slug)
-    form = {
-        "slug": config.slug,
-        "name": config.name,
-        "source_country_code": config.source_country_code,
-        "derived_country_code": config.derived_country_code,
-        "content": config.content,
-        "is_active": "1" if config.is_active else "",
-    }
+    form = _new_country_config_visual_form(country, config)
+    fixed_source_country_code = _normalize_group_country_key(country.source_country_code)
     if request.method == "POST":
-        form.update({key: request.POST.get(key, "") for key in form})
+        form.update({key: request.POST.get(key, "") for key in form if key != "capitals"})
+        form["capitals"] = _derived_subdivision_capital_values_from_post(request.POST)
+        if fixed_source_country_code:
+            form["source_country_code"] = fixed_source_country_code
         try:
+            requested_code = _new_country_entity_code_from_form(form["slug"])
+            current_code = _new_country_config_local_code(config)
+            requested_slug = _new_country_slug_from_entity_code(requested_code)
+            slug = config.slug if requested_code == current_code else requested_slug
             name = str(form["name"] or "").strip()
             if not name:
                 raise ValueError(_("El nombre es obligatorio."))
-            derived_code = _normalize_recipe_slug(form["derived_country_code"] or config.slug)
-            content = str(form["content"] or "").strip()
+            derived_code = _normalize_new_country_code(country.slug)
+            use_subdivisions = _new_country_selection_uses_subdivisions(form["selection_json"])
+            sync_child_configs = _new_country_selection_has_child_config_slugs(form["selection_json"])
+            selected_child_config_slugs = _new_country_selected_child_config_slugs_from_selection_json(
+                form["selection_json"]
+            )
+            if use_subdivisions:
+                selected_child_config_slugs = []
+            parent_config_slug = _validate_new_country_config_parent(
+                country,
+                form["parent_config_slug"],
+                current_config=config,
+            )
+            parent_level = _new_country_parent_level(country, parent_config_slug)
+            content = _derived_country_content_from_create_post(
+                country=country,
+                slug=slug,
+                name=name,
+                source_country_code=form["source_country_code"],
+                derived_country_code=derived_code,
+                raw_content=form["content"],
+                selection_json=form["selection_json"],
+                parent_config_slug=parent_config_slug,
+                entity_level=parent_level + 1,
+                entity_code=requested_code,
+                entity_type=form["entity_type"],
+                capitals=form["capitals"],
+            )
             _validate_plain_toml(content, expected_kind="derived_country_config")
-            config.name = name
-            config.source_country_code = str(form["source_country_code"] or "").strip().lower()
-            config.derived_country_code = derived_code
-            config.content = content
-            config.is_active = bool(request.POST.get("is_active"))
-            config.save()
+            old_slug = config.slug
+            with transaction.atomic():
+                if old_slug != slug:
+                    selected_child_config_slugs = _rename_new_country_selected_child_slug_collision(
+                        country,
+                        slug=slug,
+                        use_subdivisions=use_subdivisions,
+                        selected_child_config_slugs=selected_child_config_slugs,
+                        current_config=config,
+                    )
+                config.slug = slug
+                config.name = name
+                config.source_country_code = str(form["source_country_code"] or "").strip().lower()
+                config.derived_country_code = derived_code
+                config.content = content
+                config.is_active = True
+                config.save()
+                if old_slug != slug:
+                    _rename_new_country_config_parent_references(
+                        country,
+                        old_slug=old_slug,
+                        new_slug=slug,
+                        exclude_config=config,
+                    )
+                if sync_child_configs:
+                    metric_refresh_slugs = _new_country_metric_refresh_slugs_for_child_sync(
+                        country,
+                        parent_config=config,
+                        selected_child_slugs=selected_child_config_slugs,
+                    )
+                    _sync_new_country_config_children(
+                        country,
+                        parent_config=config,
+                        selected_child_slugs=selected_child_config_slugs,
+                    )
+                else:
+                    metric_refresh_slugs = []
+                _refresh_new_country_config_metrics_for_slugs(
+                    country,
+                    [config.slug, *metric_refresh_slugs],
+                )
         except ValueError as exc:
             messages.error(request, str(exc))
         else:
             messages.success(request, _("Configuracion '%(slug)s' guardada.") % {"slug": config.slug})
-            return redirect(
-                "ciudades_del_mundo:new_country_config_edit",
-                country_slug=country.slug,
-                config_slug=config.slug,
-            )
+            return redirect(_new_country_config_edit_url(config))
     return render(
         request,
-        "ciudades_del_mundo/new_country_config_form.html",
-        {"country": country, "config": config, "form": form},
+        "ciudades_del_mundo/new_country_config_create.html",
+        {
+            "country": country,
+            "config": config,
+            "form": form,
+            "country_detail_url": _new_country_detail_url(country),
+            "new_country_config_new_url": _new_country_config_new_url(country),
+            "parent_options": _new_country_config_parent_options(country, current_config=config),
+            "created_entity_options_url": reverse(
+                "ciudades_del_mundo:new_country_config_edit_created_entity_options",
+                kwargs={**_new_country_source_kwargs(country), "config_slug": config.slug},
+            ),
+            "derived_subdivision_options": [],
+            "selected_derived_subdivision_keys": _new_country_selected_subdivision_keys_from_selection_json(
+                form.get("selection_json", ""),
+                fallback_country_code=form["source_country_code"],
+            ),
+            "capital_options": _new_country_config_capital_options_payload(
+                form["source_country_code"],
+                country=country,
+                selected_ids=form.get("capitals", []),
+                selected_derived_subdivisions=_new_country_selected_derived_subdivisions_from_selection_json(
+                    form.get("selection_json", ""),
+                    fallback_country_code=form["source_country_code"],
+                ),
+                selected_child_config_slugs=(
+                    []
+                    if _form_bool(form.get("use_subdivisions"), default=False)
+                    else _new_country_selected_child_config_slugs_from_selection_json(form.get("selection_json", ""))
+                ),
+                use_subdivisions=bool(form.get("use_subdivisions")),
+            ),
+            "capital_options_url": reverse(
+                "ciudades_del_mundo:new_country_config_edit_capital_options",
+                kwargs={**_new_country_source_kwargs(country), "config_slug": config.slug},
+            ),
+            "derived_subdivision_options_url": reverse(
+                "ciudades_del_mundo:new_country_config_created_subdivision_options",
+                kwargs=_new_country_source_kwargs(country),
+            ),
+            "source_area_options_url": reverse(
+                "ciudades_del_mundo:new_country_config_edit_source_area_options",
+                kwargs={**_new_country_source_kwargs(country), "config_slug": config.slug},
+            ),
+            "source_area_countries": _derived_source_country_options(),
+            "source_countries": _new_country_created_subdivision_country_options(),
+            "source_country_label": _source_country_display_label(form["source_country_code"]),
+            "children_url": reverse("ciudades_del_mundo:new_country_source_children"),
+        },
     )
 
 
-def new_country_config_view(request, country_slug, config_slug):
-    """Show the built NuevoAdminArea tree attached to one derived-country config."""
+def new_country_config_edit_legacy(request, country_slug, config_slug):
+    """Redirect old config-edit URLs to the source-qualified route."""
     country = _derived_country_or_404(country_slug)
     config = _derived_country_config_or_404(country, config_slug)
-    built_code = config.derived_country_code or config.slug
-    root = NuevoAdminArea.objects.filter(country_code=built_code, parent__isnull=True).order_by("name").first()
-    stats = NuevoAdminArea.objects.filter(country_code=built_code).aggregate(
-        total=Count("id"),
-        population=Sum("pop_latest"),
-        seats=Sum("representatives"),
-    )
-    return render(
-        request,
-        "ciudades_del_mundo/new_country_config_view.html",
-        {"country": country, "config": config, "built_code": built_code, "root": root, "stats": stats},
-    )
+    return redirect(_new_country_config_edit_url(config))
+
+
+def start_new_country_config_task(request, source_country_code="", country_slug="", config_slug="", action=""):
+    """Start build/export tasks for one SQL new-country configuration."""
+    wants_json = _wants_json(request)
+    country = _derived_country_or_404(country_slug)
+    _validate_new_country_source_or_404(country, source_country_code)
+    config = _derived_country_config_or_404(country, config_slug)
+    if request.method != "POST":
+        if wants_json:
+            return JsonResponse({"ok": False, "error": _("Metodo no soportado.")}, status=405)
+        return redirect(_new_country_detail_url(country))
+
+    built_code = _new_country_config_built_code(config)
+    if action == "build":
+        key = f"build-new-country:{config.full_slug}"
+        label = _("Crear pais nuevo: %(name)s") % {"name": config.name}
+        args = ["build_new_subdivisions", "--country-id", built_code]
+    elif action == "export-excel":
+        if not NuevoAdminArea.objects.filter(id=built_code).exists():
+            error = _("Primero debes crear el pais nuevo antes de exportarlo.")
+            if wants_json:
+                return JsonResponse({"ok": False, "error": error}, status=400)
+            messages.error(request, error)
+            return redirect(_new_country_detail_url(country))
+        key = f"export-new-country-excel:{config.full_slug}"
+        label = _("Exportar Excel: %(name)s") % {"name": config.name}
+        args = ["export_nuevoadmin_excel", "--country-id", built_code]
+    else:
+        error = _("Accion de pais nuevo no soportada.")
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=404)
+        raise Http404(error)
+
+    try:
+        task = task_manager.start(key=key, label=label, args=args)
+    except (OperationalError, ProgrammingError) as exc:
+        error = _(
+            "No se pudo guardar la tarea en la base de datos. Ejecuta 'py manage.py migrate'. Detalle: %(error)s"
+        ) % {"error": exc}
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=503)
+        messages.error(request, error)
+        return redirect(_new_country_detail_url(country))
+    except Exception as exc:  # noqa: BLE001 - AJAX must not receive a Django HTML debug page.
+        if wants_json:
+            return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+        raise
+
+    if wants_json:
+        return JsonResponse(_task_started_payload(task, label=label))
+    messages.info(request, _("Tarea lanzada: %(label)s.") % {"label": label})
+    return redirect("ciudades_del_mundo:task_detail", task_id=task.id)
+
+
+def start_new_country_config_task_legacy(request, country_slug, config_slug, action):
+    """Redirect old config-task URLs to the source-qualified route."""
+    country = _derived_country_or_404(country_slug)
+    config = _derived_country_config_or_404(country, config_slug)
+    return redirect(_new_country_config_task_url(config, action))
 
 
 def new_country_source_children(request):
@@ -2131,15 +3139,23 @@ def new_country_source_children(request):
     if not country_code:
         return JsonResponse({"children": []})
     try:
+        legal_level = effective_source_municipal_level(country_code)
         if parent_id:
-            parent = _visible_admin_areas().get(id=parent_id, country_code__iexact=country_code)
-            children = _visible_admin_areas().filter(parent=parent)
+            parent = _group_source_admin_areas().get(id=parent_id, country_code__iexact=country_code)
+            if legal_level is not None and int(parent.level or 0) >= legal_level:
+                children = AdminArea.objects.none()
+            else:
+                children = _group_source_admin_areas().filter(parent=parent)
         else:
             root = _source_country_root_for_code(country_code)
-            if root:
-                children = _visible_admin_areas().filter(parent=root)
+            if root and legal_level == 0:
+                children = _group_source_admin_areas().filter(id=root.id)
+            elif root:
+                children = _group_source_admin_areas().filter(parent=root)
             else:
-                children = _visible_admin_areas().filter(country_code__iexact=country_code, level=1)
+                children = _group_source_admin_areas().filter(country_code__iexact=country_code, level=1)
+            if legal_level == 0 and not root:
+                children = AdminArea.objects.none()
         rows = list(
             children.order_by("level", "name", "id").only(
                 "id",
@@ -2153,7 +3169,8 @@ def new_country_source_children(request):
         )
     except (AdminArea.DoesNotExist, OperationalError, ProgrammingError, ValueError):
         rows = []
-    child_counts = _admin_area_child_counts([str(row.id) for row in rows])
+        legal_level = None
+    child_counts = _admin_area_child_counts([str(row.id) for row in rows], group_source_only=True)
     return JsonResponse(
         {
             "children": [
@@ -2165,7 +3182,10 @@ def new_country_source_children(request):
                     "level": int(row.level or 0),
                     "entity_type": str(row.entity_type or ""),
                     "parent_id": str(row.parent_id or ""),
-                    "has_children": child_counts.get(str(row.id), 0) > 0,
+                    "has_children": (
+                        (legal_level is None or int(row.level or 0) < legal_level)
+                        and child_counts.get(str(row.id), 0) > 0
+                    ),
                 }
                 for row in rows
             ]
@@ -2209,11 +3229,22 @@ def group_source_data(request):
     section_parent_id = str(request.GET.get("section_parent_id") or "").strip()
     source_mode = str(request.GET.get("source_mode") or "").strip().lower()
     include_groups = str(request.GET.get("include_groups") or "").strip().lower() in {"1", "true", "yes"}
+    include_derived_subdivisions = str(request.GET.get("include_derived_subdivisions") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    current_level = str(request.GET.get("current_level") or "").strip()
+    current_subdivision = str(request.GET.get("current_subdivision") or "").strip()
+    current_subdivision_country = _normalize_group_country_key(request.GET.get("current_subdivision_country"))
     descendant_parent_ids = [
         parent_id.strip()
         for parent_id in str(request.GET.get("descendant_parent_ids") or "").split(",")
         if parent_id.strip()
     ]
+    group_entries_cache: dict[str, list[dict]] = {}
+    group_entry_cache: dict[tuple[str, str], dict | None] = {}
+    source_ids_cache: dict[tuple[str, str], set[str]] = {}
     if source_mode == "descendants":
         children = _group_source_descendant_options(country_code, descendant_parent_ids)
         if include_groups:
@@ -2224,9 +3255,28 @@ def group_source_data(request):
                     country_code,
                     levels=descendant_levels,
                     parent_ids=descendant_parent_ids,
+                    entries_cache=group_entries_cache,
+                    include_member_names=False,
                 )
                 if descendant_levels
                 else [],
+            )
+        if include_derived_subdivisions:
+            descendant_levels = _source_item_levels(children)
+            children = _source_items_with_group_options(
+                children,
+                _derived_subdivision_source_options(
+                    country_code,
+                    levels=descendant_levels,
+                    parent_ids=descendant_parent_ids,
+                    current_level=current_level,
+                    current_subdivision=current_subdivision,
+                    current_subdivision_country=current_subdivision_country,
+                    source_ids_cache=source_ids_cache,
+                    group_entry_cache=group_entry_cache,
+                    group_entries_cache=group_entries_cache,
+                    include_member_names=False,
+                ),
             )
         return JsonResponse(
             {
@@ -2245,6 +3295,9 @@ def group_source_data(request):
         }
         if level:
             sections = _group_source_item_options(country_code, level, parent_id=section_parent_id)
+            if section_parent_id and not sections:
+                payload["sections"] = []
+                return JsonResponse(payload)
             if include_groups:
                 parent_ids = [section_parent_id] if section_parent_id else []
                 sections = _source_items_with_group_options(
@@ -2254,6 +3307,25 @@ def group_source_data(request):
                         level=level,
                         parent_ids=parent_ids,
                         direct_parent_only=True,
+                        entries_cache=group_entries_cache,
+                        include_member_names=False,
+                    ),
+                )
+            if include_derived_subdivisions:
+                parent_ids = [section_parent_id] if section_parent_id else []
+                sections = _source_items_with_group_options(
+                    sections,
+                    _derived_subdivision_source_options(
+                        country_code,
+                        level=level,
+                        parent_ids=parent_ids,
+                        current_level=current_level,
+                        current_subdivision=current_subdivision,
+                        current_subdivision_country=current_subdivision_country,
+                        source_ids_cache=source_ids_cache,
+                        group_entry_cache=group_entry_cache,
+                        group_entries_cache=group_entries_cache,
+                        include_member_names=False,
                     ),
                 )
             payload["sections"] = sections
@@ -2274,10 +3346,31 @@ def group_source_data(request):
                     level=direct_group_level,
                     parent_ids=[parent_id],
                     direct_parent_only=True,
+                    entries_cache=group_entries_cache,
+                    include_member_names=False,
                 )
                 if direct_group_level is not None
                 else [],
             )
+        if include_derived_subdivisions:
+            direct_child_levels = _source_item_levels(children)
+            direct_child_level = direct_child_levels[0] if direct_child_levels else None
+            if direct_child_level is not None:
+                children = _source_items_with_group_options(
+                    children,
+                    _derived_subdivision_source_options(
+                        country_code,
+                        level=direct_child_level,
+                        parent_ids=[parent_id],
+                        current_level=current_level,
+                        current_subdivision=current_subdivision,
+                        current_subdivision_country=current_subdivision_country,
+                        source_ids_cache=source_ids_cache,
+                        group_entry_cache=group_entry_cache,
+                        group_entries_cache=group_entries_cache,
+                        include_member_names=False,
+                    ),
+                )
         payload["children"] = children
     return JsonResponse(payload)
 
@@ -2302,9 +3395,20 @@ def group_list(request):
     )
 
 
+def group_country_detail_data(request, country_code):
+    """Return the lazily loaded /groups/ detail tables for one source country."""
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])
+    country_code = _normalize_group_country_key(country_code)
+    if not country_code:
+        return JsonResponse({"ok": False, "error": _("No se pudo identificar el pais.")}, status=404)
+    return JsonResponse(_group_country_detail_payload(country_code))
+
+
 def derived_subdivision_import_toml(request):
     """Import or queue SQL refreshes from derived-subdivision TOML seeds."""
     wants_json = _wants_json(request)
+    queue_task = request.POST.get("queue_task") == "1"
     if request.method != "POST":
         if wants_json:
             return JsonResponse({"ok": False, "error": _("Metodo no soportado.")}, status=405)
@@ -2313,7 +3417,7 @@ def derived_subdivision_import_toml(request):
     paths = bundled_derived_subdivision_paths()
     if country_code:
         paths = _derived_subdivision_seed_paths_for_country(paths, country_code)
-    if wants_json:
+    if wants_json and not queue_task:
         if not paths:
             return JsonResponse(
                 {"ok": False, "error": _("No hay semillas TOML de subdivisiones para importar.")},
@@ -2336,12 +3440,32 @@ def derived_subdivision_import_toml(request):
             )
         message = _("Importadas %(count)s subdivision(es) desde TOML.") % {"count": len(imported)}
         return JsonResponse({"ok": True, "message": message, "imported": bool(imported), "refresh": True})
-    task_count = _queue_derived_seed_import_tasks(
-        paths,
-        section="subdivisions",
-        key_prefix="import-subdivision",
-        label_template=_("Importar subdivision TOML: %(slug)s"),
-    )
+    label_template = _("Importar subdivision TOML: %(slug)s")
+    try:
+        queued_tasks = _queue_derived_seed_import_tasks(
+            paths,
+            section="subdivisions",
+            key_prefix="import-subdivision",
+            label_template=label_template,
+        )
+    except (OperationalError, ProgrammingError) as exc:
+        error = _(
+            "No se pudo guardar la tarea en la base de datos. Ejecuta 'py manage.py migrate'. Detalle: %(error)s"
+        ) % {"error": exc}
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=503)
+        messages.error(request, error)
+        return redirect("ciudades_del_mundo:derived_subdivision_list")
+    except Exception as exc:  # noqa: BLE001 - AJAX must not receive a Django HTML debug page.
+        if wants_json:
+            return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+        raise
+    task_count = len(queued_tasks)
+    if wants_json:
+        if queued_tasks:
+            task, label = queued_tasks[0]
+            return JsonResponse(_task_started_payload(task, label=label))
+        return JsonResponse({"ok": False, "error": _("No hay semillas TOML de subdivisiones para importar.")}, status=404)
     if task_count:
         messages.info(
             request,
@@ -2396,20 +3520,45 @@ def derived_subdivision_export_toml(request, slug: str):
 
 def derived_subdivision_build(request, country_code: str):
     """Queue a build task that materializes derived subdivisions for one country."""
+    wants_json = _wants_json(request)
     if request.method != "POST":
+        if wants_json:
+            return JsonResponse({"ok": False, "error": _("Metodo no soportado.")}, status=405)
         return redirect("ciudades_del_mundo:derived_subdivision_list")
     country_code = _normalize_group_country_key(country_code)
     if not country_code:
-        messages.error(request, _("No se pudo identificar el pais."))
+        error = _("No se pudo identificar el pais.")
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=400)
+        messages.error(request, error)
         return redirect("ciudades_del_mundo:derived_subdivision_list")
     if not DerivedSubdivision.objects.filter(source_country_code__iexact=country_code).exists():
-        messages.warning(request, _("No hay subdivisiones SQL para %(country)s.") % {"country": country_code})
+        error = _("No hay subdivisiones SQL para %(country)s.") % {"country": country_code}
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=404)
+        messages.warning(request, error)
         return redirect("ciudades_del_mundo:derived_subdivision_list")
-    task_manager.start(
-        key=f"build-derived-subdivisions:{country_code}",
-        label=_("Popular nuevas divisiones: %(country)s") % {"country": country_code},
-        args=["build_derived_subdivisions", country_code, "--force"],
-    )
+    label = _("Popular nuevas divisiones: %(country)s") % {"country": country_code}
+    try:
+        task = task_manager.start(
+            key=f"build-derived-subdivisions:{country_code}",
+            label=label,
+            args=["build_derived_subdivisions", country_code, "--force", "--continue-on-error"],
+        )
+    except (OperationalError, ProgrammingError) as exc:
+        error = _(
+            "No se pudo guardar la tarea en la base de datos. Ejecuta 'py manage.py migrate'. Detalle: %(error)s"
+        ) % {"error": exc}
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=503)
+        messages.error(request, error)
+        return redirect("ciudades_del_mundo:derived_subdivision_list")
+    except Exception as exc:  # noqa: BLE001 - AJAX must not receive a Django HTML debug page.
+        if wants_json:
+            return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+        raise
+    if wants_json:
+        return JsonResponse(_task_started_payload(task, label=label))
     messages.info(request, _("Encolada la poblacion de nuevas divisiones para %(country)s.") % {"country": country_code})
     return redirect("ciudades_del_mundo:task_list")
 
@@ -2426,6 +3575,16 @@ def derived_subdivision_list(request):
             "seed_count": len(seed_paths),
         },
     )
+
+
+def derived_subdivision_country_detail_data(request, country_code):
+    """Return the lazily loaded /subdivisions/ detail tables for one source country."""
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])
+    country_code = _normalize_group_country_key(country_code)
+    if not country_code:
+        return JsonResponse({"ok": False, "error": _("No se pudo identificar el pais.")}, status=404)
+    return JsonResponse(_derived_subdivision_country_detail_payload(country_code))
 
 
 def derived_subdivision_new(request, country_code):
@@ -2454,6 +3613,83 @@ def derived_subdivision_edit(request, country_code, subdivision_slug):
         record=record,
         requested_slug=subdivision_slug,
     )
+
+
+def derived_subdivision_delete(request, country_code, subdivision_slug):
+    """Delete one SQL derived-subdivision definition from the groups table."""
+    wants_json = _wants_json(request)
+    if request.method != "POST":
+        if wants_json:
+            return JsonResponse({"ok": False, "error": _("Metodo no soportado.")}, status=405)
+        return HttpResponseNotAllowed(["POST"])
+    country_code = _normalize_group_country_key(country_code)
+    subdivision_slug = _group_entry_slug(subdivision_slug)
+    record = _derived_subdivision_for_country(country_code, subdivision_slug)
+    if not record:
+        error = _("No existe la subdivision '%(slug)s'.") % {"slug": subdivision_slug}
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=404)
+        raise Http404(error)
+    record_slug = record.slug
+    with transaction.atomic():
+        materialized_deleted = _delete_materialized_rows_for_derived_subdivision(record)
+        record.delete()
+    if wants_json:
+        return JsonResponse(
+            {
+                "ok": True,
+                "deleted": True,
+                "country_code": country_code,
+                "subdivision_slug": subdivision_slug,
+                "record_slug": record_slug,
+                "materialized_deleted": materialized_deleted,
+                "redirect_url": reverse("ciudades_del_mundo:group_list"),
+            }
+        )
+    return redirect("ciudades_del_mundo:group_list")
+
+
+def derived_subdivision_clone(request, country_code, subdivision_slug):
+    """Clone one SQL derived-subdivision definition."""
+    wants_json = _wants_json(request)
+    if request.method != "POST":
+        if wants_json:
+            return JsonResponse({"ok": False, "error": _("Metodo no soportado.")}, status=405)
+        return HttpResponseNotAllowed(["POST"])
+    country_code = _normalize_group_country_key(country_code)
+    subdivision_slug = _group_entry_slug(subdivision_slug)
+    record = _derived_subdivision_for_country(country_code, subdivision_slug)
+    if not record:
+        error = _("No existe la subdivision '%(slug)s'.") % {"slug": subdivision_slug}
+        if wants_json:
+            return JsonResponse({"ok": False, "error": error}, status=404)
+        raise Http404(error)
+    try:
+        with transaction.atomic():
+            clone = _clone_derived_subdivision(record)
+    except ValueError as exc:
+        if wants_json:
+            return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+        messages.error(request, str(exc))
+        return redirect("ciudades_del_mundo:derived_subdivision_list")
+    clone_country_code = _normalize_group_country_key(clone.source_country_code)
+    clone_entry_slug = _derived_subdivision_entry_slug(clone)
+    redirect_url = reverse(
+        "ciudades_del_mundo:derived_subdivision_edit",
+        kwargs={"country_code": clone_country_code, "subdivision_slug": clone_entry_slug},
+    )
+    if wants_json:
+        return JsonResponse(
+            {
+                "ok": True,
+                "cloned": True,
+                "country_code": clone_country_code,
+                "subdivision_slug": clone_entry_slug,
+                "record_slug": clone.slug,
+                "redirect_url": redirect_url,
+            }
+        )
+    return redirect(redirect_url)
 
 
 def derived_subdivision_form_data(request, country_code, subdivision_slug):
@@ -2539,6 +3775,7 @@ def derived_subdivision_capital_options(request, country_code, subdivision_slug)
 
 def _derived_subdivision_form(request, *, country_code: str, record: DerivedSubdivision | None, requested_slug: str = ""):
     country_code = _normalize_group_country_key(country_code)
+    wants_json = _wants_json(request)
     if record:
         mode = "edit"
         form = _derived_subdivision_form_initial(country_code=country_code, record=record)
@@ -2562,6 +3799,7 @@ def _derived_subdivision_form(request, *, country_code: str, record: DerivedSubd
             "capitals": [],
             "flag_url": "",
             "coat_url": "",
+            "use_selected_entities_as_children": False,
             "description": "",
             "content": "",
         }
@@ -2581,6 +3819,7 @@ def _derived_subdivision_form(request, *, country_code: str, record: DerivedSubd
             "capitals": [],
             "flag_url": "",
             "coat_url": "",
+            "use_selected_entities_as_children": False,
             "description": "",
             "content": _default_derived_subdivision_toml(
                 country_code=country_code,
@@ -2597,6 +3836,10 @@ def _derived_subdivision_form(request, *, country_code: str, record: DerivedSubd
         form["parent_code"] = _derived_subdivision_root_code(country_code)
         form["code_suffix"] = str(request.POST.get("code_suffix") or "").strip()
         form["level"] = str(request.POST.get("level") or "").strip()
+        form["use_selected_entities_as_children"] = _form_bool(
+            request.POST.get("use_selected_entities_as_children"),
+            default=False,
+        )
         try:
             internal_name = _group_internal_name(form["internal_name"])
             entry_slug = _group_entry_slug(internal_name)
@@ -2645,15 +3888,21 @@ def _derived_subdivision_form(request, *, country_code: str, record: DerivedSubd
                 capitals=form.get("capitals", []),
                 flag_url=form.get("flag_url", ""),
                 coat_url=form.get("coat_url", ""),
+                use_selected_entities_as_children=bool(form.get("use_selected_entities_as_children")),
             )
             _validate_derived_subdivision_toml(content)
             slug = _derived_subdivision_record_slug(source_country_code, entry_slug)
             if record is None and DerivedSubdivision.objects.filter(slug=slug).exists():
                 raise ValueError(_("Ya existe una subdivision '%(slug)s'.") % {"slug": internal_name})
-            target = record or DerivedSubdivision(slug=slug)
-            if record is not None and record.slug != slug and DerivedSubdivision.objects.filter(slug=slug).exclude(slug=record.slug).exists():
+            duplicate_internal_name = DerivedSubdivision.objects.filter(
+                source_country_code__iexact=source_country_code,
+                internal_name__iexact=internal_name,
+            )
+            if record is not None:
+                duplicate_internal_name = duplicate_internal_name.exclude(slug=record.slug)
+            if duplicate_internal_name.exists():
                 raise ValueError(_("Ya existe una subdivision '%(slug)s'.") % {"slug": internal_name})
-            target.slug = slug
+            target = record or DerivedSubdivision(slug=slug)
             target.internal_name = internal_name
             target.name = name
             target.source_country_code = source_country_code
@@ -2663,14 +3912,48 @@ def _derived_subdivision_form(request, *, country_code: str, record: DerivedSubd
             target.content = content
             target.save()
         except ValueError as exc:
+            if wants_json:
+                return JsonResponse({"ok": False, "error": str(exc)}, status=400)
             messages.error(request, str(exc))
         else:
-            messages.success(request, _("Subdivision '%(name)s' guardada.") % {"name": target.name})
-            return redirect(
+            message = _("Subdivision '%(name)s' guardada.") % {"name": target.name}
+            redirect_url = reverse(
                 "ciudades_del_mundo:derived_subdivision_edit",
-                country_code=target.source_country_code,
-                subdivision_slug=_derived_subdivision_entry_slug(target),
+                kwargs={
+                    "country_code": target.source_country_code,
+                    "subdivision_slug": _derived_subdivision_entry_slug(target),
+                },
             )
+            if wants_json:
+                payload = _derived_subdivision_form_save_payload(
+                    country_code=target.source_country_code,
+                    record=target,
+                )
+                payload.update(
+                    {
+                        "message": message,
+                        "redirect_url": redirect_url,
+                        "country_code": target.source_country_code,
+                        "subdivision_slug": _derived_subdivision_entry_slug(target),
+                        "data_url": reverse(
+                            "ciudades_del_mundo:derived_subdivision_form_data",
+                            kwargs={
+                                "country_code": target.source_country_code,
+                                "subdivision_slug": _derived_subdivision_entry_slug(target),
+                            },
+                        ),
+                        "capital_options_url": reverse(
+                            "ciudades_del_mundo:derived_subdivision_capital_options",
+                            kwargs={
+                                "country_code": target.source_country_code,
+                                "subdivision_slug": _derived_subdivision_entry_slug(target),
+                            },
+                        ),
+                    }
+                )
+                return JsonResponse(payload)
+            messages.success(request, message)
+            return redirect(f"{redirect_url}?saved=1")
 
     load_dynamic = request.method == "GET"
     if load_dynamic:
@@ -2713,7 +3996,17 @@ def _derived_subdivision_form(request, *, country_code: str, record: DerivedSubd
             "source_countries": _source_country_options_with_current(country_code),
             "source_data_url": reverse("ciudades_del_mundo:group_source_data"),
             "default_group_level": ORIGINAL_MUNICIPAL_LEVEL.get(country_code, 0),
+            "current_subdivision_key": form.get("internal_name") or "",
             "load_dynamic": load_dynamic,
+            "return_row_href": (
+                reverse(
+                    "ciudades_del_mundo:derived_subdivision_edit",
+                    kwargs={"country_code": country_code, "subdivision_slug": data_slug},
+                )
+                if data_slug != "new"
+                else ""
+            ),
+            "return_needs_refresh": request.GET.get("saved") == "1",
             "data_url": reverse(
                 "ciudades_del_mundo:derived_subdivision_form_data",
                 kwargs={"country_code": country_code, "subdivision_slug": data_slug},
@@ -2745,6 +4038,7 @@ def _derived_subdivision_form_payload(*, country_code: str, record: DerivedSubdi
             "capitals": [],
             "flag_url": "",
             "coat_url": "",
+            "use_selected_entities_as_children": False,
             "description": "",
             "content": _default_derived_subdivision_toml(
                 country_code=country_code,
@@ -2753,6 +4047,9 @@ def _derived_subdivision_form_payload(*, country_code: str, record: DerivedSubdi
             ),
         }
     parent_options = _derived_subdivision_root_parent_options(country_code)
+    group_entries_cache: dict[str, list[dict]] = {}
+    group_entry_cache: dict[tuple[str, str], dict | None] = {}
+    source_ids_cache: dict[tuple[str, str], set[str]] = {}
     return {
         "ok": True,
         "mode": mode,
@@ -2767,11 +4064,33 @@ def _derived_subdivision_form_payload(*, country_code: str, record: DerivedSubdi
             form.get("content", ""),
             "include",
             fallback_country_code=country_code,
+            group_entries_cache=group_entries_cache,
+            group_entry_cache=group_entry_cache,
+            source_ids_cache=source_ids_cache,
         ),
         "subtract_items": _derived_subdivision_visual_source_items_from_content(
             form.get("content", ""),
             "subtract",
             fallback_country_code=country_code,
+            group_entries_cache=group_entries_cache,
+            group_entry_cache=group_entry_cache,
+            source_ids_cache=source_ids_cache,
+        ),
+    }
+
+
+def _derived_subdivision_form_save_payload(*, country_code: str, record: DerivedSubdivision) -> dict:
+    country_code = _normalize_group_country_key(country_code)
+    form = _derived_subdivision_form_initial(country_code=country_code, record=record)
+    return {
+        "ok": True,
+        "mode": "edit",
+        "title": form.get("internal_name", ""),
+        "form": form,
+        "parent_options": _derived_subdivision_root_parent_options(country_code),
+        "capital_options": _derived_subdivision_capital_options(
+            country_code,
+            selected_ids=form.get("capitals", []),
         ),
     }
 
@@ -2800,6 +4119,10 @@ def _derived_subdivision_form_initial(*, country_code: str, record: DerivedSubdi
         "capitals": capitals,
         "flag_url": str(data.get("flag_url") or "").strip(),
         "coat_url": str(data.get("coat_url") or "").strip(),
+        "use_selected_entities_as_children": _form_bool(
+            data.get("use_selected_entities_as_children"),
+            default=False,
+        ),
         "description": record.description,
         "content": record.content,
     }
@@ -2988,6 +4311,7 @@ def _render_derived_subdivision_form_toml(
     capitals: list[str] | tuple[str, ...] | None = None,
     flag_url: str = "",
     coat_url: str = "",
+    use_selected_entities_as_children: bool = False,
 ) -> str:
     try:
         data = tomllib.loads(content or "")
@@ -3008,6 +4332,7 @@ def _render_derived_subdivision_form_toml(
             "level": level,
             "flag_url": str(flag_url or "").strip(),
             "coat_url": str(coat_url or "").strip(),
+            "use_selected_entities_as_children": bool(use_selected_entities_as_children),
         }
     )
     if capitals is None:
@@ -3027,6 +4352,7 @@ def _render_derived_subdivision_toml_data(data: dict) -> str:
         f"parent_code = {_toml_string(data.get('parent_code') or '')}",
         f"entity_type = {_toml_string(data.get('entity_type') or '')}",
         f"level = {int(data.get('level') or 1)}",
+        f"use_selected_entities_as_children = {_toml_bool(_form_bool(data.get('use_selected_entities_as_children'), default=False))}",
     ]
     if data.get("generic_name") not in (None, ""):
         lines.append(f"generic_name = {_toml_string(data.get('generic_name') or '')}")
@@ -3091,6 +4417,7 @@ def _append_derived_block_toml(lines: list[str], table_name: str, blocks: list[d
                 f"ids = {_toml_array([str(item) for item in block.get('ids') or []])}",
                 f"codes = {_toml_array([str(item) for item in block.get('codes') or []])}",
                 f"groups = {_toml_array([_group_internal_name(str(item)) for item in block.get('groups') or []])}",
+                f"derived_subdivisions = {_toml_array([_group_internal_name(str(item)) for item in block.get('derived_subdivisions') or []])}",
                 f"expressions = {_toml_array([str(item) for item in block.get('expressions') or []])}",
                 "",
             ]
@@ -3112,9 +4439,23 @@ def _derived_subdivision_visual_source_items_from_content(
     table_name: str,
     *,
     fallback_country_code: str,
+    group_entries_cache: dict[str, list[dict]] | None = None,
+    group_entry_cache: dict[tuple[str, str], dict | None] | None = None,
+    source_ids_cache: dict[tuple[str, str], set[str]] | None = None,
 ) -> list[dict]:
     data = _derived_subdivision_toml_data(content)
     source_blocks = data.get(table_name) if isinstance(data.get(table_name), list) else []
+    scoped_municipal_ids_by_country = (
+        _derived_subdivision_include_municipal_scope_by_country(
+            data,
+            fallback_country_code=fallback_country_code,
+            group_entry_cache=group_entry_cache,
+            group_entries_cache=group_entries_cache,
+            source_ids_cache=source_ids_cache,
+        )
+        if table_name == "subtract"
+        else {}
+    )
     visual_by_country: dict[str, dict] = {}
     seen_ids: dict[str, set[str]] = {}
     for block in source_blocks:
@@ -3123,24 +4464,46 @@ def _derived_subdivision_visual_source_items_from_content(
         block_country = _normalize_group_country_key(block.get("country_code") or fallback_country_code)
         if not block_country:
             continue
-        try:
-            level = int(block.get("level") or 0)
-        except (TypeError, ValueError):
-            level = 0
-        if not level:
+        raw_level = block.get("level")
+        if raw_level in (None, ""):
             continue
-        refs = _derived_subdivision_block_source_refs(block, country_code=block_country, expand_groups=False)
+        try:
+            level = int(raw_level)
+        except (TypeError, ValueError):
+            continue
+        if level < 0:
+            continue
+        refs = _derived_subdivision_block_source_refs(
+            block,
+            country_code=block_country,
+            expand_groups=False,
+            group_entry_cache=group_entry_cache,
+            group_entries_cache=group_entries_cache,
+            source_ids_cache=source_ids_cache,
+        )
         areas = _derived_subdivision_source_ref_areas(block_country, level, refs)
         country_block = visual_by_country.setdefault(block_country, {"country_code": block_country, "items": []})
         country_seen = seen_ids.setdefault(block_country, set())
+        parent_by_id, _ = _derived_subdivision_group_parent_maps(areas)
         for area in sorted(areas, key=lambda item: (int(item.level or 0), _area_display_name(item), str(item.id))):
             area_id = str(area.id)
             if area_id in country_seen:
                 continue
             country_seen.add(area_id)
-            country_block["items"].append(_derived_subdivision_source_item_payload(area))
+            country_block["items"].append(
+                _derived_subdivision_source_item_payload(
+                    area,
+                    ancestor_ids=_area_ancestor_ids_from_parent_map(area_id, parent_by_id),
+                )
+            )
         for group_key in _derived_subdivision_list_values(block.get("groups")):
-            group_item = _derived_subdivision_group_source_item_for_key(block_country, group_key, level=level)
+            group_item = _derived_subdivision_group_source_item_for_key(
+                block_country,
+                group_key,
+                level=level,
+                scoped_municipal_ids=scoped_municipal_ids_by_country.get(block_country),
+                entries_cache=group_entries_cache,
+            )
             if not group_item:
                 continue
             group_item_id = str(group_item.get("id") or group_item.get("value") or "").strip()
@@ -3148,17 +4511,72 @@ def _derived_subdivision_visual_source_items_from_content(
                 continue
             country_seen.add(group_item_id)
             country_block["items"].append(group_item)
+        for subdivision_key in _derived_subdivision_list_values(block.get("derived_subdivisions")):
+            subdivision_item = _derived_subdivision_record_source_item_for_key(
+                block_country,
+                subdivision_key,
+                level=level,
+                source_ids_cache=source_ids_cache,
+                group_entry_cache=group_entry_cache,
+                group_entries_cache=group_entries_cache,
+            )
+            if not subdivision_item:
+                continue
+            subdivision_item_id = str(subdivision_item.get("id") or subdivision_item.get("value") or "").strip()
+            if not subdivision_item_id or subdivision_item_id in country_seen:
+                continue
+            country_seen.add(subdivision_item_id)
+            country_block["items"].append(subdivision_item)
     return _derived_subdivision_source_items_with_default(
         list(visual_by_country.values()),
         fallback_country_code=fallback_country_code,
     )
 
 
-def _derived_subdivision_source_item_payload(area: AdminArea) -> dict:
+def _derived_subdivision_include_municipal_scope_by_country(
+    data: dict,
+    *,
+    fallback_country_code: str,
+    group_entry_cache: dict[tuple[str, str], dict | None] | None = None,
+    group_entries_cache: dict[str, list[dict]] | None = None,
+    source_ids_cache: dict[tuple[str, str], set[str]] | None = None,
+) -> dict[str, set[str]]:
+    include_blocks = data.get("include") if isinstance(data.get("include"), list) else []
+    result: dict[str, set[str]] = {}
+    for block in include_blocks:
+        if not isinstance(block, dict):
+            continue
+        block_country = _normalize_group_country_key(block.get("country_code") or fallback_country_code)
+        if not block_country:
+            continue
+        raw_level = block.get("level")
+        if raw_level in (None, ""):
+            continue
+        try:
+            level = int(raw_level)
+        except (TypeError, ValueError):
+            continue
+        if level < 0:
+            continue
+        refs = _derived_subdivision_block_source_refs(
+            block,
+            country_code=block_country,
+            group_entry_cache=group_entry_cache,
+            group_entries_cache=group_entries_cache,
+            source_ids_cache=source_ids_cache,
+        )
+        areas = _derived_subdivision_source_ref_areas(block_country, level, refs)
+        result.setdefault(block_country, set()).update(
+            _derived_subdivision_areas_to_capital_source_ids(areas, country_code=block_country)
+        )
+    return result
+
+
+def _derived_subdivision_source_item_payload(area: AdminArea, *, ancestor_ids: list[str] | None = None) -> dict:
     name = _area_display_name(area)
     entity_type = _entity_type_label(area.entity_type, country_code=area.country_code)
     label = f"{name} ({entity_type})" if entity_type else name
-    metadata = _group_admin_area_metadata(str(area.id))
+    metadata = {} if ancestor_ids is not None else _group_admin_area_metadata(str(area.id))
     return {
         "id": str(area.id),
         "value": str(area.id),
@@ -3169,12 +4587,77 @@ def _derived_subdivision_source_item_payload(area: AdminArea) -> dict:
         "level": int(area.level or 0),
         "entity_type": entity_type,
         "parent_id": str(area.parent_id or ""),
-        "ancestor_ids": metadata.get("ancestor_ids") or [],
+        "ancestor_ids": ancestor_ids if ancestor_ids is not None else metadata.get("ancestor_ids") or [],
     }
+
+
+def _area_ancestor_ids_from_parent_map(area_id: str, parent_by_id: dict[str, str]) -> list[str]:
+    ancestor_ids = []
+    parent_id = parent_by_id.get(str(area_id), "")
+    seen: set[str] = set()
+    while parent_id and parent_id not in seen:
+        seen.add(parent_id)
+        ancestor_ids.append(parent_id)
+        parent_id = parent_by_id.get(parent_id, "")
+    return ancestor_ids
 
 
 def _derived_subdivision_group_source_item_id(country_code: str, group_key: str) -> str:
     return f"group::{_normalize_group_country_key(country_code)}::{_group_internal_name(group_key)}"
+
+
+def _derived_subdivision_record_source_item_id(country_code: str, subdivision_key: str) -> str:
+    return f"derived-subdivision::{_normalize_group_country_key(country_code)}::{_group_internal_name(subdivision_key)}"
+
+
+def _derived_subdivision_group_entries_cached(
+    country_code: str,
+    entries_cache: dict[str, list[dict]] | None = None,
+) -> list[dict]:
+    country_code = _normalize_group_country_key(country_code)
+    if not country_code:
+        return []
+    if entries_cache is None:
+        return _subdivision_group_entries_for_country(_subdivision_groups_for_country(country_code), country_code)
+    if country_code not in entries_cache:
+        entries_cache[country_code] = _subdivision_group_entries_for_country(
+            _subdivision_groups_for_country(country_code),
+            country_code,
+        )
+    return entries_cache[country_code]
+
+
+def _derived_subdivision_group_entry_cached(
+    country_code: str,
+    group_key: str,
+    group_entry_cache: dict[tuple[str, str], dict | None] | None = None,
+    entries_cache: dict[str, list[dict]] | None = None,
+) -> dict | None:
+    country_code = _normalize_group_country_key(country_code)
+    if not country_code:
+        return None
+    try:
+        entry_slug = _group_entry_slug(group_key)
+    except ValueError:
+        return None
+    if group_entry_cache is None:
+        if entries_cache is not None:
+            for entry in _derived_subdivision_group_entries_cached(country_code, entries_cache):
+                if _derived_subdivision_group_entry_matches(entry, entry_slug):
+                    return entry
+        return _group_entry_for_country(country_code, entry_slug, hydrate=False)
+    cache_key = (country_code, entry_slug)
+    if cache_key not in group_entry_cache:
+        group_entry = None
+        if entries_cache is not None:
+            for entry in _derived_subdivision_group_entries_cached(country_code, entries_cache):
+                if _derived_subdivision_group_entry_matches(entry, entry_slug):
+                    group_entry = entry
+                    break
+        if group_entry is None:
+            group_entry = _group_entry_for_country(country_code, entry_slug, hydrate=False)
+        group_entry_cache[cache_key] = group_entry
+    return group_entry_cache[cache_key]
 
 
 def _source_item_levels(items) -> list[int]:
@@ -3190,13 +4673,26 @@ def _source_item_levels(items) -> list[int]:
     return sorted(levels)
 
 
-def _derived_subdivision_group_source_item_for_key(country_code: str, group_key: str, *, level: int | None = None) -> dict | None:
+def _derived_subdivision_group_source_item_for_key(
+    country_code: str,
+    group_key: str,
+    *,
+    level: int | None = None,
+    scoped_municipal_ids: set[str] | None = None,
+    entries_cache: dict[str, list[dict]] | None = None,
+) -> dict | None:
     country_code = _normalize_group_country_key(country_code)
     try:
         normalized_key = _group_internal_name(group_key)
     except ValueError:
         return None
-    options = _derived_subdivision_group_source_options(country_code, level=level, group_key=normalized_key)
+    options = _derived_subdivision_group_source_options(
+        country_code,
+        level=level,
+        group_key=normalized_key,
+        scoped_municipal_ids=scoped_municipal_ids,
+        entries_cache=entries_cache,
+    )
     if options:
         return options[0]
     level = int(level or _derived_subdivision_group_level(country_code) or 1)
@@ -3232,6 +4728,9 @@ def _derived_subdivision_group_source_options(
     parent_ids: list[str] | tuple[str, ...] | set[str] | None = None,
     group_key: str = "",
     direct_parent_only: bool = False,
+    scoped_municipal_ids: set[str] | None = None,
+    entries_cache: dict[str, list[dict]] | None = None,
+    include_member_names: bool = True,
 ) -> list[dict]:
     country_code = _normalize_group_country_key(country_code)
     if not country_code:
@@ -3244,10 +4743,15 @@ def _derived_subdivision_group_source_options(
         {"level": raw_level} for raw_level in (levels or [])
     )
     parent_id_set = {str(parent_id).strip() for parent_id in (parent_ids or []) if str(parent_id or "").strip()}
+    scoped_municipal_ids = {
+        str(item_id).strip()
+        for item_id in (scoped_municipal_ids or set())
+        if str(item_id or "").strip()
+    }
     lookup_key = str(group_key or "").strip()
     entries = [
         entry
-        for entry in _subdivision_group_entries_for_country(_subdivision_groups_for_country(country_code), country_code)
+        for entry in _derived_subdivision_group_entries_cached(country_code, entries_cache)
         if not lookup_key or _derived_subdivision_group_entry_matches(entry, lookup_key)
     ]
     if not entries:
@@ -3257,6 +4761,11 @@ def _derived_subdivision_group_source_options(
         for entry in entries
     ]
     target_levels = requested_levels or {int(_derived_subdivision_group_level(country_code) or 1)}
+    if parent_id_set and not scoped_municipal_ids:
+        for target_level in target_levels:
+            scoped_municipal_ids.update(
+                _derived_subdivision_descendant_ids_at_level(parent_id_set, int(target_level or 0))
+            )
     area_by_id, area_by_key = _derived_subdivision_group_member_area_indexes(
         country_code,
         member_ids=[
@@ -3277,7 +4786,12 @@ def _derived_subdivision_group_source_options(
     options = []
     seen: set[str] = set()
     for entry, refs in zip(entries, entry_refs):
-        member_areas = _derived_subdivision_group_resolved_member_areas(refs, area_by_id=area_by_id, area_by_key=area_by_key)
+        member_areas = _derived_subdivision_group_resolved_member_areas(
+            refs,
+            area_by_id=area_by_id,
+            area_by_key=area_by_key,
+            scoped_municipal_ids=scoped_municipal_ids,
+        )
         resolved_level = _derived_subdivision_group_item_level(country_code, member_areas)
         parent_id, ancestor_ids = _derived_subdivision_group_common_scope(
             member_areas,
@@ -3302,6 +4816,7 @@ def _derived_subdivision_group_source_options(
             resolved_level=resolved_level,
             resolved_parent_id=parent_id,
             resolved_ancestor_ids=ancestor_ids,
+            include_member_names=include_member_names,
         )
         if not item:
             continue
@@ -3419,10 +4934,16 @@ def _derived_subdivision_group_resolved_member_areas(
     *,
     area_by_id: dict[str, AdminArea],
     area_by_key: dict[str, list[AdminArea]],
+    scoped_municipal_ids: set[str] | None = None,
 ) -> list[AdminArea]:
     result: list[AdminArea] = []
     seen_ids: set[str] = set()
     selected_name_keys = refs.get("selected_name_keys") or set()
+    scoped_municipal_ids = {
+        str(item_id).strip()
+        for item_id in (scoped_municipal_ids or set())
+        if str(item_id or "").strip()
+    }
     for item_id in refs.get("member_ids") or []:
         area = area_by_id.get(str(item_id))
         if area and str(area.id) not in seen_ids:
@@ -3433,11 +4954,36 @@ def _derived_subdivision_group_resolved_member_areas(
         if key in selected_name_keys:
             continue
         candidates = area_by_key.get(key) or []
-        area = candidates[0] if candidates else None
+        area = _derived_subdivision_group_candidate_in_scope(candidates, scoped_municipal_ids)
         if area and str(area.id) not in seen_ids:
             result.append(area)
             seen_ids.add(str(area.id))
     return result
+
+
+def _derived_subdivision_group_candidate_in_scope(
+    candidates: list[AdminArea],
+    scoped_municipal_ids: set[str],
+) -> AdminArea | None:
+    if not candidates:
+        return None
+    if not scoped_municipal_ids:
+        return candidates[0]
+    for candidate in candidates:
+        if _derived_subdivision_area_matches_municipal_scope(candidate, scoped_municipal_ids):
+            return candidate
+    return candidates[0]
+
+
+def _derived_subdivision_area_matches_municipal_scope(area: AdminArea, scoped_municipal_ids: set[str]) -> bool:
+    if not scoped_municipal_ids:
+        return False
+    if str(area.id) in scoped_municipal_ids:
+        return True
+    return bool(
+        _derived_subdivision_areas_to_capital_source_ids([area], country_code=area.country_code)
+        & scoped_municipal_ids
+    )
 
 
 def _derived_subdivision_group_parent_maps(member_areas) -> tuple[dict[str, str], dict[str, int]]:
@@ -3469,6 +5015,61 @@ def _derived_subdivision_group_parent_maps(member_areas) -> tuple[dict[str, str]
             if parent_id and parent_id not in seen:
                 frontier.add(parent_id)
     return parent_by_id, level_by_id
+
+
+def _admin_area_parent_maps_for_ids(area_ids: set[str]) -> tuple[dict[str, str], dict[str, int]]:
+    parent_by_id: dict[str, str] = {}
+    level_by_id: dict[str, int] = {}
+    frontier = {str(area_id).strip() for area_id in area_ids if str(area_id or "").strip()}
+    seen: set[str] = set()
+    while frontier:
+        current = frontier - seen
+        if not current:
+            break
+        seen |= current
+        try:
+            rows = list(_visible_admin_areas().filter(id__in=current).values("id", "parent_id", "level"))
+        except (OperationalError, ProgrammingError, ValueError):
+            break
+        frontier = set()
+        for row in rows:
+            area_id = str(row["id"])
+            parent_id = str(row.get("parent_id") or "")
+            parent_by_id[area_id] = parent_id
+            level_by_id[area_id] = int(row.get("level") or 0)
+            if parent_id and parent_id not in seen:
+                frontier.add(parent_id)
+    return parent_by_id, level_by_id
+
+
+def _admin_area_common_scope_for_ids(
+    area_ids: set[str],
+    *,
+    parent_by_id: dict[str, str],
+    level_by_id: dict[str, int],
+) -> tuple[str, list[str]]:
+    clean_ids = {str(area_id).strip() for area_id in area_ids if str(area_id or "").strip()}
+    if not clean_ids:
+        return "", []
+    common_ids: set[str] | None = None
+    for area_id in clean_ids:
+        area_ancestor_ids = set()
+        parent_id = parent_by_id.get(area_id, "")
+        guard = 0
+        while parent_id and guard < 20:
+            area_ancestor_ids.add(parent_id)
+            parent_id = parent_by_id.get(parent_id, "")
+            guard += 1
+        common_ids = area_ancestor_ids if common_ids is None else common_ids & area_ancestor_ids
+    if not common_ids:
+        return "", []
+    parent_id = sorted(common_ids, key=lambda candidate: (level_by_id.get(candidate, -1), candidate), reverse=True)[0]
+    ancestor_ids = sorted(
+        (candidate for candidate in common_ids if candidate != parent_id),
+        key=lambda candidate: (level_by_id.get(candidate, -1), candidate),
+        reverse=True,
+    )
+    return parent_id, ancestor_ids
 
 
 def _derived_subdivision_group_entry_matches(entry: dict, group_key: str) -> bool:
@@ -3515,6 +5116,7 @@ def _derived_subdivision_group_source_item_payload(
     resolved_level: int | None = None,
     resolved_parent_id: str | None = None,
     resolved_ancestor_ids: list[str] | None = None,
+    include_member_names: bool = True,
 ) -> dict | None:
     country_code = _normalize_group_country_key(country_code)
     try:
@@ -3539,11 +5141,13 @@ def _derived_subdivision_group_source_item_payload(
         parent_id = str(resolved_parent_id or "")
         ancestor_ids = resolved_ancestor_ids
     member_ids = [str(area.id) for area in member_areas]
-    member_labels = [_derived_subdivision_group_member_label(area) for area in member_areas]
+    member_labels = [_derived_subdivision_group_member_label(area) for area in member_areas[:30]]
     resolved_name_keys = {_group_name_match_key(area.name) for area in member_areas}
     unresolved_names = [name for name in member_names if _group_name_match_key(name) not in resolved_name_keys]
     display_members = member_labels + [name for name in unresolved_names if name not in member_labels]
     member_text = ", ".join(display_members)
+    if len(member_areas) > len(member_labels):
+        member_text = f"{member_text}, +{len(member_areas) - len(member_labels)}" if member_text else f"+{len(member_areas) - len(member_labels)}"
     record = entry.get("record")
     description = str(getattr(record, "description", "") or "").strip()
     name = str(entry.get("name") or group_key).strip()
@@ -3563,7 +5167,7 @@ def _derived_subdivision_group_source_item_payload(
         "ancestor_ids": ancestor_ids,
         "group_key": group_key,
         "group_slug": group_slug,
-        "member_names": member_names,
+        "member_names": member_names if include_member_names else [],
         "member_ids": member_ids,
         "member_count": len(member_names),
         "member_text": member_text,
@@ -3694,6 +5298,487 @@ def _source_items_with_group_options(items: list[dict], group_options: list[dict
         if option_id and option_id not in seen:
             result.append(option)
             seen.add(option_id)
+    return result
+
+
+def _derived_subdivision_source_record_for_key(country_code: str, subdivision_key: str) -> DerivedSubdivision | None:
+    country_code = _normalize_group_country_key(country_code)
+    if not country_code:
+        return None
+    try:
+        internal_name = _group_internal_name(subdivision_key)
+    except ValueError:
+        return None
+    try:
+        entry_slug = _group_entry_slug(internal_name)
+    except ValueError:
+        entry_slug = ""
+    queryset = DerivedSubdivision.objects.filter(source_country_code__iexact=country_code).order_by("slug")
+    if entry_slug:
+        record = queryset.filter(slug=_derived_subdivision_record_slug(country_code, entry_slug)).first()
+        if record:
+            return record
+        record = queryset.filter(slug=entry_slug).first()
+        if record:
+            return record
+    return queryset.filter(internal_name__iexact=internal_name).first()
+
+
+def _derived_subdivision_source_key(record: DerivedSubdivision, data: dict | None = None) -> str:
+    data = data if isinstance(data, dict) else _derived_subdivision_toml_data(record.content)
+    for candidate in (
+        data.get("internal_name"),
+        record.internal_name,
+        _derived_subdivision_entry_slug(record),
+        record.slug,
+    ):
+        try:
+            return _group_internal_name(str(candidate or ""))
+        except ValueError:
+            continue
+    return _group_internal_name(record.slug)
+
+
+def _derived_subdivision_source_level(record: DerivedSubdivision, data: dict | None = None) -> int:
+    data = data if isinstance(data, dict) else _derived_subdivision_toml_data(record.content)
+    try:
+        return _derived_subdivision_level(data.get("level") or 1)
+    except ValueError:
+        return 1
+
+
+def _derived_subdivision_source_ids_for_key(
+    country_code: str,
+    subdivision_key: str,
+    *,
+    seen: set[tuple[str, str]] | None = None,
+    source_ids_cache: dict[tuple[str, str], set[str]] | None = None,
+    group_entry_cache: dict[tuple[str, str], dict | None] | None = None,
+    group_entries_cache: dict[str, list[dict]] | None = None,
+) -> set[str]:
+    record = _derived_subdivision_source_record_for_key(country_code, subdivision_key)
+    if record is None:
+        return set()
+    return _derived_subdivision_source_ids_for_record(
+        record,
+        seen=seen,
+        source_ids_cache=source_ids_cache,
+        group_entry_cache=group_entry_cache,
+        group_entries_cache=group_entries_cache,
+    )
+
+
+def _derived_subdivision_source_ids_for_record(
+    record: DerivedSubdivision,
+    *,
+    seen: set[tuple[str, str]] | None = None,
+    source_ids_cache: dict[tuple[str, str], set[str]] | None = None,
+    group_entry_cache: dict[tuple[str, str], dict | None] | None = None,
+    group_entries_cache: dict[str, list[dict]] | None = None,
+) -> set[str]:
+    data = _derived_subdivision_toml_data(record.content)
+    country_code = _normalize_group_country_key(record.source_country_code or data.get("source_country_code") or "")
+    if not country_code:
+        return set()
+    try:
+        record_key = _derived_subdivision_source_key(record, data)
+    except ValueError:
+        return set()
+    stack = set(seen or set())
+    cache_key = (country_code, record_key)
+    if source_ids_cache is not None and cache_key in source_ids_cache:
+        return set(source_ids_cache[cache_key])
+    if cache_key in stack:
+        return set()
+    stack.add(cache_key)
+    source_ids = _derived_subdivision_node_source_ids(
+        data,
+        default_country_code=country_code,
+        seen=stack,
+        source_ids_cache=source_ids_cache,
+        group_entry_cache=group_entry_cache,
+        group_entries_cache=group_entries_cache,
+    )
+    if source_ids_cache is not None:
+        source_ids_cache[cache_key] = set(source_ids)
+    return source_ids
+
+
+def _derived_subdivision_node_source_ids(
+    data: dict,
+    *,
+    default_country_code: str,
+    seen: set[tuple[str, str]] | None = None,
+    source_ids_cache: dict[tuple[str, str], set[str]] | None = None,
+    group_entry_cache: dict[tuple[str, str], dict | None] | None = None,
+    group_entries_cache: dict[str, list[dict]] | None = None,
+) -> set[str]:
+    if not isinstance(data, dict):
+        return set()
+    include_ids = _derived_subdivision_blocks_source_ids(
+        data.get("include"),
+        default_country_code=default_country_code,
+        seen=seen,
+        source_ids_cache=source_ids_cache,
+        group_entry_cache=group_entry_cache,
+        group_entries_cache=group_entries_cache,
+    )
+    subtract_ids = _derived_subdivision_blocks_source_ids(
+        data.get("subtract"),
+        default_country_code=default_country_code,
+        seen=seen,
+        source_ids_cache=source_ids_cache,
+        group_entry_cache=group_entry_cache,
+        group_entries_cache=group_entries_cache,
+    )
+    result = include_ids - subtract_ids
+    for child in data.get("children") if isinstance(data.get("children"), list) else []:
+        if isinstance(child, dict):
+            result.update(
+                _derived_subdivision_node_source_ids(
+                    child,
+                    default_country_code=default_country_code,
+                    seen=seen,
+                    source_ids_cache=source_ids_cache,
+                    group_entry_cache=group_entry_cache,
+                    group_entries_cache=group_entries_cache,
+                )
+            )
+    return result
+
+
+def _derived_subdivision_record_source_areas(
+    record: DerivedSubdivision,
+    *,
+    source_ids: set[str] | None = None,
+    source_ids_cache: dict[tuple[str, str], set[str]] | None = None,
+    group_entry_cache: dict[tuple[str, str], dict | None] | None = None,
+    group_entries_cache: dict[str, list[dict]] | None = None,
+) -> list[AdminArea]:
+    if source_ids is None:
+        source_ids = _derived_subdivision_source_ids_for_record(
+            record,
+            source_ids_cache=source_ids_cache,
+            group_entry_cache=group_entry_cache,
+            group_entries_cache=group_entries_cache,
+        )
+    if not source_ids:
+        return []
+    try:
+        return list(
+            _group_source_admin_areas()
+            .filter(id__in=source_ids)
+            .only("id", "country_code", "code", "name", "level", "entity_type", "parent_id", "city_merge_status")
+            .order_by("level", "name", "id")
+        )
+    except (OperationalError, ProgrammingError, ValueError):
+        return []
+
+
+def _derived_subdivision_record_source_item_for_key(
+    country_code: str,
+    subdivision_key: str,
+    *,
+    level: int | None = None,
+    source_ids_cache: dict[tuple[str, str], set[str]] | None = None,
+    group_entry_cache: dict[tuple[str, str], dict | None] | None = None,
+    group_entries_cache: dict[str, list[dict]] | None = None,
+) -> dict | None:
+    country_code = _normalize_group_country_key(country_code)
+    record = _derived_subdivision_source_record_for_key(country_code, subdivision_key)
+    if record is None:
+        try:
+            normalized_key = _group_internal_name(subdivision_key)
+        except ValueError:
+            return None
+        level = int(level or 1)
+        label = f"{normalized_key} ({_('Subdivisiones creadas')}, {_('Nivel')} {level})"
+        item_id = _derived_subdivision_record_source_item_id(country_code, normalized_key)
+        return {
+            "id": item_id,
+            "value": item_id,
+            "source_kind": "derived_subdivision",
+            "item_type": "derived_subdivision",
+            "country_code": country_code,
+            "code": normalized_key,
+            "name": normalized_key,
+            "label": label,
+            "level": level,
+            "entity_type": str(_("Subdivisiones creadas")),
+            "parent_id": "",
+            "ancestor_ids": [],
+            "derived_subdivision_key": normalized_key,
+            "derived_subdivision_slug": _group_entry_slug(normalized_key),
+            "member_names": [],
+            "member_ids": [],
+            "member_count": 0,
+            "member_text": "",
+            "description": "",
+        }
+    return _derived_subdivision_record_source_item_payload(
+        record,
+        source_ids_cache=source_ids_cache,
+        group_entry_cache=group_entry_cache,
+        group_entries_cache=group_entries_cache,
+    )
+
+
+def _derived_subdivision_record_source_item_payload(
+    record: DerivedSubdivision,
+    *,
+    source_ids: set[str] | None = None,
+    source_ids_cache: dict[tuple[str, str], set[str]] | None = None,
+    group_entry_cache: dict[tuple[str, str], dict | None] | None = None,
+    group_entries_cache: dict[str, list[dict]] | None = None,
+    include_member_names: bool = True,
+    compact_parent_id: str = "",
+    compact_ancestor_ids: list[str] | None = None,
+) -> dict | None:
+    country_code = _normalize_group_country_key(record.source_country_code)
+    data = _derived_subdivision_toml_data(record.content)
+    if not country_code:
+        country_code = _normalize_group_country_key(data.get("source_country_code") or "")
+    if not country_code:
+        return None
+    try:
+        subdivision_key = _derived_subdivision_source_key(record, data)
+    except ValueError:
+        return None
+    level = _derived_subdivision_source_level(record, data)
+    if not include_member_names and source_ids is not None:
+        member_ids = sorted(str(item_id).strip() for item_id in source_ids if str(item_id or "").strip())
+        if not member_ids:
+            return None
+        parent_id = str(compact_parent_id or "").strip()
+        ancestor_ids = [str(value) for value in (compact_ancestor_ids or []) if str(value or "").strip()]
+        if not parent_id:
+            parent_by_id, level_by_id = _admin_area_parent_maps_for_ids(set(member_ids))
+            parent_id, ancestor_ids = _admin_area_common_scope_for_ids(
+                set(member_ids),
+                parent_by_id=parent_by_id,
+                level_by_id=level_by_id,
+            )
+        try:
+            preview_areas = list(
+                _group_source_admin_areas()
+                .filter(id__in=member_ids)
+                .only("id", "country_code", "code", "name", "level", "entity_type", "parent_id", "city_merge_status")
+                .order_by("level", "name", "id")[:30]
+            )
+        except (OperationalError, ProgrammingError, ValueError):
+            preview_areas = []
+        member_labels = [_derived_subdivision_group_member_label(area) for area in preview_areas]
+        member_text = ", ".join(member_labels)
+        if len(member_ids) > len(member_labels):
+            member_text = f"{member_text}, +{len(member_ids) - len(member_labels)}" if member_text else f"+{len(member_ids) - len(member_labels)}"
+        name = str(data.get("name") or record.name or subdivision_key).strip()
+        entity_type = str(data.get("entity_type") or record.entity_type or "").strip()
+        if entity_type:
+            label = f"{name} ({entity_type}, {_('Nivel')} {level})"
+        else:
+            label = f"{name} ({_('Nivel')} {level})"
+        item_id = _derived_subdivision_record_source_item_id(country_code, subdivision_key)
+        return {
+            "id": item_id,
+            "value": item_id,
+            "source_kind": "derived_subdivision",
+            "item_type": "derived_subdivision",
+            "country_code": country_code,
+            "code": subdivision_key,
+            "name": name,
+            "label": label,
+            "level": level,
+            "entity_type": str(_("Subdivisiones creadas")),
+            "parent_id": parent_id,
+            "ancestor_ids": ancestor_ids,
+            "derived_subdivision_key": subdivision_key,
+            "derived_subdivision_slug": _derived_subdivision_entry_slug(record),
+            "member_names": [],
+            "member_ids": member_ids,
+            "member_count": len(member_ids),
+            "member_text": member_text,
+            "description": str(record.description or "").strip(),
+        }
+    member_areas = _derived_subdivision_record_source_areas(
+        record,
+        source_ids=source_ids,
+        source_ids_cache=source_ids_cache,
+        group_entry_cache=group_entry_cache,
+        group_entries_cache=group_entries_cache,
+    )
+    if not member_areas:
+        return None
+    parent_by_id, level_by_id = _derived_subdivision_group_parent_maps(member_areas)
+    parent_id, ancestor_ids = _derived_subdivision_group_common_scope(
+        member_areas,
+        parent_by_id=parent_by_id,
+        level_by_id=level_by_id,
+    )
+    member_ids = [str(area.id) for area in member_areas]
+    member_labels = [_derived_subdivision_group_member_label(area) for area in member_areas[:30]]
+    display_members = member_labels
+    member_text = ", ".join(display_members)
+    if len(member_areas) > len(display_members):
+        member_text = f"{member_text}, +{len(member_areas) - len(display_members)}" if member_text else f"+{len(member_areas) - len(display_members)}"
+    name = str(data.get("name") or record.name or subdivision_key).strip()
+    entity_type = str(data.get("entity_type") or record.entity_type or "").strip()
+    if entity_type:
+        label = f"{name} ({entity_type}, {_('Nivel')} {level})"
+    else:
+        label = f"{name} ({_('Nivel')} {level})"
+    item_id = _derived_subdivision_record_source_item_id(country_code, subdivision_key)
+    return {
+        "id": item_id,
+        "value": item_id,
+        "source_kind": "derived_subdivision",
+        "item_type": "derived_subdivision",
+        "country_code": country_code,
+        "code": subdivision_key,
+        "name": name,
+        "label": label,
+        "level": level,
+        "entity_type": str(_("Subdivisiones creadas")),
+        "parent_id": parent_id,
+        "ancestor_ids": ancestor_ids,
+        "derived_subdivision_key": subdivision_key,
+        "derived_subdivision_slug": _derived_subdivision_entry_slug(record),
+        "member_names": member_labels if include_member_names else [],
+        "member_ids": member_ids,
+        "member_count": len(member_ids),
+        "member_text": member_text,
+        "description": str(record.description or "").strip(),
+    }
+
+
+def _derived_subdivision_source_options(
+    country_code: str,
+    *,
+    level: str | int | None = None,
+    levels: list[str | int] | tuple[str | int, ...] | set[str | int] | None = None,
+    parent_ids: list[str] | tuple[str, ...] | set[str] | None = None,
+    current_level: str | int | None = None,
+    current_subdivision: str = "",
+    current_subdivision_country: str = "",
+    scoped_municipal_ids: set[str] | None = None,
+    source_ids_cache: dict[tuple[str, str], set[str]] | None = None,
+    group_entry_cache: dict[tuple[str, str], dict | None] | None = None,
+    group_entries_cache: dict[str, list[dict]] | None = None,
+    include_member_names: bool = True,
+) -> list[dict]:
+    country_code = _normalize_group_country_key(country_code)
+    if not country_code:
+        return []
+    try:
+        minimum_level = int(level) if level not in (None, "") else None
+    except (TypeError, ValueError):
+        minimum_level = None
+    if minimum_level is None:
+        requested_levels = _source_item_levels({"level": raw_level} for raw_level in (levels or []))
+        minimum_level = min(requested_levels) if requested_levels else None
+    try:
+        current_level_int = int(current_level) if current_level not in (None, "") else None
+    except (TypeError, ValueError):
+        current_level_int = None
+    try:
+        current_key = _group_internal_name(current_subdivision) if str(current_subdivision or "").strip() else ""
+    except ValueError:
+        current_key = ""
+    current_subdivision_country = _normalize_group_country_key(current_subdivision_country)
+    parent_id_set = {str(parent_id).strip() for parent_id in (parent_ids or []) if str(parent_id or "").strip()}
+    compact_parent_id = next(iter(parent_id_set)) if len(parent_id_set) == 1 else ""
+    scope_ids = {
+        str(item_id).strip()
+        for item_id in (scoped_municipal_ids or set())
+        if str(item_id or "").strip()
+    }
+    if parent_id_set and not scope_ids:
+        scope_ids = _derived_subdivision_municipal_scope_ids_for_parents(country_code, parent_id_set)
+    try:
+        records = list(
+            DerivedSubdivision.objects
+            .filter(source_country_code__iexact=country_code)
+            .only("slug", "internal_name", "name", "source_country_code", "entity_type", "code", "description", "content")
+            .order_by("name", "slug")
+        )
+    except (OperationalError, ProgrammingError):
+        return []
+    options = []
+    seen_ids: set[str] = set()
+    for record in records:
+        data = _derived_subdivision_toml_data(record.content)
+        try:
+            record_key = _derived_subdivision_source_key(record, data)
+        except ValueError:
+            continue
+        if current_key and (not current_subdivision_country or current_subdivision_country == country_code) and record_key == current_key:
+            continue
+        record_level = _derived_subdivision_source_level(record, data)
+        if current_level_int is not None and record_level <= current_level_int:
+            continue
+        if minimum_level is not None and record_level < minimum_level:
+            continue
+        source_ids = _derived_subdivision_source_ids_for_record(
+            record,
+            source_ids_cache=source_ids_cache,
+            group_entry_cache=group_entry_cache,
+            group_entries_cache=group_entries_cache,
+        )
+        if parent_id_set:
+            if not source_ids or not (source_ids & scope_ids):
+                continue
+        item = _derived_subdivision_record_source_item_payload(
+            record,
+            source_ids=source_ids,
+            source_ids_cache=source_ids_cache,
+            group_entry_cache=group_entry_cache,
+            group_entries_cache=group_entries_cache,
+            include_member_names=include_member_names,
+            compact_parent_id=compact_parent_id if not include_member_names else "",
+        )
+        if not item:
+            continue
+        item_id = str(item.get("id") or item.get("value") or "").strip()
+        if not item_id or item_id in seen_ids:
+            continue
+        options.append(item)
+        seen_ids.add(item_id)
+    return sorted(
+        options,
+        key=lambda item: (
+            int(item.get("level") or 0),
+            str(item.get("label") or item.get("name") or ""),
+            str(item.get("id") or ""),
+        ),
+    )
+
+
+def _derived_subdivision_municipal_scope_ids_for_parents(country_code: str, parent_ids: set[str]) -> set[str]:
+    target_level = _derived_subdivision_capital_target_level(country_code)
+    if target_level is None:
+        return set()
+    parent_ids = {str(parent_id).strip() for parent_id in parent_ids if str(parent_id or "").strip()}
+    result: set[str] = set()
+    if not parent_ids:
+        return result
+    try:
+        parents = list(_group_source_admin_areas().filter(id__in=parent_ids).only("id", "level", "country_code", "city_merge_status"))
+    except (OperationalError, ProgrammingError, ValueError):
+        parents = []
+    lower_parent_ids: set[str] = set()
+    for parent in parents:
+        try:
+            level = int(parent.level or 0)
+        except (TypeError, ValueError):
+            continue
+        if level == target_level:
+            result.add(str(parent.id))
+        elif level < target_level:
+            lower_parent_ids.add(str(parent.id))
+        else:
+            ancestor = _derived_subdivision_ancestor_at_level(parent, target_level)
+            if ancestor:
+                result.add(str(ancestor.id))
+    result |= _derived_subdivision_descendant_ids_at_level(lower_parent_ids, target_level)
     return result
 
 
@@ -3917,6 +6002,8 @@ def _derived_subdivision_toml_blocks_from_visual_source_ids(value, *, fallback_c
     for item in raw_items:
         if _derived_subdivision_raw_source_item_group_key(item):
             continue
+        if _derived_subdivision_raw_source_item_subdivision_key(item):
+            continue
         item_id = str(item.get("id") or item.get("value") or "").strip()
         if item_id and item_id not in seen_requested_ids:
             requested_ids.append(item_id)
@@ -3940,7 +6027,16 @@ def _derived_subdivision_toml_blocks_from_visual_source_ids(value, *, fallback_c
         key = (block_country, level)
         return result.setdefault(
             key,
-            {"country_code": block_country, "level": level, "names": [], "ids": [], "codes": [], "groups": [], "expressions": []},
+            {
+                "country_code": block_country,
+                "level": level,
+                "names": [],
+                "ids": [],
+                "codes": [],
+                "groups": [],
+                "derived_subdivisions": [],
+                "expressions": [],
+            },
         )
 
     for item in raw_items:
@@ -3962,6 +6058,22 @@ def _derived_subdivision_toml_blocks_from_visual_source_ids(value, *, fallback_c
                 seen.add(group_key)
             continue
 
+        subdivision_key = _derived_subdivision_raw_source_item_subdivision_key(item)
+        if subdivision_key:
+            block_country = _derived_subdivision_raw_source_item_country(item, fallback_country_code=fallback_country_code)
+            try:
+                level = int(item.get("level") or 0)
+            except (TypeError, ValueError):
+                level = 0
+            if not block_country or not level:
+                continue
+            toml_block = toml_block_for(block_country, int(level))
+            seen = seen_values.setdefault((block_country, int(level), "derived_subdivisions"), set())
+            if subdivision_key not in seen:
+                toml_block["derived_subdivisions"].append(subdivision_key)
+                seen.add(subdivision_key)
+            continue
+
         item_id = str(item.get("id") or item.get("value") or "").strip()
         row = area_by_id.get(item_id)
         if not row:
@@ -3973,7 +6085,7 @@ def _derived_subdivision_toml_blocks_from_visual_source_ids(value, *, fallback_c
             level = int(row.get("level") or 0)
         except (TypeError, ValueError):
             level = 0
-        if not level:
+        if level < 0:
             continue
         toml_block = toml_block_for(block_country, level)
         seen = seen_values.setdefault((block_country, level, "ids"), set())
@@ -3994,7 +6106,7 @@ def _derived_subdivision_toml_blocks_from_visual_source_ids(value, *, fallback_c
 def _derived_subdivision_raw_source_item_country(item: dict, *, fallback_country_code: str) -> str:
     country_code = _normalize_group_country_key(item.get("country_code") or fallback_country_code)
     item_id = str(item.get("id") or item.get("value") or "").strip()
-    if item_id.startswith("group::"):
+    if item_id.startswith("group::") or item_id.startswith("derived-subdivision::"):
         parts = item_id.split("::", 2)
         if len(parts) >= 3:
             country_code = _normalize_group_country_key(parts[1] or country_code)
@@ -4018,6 +6130,28 @@ def _derived_subdivision_raw_source_item_group_key(item: dict) -> str:
         return ""
 
 
+def _derived_subdivision_raw_source_item_subdivision_key(item: dict) -> str:
+    item_id = str(item.get("id") or item.get("value") or "").strip()
+    source_kind = str(item.get("source_kind") or item.get("item_type") or "").strip().lower()
+    is_subdivision = source_kind in {"derived_subdivision", "derived-subdivision"} or item_id.startswith("derived-subdivision::")
+    if not is_subdivision:
+        return ""
+    subdivision_key = str(
+        item.get("derived_subdivision_key")
+        or item.get("internal_name")
+        or item.get("code")
+        or ""
+    ).strip()
+    if not subdivision_key and item_id.startswith("derived-subdivision::"):
+        parts = item_id.split("::", 2)
+        if len(parts) >= 3:
+            subdivision_key = parts[2]
+    try:
+        return _group_internal_name(subdivision_key)
+    except ValueError:
+        return ""
+
+
 def _derived_subdivision_toml_blocks_from_visual_source_json(value, *, fallback_country_code: str) -> list[dict]:
     raw_blocks = _derived_subdivision_raw_source_blocks_from_json(value)
     selected_ids = {
@@ -4027,7 +6161,12 @@ def _derived_subdivision_toml_blocks_from_visual_source_json(value, *, fallback_
         for section in block.get("sections") or []
         if isinstance(section, dict)
         for selected in section.get("selected") or []
-        if isinstance(selected, dict) and str(selected.get("id") or "").strip()
+        if (
+            isinstance(selected, dict)
+            and str(selected.get("id") or "").strip()
+            and not _derived_subdivision_raw_source_item_group_key(selected)
+            and not _derived_subdivision_raw_source_item_subdivision_key(selected)
+        )
     }
     area_level_map = _derived_subdivision_selected_area_levels(selected_ids)
     result: dict[tuple[str, int], dict] = {}
@@ -4055,13 +6194,74 @@ def _derived_subdivision_toml_blocks_from_visual_source_json(value, *, fallback_
                     selected_level = int(selected.get("level") or 0)
                 except (TypeError, ValueError):
                     selected_level = 0
-                if selected_id:
-                    selected_level = area_level_map.get(selected_id) or selected_level or (section_level + 1 if section_level else 0)
+                subdivision_key = _derived_subdivision_raw_source_item_subdivision_key(selected)
+                if subdivision_key:
+                    selected_level = selected_level or (section_level + 1 if section_level else 0)
                     if not selected_level:
                         continue
                     toml_block = result.setdefault(
                         (block_country, selected_level),
-                        {"country_code": block_country, "level": selected_level, "names": [], "ids": [], "codes": [], "groups": [], "expressions": []},
+                        {
+                            "country_code": block_country,
+                            "level": selected_level,
+                            "names": [],
+                            "ids": [],
+                            "codes": [],
+                            "groups": [],
+                            "derived_subdivisions": [],
+                            "expressions": [],
+                        },
+                    )
+                    seen_key = (block_country, selected_level, "derived_subdivisions")
+                    seen = seen_values.setdefault(seen_key, set())
+                    if subdivision_key not in seen:
+                        toml_block["derived_subdivisions"].append(subdivision_key)
+                        seen.add(subdivision_key)
+                    continue
+                group_key = _derived_subdivision_raw_source_item_group_key(selected)
+                if group_key:
+                    selected_level = selected_level or (section_level + 1 if section_level else 0)
+                    if not selected_level:
+                        continue
+                    toml_block = result.setdefault(
+                        (block_country, selected_level),
+                        {
+                            "country_code": block_country,
+                            "level": selected_level,
+                            "names": [],
+                            "ids": [],
+                            "codes": [],
+                            "groups": [],
+                            "derived_subdivisions": [],
+                            "expressions": [],
+                        },
+                    )
+                    seen_key = (block_country, selected_level, "groups")
+                    seen = seen_values.setdefault(seen_key, set())
+                    if group_key not in seen:
+                        toml_block["groups"].append(group_key)
+                        seen.add(group_key)
+                    continue
+                if selected_id:
+                    selected_level = (
+                        area_level_map[selected_id]
+                        if selected_id in area_level_map
+                        else selected_level or (section_level + 1 if section_level else 0)
+                    )
+                    if selected_level < 0:
+                        continue
+                    toml_block = result.setdefault(
+                        (block_country, selected_level),
+                        {
+                            "country_code": block_country,
+                            "level": selected_level,
+                            "names": [],
+                            "ids": [],
+                            "codes": [],
+                            "groups": [],
+                            "derived_subdivisions": [],
+                            "expressions": [],
+                        },
                     )
                     seen_key = (block_country, selected_level, "ids")
                     seen = seen_values.setdefault(seen_key, set())
@@ -4074,7 +6274,16 @@ def _derived_subdivision_toml_blocks_from_visual_source_json(value, *, fallback_
                         continue
                     toml_block = result.setdefault(
                         (block_country, selected_level),
-                        {"country_code": block_country, "level": selected_level, "names": [], "ids": [], "codes": [], "groups": [], "expressions": []},
+                        {
+                            "country_code": block_country,
+                            "level": selected_level,
+                            "names": [],
+                            "ids": [],
+                            "codes": [],
+                            "groups": [],
+                            "derived_subdivisions": [],
+                            "expressions": [],
+                        },
                     )
                     seen_key = (block_country, selected_level, "names")
                     seen = seen_values.setdefault(seen_key, set())
@@ -4167,8 +6376,9 @@ def _derived_subdivision_group_country_sections(current_country_code: str) -> li
 
 def _derived_subdivision_group_level(country_code: str) -> int:
     country_code = _normalize_group_country_key(country_code)
-    if country_code in ORIGINAL_MUNICIPAL_LEVEL:
-        return int(ORIGINAL_MUNICIPAL_LEVEL[country_code])
+    configured_level = effective_source_municipal_level(country_code)
+    if configured_level is not None:
+        return int(configured_level)
     try:
         level = (
             _visible_admin_areas()
@@ -4186,10 +6396,8 @@ def _derived_subdivision_group_level(country_code: str) -> int:
 def _derived_subdivision_capital_queryset(country_code: str):
     country_code = _normalize_group_country_key(country_code)
     queryset = _group_source_admin_areas().filter(country_code__iexact=country_code)
-    level = ORIGINAL_MUNICIPAL_LEVEL.get(country_code)
-    if level is None:
-        level = _derived_subdivision_group_level(country_code)
-    if level:
+    level = _derived_subdivision_group_level(country_code)
+    if level is not None:
         queryset = queryset.filter(level=int(level))
     return queryset
 
@@ -4218,11 +6426,14 @@ def _derived_subdivision_capital_options(
         if selected_ids:
             condition |= Q(id__in=selected_ids)
         if has_search:
-            first_letters = _derived_subdivision_capital_first_letter_filters(search_term)
-            search_condition = Q()
-            for first_letter in first_letters:
-                search_condition |= Q(name__istartswith=first_letter)
-            condition |= search_condition
+            if source_ids is None:
+                first_letters = _derived_subdivision_capital_first_letter_filters(search_term)
+                search_condition = Q()
+                for first_letter in first_letters:
+                    search_condition |= Q(name__istartswith=first_letter)
+                condition |= search_condition
+            else:
+                condition |= Q(id__in=source_ids)
         rows = list(
             queryset.filter(condition)
             .only("id", "country_code", "code", "name", "level", "entity_type")
@@ -4238,7 +6449,7 @@ def _derived_subdivision_capital_options(
         is_selected = value in selected_ids
         name = _area_display_name(area)
         if not is_selected:
-            if not has_search or not _derived_subdivision_capital_search_key(name).startswith(search_key):
+            if not has_search or not _derived_subdivision_capital_name_matches(area, search_key, display_name=name):
                 continue
             if matched_count >= limit:
                 continue
@@ -4246,17 +6457,42 @@ def _derived_subdivision_capital_options(
         if value in seen_values:
             continue
         seen_values.add(value)
-        options.append(
-            {
-                "value": value,
-                "label": name,
-                "name": name,
-                "code": str(area.code or "").strip(),
-                "level": int(area.level or 0),
-                "entity_type": str(area.entity_type or ""),
-            }
-        )
+        options.append(_derived_subdivision_capital_option(area, display_name=name))
     return options
+
+
+def _derived_subdivision_declared_capital_ids_for_key(
+    country_code: str,
+    subdivision_key: str,
+) -> set[str]:
+    record = _derived_subdivision_source_record_for_key(country_code, subdivision_key)
+    if record is None:
+        return set()
+    data = _derived_subdivision_record_toml(record)
+    record_country_code = _normalize_group_country_key(data.get("source_country_code") or record.source_country_code)
+    if not record_country_code:
+        return set()
+    return _declared_capital_ids_from_data(record_country_code, data)
+
+
+def _declared_capital_ids_from_data(country_code: str, data: dict) -> set[str]:
+    country_code = _normalize_group_country_key(country_code)
+    capital_values = _derived_subdivision_capital_values(country_code, data)
+    if not country_code or not capital_values:
+        return set()
+    capital_ids = {str(value).strip() for value in capital_values if str(value or "").strip()}
+    if not capital_ids:
+        return set()
+    try:
+        return {
+            str(area_id)
+            for chunk in _new_country_chunks(sorted(capital_ids), 900)
+            for area_id in _group_source_admin_areas()
+            .filter(id__in=chunk)
+            .values_list("id", flat=True)
+        }
+    except (OperationalError, ProgrammingError, ValueError):
+        return set()
 
 
 def _derived_subdivision_capital_search_options(
@@ -4296,43 +6532,46 @@ def _derived_subdivision_capital_search_options(
         search_term=search_term,
         target_level=target_level,
     )
-    ancestor_map = _derived_subdivision_candidate_ancestor_ids(candidates)
     seen_values = set()
     options = []
     matched_count = 0
-    for area in candidates:
-        value = str(area.id)
-        if value in seen_values:
-            continue
-        ancestor_ids = ancestor_map.get(value, {value})
-        if not _derived_subdivision_capital_area_in_scope(area, include_scope, ancestor_ids):
-            continue
-        if _derived_subdivision_capital_area_in_scope(area, subtract_scope, ancestor_ids):
-            continue
-        name = _area_display_name(area)
-        if not _derived_subdivision_capital_search_key(name).startswith(search_key):
-            continue
-        options.append(
-            {
-                "value": value,
-                "label": name,
-                "name": name,
-                "code": str(area.code or "").strip(),
-                "level": int(area.level or 0),
-                "entity_type": str(area.entity_type or ""),
-            }
+
+    def collect(candidate_rows):
+        nonlocal matched_count
+        ancestor_map = _derived_subdivision_candidate_ancestor_ids(candidate_rows)
+        for area in candidate_rows:
+            if matched_count >= limit:
+                break
+            value = str(area.id)
+            if value in seen_values:
+                continue
+            ancestor_ids = ancestor_map.get(value, {value})
+            if not _derived_subdivision_capital_area_in_scope(area, include_scope, ancestor_ids):
+                continue
+            if _derived_subdivision_capital_area_in_scope(area, subtract_scope, ancestor_ids):
+                continue
+            name = _area_display_name(area)
+            if not _derived_subdivision_capital_name_matches(area, search_key, display_name=name):
+                continue
+            options.append(_derived_subdivision_capital_option(area, display_name=name))
+            seen_values.add(value)
+            matched_count += 1
+
+    collect(candidates)
+    if matched_count < limit:
+        collect(
+            _derived_subdivision_capital_scoped_candidates(
+                country_code,
+                include_scope=include_scope,
+                target_level=target_level,
+                exclude_ids=seen_values,
+            )
         )
-        seen_values.add(value)
-        matched_count += 1
-        if matched_count >= limit:
-            break
     return options
 
 
 def _derived_subdivision_capital_target_level(country_code: str) -> int:
-    target_level = ORIGINAL_MUNICIPAL_LEVEL.get(country_code)
-    if target_level is None:
-        target_level = _derived_subdivision_group_level(country_code)
+    target_level = _derived_subdivision_group_level(country_code)
     return int(target_level or 0)
 
 
@@ -4343,7 +6582,7 @@ def _derived_subdivision_capital_prefix_candidates(
     target_level: int,
 ):
     queryset = _derived_subdivision_capital_queryset(country_code)
-    if target_level:
+    if target_level is not None:
         queryset = queryset.filter(level=target_level)
     first_letters = _derived_subdivision_capital_first_letter_filters(search_term)
     search_condition = Q()
@@ -4355,6 +6594,30 @@ def _derived_subdivision_capital_prefix_candidates(
         return list(
             queryset.filter(search_condition)
             .only("id", "country_code", "code", "name", "level", "entity_type", "parent_id")
+            .order_by("name", "id")
+        )
+    except (OperationalError, ProgrammingError, ValueError):
+        return []
+
+
+def _derived_subdivision_capital_scoped_candidates(
+    country_code: str,
+    *,
+    include_scope: dict[str, set[str]],
+    target_level: int,
+    exclude_ids: set[str],
+) -> list[AdminArea]:
+    source_ids = set(include_scope.get("area_ids", set()))
+    source_ids |= _derived_subdivision_descendant_ids_at_level(set(include_scope.get("parent_ids", set())), target_level)
+    source_ids = {str(value) for value in source_ids if str(value or "").strip() and str(value) not in exclude_ids}
+    if not source_ids:
+        return []
+    queryset = _group_source_admin_areas().filter(country_code__iexact=country_code, id__in=source_ids)
+    if target_level is not None:
+        queryset = queryset.filter(level=target_level)
+    try:
+        return list(
+            queryset.only("id", "country_code", "code", "name", "level", "entity_type", "parent_id")
             .order_by("name", "id")
         )
     except (OperationalError, ProgrammingError, ValueError):
@@ -4443,6 +6706,43 @@ def _derived_subdivision_capital_search_key(value: str) -> str:
     return re.sub(r"\s+", " ", ascii_value).strip().casefold()
 
 
+def _derived_subdivision_capital_name_matches(area: AdminArea, search_key: str, *, display_name: str = "") -> bool:
+    for value in (getattr(area, "name", ""), display_name or _area_display_name(area)):
+        for alias_key in _derived_subdivision_capital_search_alias_keys(value):
+            if alias_key.startswith(search_key):
+                return True
+    return False
+
+
+def _derived_subdivision_capital_search_alias_keys(value: str) -> list[str]:
+    text = str(value or "").strip()
+    if not text:
+        return []
+    parts = [text]
+    parts.extend(re.split(r"\s*(?:/|\(|\)|\[|\]|;)\s*", text))
+    parts.extend(re.split(r"\s+-\s+", text))
+    keys = []
+    seen = set()
+    for part in parts:
+        key = _derived_subdivision_capital_search_key(part)
+        if key and key not in seen:
+            seen.add(key)
+            keys.append(key)
+    return keys
+
+
+def _derived_subdivision_capital_option(area: AdminArea, *, display_name: str = "") -> dict:
+    name = display_name or _area_display_name(area)
+    return {
+        "value": str(area.id),
+        "label": name,
+        "name": name,
+        "code": str(area.code or "").strip(),
+        "level": int(area.level or 0),
+        "entity_type": str(area.entity_type or ""),
+    }
+
+
 def _derived_subdivision_capital_first_letter_filters(value: str) -> set[str]:
     text = str(value or "").strip()
     if not text:
@@ -4478,17 +6778,40 @@ def _derived_subdivision_capital_source_ids(country_code: str, content: str) -> 
     return include_ids - subtract_ids
 
 
-def _derived_subdivision_blocks_source_ids(blocks, *, default_country_code: str) -> set[str]:
+def _derived_subdivision_blocks_source_ids(
+    blocks,
+    *,
+    default_country_code: str,
+    seen: set[tuple[str, str]] | None = None,
+    group_entry_cache: dict[tuple[str, str], dict | None] | None = None,
+    group_entries_cache: dict[str, list[dict]] | None = None,
+    source_ids_cache: dict[tuple[str, str], set[str]] | None = None,
+) -> set[str]:
     if not isinstance(blocks, list):
         return set()
     result: set[str] = set()
     for block in blocks:
         if isinstance(block, dict):
-            result |= _derived_subdivision_block_source_ids(block, default_country_code=default_country_code)
+            result |= _derived_subdivision_block_source_ids(
+                block,
+                default_country_code=default_country_code,
+                seen=seen,
+                group_entry_cache=group_entry_cache,
+                group_entries_cache=group_entries_cache,
+                source_ids_cache=source_ids_cache,
+            )
     return result
 
 
-def _derived_subdivision_block_source_ids(block: dict, *, default_country_code: str) -> set[str]:
+def _derived_subdivision_block_source_ids(
+    block: dict,
+    *,
+    default_country_code: str,
+    seen: set[tuple[str, str]] | None = None,
+    group_entry_cache: dict[tuple[str, str], dict | None] | None = None,
+    group_entries_cache: dict[str, list[dict]] | None = None,
+    source_ids_cache: dict[tuple[str, str], set[str]] | None = None,
+) -> set[str]:
     country_code = _normalize_group_country_key(block.get("country_code") or default_country_code)
     if not country_code:
         return set()
@@ -4496,32 +6819,69 @@ def _derived_subdivision_block_source_ids(block: dict, *, default_country_code: 
         level = int(block.get("level"))
     except (TypeError, ValueError):
         return set()
-    refs = _derived_subdivision_block_source_refs(block, country_code=country_code)
+    refs = _derived_subdivision_block_source_refs(
+        block,
+        country_code=country_code,
+        seen=seen,
+        group_entry_cache=group_entry_cache,
+        group_entries_cache=group_entries_cache,
+        source_ids_cache=source_ids_cache,
+    )
     areas = _derived_subdivision_source_ref_areas(country_code, level, refs)
     return _derived_subdivision_areas_to_capital_source_ids(areas, country_code=country_code)
 
 
-def _derived_subdivision_block_source_refs(block: dict, *, country_code: str, expand_groups: bool = True) -> dict[str, list[str]]:
+def _derived_subdivision_block_source_refs(
+    block: dict,
+    *,
+    country_code: str,
+    expand_groups: bool = True,
+    expand_derived_subdivisions: bool = True,
+    seen: set[tuple[str, str]] | None = None,
+    group_entry_cache: dict[tuple[str, str], dict | None] | None = None,
+    group_entries_cache: dict[str, list[dict]] | None = None,
+    source_ids_cache: dict[tuple[str, str], set[str]] | None = None,
+) -> dict[str, list[str]]:
     refs = {
         "ids": _derived_subdivision_list_values(block.get("ids")),
         "codes": _derived_subdivision_list_values(block.get("codes")),
         "names": _derived_subdivision_list_values(block.get("names")),
     }
-    if not expand_groups:
+    if not expand_groups and not expand_derived_subdivisions:
         return refs
-    for group_key in _derived_subdivision_list_values(block.get("groups")):
-        group_entry = _group_entry_for_country(country_code, group_key, hydrate=True)
-        if not group_entry:
-            continue
-        for group_block in group_entry.get("blocks") or []:
-            if not isinstance(group_block, dict):
+    if expand_groups:
+        for group_key in _derived_subdivision_list_values(block.get("groups")):
+            group_entry = _derived_subdivision_group_entry_cached(
+                country_code,
+                group_key,
+                group_entry_cache=group_entry_cache,
+                entries_cache=group_entries_cache,
+            )
+            if not group_entry:
                 continue
-            block_country = _normalize_group_country_key(group_block.get("country_code") or country_code)
-            if block_country != country_code:
-                continue
-            group_refs = _derived_subdivision_group_block_refs(group_block)
-            refs["ids"].extend(group_refs["ids"])
-            refs["names"].extend(group_refs["names"])
+            for group_block in group_entry.get("blocks") or []:
+                if not isinstance(group_block, dict):
+                    continue
+                block_country = _normalize_group_country_key(group_block.get("country_code") or country_code)
+                if block_country != country_code:
+                    continue
+                group_refs = _derived_subdivision_group_block_refs(group_block)
+                refs["ids"].extend(group_refs["ids"])
+                refs["names"].extend(group_refs["names"])
+    if expand_derived_subdivisions:
+        for subdivision_key in _derived_subdivision_list_values(block.get("derived_subdivisions")):
+            refs["ids"].extend(
+                sorted(
+                    _derived_subdivision_source_ids_for_key(
+                        country_code,
+                        subdivision_key,
+                        seen=seen,
+                        source_ids_cache=source_ids_cache,
+                        group_entry_cache=group_entry_cache,
+                        group_entries_cache=group_entries_cache,
+                    )
+                )
+            )
     return refs
 
 
@@ -4577,9 +6937,7 @@ def _derived_subdivision_source_ref_areas(country_code: str, level: int, refs: d
 
 
 def _derived_subdivision_areas_to_capital_source_ids(areas: list[AdminArea], *, country_code: str) -> set[str]:
-    target_level = ORIGINAL_MUNICIPAL_LEVEL.get(country_code)
-    if target_level is None:
-        target_level = _derived_subdivision_group_level(country_code)
+    target_level = _derived_subdivision_group_level(country_code)
     target_level = int(target_level or 0)
     result: set[str] = set()
     parent_ids: set[str] = set()
@@ -4819,8 +7177,6 @@ def _group_country_cards(
         for country in country_rows
         if str(country.get("code") or "").strip()
     }
-    level_rows_by_country = _group_level_rows_by_country(visible_country_codes)
-    division_rows_by_country = _group_division_rows_by_country(visible_country_codes)
     derived_subdivision_counts_by_country = _derived_subdivision_counts_by_country(visible_country_codes)
     seed_counts_by_country: dict[str, int] = {}
     fallback_seed_count = 0
@@ -4861,10 +7217,14 @@ def _group_country_cards(
                 "population_text": _group_metric_text(country.get("population")),
                 "area_text": _group_metric_text(country.get("area_km2")),
                 "flag_url": _stored_visual_asset_image_url(country.get("flag_asset")),
-                "groups": group_entries,
+                "detail_url": reverse(
+                    "ciudades_del_mundo:group_country_detail_data",
+                    kwargs={"country_code": code},
+                ),
+                "groups": [],
                 "group_count": len(group_entries),
-                "level_rows": level_rows_by_country.get(code, []),
-                "division_rows": division_rows_by_country.get(code, []),
+                "level_rows": [],
+                "division_rows": [],
                 "seed_count": seed_count,
                 "subdivision_seed_count": subdivision_seed_count,
                 "subdivision_count": derived_subdivision_counts_by_country.get(code, 0),
@@ -4922,6 +7282,7 @@ def _group_country_cards(
                 "population_text": "-",
                 "area_text": "-",
                 "flag_url": "",
+                "detail_url": "",
                 "new_group_url": reverse("ciudades_del_mundo:group_new"),
                 "seed_count": unmatched_seed_count,
                 "subdivision_seed_count": unmatched_subdivision_seed_count,
@@ -4931,6 +7292,2010 @@ def _group_country_cards(
             }
         )
     return cards
+
+
+def _new_country_cards(countries: list[DerivedCountry]) -> list[dict]:
+    configs_by_country: dict[str, list[DerivedCountryConfig]] = {}
+    countries_by_source: dict[str, list[DerivedCountry]] = {}
+    fallback_countries: list[DerivedCountry] = []
+    for country in countries:
+        country_configs = list(country.configs.all())
+        configs_by_country[country.slug] = country_configs
+        source_code = _new_country_container_source_code(country, country_configs)
+        if source_code:
+            countries_by_source.setdefault(source_code, []).append(country)
+        else:
+            fallback_countries.append(country)
+
+    country_rows = _admin_root_population_rows(
+        detail_route="ciudades_del_mundo:api_country_detail",
+        include_visual_assets=True,
+    )
+    visible_country_codes = {
+        _normalize_group_country_key(country.get("code"))
+        for country in country_rows
+        if _normalize_group_country_key(country.get("code"))
+    }
+    cards = []
+    for country in country_rows:
+        code = _normalize_group_country_key(country.get("code"))
+        if not code:
+            continue
+        derived_countries = countries_by_source.pop(code, [])
+        container_rows = _new_country_container_rows(
+            derived_countries,
+            configs_by_country=configs_by_country,
+            include_objects=True,
+        )
+        cards.append(
+            {
+                "key": code,
+                "code": code,
+                "label": country.get("label") or code,
+                "population_text": _group_metric_text(country.get("population")),
+                "area_text": _group_metric_text(country.get("area_km2")),
+                "flag_url": _stored_visual_asset_image_url(country.get("flag_asset")),
+                "configs": container_rows,
+                "config_count": len(container_rows),
+                "new_url": reverse(
+                    "ciudades_del_mundo:new_country_new_for_source",
+                    kwargs={"source_country_code": code},
+                ),
+            }
+        )
+
+    unmatched_countries = list(fallback_countries)
+    for source_code in sorted(countries_by_source):
+        if source_code not in visible_country_codes:
+            unmatched_countries.extend(countries_by_source[source_code])
+    if unmatched_countries:
+        container_rows = _new_country_container_rows(
+            unmatched_countries,
+            configs_by_country=configs_by_country,
+            include_objects=True,
+        )
+        cards.append(
+            {
+                "key": "__other__",
+                "code": "",
+                "label": _("Otros paises"),
+                "population_text": "-",
+                "area_text": "-",
+                "flag_url": "",
+                "configs": container_rows,
+                "config_count": len(container_rows),
+                "new_url": reverse("ciudades_del_mundo:new_country_new"),
+            }
+        )
+    return cards
+
+
+def _new_country_container_source_code(
+    country: DerivedCountry,
+    configs: list[DerivedCountryConfig] | None = None,
+) -> str:
+    source_code = _normalize_group_country_key(country.source_country_code)
+    if source_code:
+        return source_code
+    for config in (configs if configs is not None else country.configs.all()):
+        source_code = _new_country_config_source_code(config)
+        if source_code:
+            return source_code
+    return ""
+
+
+def _new_country_container_built_code(
+    country: DerivedCountry,
+    configs: list[DerivedCountryConfig] | None = None,
+) -> str:
+    for config in (configs if configs is not None else country.configs.all()):
+        built_code = _new_country_config_built_code(config)
+        if built_code:
+            return built_code
+    return _normalize_group_country_key(country.slug)
+
+
+def _new_country_container_rows(
+    countries: list[DerivedCountry],
+    *,
+    configs_by_country: dict[str, list[DerivedCountryConfig]] | None = None,
+    include_objects: bool = False,
+) -> list[dict]:
+    rows = []
+    for country in sorted(countries, key=lambda item: (item.name.casefold(), item.slug)):
+        configs = (
+            list(configs_by_country.get(country.slug, []))
+            if configs_by_country is not None
+            else list(country.configs.order_by("name", "slug"))
+        )
+        config_rows = _new_country_config_rows(configs)
+        source_code = _new_country_container_source_code(country, configs)
+        built_code = _new_country_container_built_code(country, configs)
+        root = _new_country_detail_export_root(country, config_rows)
+        if root is not None:
+            fallback_area, fallback_population = _new_country_detail_export_totals(country, config_rows)
+            display_name = _area_display_name(root)
+            population_value = root.pop_latest if root.pop_latest is not None else fallback_population
+            area_value = root.area_km2 if root.area_km2 is not None else fallback_area
+            built_code = _normalize_group_country_key(root.country_code) or built_code
+            built_count = NuevoAdminArea.objects.filter(country_code=root.country_code).count()
+            visual_assets = _new_country_visual_assets_for_root(root, source_code)
+        else:
+            area_value, population_value = _new_country_detail_export_totals(country, config_rows)
+            display_name = country.name
+            built_count = 0
+            visual_assets = {}
+        row = {
+            "key": country.slug,
+            "code": built_code,
+            "label": display_name,
+            "display_name": display_name,
+            "built_code": built_code,
+            "source_code": source_code,
+            "population": _new_country_json_number(population_value) or 0,
+            "area_km2": _number_or_none(area_value) or 0,
+            "population_text": _group_metric_text(population_value),
+            "area_text": _group_metric_text(area_value),
+            "visual_assets": visual_assets,
+            "flag_asset": visual_assets.get("flag", {}),
+            "seal_asset": visual_assets.get("seal", {}),
+            "coat_asset": visual_assets.get("coat", {}) or visual_assets.get("seal", {}),
+            "flag_url": _stored_visual_asset_image_url(visual_assets.get("flag")),
+            "built_count": built_count,
+            "config_count": len(config_rows),
+            "detail_url": (
+                reverse("ciudades_del_mundo:api_new_country_container_detail", kwargs={"country_slug": country.slug})
+                if config_rows or root is not None
+                else ""
+            ),
+            "detail_api_url": (
+                reverse("ciudades_del_mundo:api_new_country_container_detail", kwargs={"country_slug": country.slug})
+                if config_rows or root is not None
+                else ""
+            ),
+            "edit_url": _new_country_detail_url(country),
+            "export_excel_url": _new_country_detail_export_excel_url(country),
+            "view_url": (
+                reverse("ciudades_del_mundo:nuevo_area_detail", kwargs={"country_id": root.id})
+                if root is not None
+                else ""
+            ),
+            "search_text": " ".join(
+                [
+                    country.name,
+                    country.slug,
+                    built_code,
+                    source_code,
+                    *(config.name for config in configs),
+                    *(config.slug for config in configs),
+                ]
+            ),
+        }
+        if include_objects:
+            row["country"] = country
+            row["root"] = root
+        rows.append(row)
+    return rows
+
+
+def _new_country_config_level_options(configs: list[DerivedCountryConfig]) -> list[dict]:
+    levels = _new_country_config_available_levels_for_configs(configs)
+    return [
+        {
+            "value": row["value"],
+            "label": _("NV %(level)s") % {"level": row["value"]},
+            "count": row["count"],
+        }
+        for row in levels
+    ]
+
+
+def _new_country_config_tree_request_rows(
+    country: DerivedCountry,
+    configs: list[DerivedCountryConfig],
+    *,
+    parent_tree_id: str = "",
+    selected_level: int | str | None = None,
+) -> list[dict]:
+    parent_tree_id = str(parent_tree_id or "").strip()
+    try:
+        level = int(selected_level or 0)
+    except (TypeError, ValueError):
+        level = 0
+
+    if level > 0:
+        available_levels = _new_country_config_available_levels_for_configs(configs)
+        level, _selected_entity_types, _selected_filter = _resolve_country_level_selection(
+            level,
+            available_levels,
+        )
+    if level is not None and level > 0:
+        rows = _new_country_config_rows(
+            configs,
+            include_assigned_subdivisions=True,
+            target_levels={level},
+        )
+        return [
+            dict(row, depth=0, tree_parent="")
+            for row in rows
+            if int(row.get("level") or 0) == level
+        ]
+
+    if parent_tree_id:
+        target_slug = _new_country_config_node_target_slug(country.slug, parent_tree_id)
+        assigned_slugs = None
+        source_descendant_slugs = None
+        if target_slug:
+            direct_child_slugs = {
+                config.slug
+                for config in configs
+                if _new_country_config_parent_slug(config) == target_slug
+            }
+            assigned_slugs = {target_slug, *direct_child_slugs}
+            source_descendant_slugs = {target_slug}
+        rows = _new_country_config_rows(
+            configs,
+            include_assigned_subdivisions=True,
+            assigned_subdivision_config_slugs=assigned_slugs,
+            source_descendant_config_slugs=source_descendant_slugs,
+        )
+        parent_depth = next(
+            (int(row.get("depth") or 0) for row in rows if str(row.get("tree_id") or "") == parent_tree_id),
+            0,
+        )
+        return [
+            dict(row, depth=parent_depth + 1)
+            for row in rows
+            if str(row.get("tree_parent") or "") == parent_tree_id
+        ]
+
+    rows = _new_country_config_rows(configs, include_assigned_subdivisions=False)
+    return [row for row in rows if not str(row.get("tree_parent") or "")]
+
+
+def _new_country_config_tree_row_payload(row: dict) -> dict:
+    return {
+        "tree_id": str(row.get("tree_id") or ""),
+        "tree_parent": str(row.get("tree_parent") or ""),
+        "depth": int(row.get("depth") or 0),
+        "tree_depth_class": str(row.get("tree_depth_class") or ""),
+        "has_children": bool(row.get("has_children")),
+        "level": int(row.get("level") or 0),
+        "display_code": str(row.get("display_code") or ""),
+        "parent_display_code": str(row.get("parent_display_code") or ""),
+        "entity_display_name": str(row.get("entity_display_name") or ""),
+        "official_name": str(row.get("official_name") or ""),
+        "entity_type": str(row.get("entity_type") or ""),
+        "source_level": str(row.get("source_level") or ""),
+        "entity_area_text": str(row.get("entity_area_text") or "-"),
+        "entity_population_text": str(row.get("entity_population_text") or "-"),
+        "entity_density_text": str(row.get("entity_density_text") or "-"),
+        "capital": _new_country_config_row_capital_names(row),
+        "subdivision_count": int(row.get("subdivision_count") or 0),
+        "is_config_row": bool(row.get("is_config_row")),
+        "is_assigned_subdivision": bool(row.get("is_assigned_subdivision")),
+        "edit_url": str(row.get("edit_url") or ""),
+        "clone_url": str(row.get("clone_url") or ""),
+        "delete_url": str(row.get("delete_url") or ""),
+    }
+
+
+def _new_country_config_rows(
+    configs: list[DerivedCountryConfig],
+    *,
+    include_assigned_subdivisions: bool = False,
+    assigned_subdivision_config_slugs: set[str] | None = None,
+    source_descendant_config_slugs: set[str] | None = None,
+    target_levels: set[int] | None = None,
+) -> list[dict]:
+    rows = []
+    normalized_target_levels = (
+        {
+            int(level)
+            for level in target_levels
+            if isinstance(level, int) or str(level or "").strip().isdigit()
+        }
+        if target_levels is not None
+        else None
+    )
+    assigned_subdivision_config_slugs = (
+        {_normalize_group_country_key(slug) for slug in assigned_subdivision_config_slugs}
+        if assigned_subdivision_config_slugs is not None
+        else None
+    )
+    source_descendant_config_slugs = (
+        {_normalize_group_country_key(slug) for slug in source_descendant_config_slugs}
+        if source_descendant_config_slugs is not None
+        else None
+    )
+    for config in sorted(configs, key=lambda item: (item.country.name, item.name, item.slug)):
+        data = _new_country_config_toml(config)
+        entity = _new_country_config_first_entity(data)
+        built_code = _new_country_config_built_code(config)
+        source_code = _new_country_config_source_code(config)
+        level = _new_country_config_level(config)
+        parent_slug = _new_country_config_parent_slug(config)
+        tree_id = _new_country_config_tree_id(config)
+        parent_tree_id = _new_country_config_tree_parent_id(config, parent_slug)
+        entity_type = str(entity.get("entity_type") or "").strip()
+        selected_source_ids = _new_country_config_selected_source_ids(data, entity)
+        selected_derived_subdivisions = _new_country_config_selected_derived_subdivisions(
+            entity,
+            fallback_country_code=source_code,
+        )
+        assigned_subdivision_child_count = len(selected_source_ids) + len(selected_derived_subdivisions)
+        has_assigned_subdivision_children = bool(assigned_subdivision_child_count)
+        root = NuevoAdminArea.objects.filter(country_code=built_code, parent__isnull=True).order_by("name").first()
+        entity_node = _new_country_config_materialized_entity(config, data=data)
+        entity_display_name = _area_display_name(entity_node) if entity_node else config.name
+        area_value, population_value, density_value = _new_country_config_entity_metric_values(
+            data=data,
+            entity_node=entity_node,
+        )
+        built_count = NuevoAdminArea.objects.filter(country_code=built_code).count()
+        visual_assets = _new_country_visual_assets_for_root(root, source_code) if root else {}
+        detail_api_url = (
+            reverse("ciudades_del_mundo:api_new_country_detail", kwargs={"country_id": root.id})
+            if root
+            else ""
+        )
+        rows.append(
+            {
+                "config": config,
+                "country": config.country,
+                "built_code": built_code,
+                "source_code": source_code,
+                "root": root,
+                "entity_node": entity_node,
+                "built_count": built_count,
+                "display_code": _new_country_config_expected_full_code(config, data=data) or derived_code_piece(config.slug),
+                "entity_display_name": entity_display_name,
+                "official_name": _new_country_official_name(entity_type, entity_display_name),
+                "entity_type": entity_type,
+                "level": level,
+                "parent_slug": parent_slug,
+                "entity_area_value": area_value,
+                "entity_population_value": population_value,
+                "entity_density_value": density_value,
+                "entity_area_text": _group_metric_text(area_value),
+                "entity_population_text": _group_metric_text(population_value),
+                "entity_density_text": _group_metric_text(density_value),
+                "parent_display_code": "",
+                "source_level": "",
+                "tree_id": tree_id,
+                "tree_parent": parent_tree_id,
+                "row_kind": "config",
+                "sort_kind": 0,
+                "sort_index": 0,
+                "assigned_subdivision_child_count": assigned_subdivision_child_count,
+                "has_assigned_subdivision_children": has_assigned_subdivision_children,
+                "is_config_row": True,
+                "is_assigned_subdivision": False,
+                "display_name": _area_display_name(root) if root else config.country.name,
+                "population_text": _group_metric_text(root.pop_latest if root else population_value),
+                "area_text": _group_metric_text(root.area_km2 if root else area_value),
+                "flag_url": _stored_visual_asset_image_url(visual_assets.get("flag")),
+                "detail_api_url": detail_api_url,
+                "edit_url": _new_country_config_edit_url(config),
+                "delete_url": _new_country_config_delete_url(config),
+                "clone_url": _new_country_config_clone_url(config),
+                "build_url": _new_country_config_task_url(config, "build"),
+                "export_excel_url": _new_country_config_task_url(config, "export-excel"),
+                "view_url": (
+                    reverse("ciudades_del_mundo:nuevo_area_detail", kwargs={"country_id": root.id})
+                    if root
+                    else ""
+                ),
+                "search_text": " ".join(
+                    [
+                        config.country.name,
+                        config.country.slug,
+                        config.name,
+                        config.slug,
+                        built_code,
+                    ]
+                ),
+            }
+        )
+        if include_assigned_subdivisions and (
+            assigned_subdivision_config_slugs is None
+            or _normalize_group_country_key(config.slug) in assigned_subdivision_config_slugs
+        ):
+            rows.extend(
+                _new_country_config_assigned_subdivision_rows(
+                    config,
+                    data=data,
+                    entity=entity,
+                    source_country_code=source_code,
+                    parent_tree_id=tree_id,
+                    parent_level=level,
+                    include_derived_source_rows=(
+                        source_descendant_config_slugs is None
+                        or _normalize_group_country_key(config.slug) in source_descendant_config_slugs
+                    ),
+                    target_levels=normalized_target_levels,
+                )
+            )
+    _new_country_config_apply_source_child_counts(rows)
+    return _new_country_config_tree_rows(rows)
+
+
+def _new_country_config_tree_id(config: DerivedCountryConfig) -> str:
+    return f"config:{config.country_id}:{config.slug}"
+
+
+def _new_country_config_tree_parent_id(config: DerivedCountryConfig, parent_slug: str) -> str:
+    parent_slug = _normalize_group_country_key(parent_slug)
+    return f"config:{config.country_id}:{parent_slug}" if parent_slug else ""
+
+
+def _new_country_config_node_target_slug(country_slug: str, tree_id: str) -> str:
+    prefix = f"config:{country_slug}:"
+    value = str(tree_id or "")
+    if not value.startswith(prefix):
+        return ""
+    return _normalize_group_country_key(value[len(prefix):].split(":", 1)[0])
+
+
+def _new_country_config_assigned_subdivision_rows(
+    config: DerivedCountryConfig,
+    *,
+    data: dict,
+    entity: dict,
+    source_country_code: str,
+    parent_tree_id: str,
+    parent_level: int,
+    include_derived_source_rows: bool = True,
+    target_levels: set[int] | None = None,
+) -> list[dict]:
+    rows: list[dict] = []
+    display_level = max(1, int(parent_level or 1) + 1)
+    if target_levels is not None:
+        clean_target_levels: set[int] = set()
+        for raw_level in target_levels:
+            try:
+                clean_level = int(raw_level or 0)
+            except (TypeError, ValueError):
+                continue
+            if clean_level > 0:
+                clean_target_levels.add(clean_level)
+        target_levels = clean_target_levels
+
+    def wants_level(level: int) -> bool:
+        return target_levels is None or int(level or 0) in target_levels
+
+    source_ids = _new_country_config_selected_source_ids(data, entity)
+    if source_ids and wants_level(display_level):
+        areas = {
+            area.id: area
+            for area in _group_source_admin_areas()
+            .filter(id__in=source_ids)
+            .select_related("parent")
+            .order_by("country_code", "level", "name", "id")
+        }
+        for index, area_id in enumerate(source_ids):
+            area = areas.get(area_id)
+            if area is None:
+                continue
+            rows.append(
+                _new_country_config_source_area_row(
+                    config,
+                    area,
+                    parent_tree_id=parent_tree_id,
+                    display_level=display_level,
+                    sort_index=index,
+                    tree_id=f"{parent_tree_id}:source:{area.id}",
+                )
+            )
+
+    derived_records: list[DerivedSubdivision] = []
+    derived_ref_by_key: dict[tuple[str, str], DerivedSubdivision] = {}
+    derived_level_by_key: dict[tuple[str, str], int] = {}
+    derived_selections = _new_country_config_selected_derived_subdivisions(
+        entity,
+        fallback_country_code=source_country_code,
+    )
+    for selection in derived_selections:
+        country_code = _normalize_group_country_key(selection.get("country_code") or source_country_code)
+        key = str(selection.get("key") or "").strip()
+        if not country_code or not key:
+            continue
+        record = _derived_subdivision_source_record_for_key(country_code, key)
+        if record is None:
+            continue
+        record_data = _derived_subdivision_record_toml(record)
+        record_key = _derived_subdivision_source_key(record, record_data)
+        lookup_key = (
+            _normalize_group_country_key(record_data.get("source_country_code") or record.source_country_code),
+            record_key,
+        )
+        if lookup_key in derived_ref_by_key:
+            continue
+        derived_ref_by_key[lookup_key] = record
+        try:
+            derived_level = int(selection.get("level") or display_level)
+        except (TypeError, ValueError):
+            derived_level = display_level
+        assigned_level = max(display_level, max(1, min(9, derived_level)))
+        source_level = assigned_level + 1
+        if not wants_level(assigned_level) and not (
+            include_derived_source_rows and wants_level(source_level)
+        ):
+            continue
+        derived_level_by_key[lookup_key] = assigned_level
+        derived_records.append(record)
+    if not derived_records:
+        return rows
+
+    option_by_key = {
+        (_normalize_group_country_key(option.get("country_code")), str(option.get("key") or "")): option
+        for option in _new_country_derived_subdivision_options_from_records(derived_records)
+    }
+    record_data_by_slug = {record.slug: _derived_subdivision_record_toml(record) for record in derived_records}
+    code_counts = _new_country_derived_subdivision_code_counts(derived_records, data_by_slug=record_data_by_slug)
+    materialized_rows = _derived_subdivision_materialized_rows_for_records(
+        derived_records,
+        data_by_slug=record_data_by_slug,
+        code_counts=code_counts,
+    )
+    materialized_source_areas = _new_country_config_materialized_source_area_map(materialized_rows.values())
+    source_ids_cache: dict[tuple[str, str], set[str]] = {}
+    group_entry_cache: dict[tuple[str, str], dict | None] = {}
+    group_entries_cache: dict[str, list[dict]] = {}
+    for index, record in enumerate(derived_records, start=len(rows)):
+        record_data = record_data_by_slug.get(record.slug) or {}
+        record_country_code = _normalize_group_country_key(record_data.get("source_country_code") or record.source_country_code)
+        record_key = _derived_subdivision_source_key(record, record_data)
+        option = option_by_key.get((record_country_code, record_key)) or {}
+        assigned_level = max(
+            display_level,
+            derived_level_by_key.get((record_country_code, record_key), display_level),
+        )
+        materialized_code = _derived_subdivision_materialized_code(record, record_data, code_counts)
+        record_area, record_population = _derived_subdivision_metric_values(
+            record,
+            record_data,
+            code_counts=code_counts,
+            materialized_rows=materialized_rows,
+        )
+        record_density = _density(record_population, record_area)
+        derived_tree_id = f"{parent_tree_id}:derived:{record_country_code}:{record_key}"
+        display_name = option.get("name") or _new_country_clean_created_subdivision_name(record.name)
+        entity_type = option.get("type_text") or record.entity_type
+        rows.append(
+            {
+                "config": config,
+                "country": config.country,
+                "source_code": record_country_code,
+                "display_code": record_key,
+                "entity_display_name": display_name,
+                "official_name": _new_country_official_name(entity_type, display_name),
+                "entity_type": entity_type,
+                "level": assigned_level,
+                "parent_slug": config.slug,
+                "entity_area_value": record_area,
+                "entity_population_value": record_population,
+                "entity_density_value": record_density,
+                "entity_area_text": option.get("area_text") or "-",
+                "entity_population_text": option.get("population_text") or "-",
+                "entity_density_text": option.get("density_text") or "-",
+                "parent_display_code": "",
+                "source_level": "",
+                "tree_id": derived_tree_id,
+                "tree_parent": parent_tree_id,
+                "row_kind": "assigned-subdivision",
+                "sort_kind": 1,
+                "sort_index": index,
+                "is_config_row": False,
+                "is_assigned_subdivision": True,
+                "root": None,
+                "edit_url": "",
+                "delete_url": "",
+                "clone_url": "",
+                "search_text": " ".join(
+                    [
+                        config.name,
+                        config.slug,
+                        record_country_code,
+                        record_key,
+                        record.name,
+                        record.entity_type,
+                        record.code,
+                    ]
+                ),
+            }
+        )
+        if include_derived_source_rows and wants_level(assigned_level + 1):
+            rows.extend(
+                _new_country_config_derived_subdivision_source_rows(
+                    config,
+                    record,
+                    parent_tree_id=derived_tree_id,
+                    display_level=assigned_level + 1,
+                    sort_index=index,
+                    materialized_source_areas=materialized_source_areas.get(
+                        str(
+                            getattr(
+                                materialized_rows.get(
+                                    (record_country_code, materialized_code)
+                                ),
+                                "id",
+                                "",
+                            )
+                        ),
+                        [],
+                    ),
+                    source_ids_cache=source_ids_cache,
+                    group_entry_cache=group_entry_cache,
+                    group_entries_cache=group_entries_cache,
+                )
+            )
+    return rows
+
+
+def _new_country_config_source_area_row(
+    config: DerivedCountryConfig,
+    area: AdminArea,
+    *,
+    parent_tree_id: str,
+    display_level: int,
+    sort_index: int,
+    tree_id: str,
+    sort_kind: int = 1,
+) -> dict:
+    density_value = area.density if area.density is not None else _density(area.pop_latest, area.area_km2)
+    display_name = _new_country_clean_created_subdivision_name(
+        _new_country_config_source_area_display_name(area)
+    )
+    entity_type = str(area.entity_type or "").strip()
+    return {
+        "config": config,
+        "country": config.country,
+        "source_code": _normalize_group_country_key(area.country_code),
+        "entity_node": area,
+        "display_code": str(area.code or area.id),
+        "entity_display_name": display_name,
+        "official_name": _new_country_official_name(entity_type, display_name),
+        "entity_type": entity_type,
+        "level": display_level,
+        "parent_slug": config.slug,
+        "entity_area_value": area.area_km2,
+        "entity_population_value": area.pop_latest,
+        "entity_density_value": density_value,
+        "entity_area_text": _group_metric_text(area.area_km2),
+        "entity_population_text": _group_metric_text(area.pop_latest),
+        "entity_density_text": _group_metric_text(density_value),
+        "parent_display_code": "",
+        "source_level": "",
+        "tree_id": tree_id,
+        "tree_parent": parent_tree_id,
+        "row_kind": "assigned-subdivision",
+        "sort_kind": sort_kind,
+        "sort_index": sort_index,
+        "is_config_row": False,
+        "is_assigned_subdivision": True,
+        "root": None,
+        "edit_url": "",
+        "delete_url": "",
+        "clone_url": "",
+        "search_text": " ".join(
+            [
+                config.name,
+                config.slug,
+                area.id,
+                area.country_code,
+                area.name,
+                str(area.entity_type or ""),
+            ]
+        ),
+    }
+
+
+def _new_country_config_derived_subdivision_source_rows(
+    config: DerivedCountryConfig,
+    record: DerivedSubdivision,
+    *,
+    parent_tree_id: str,
+    display_level: int,
+    sort_index: int,
+    materialized_source_areas: list[AdminArea],
+    source_ids_cache: dict[tuple[str, str], set[str]],
+    group_entry_cache: dict[tuple[str, str], dict | None],
+    group_entries_cache: dict[str, list[dict]],
+) -> list[dict]:
+    areas = list(materialized_source_areas or [])
+    if not areas:
+        source_ids = _derived_subdivision_source_ids_for_record(
+            record,
+            source_ids_cache=source_ids_cache,
+            group_entry_cache=group_entry_cache,
+            group_entries_cache=group_entries_cache,
+        )
+        if not source_ids:
+            return []
+        areas = list(
+            _group_source_admin_areas()
+            .filter(id__in=source_ids)
+            .select_related("parent")
+            .order_by("country_code", "level", "name", "id")
+        )
+    else:
+        areas = _new_country_legal_source_areas_for_display(areas)
+    return [
+        _new_country_config_source_area_row(
+            config,
+            area,
+            parent_tree_id=parent_tree_id,
+            display_level=display_level,
+            sort_index=sort_index + index,
+            tree_id=f"{parent_tree_id}:source:{area.id}",
+            sort_kind=2,
+        )
+        for index, area in enumerate(areas)
+    ]
+
+
+def _new_country_legal_source_areas_for_display(areas: Iterable[AdminArea]) -> list[AdminArea]:
+    original_areas = list(areas)
+    source_ids = _new_country_legal_source_unit_ids_for_source_areas(original_areas)
+    if not source_ids:
+        return sorted(
+            original_areas,
+            key=lambda item: (
+                str(getattr(item, "country_code", "")),
+                int(getattr(item, "level", 0) or 0),
+                str(getattr(item, "name", "")).casefold(),
+                str(getattr(item, "id", "")),
+            ),
+        )
+    try:
+        return list(
+            _group_source_admin_areas()
+            .filter(id__in=source_ids)
+            .select_related("parent")
+            .order_by("country_code", "level", "name", "id")
+        )
+    except (OperationalError, ProgrammingError, ValueError):
+        return original_areas
+
+
+def _new_country_config_materialized_source_area_map(
+    areas: Iterable[NuevoAdminArea],
+) -> dict[str, list[AdminArea]]:
+    area_ids = [str(area.id) for area in areas if getattr(area, "id", None)]
+    if not area_ids:
+        return {}
+    try:
+        through_rows = list(
+            NuevoAdminArea.municipios_originales.through.objects
+            .filter(nuevoadminarea_id__in=area_ids)
+            .values_list("nuevoadminarea_id", "adminarea_id")
+        )
+    except (OperationalError, ProgrammingError, ValueError):
+        return {}
+    source_ids = {str(source_id) for _, source_id in through_rows if str(source_id or "").strip()}
+    if not source_ids:
+        return {}
+    try:
+        source_areas = {
+            str(area.id): area
+            for area in _group_source_admin_areas()
+            .filter(id__in=source_ids)
+            .select_related("parent")
+            .order_by("country_code", "level", "name", "id")
+        }
+    except (OperationalError, ProgrammingError, ValueError):
+        return {}
+    by_area_id: dict[str, list[AdminArea]] = {}
+    for area_id, source_id in through_rows:
+        source_area = source_areas.get(str(source_id))
+        if source_area is not None:
+            by_area_id.setdefault(str(area_id), []).append(source_area)
+    for rows in by_area_id.values():
+        rows.sort(key=lambda item: (str(item.country_code), int(item.level or 0), str(item.name).casefold(), str(item.id)))
+    return by_area_id
+
+
+def _new_country_config_source_area_display_name(area: AdminArea) -> str:
+    return _display_name(
+        getattr(area, "name", ""),
+        getattr(area, "name", ""),
+        country_code=getattr(area, "country_code", ""),
+    )
+
+
+def _new_country_config_entity_metric_values(*, data: dict, entity_node: NuevoAdminArea | None):
+    entity = _new_country_config_first_entity(data)
+    stored_area, stored_population, stored_density = _new_country_config_stored_metric_values(entity)
+    area_value = entity_node.area_km2 if entity_node and entity_node.area_km2 is not None else stored_area
+    population_value = (
+        entity_node.pop_latest
+        if entity_node and entity_node.pop_latest is not None
+        else stored_population
+    )
+    density_value = entity_node.density if entity_node and entity_node.density is not None else stored_density
+    if density_value is None:
+        density_value = _density(population_value, area_value)
+    return area_value, population_value, density_value
+
+
+def _new_country_detail_export_workbook(
+    country: DerivedCountry,
+    rows: list[dict],
+) -> tuple[Workbook, list[dict], dict]:
+    materialized_root = _new_country_detail_export_root(country, rows)
+    if materialized_root is not None:
+        return _new_country_detail_materialized_export_workbook(country, materialized_root)
+
+    export_rows, summary = _new_country_detail_export_rows(country, rows)
+    hierarchy_rows, merged_cells = _new_country_detail_export_sheet_rows_and_merges(export_rows)
+    sheets = [
+        _new_country_detail_export_sheet(
+            _("Jerarquia"),
+            hierarchy_rows,
+            table_name="Jerarquia",
+            merged_cells=merged_cells,
+        ),
+    ]
+    return (
+        Workbook(
+            sheets=tuple(sheets),
+            properties={"title": f"{country.name} - new country export"},
+        ),
+        export_rows,
+        summary,
+    )
+
+
+def _new_country_detail_materialized_export_workbook(
+    country: DerivedCountry,
+    root: NuevoAdminArea,
+) -> tuple[Workbook, list[dict], dict]:
+    refresh_nuevo_admin_most_populated(root.country_code)
+    data = DjangoNuevoAdminAreaExportRepository().get_export_data(root.id)
+    hierarchy_workbook, _data_rows, levels = build_nuevo_admin_workbook(data)
+    hierarchy_sheet = hierarchy_workbook.sheets[0]
+    export_rows = [
+        {
+            "level": area.level,
+            "row_kind": "materialized",
+            "tree_id": area.id,
+            "tree_parent": area.parent_id or "",
+        }
+        for area in (data.root, *data.areas)
+    ]
+    summary = {
+        "total_area_km2": data.root.area_km2,
+        "total_population": int(data.root.pop_latest) if data.root.pop_latest is not None else None,
+        "legal_subdivision_count": _new_country_materialized_legal_count(data),
+        "levels": tuple(levels),
+        "log_pending_label": _("Se guardara al completar la descarga"),
+    }
+    return (
+        Workbook(
+            sheets=(hierarchy_sheet,),
+            properties={"title": f"{country.name} - new country export"},
+        ),
+        export_rows,
+        summary,
+    )
+
+
+def _new_country_materialized_legal_count(data) -> int | None:
+    source_unit_ids = set(data.root.source_unit_ids)
+    for area in data.areas:
+        source_unit_ids.update(area.source_unit_ids)
+    if source_unit_ids:
+        return len(source_unit_ids)
+    if data.root.source_units_count:
+        return data.root.source_units_count
+    child_total = sum(area.source_units_count for area in data.areas if area.parent_id == data.root.id)
+    return child_total or None
+
+
+_NEW_COUNTRY_EXPORT_BLOCK_SIZE = 17
+
+
+def _new_country_detail_export_headers() -> tuple[str, ...]:
+    return _new_country_export_path_headers(0)
+
+
+def _new_country_detail_export_rows(country: DerivedCountry, rows: list[dict]) -> tuple[list[dict], dict]:
+    total_area, total_population = _new_country_detail_export_totals(country, rows)
+    rows_by_tree_id = {str(row.get("tree_id") or ""): row for row in rows if str(row.get("tree_id") or "")}
+    raw_export_rows: list[dict] = []
+    legal_context = _new_country_export_legal_context()
+    for row in rows:
+        area_value = _new_country_export_decimal(row.get("entity_area_value"))
+        if area_value is None:
+            area_value = _new_country_export_decimal(row.get("entity_area_text"))
+        population_value = _new_country_export_decimal(row.get("entity_population_value"))
+        if population_value is None:
+            population_value = _new_country_export_decimal(row.get("entity_population_text"))
+        density_value = _new_country_export_decimal(row.get("entity_density_value"))
+        if density_value is None:
+            density_value = _new_country_export_decimal(row.get("entity_density_text"))
+        if density_value is None:
+            density_value = _new_country_export_decimal(_density(population_value, area_value))
+        legal_source_unit_ids = _new_country_export_legal_source_unit_ids(row, legal_context)
+        capital_population = _new_country_export_capital_population(row)
+        most_populated_city, most_populated_population = _new_country_export_most_populated_city(row)
+        raw_export_rows.append(
+            {
+                "level": int(row.get("level") or 0),
+                "depth": int(row.get("depth") or 0),
+                "code": str(row.get("display_code") or ""),
+                "name": str(row.get("entity_display_name") or ""),
+                "type": str(row.get("entity_type") or ""),
+                "parent": _new_country_export_parent_label(row, rows_by_tree_id),
+                "area_km2": area_value,
+                "area_pct_total": _new_country_export_percentage(area_value, total_area),
+                "population": int(population_value) if population_value is not None else None,
+                "population_pct_total": _new_country_export_percentage(population_value, total_population),
+                "density": density_value,
+                "legal_subdivision_count": len(legal_source_unit_ids) or None,
+                "_legal_source_unit_ids": tuple(sorted(legal_source_unit_ids)),
+                "capitals": _new_country_export_capitals(row),
+                "capital_population": capital_population,
+                "capital_pct_entity": None,
+                "most_populated_city": most_populated_city,
+                "most_populated_population": most_populated_population,
+                "most_populated_pct_entity": None,
+                "row_kind": str(row.get("row_kind") or ""),
+                "tree_id": str(row.get("tree_id") or ""),
+                "tree_parent": str(row.get("tree_parent") or ""),
+                "sort_kind": int(row.get("sort_kind") or 0),
+                "sort_index": int(row.get("sort_index") or 0),
+            }
+        )
+        raw_export_rows[-1]["capital_pct_entity"] = _new_country_export_percentage(
+            raw_export_rows[-1]["capital_population"],
+            raw_export_rows[-1]["population"],
+        )
+        raw_export_rows[-1]["most_populated_pct_entity"] = _new_country_export_percentage(
+            raw_export_rows[-1]["most_populated_population"],
+            raw_export_rows[-1]["population"],
+        )
+    export_rows = _new_country_export_ordered_rows(
+        country,
+        raw_export_rows,
+        total_area=total_area,
+        total_population=total_population,
+    )
+    _new_country_finalize_export_rows(export_rows)
+    levels = tuple(sorted({row["level"] for row in export_rows if row["level"] > 0}))
+    summary = {
+        "total_area_km2": total_area,
+        "total_population": int(total_population) if total_population is not None else None,
+        "legal_subdivision_count": _new_country_export_fallback_legal_count(export_rows),
+        "levels": levels,
+        "log_pending_label": _("Se guardara al completar la descarga"),
+    }
+    return export_rows, summary
+
+
+def _new_country_export_ordered_rows(
+    country: DerivedCountry,
+    rows: list[dict],
+    *,
+    total_area: Decimal | None,
+    total_population: Decimal | None,
+) -> list[dict]:
+    country_row = {
+        "level": 0,
+        "depth": 0,
+        "code": country.slug,
+        "name": country.name,
+        "type": _("Pais nuevo"),
+        "parent": "",
+        "area_km2": total_area,
+        "area_pct_total": 100.0 if total_area not in (None, 0) else None,
+        "population": int(total_population) if total_population is not None else None,
+        "population_pct_total": 100.0 if total_population not in (None, 0) else None,
+        "density": _density(total_population, total_area),
+        "legal_subdivision_count": _new_country_export_fallback_legal_count(rows),
+        "_legal_source_unit_ids": (),
+        "capitals": "",
+        "capital_population": None,
+        "capital_pct_entity": None,
+        "most_populated_city": "",
+        "most_populated_population": None,
+        "most_populated_pct_entity": None,
+        "row_kind": "country",
+        "tree_id": f"country:{country.slug}",
+        "tree_parent": "",
+        "sort_kind": -1,
+        "sort_index": 0,
+    }
+    children_by_parent: dict[str, list[dict]] = {}
+    roots: list[dict] = []
+    for row in rows:
+        parent_key = str(row.get("tree_parent") or "")
+        if parent_key:
+            children_by_parent.setdefault(parent_key, []).append(row)
+        else:
+            roots.append(row)
+
+    ordered = [country_row]
+    seen = set()
+    current_layer = []
+    for row in sorted(roots, key=_new_country_export_sort_key):
+        item = dict(row)
+        item["depth"] = 1
+        ordered.append(item)
+        seen.add(str(item.get("tree_id") or ""))
+        current_layer.append(item)
+
+    while current_layer:
+        next_layer = []
+        for parent in current_layer:
+            parent_key = str(parent.get("tree_id") or "")
+            for child in sorted(children_by_parent.get(parent_key, []), key=_new_country_export_sort_key):
+                child_key = str(child.get("tree_id") or "")
+                if child_key in seen:
+                    continue
+                item = dict(child)
+                item["depth"] = int(parent.get("depth") or 0) + 1
+                ordered.append(item)
+                seen.add(child_key)
+                next_layer.append(item)
+        current_layer = next_layer
+
+    for row in sorted(rows, key=_new_country_export_sort_key):
+        row_key = str(row.get("tree_id") or "")
+        if row_key in seen:
+            continue
+        item = dict(row)
+        item["depth"] = max(1, int(item.get("depth") or 0))
+        ordered.append(item)
+        seen.add(row_key)
+    return ordered
+
+
+def _new_country_finalize_export_rows(rows: list[dict]) -> None:
+    _new_country_apply_legal_source_rollups(rows)
+    _new_country_apply_most_populated_from_legal_units(rows)
+    for row in rows:
+        row["capital_pct_entity"] = _new_country_export_percentage(
+            row.get("capital_population"),
+            row.get("population"),
+        )
+        row["most_populated_pct_entity"] = _new_country_export_percentage(
+            row.get("most_populated_population"),
+            row.get("population"),
+        )
+    _new_country_apply_export_rankings(rows)
+
+
+def _new_country_apply_legal_source_rollups(rows: list[dict]) -> None:
+    if not rows:
+        return
+    children_by_parent = _new_country_export_children_by_parent(rows)
+    cache: dict[str, set[str]] = {}
+
+    def resolve(row: dict) -> set[str]:
+        row_key = str(row.get("tree_id") or "")
+        if row_key in cache:
+            return set(cache[row_key])
+        source_ids = {str(value) for value in row.get("_legal_source_unit_ids") or () if str(value)}
+        for child in children_by_parent.get(row_key, []):
+            source_ids.update(resolve(child))
+        cache[row_key] = source_ids
+        row["_legal_source_unit_ids"] = tuple(sorted(source_ids))
+        row["legal_subdivision_count"] = len(source_ids) or None
+        return set(source_ids)
+
+    for row in rows:
+        resolve(row)
+
+
+def _new_country_export_children_by_parent(rows: list[dict]) -> dict[str, list[dict]]:
+    if not rows:
+        return {}
+    country_row = next((row for row in rows if row.get("row_kind") == "country"), rows[0])
+    country_key = str(country_row.get("tree_id") or "")
+    known_ids = {str(row.get("tree_id") or "") for row in rows if str(row.get("tree_id") or "")}
+    children_by_parent: dict[str, list[dict]] = {}
+    for row in rows:
+        if row is country_row:
+            continue
+        row_key = str(row.get("tree_id") or "")
+        if not row_key:
+            continue
+        parent_key = str(row.get("tree_parent") or "")
+        if not parent_key or parent_key not in known_ids:
+            parent_key = country_key
+        children_by_parent.setdefault(parent_key, []).append(row)
+    return children_by_parent
+
+
+def _new_country_apply_most_populated_from_legal_units(rows: list[dict]) -> None:
+    source_ids = {
+        str(value)
+        for row in rows
+        for value in row.get("_legal_source_unit_ids") or ()
+        if str(value)
+    }
+    if not source_ids:
+        return
+    ranked_source_rows: list[tuple[str, str, int]] = []
+    for chunk in _new_country_chunks(sorted(source_ids), 900):
+        ranked_source_rows.extend(
+            (str(area_id), str(name or ""), int(population))
+            for area_id, name, population in AdminArea.objects.filter(
+                id__in=chunk,
+                pop_latest__isnull=False,
+            ).values_list("id", "name", "pop_latest")
+            if population is not None
+        )
+    ranked_source_rows.sort(
+        key=lambda item: (-item[2], _group_name_match_key(item[1]), item[0])
+    )
+    for row in rows:
+        if row.get("most_populated_population") is not None and row.get("most_populated_city"):
+            continue
+        row_source_ids = {str(value) for value in row.get("_legal_source_unit_ids") or () if str(value)}
+        for source_id, name, population in ranked_source_rows:
+            if source_id not in row_source_ids:
+                continue
+            row["most_populated_city"] = name
+            row["most_populated_population"] = population
+            break
+
+
+def _new_country_chunks(values: list[str], size: int):
+    for index in range(0, len(values), size):
+        yield values[index : index + size]
+
+
+def _new_country_apply_export_rankings(rows: list[dict]) -> None:
+    ranking_specs = (
+        ("population", "population_rank"),
+        ("area_km2", "area_rank"),
+        ("capital_population", "capital_rank"),
+        ("most_populated_population", "most_populated_rank"),
+    )
+    rows_by_level: dict[int, list[dict]] = {}
+    for row in rows:
+        rows_by_level.setdefault(int(row.get("level") or 0), []).append(row)
+    for value_key, rank_key in ranking_specs:
+        for level_rows in rows_by_level.values():
+            ranked = sorted(
+                (row for row in level_rows if _new_country_export_decimal(row.get(value_key)) is not None),
+                key=lambda row: (
+                    -float(_new_country_export_decimal(row.get(value_key)) or 0),
+                    _group_name_match_key(str(row.get("name") or "")),
+                    str(row.get("code") or ""),
+                ),
+            )
+            for index, row in enumerate(ranked, start=1):
+                row[rank_key] = index
+
+
+def _new_country_export_sort_key(row: dict) -> tuple[int, int, str, str]:
+    return (
+        int(row.get("level") or 0),
+        int(row.get("sort_kind") or 0),
+        _group_name_match_key(str(row.get("name") or "")),
+        str(row.get("code") or ""),
+    )
+
+
+def _new_country_export_fallback_legal_count(rows: list[dict]) -> int | None:
+    source_unit_ids: set[str] = set()
+    for row in rows:
+        source_unit_ids.update(str(value) for value in row.get("_legal_source_unit_ids") or () if str(value))
+    if source_unit_ids:
+        return len(source_unit_ids)
+    total = sum(int(row.get("legal_subdivision_count") or 0) for row in rows)
+    return total or None
+
+
+def _new_country_export_legal_context() -> dict:
+    return {
+        "area_units": {},
+        "derived_units": {},
+        "derived_source_ids": {},
+        "group_entry": {},
+        "group_entries": {},
+    }
+
+
+def _new_country_detail_export_sheet_rows(rows: list[dict]) -> tuple[tuple[object, ...], ...]:
+    sheet_rows, _merged_cells = _new_country_detail_export_sheet_rows_and_merges(rows)
+    return sheet_rows
+
+
+def _new_country_detail_export_sheet_rows_and_merges(
+    rows: list[dict],
+) -> tuple[tuple[tuple[object, ...], ...], tuple[CellMerge, ...]]:
+    paths = _new_country_export_path_rows(rows)
+    max_depth = max((len(path) - 1 for path in paths), default=0)
+    block_count = max_depth + 1
+    sheet_rows: list[list[object]] = [list(_new_country_export_path_headers(max_depth))]
+    for path in paths:
+        row: list[object] = []
+        for item in path:
+            row.extend(_new_country_export_path_block(item))
+        row.extend([None] * (_NEW_COUNTRY_EXPORT_BLOCK_SIZE * (block_count - len(path))))
+        sheet_rows.append(row)
+    merged_cells = _new_country_merge_repeated_path_blocks(sheet_rows, paths, block_count)
+    return tuple(tuple(row) for row in sheet_rows), tuple(merged_cells)
+
+
+def _new_country_export_path_headers(max_depth: int) -> tuple[str, ...]:
+    block_headers = (
+        _("Nombre"),
+        _("Poblacion"),
+        "%",
+        _("Ranking poblacion"),
+        _("Terreno"),
+        "%",
+        _("Ranking terreno"),
+        _("Densidad"),
+        _("Capital"),
+        _("Poblacion capital"),
+        _("% capital"),
+        _("Ranking capital"),
+        _("Ciudad mas poblada"),
+        _("Poblacion ciudad mas poblada"),
+        _("% ciudad mas poblada"),
+        _("Ranking ciudad mas poblada"),
+        _("Num municipios"),
+    )
+    headers = list(block_headers)
+    for depth in range(1, max_depth + 1):
+        headers.extend(f"NV{depth} {header}" for header in block_headers)
+    return tuple(headers)
+
+
+def _new_country_export_path_rows(rows: list[dict]) -> tuple[tuple[dict, ...], ...]:
+    if not rows:
+        return ()
+
+    country_row = next((row for row in rows if row.get("row_kind") == "country"), rows[0])
+    country_key = str(country_row.get("tree_id") or "country")
+    indexed_rows: list[dict] = []
+    fallback_index = 0
+    for row in rows:
+        if row is country_row:
+            continue
+        item = dict(row)
+        tree_id = str(item.get("tree_id") or "")
+        if not tree_id:
+            fallback_index += 1
+            tree_id = f"row:{fallback_index}"
+            item["tree_id"] = tree_id
+        indexed_rows.append(item)
+
+    known_ids = {country_key, *(str(row.get("tree_id") or "") for row in indexed_rows)}
+    children_by_parent: dict[str, list[dict]] = {country_key: []}
+    for row in indexed_rows:
+        parent_key = str(row.get("tree_parent") or "")
+        if parent_key and parent_key in known_ids:
+            children_by_parent.setdefault(parent_key, []).append(row)
+        else:
+            children_by_parent.setdefault(country_key, []).append(row)
+
+    paths: list[tuple[dict, ...]] = []
+    seen = {country_key}
+
+    def visit(row: dict, path: tuple[dict, ...]) -> None:
+        row_key = str(row.get("tree_id") or "")
+        if row_key:
+            seen.add(row_key)
+        children = [
+            child
+            for child in sorted(children_by_parent.get(row_key, []), key=_new_country_export_sort_key)
+            if str(child.get("tree_id") or "") not in seen
+        ]
+        if not children:
+            paths.append(path)
+            return
+        for child in children:
+            visit(child, (*path, child))
+
+    visit(country_row, (country_row,))
+    for row in sorted(indexed_rows, key=_new_country_export_sort_key):
+        row_key = str(row.get("tree_id") or "")
+        if row_key in seen:
+            continue
+        visit(row, (country_row, row))
+    return tuple(paths)
+
+
+def _new_country_export_path_block(row: dict) -> tuple[object, ...]:
+    return (
+        row["name"],
+        row["population"],
+        row["population_pct_total"],
+        row.get("population_rank"),
+        row["area_km2"],
+        row["area_pct_total"],
+        row.get("area_rank"),
+        row["density"],
+        row["capitals"],
+        row["capital_population"],
+        row["capital_pct_entity"],
+        row.get("capital_rank"),
+        row["most_populated_city"],
+        row["most_populated_population"],
+        row["most_populated_pct_entity"],
+        row.get("most_populated_rank"),
+        row["legal_subdivision_count"],
+    )
+
+
+def _new_country_merge_repeated_path_blocks(
+    rows: list[list[object]],
+    paths: tuple[tuple[dict, ...], ...],
+    block_count: int,
+) -> list[CellMerge]:
+    merged_cells: list[CellMerge] = []
+    if len(paths) <= 1:
+        return merged_cells
+    for depth in range(block_count):
+        start = 0
+        while start < len(paths):
+            if depth >= len(paths[start]):
+                start += 1
+                continue
+            row_key = str(paths[start][depth].get("tree_id") or "")
+            end = start + 1
+            while (
+                end < len(paths)
+                and depth < len(paths[end])
+                and str(paths[end][depth].get("tree_id") or "") == row_key
+            ):
+                end += 1
+            if row_key and end - start > 1:
+                first_row = start + 2
+                last_row = end + 1
+                first_column = depth * _NEW_COUNTRY_EXPORT_BLOCK_SIZE + 1
+                for offset in range(_NEW_COUNTRY_EXPORT_BLOCK_SIZE):
+                    column = first_column + offset
+                    merged_cells.append(
+                        CellMerge(
+                            start_row=first_row,
+                            start_column=column,
+                            end_row=last_row,
+                            end_column=column,
+                        )
+                    )
+                    for row_index in range(start + 1, end):
+                        rows[row_index + 1][column - 1] = None
+            start = end
+    return merged_cells
+
+
+def _new_country_export_legal_source_unit_ids(row: dict, context: dict) -> set[str]:
+    entity_node = row.get("entity_node")
+    if isinstance(entity_node, NuevoAdminArea):
+        return set(entity_node.municipios_originales.values_list("id", flat=True))
+
+    tree_id = str(row.get("tree_id") or "")
+    if ":source:" in tree_id:
+        source_id = tree_id.rsplit(":source:", 1)[1]
+        return _new_country_legal_source_unit_ids_for_area_id(source_id, context=context)
+
+    if ":derived:" in tree_id:
+        derived_ref = tree_id.rsplit(":derived:", 1)[1]
+        if ":" in derived_ref:
+            country_code, record_key = derived_ref.split(":", 1)
+            return _new_country_derived_subdivision_legal_source_unit_ids(country_code, record_key, context=context)
+
+    config = row.get("config")
+    if isinstance(config, DerivedCountryConfig):
+        data = _new_country_config_toml(config)
+        entity = _new_country_config_first_entity(data)
+        source_code = _new_country_config_source_code(config)
+        return _new_country_config_legal_source_unit_ids(data, entity, source_code, context=context)
+    return set()
+
+
+def _new_country_config_legal_source_unit_ids(
+    data: dict,
+    entity: dict,
+    source_country_code: str,
+    *,
+    context: dict,
+) -> set[str]:
+    include_ids = _new_country_config_direct_legal_source_unit_ids(
+        data,
+        entity,
+        source_country_code,
+        "include",
+        context=context,
+    )
+    include_ids.update(
+        _new_country_config_derived_legal_source_unit_ids(
+            entity,
+            source_country_code,
+            "include",
+            context=context,
+        )
+    )
+    subtract_ids = _new_country_config_direct_legal_source_unit_ids(
+        data,
+        entity,
+        source_country_code,
+        "subtract",
+        context=context,
+    )
+    subtract_ids.update(
+        _new_country_config_derived_legal_source_unit_ids(
+            entity,
+            source_country_code,
+            "subtract",
+            context=context,
+        )
+    )
+    return include_ids - subtract_ids
+
+
+def _new_country_config_direct_legal_source_unit_ids(
+    data: dict,
+    entity: dict,
+    source_country_code: str,
+    operation: str,
+    *,
+    context: dict,
+) -> set[str]:
+    source_country_code = _normalize_group_country_key(source_country_code)
+    ids: list[str] = []
+    selection = data.get("selection") if isinstance(data.get("selection"), dict) else {}
+    selection_items = selection.get("items") if isinstance(selection, dict) else None
+    if isinstance(selection_items, list):
+        for item in selection_items:
+            if not isinstance(item, dict):
+                continue
+            item_operation = str(item.get("operation") or "add").strip().lower()
+            expected_operation = "add" if operation == "include" else "subtract"
+            if item_operation != expected_operation:
+                continue
+            ids.extend(_new_country_config_text_values([item.get("id") or item.get("value")]))
+    elif isinstance(selection, dict):
+        key = "include_ids" if operation == "include" else "subtract_ids"
+        ids.extend(_new_country_config_text_values(selection.get(key)))
+
+    blocks = entity.get(operation) if isinstance(entity.get(operation), list) else []
+    for block in blocks:
+        if isinstance(block, dict):
+            ids.extend(_new_country_config_text_values(block.get("ids")))
+
+    result: set[str] = set()
+    for area_id in ids:
+        result.update(
+            _new_country_legal_source_unit_ids_for_area_id(
+                area_id,
+                fallback_country_code=source_country_code,
+                context=context,
+            )
+        )
+    return result
+
+
+def _new_country_config_derived_legal_source_unit_ids(
+    entity: dict,
+    source_country_code: str,
+    operation: str,
+    *,
+    context: dict,
+) -> set[str]:
+    blocks = entity.get(operation) if isinstance(entity.get(operation), list) else []
+    result: set[str] = set()
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        block_country = _normalize_group_country_key(block.get("country_code") or source_country_code)
+        for key in _new_country_config_text_values(block.get("derived_subdivisions")):
+            result.update(
+                _new_country_derived_subdivision_legal_source_unit_ids(
+                    block_country,
+                    key,
+                    context=context,
+                )
+            )
+    return result
+
+
+def _new_country_derived_subdivision_legal_source_unit_ids(
+    country_code: str,
+    record_key: str,
+    *,
+    context: dict,
+) -> set[str]:
+    country_code = _normalize_group_country_key(country_code)
+    record_key = str(record_key or "").strip()
+    if not country_code or not record_key:
+        return set()
+    cache_key = (country_code, record_key.casefold())
+    derived_cache: dict[tuple[str, str], set[str]] = context["derived_units"]
+    if cache_key in derived_cache:
+        return set(derived_cache[cache_key])
+    record = _derived_subdivision_source_record_for_key(country_code, record_key)
+    if record is None:
+        return set()
+
+    materialized_country, code_candidates = _derived_subdivision_materialized_code_candidates(record)
+    if materialized_country and code_candidates:
+        materialized_rows = NuevoAdminArea.objects.filter(
+            country_code__iexact=materialized_country,
+            code__in=code_candidates,
+        ).prefetch_related("municipios_originales")
+        materialized_source_areas: list[AdminArea] = []
+        for area in materialized_rows:
+            materialized_source_areas.extend(area.municipios_originales.all())
+        source_ids = _new_country_legal_source_unit_ids_for_source_areas(materialized_source_areas)
+        if source_ids:
+            derived_cache[cache_key] = set(source_ids)
+            return source_ids
+
+    source_ids = set(
+        _derived_subdivision_source_ids_for_record(
+            record,
+            source_ids_cache=context["derived_source_ids"],
+            group_entry_cache=context["group_entry"],
+            group_entries_cache=context["group_entries"],
+        )
+    )
+    derived_cache[cache_key] = set(source_ids)
+    return source_ids
+
+
+def _new_country_legal_source_unit_ids_for_area_id(
+    area_id: str,
+    *,
+    fallback_country_code: str = "",
+    context: dict,
+) -> set[str]:
+    cache_key = (str(area_id or ""), _normalize_group_country_key(fallback_country_code))
+    area_cache: dict[tuple[str, str], set[str]] = context["area_units"]
+    if cache_key in area_cache:
+        return set(area_cache[cache_key])
+    area = _group_source_admin_areas().filter(id=area_id).only("id", "country_code", "level", "parent_id").first()
+    if area is None and fallback_country_code:
+        area = (
+            _group_source_admin_areas()
+            .filter(country_code__iexact=fallback_country_code)
+            .filter(Q(id=area_id) | Q(code__iexact=area_id))
+            .only("id", "country_code", "level", "parent_id")
+            .first()
+        )
+    if area is None:
+        return set()
+    source_ids = _new_country_legal_source_unit_ids_for_area(area)
+    area_cache[cache_key] = set(source_ids)
+    return source_ids
+
+
+def _new_country_legal_source_unit_ids_for_area(area: AdminArea) -> set[str]:
+    country_code = _normalize_group_country_key(area.country_code)
+    target_level = _derived_subdivision_capital_target_level(country_code)
+    if target_level is None:
+        target_level = int(area.level or 0)
+    try:
+        area_level = int(area.level or 0)
+    except (TypeError, ValueError):
+        area_level = 0
+    if area_level > target_level:
+        ancestor = _derived_subdivision_ancestor_at_level(area, target_level)
+        return {str(ancestor.id)} if ancestor is not None else set()
+    result: set[str] = set()
+    seen: set[str] = set()
+    stack = [area]
+    while stack:
+        current = stack.pop()
+        current_id = str(current.id)
+        if current_id in seen:
+            continue
+        seen.add(current_id)
+        current_level = int(current.level or 0)
+        if current_level == target_level:
+            result.add(current_id)
+            continue
+        if current_level > target_level:
+            continue
+        children = list(
+            _group_source_admin_areas()
+            .filter(parent_id=current.id)
+            .only("id", "country_code", "level")
+            .order_by("name", "id")
+        )
+        if children:
+            stack.extend(children)
+        elif current_level > 0:
+            result.add(current_id)
+    return result
+
+
+def _new_country_detail_export_sheet(
+    name: str,
+    rows: tuple[tuple[object, ...], ...],
+    *,
+    table_name: str,
+    merged_cells: tuple[CellMerge, ...] = (),
+) -> Sheet:
+    tables: tuple[Table, ...] = ()
+    if len(rows) > 1 and not merged_cells:
+        column_count = max((len(row) for row in rows), default=1)
+        ref = f"A1:{_new_country_excel_column_name(column_count)}{len(rows)}"
+        tables = (Table(name=table_name, ref=ref, columns=tuple(str(value or "") for value in rows[0])),)
+    return Sheet(
+        name=str(name or "Hoja")[:31],
+        rows=rows,
+        freeze_panes="A2",
+        auto_filter=not bool(merged_cells),
+        tables=tables,
+        merged_cells=merged_cells,
+        center_cells=True,
+        auto_column_widths=True,
+    )
+
+
+def _new_country_detail_export_totals(
+    country: DerivedCountry,
+    rows: list[dict],
+) -> tuple[Decimal | None, Decimal | None]:
+    root = _new_country_detail_export_root(country, rows)
+    if root is not None:
+        area = _new_country_export_decimal(root.area_km2)
+        population = _new_country_export_decimal(root.pop_latest)
+        if area is not None or population is not None:
+            return area, population
+
+    top_rows = [
+        row
+        for row in rows
+        if row.get("is_config_row") and not str(row.get("tree_parent") or "")
+    ]
+    if not top_rows:
+        top_rows = [row for row in rows if row.get("is_config_row")]
+    area_total = sum(
+        (value for value in (_new_country_export_decimal(row.get("entity_area_value")) for row in top_rows) if value is not None),
+        Decimal("0"),
+    )
+    population_total = sum(
+        (
+            value
+            for value in (_new_country_export_decimal(row.get("entity_population_value")) for row in top_rows)
+            if value is not None
+        ),
+        Decimal("0"),
+    )
+    return (area_total if area_total else None, population_total if population_total else None)
+
+
+def _new_country_detail_export_root(country: DerivedCountry, rows: list[dict]) -> NuevoAdminArea | None:
+    built_codes = []
+    seen = set()
+    for row in rows:
+        config = row.get("config")
+        if not isinstance(config, DerivedCountryConfig):
+            continue
+        code = _new_country_config_built_code(config)
+        if code and code not in seen:
+            seen.add(code)
+            built_codes.append(code)
+    for code in [country.slug, *built_codes]:
+        root = (
+            NuevoAdminArea.objects.filter(country_code=code, parent__isnull=True)
+            .order_by("level", "id")
+            .first()
+        )
+        if root is not None:
+            return root
+    return None
+
+
+def _new_country_export_parent_label(row: dict, rows_by_tree_id: dict[str, dict]) -> str:
+    parent = rows_by_tree_id.get(str(row.get("tree_parent") or ""))
+    if not parent:
+        return ""
+    code = str(parent.get("display_code") or "").strip()
+    name = str(parent.get("entity_display_name") or "").strip()
+    if code and name:
+        return f"{code} - {name}"
+    return code or name
+
+
+def _new_country_export_capitals(row: dict) -> str:
+    entity_node = row.get("entity_node")
+    if isinstance(entity_node, (AdminArea, NuevoAdminArea)):
+        names = _area_capital_display_names(entity_node, get_language())
+        if names:
+            return " | ".join(names)
+
+    if row.get("is_config_row"):
+        config = row.get("config")
+        if isinstance(config, DerivedCountryConfig):
+            data = _new_country_config_toml(config)
+            entity = _new_country_config_first_entity(data)
+            source_code = _new_country_config_source_code(config)
+            return _new_country_export_capital_names_from_values(
+                source_code,
+                _derived_subdivision_capital_values(source_code, entity),
+            )
+
+    tree_id = str(row.get("tree_id") or "")
+    if ":source:" in tree_id:
+        source_id = tree_id.rsplit(":source:", 1)[1]
+        area = AdminArea.objects.filter(id=source_id).first()
+        if area is not None:
+            names = _area_capital_display_names(area, get_language())
+            if names:
+                return " | ".join(names)
+
+    if ":derived:" in tree_id:
+        derived_ref = tree_id.rsplit(":derived:", 1)[1]
+        if ":" in derived_ref:
+            country_code, record_key = derived_ref.split(":", 1)
+            record = _derived_subdivision_source_record_for_key(country_code, record_key)
+            if record is not None:
+                data = _derived_subdivision_record_toml(record)
+                source_code = _normalize_group_country_key(data.get("source_country_code") or record.source_country_code)
+                return _new_country_export_capital_names_from_values(
+                    source_code,
+                    _derived_subdivision_capital_values(source_code, data),
+                )
+    return ""
+
+
+def _new_country_export_capital_population(row: dict) -> int | None:
+    entity_node = row.get("entity_node")
+    if isinstance(entity_node, (AdminArea, NuevoAdminArea)):
+        return _new_country_export_capital_population_for_area(entity_node)
+
+    if row.get("is_config_row"):
+        config = row.get("config")
+        if isinstance(config, DerivedCountryConfig):
+            data = _new_country_config_toml(config)
+            entity = _new_country_config_first_entity(data)
+            source_code = _new_country_config_source_code(config)
+            return _new_country_export_capital_population_from_values(
+                _derived_subdivision_capital_values(source_code, entity)
+            )
+
+    tree_id = str(row.get("tree_id") or "")
+    if ":source:" in tree_id:
+        source_id = tree_id.rsplit(":source:", 1)[1]
+        area = AdminArea.objects.filter(id=source_id).prefetch_related("capitals").first()
+        if area is not None:
+            return _new_country_export_capital_population_for_area(area)
+
+    if ":derived:" in tree_id:
+        derived_ref = tree_id.rsplit(":derived:", 1)[1]
+        if ":" in derived_ref:
+            country_code, record_key = derived_ref.split(":", 1)
+            record = _derived_subdivision_source_record_for_key(country_code, record_key)
+            if record is not None:
+                data = _derived_subdivision_record_toml(record)
+                source_code = _normalize_group_country_key(data.get("source_country_code") or record.source_country_code)
+                return _new_country_export_capital_population_from_values(
+                    _derived_subdivision_capital_values(source_code, data)
+                )
+    return None
+
+
+def _new_country_export_capital_population_for_area(area) -> int | None:
+    populations = [
+        capital.pop_latest
+        for capital in area.capitals.all()
+        if capital.pop_latest is not None
+    ]
+    return sum(populations) if populations else None
+
+
+def _new_country_export_capital_population_from_values(values: list[str]) -> int | None:
+    clean_values = [str(value or "").strip() for value in values if str(value or "").strip()]
+    if not clean_values:
+        return None
+    populations = [
+        area.pop_latest
+        for area in AdminArea.objects.filter(id__in=clean_values)
+        if area.pop_latest is not None
+    ]
+    return sum(populations) if populations else None
+
+
+def _new_country_export_most_populated_city(row: dict) -> tuple[str, int | None]:
+    entity_node = row.get("entity_node")
+    if isinstance(entity_node, (AdminArea, NuevoAdminArea)):
+        city = getattr(entity_node, "most_populate_city", None)
+        if city is not None:
+            return _area_display_name(city), city.pop_latest
+
+    tree_id = str(row.get("tree_id") or "")
+    if ":source:" in tree_id:
+        source_id = tree_id.rsplit(":source:", 1)[1]
+        area = AdminArea.objects.filter(id=source_id).select_related("most_populate_city").first()
+        if area is not None and area.most_populate_city is not None:
+            return _area_display_name(area.most_populate_city), area.most_populate_city.pop_latest
+    return "", None
+
+
+def _new_country_export_capital_names_from_values(country_code: str, values: list[str]) -> str:
+    clean_values = [str(value or "").strip() for value in values if str(value or "").strip()]
+    if not clean_values:
+        return ""
+    areas = {
+        area.id: area
+        for area in AdminArea.objects.filter(id__in=clean_values).prefetch_related("capitals")
+    }
+    names = []
+    seen = set()
+    for value in clean_values:
+        area = areas.get(value)
+        name = _area_display_name(area) if area is not None else value
+        marker = str(name or "").casefold()
+        if marker and marker not in seen:
+            seen.add(marker)
+            names.append(name)
+    return " | ".join(names)
+
+
+def _new_country_export_decimal(value) -> Decimal | None:
+    if value in (None, "", "-"):
+        return None
+    if isinstance(value, Decimal):
+        return value
+    if isinstance(value, int):
+        return Decimal(value)
+    if isinstance(value, float):
+        return Decimal(str(value))
+    text = str(value or "").strip()
+    if not text or text == "-":
+        return None
+    text = text.replace(",", ".")
+    try:
+        return Decimal(text)
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+
+
+def _new_country_export_percentage(value, total) -> float | None:
+    value = _new_country_export_decimal(value)
+    total = _new_country_export_decimal(total)
+    if value is None or total in (None, 0):
+        return None
+    return round(float(value / total * Decimal("100")), 2)
+
+
+def _new_country_excel_column_name(index: int) -> str:
+    result = ""
+    while index:
+        index, remainder = divmod(index - 1, 26)
+        result = chr(65 + remainder) + result
+    return result or "A"
+
+
+def _safe_excel_filename(value: str) -> str:
+    filename = re.sub(r"[^A-Za-z0-9_.-]", "_", str(value or "").strip())
+    filename = re.sub(r"_+", "_", filename).strip("._") or "new_country_export.xlsx"
+    if not filename.lower().endswith(".xlsx"):
+        filename = f"{filename}.xlsx"
+    return filename
+
+
+def _write_new_country_detail_export_log(
+    country: DerivedCountry,
+    *,
+    request,
+    output_path: Path,
+    rows: list[dict],
+    summary: dict,
+) -> Path:
+    source_code = _normalize_group_country_key(country.source_country_code) or "_"
+    log_path = Path(settings.BASE_DIR) / ".web_export_logs" / "new-countries" / source_code / f"{country.slug}.jsonl"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "exported_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "route": request.get_full_path() if request is not None else "",
+        "country_slug": country.slug,
+        "country_name": country.name,
+        "source_country_code": source_code,
+        "xlsx_path": str(output_path),
+        "rows": len(rows),
+        "levels": list(summary.get("levels") or []),
+        "total_area_km2": summary.get("total_area_km2"),
+        "total_population": summary.get("total_population"),
+        "legal_subdivision_count": summary.get("legal_subdivision_count"),
+        "row_kinds": dict(Counter(row.get("row_kind") or "" for row in rows)),
+    }
+    with log_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, ensure_ascii=False, default=str) + "\n")
+    return log_path
+
+
+def _new_country_config_tree_rows(rows: list[dict]) -> list[dict]:
+    row_by_key = {str(row.get("tree_id") or ""): row for row in rows if str(row.get("tree_id") or "")}
+    children_by_key: dict[str, list[dict]] = {}
+    roots: list[dict] = []
+    for row in rows:
+        key = str(row.get("tree_id") or "")
+        parent_key = str(row.get("tree_parent") or "")
+        if parent_key and parent_key in row_by_key and parent_key != key:
+            children_by_key.setdefault(parent_key, []).append(row)
+        else:
+            row["tree_parent"] = ""
+            row["parent_slug"] = "" if row.get("is_config_row") else row.get("parent_slug", "")
+            roots.append(row)
+
+    ordered: list[dict] = []
+    seen: set[str] = set()
+
+    def sort_key(row: dict) -> tuple[int, int, int, str, str]:
+        return (
+            int(row.get("sort_kind") or 0),
+            int(row.get("level") or 1),
+            int(row.get("sort_index") or 0),
+            str(row.get("entity_display_name") or getattr(row.get("config"), "name", "") or "").casefold(),
+            str(row.get("tree_id") or ""),
+        )
+
+    def append_tree(row: dict, depth: int) -> None:
+        key = str(row.get("tree_id") or "")
+        if key in seen:
+            return
+        seen.add(key)
+        children = sorted(children_by_key.get(key, []), key=sort_key)
+        row["depth"] = depth
+        row["tree_depth_class"] = f"new-country-tree-depth-{min(depth, 5)}"
+        row["has_children"] = bool(children) or bool(row.get("has_assigned_subdivision_children"))
+        if "subdivision_count" not in row:
+            row["subdivision_count"] = len(children) or int(row.get("assigned_subdivision_child_count") or 0)
+        ordered.append(row)
+        for child in children:
+            append_tree(child, depth + 1)
+
+    for row in sorted(roots, key=sort_key):
+        append_tree(row, 0)
+    for row in sorted(rows, key=sort_key):
+        append_tree(row, 0)
+    return ordered
+
+
+def _new_country_config_apply_source_child_counts(rows: list[dict]) -> None:
+    source_ids = [
+        str(row["entity_node"].id)
+        for row in rows
+        if isinstance(row.get("entity_node"), AdminArea)
+    ]
+    if not source_ids:
+        return
+    counts = {
+        str(item["parent_id"]): int(item["total"] or 0)
+        for item in _visible_admin_areas()
+        .filter(parent_id__in=source_ids)
+        .values("parent_id")
+        .annotate(total=Count("id"))
+    }
+    for row in rows:
+        entity_node = row.get("entity_node")
+        if isinstance(entity_node, AdminArea):
+            row["source_child_count"] = counts.get(str(entity_node.id), 0)
+
+
+def _new_country_config_source_code(config: DerivedCountryConfig) -> str:
+    data = _new_country_config_toml(config)
+    return _normalize_group_country_key(
+        data.get("source_country_code")
+        or config.source_country_code
+        or config.country.source_country_code
+    )
+
+
+def _new_country_config_built_code(config: DerivedCountryConfig) -> str:
+    data = _new_country_config_toml(config)
+    return _normalize_group_country_key(data.get("derived_country_code") or config.derived_country_code or config.slug)
+
+
+def _new_country_config_toml(config: DerivedCountryConfig) -> dict:
+    try:
+        data = tomllib.loads(config.content or "")
+    except tomllib.TOMLDecodeError:
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def _derived_subdivision_country_cards(
@@ -4960,18 +9325,14 @@ def _derived_subdivision_country_cards(
         detail_route="ciudades_del_mundo:api_country_detail",
         include_visual_assets=True,
     )
-    visible_country_codes = {
-        _normalize_group_country_key(country.get("code"))
-        for country in country_rows
-        if _normalize_group_country_key(country.get("code"))
-    }
+    visible_country_codes: set[str] = set()
     cards = []
     for country in country_rows:
         code = _normalize_group_country_key(country.get("code"))
-        if not code:
+        if not code or code not in records_by_country:
             continue
+        visible_country_codes.add(code)
         country_records = records_by_country.pop(code, [])
-        subdivision_rows = _derived_subdivision_rows_for_country(country_records, code)
         group_rows = _subdivision_group_entries_for_country(_subdivision_groups_for_country(code), code)
         cards.append(
             {
@@ -4981,9 +9342,13 @@ def _derived_subdivision_country_cards(
                 "population_text": _group_metric_text(country.get("population")),
                 "area_text": _group_metric_text(country.get("area_km2")),
                 "flag_url": _stored_visual_asset_image_url(country.get("flag_asset")),
-                "subdivisions": subdivision_rows,
-                "subdivision_count": len(subdivision_rows),
-                "groups": group_rows,
+                "detail_url": reverse(
+                    "ciudades_del_mundo:derived_subdivision_country_detail_data",
+                    kwargs={"country_code": code},
+                ),
+                "subdivisions": [],
+                "subdivision_count": len(country_records),
+                "groups": [],
                 "group_count": len(group_rows),
                 "seed_count": seed_counts_by_country.pop(code, 0),
                 "export_url": reverse(
@@ -5005,10 +9370,8 @@ def _derived_subdivision_country_cards(
     for country_code in sorted(records_by_country):
         if country_code not in visible_country_codes:
             unmatched_records.extend(records_by_country[country_code])
-    unmatched_seed_count = fallback_seed_count + sum(
-        count for country, count in seed_counts_by_country.items() if country not in visible_country_codes
-    )
-    if unmatched_records or unmatched_seed_count:
+    unmatched_seed_count = fallback_seed_count
+    if unmatched_records:
         cards.append(
             {
                 "key": "__other__",
@@ -5017,7 +9380,8 @@ def _derived_subdivision_country_cards(
                 "population_text": "-",
                 "area_text": "-",
                 "flag_url": "",
-                "subdivisions": _derived_subdivision_rows_for_country(unmatched_records, ""),
+                "detail_url": "",
+                "subdivisions": [],
                 "subdivision_count": len(unmatched_records),
                 "groups": [],
                 "group_count": 0,
@@ -5032,7 +9396,26 @@ def _derived_subdivision_country_cards(
 
 def _derived_subdivision_rows_for_country(records: list[DerivedSubdivision], country_code: str) -> list[dict]:
     rows = []
+    data_by_slug = {record.slug: _derived_subdivision_record_toml(record) for record in records}
+    code_counts = Counter(
+        _derived_subdivision_requested_code_count_key(record, data_by_slug.get(record.slug) or {})
+        for record in records
+    )
+    materialized_rows = _derived_subdivision_materialized_rows_for_records(
+        records,
+        data_by_slug=data_by_slug,
+        code_counts=code_counts,
+    )
     for record in records:
+        data = data_by_slug.get(record.slug) or {}
+        area_value, population_value = _derived_subdivision_metric_values(
+            record,
+            data,
+            code_counts=code_counts,
+            materialized_rows=materialized_rows,
+        )
+        area_text = _group_metric_text(area_value)
+        population_text = _group_metric_text(population_value)
         summary = _derived_subdivision_content_summary(record.content)
         entry_slug = _derived_subdivision_entry_slug(record)
         href = (
@@ -5047,12 +9430,31 @@ def _derived_subdivision_rows_for_country(records: list[DerivedSubdivision], cou
             {
                 "record": record,
                 "internal_name": record.internal_name or entry_slug.upper(),
+                "display_code": str(record.code or _derived_subdivision_source_key(record, data) or entry_slug.upper()),
                 "entry_slug": entry_slug,
                 "href": href,
+                "delete_url": (
+                    reverse(
+                        "ciudades_del_mundo:derived_subdivision_delete",
+                        kwargs={"country_code": country_code, "subdivision_slug": entry_slug},
+                    )
+                    if country_code
+                    else ""
+                ),
+                "clone_url": (
+                    reverse(
+                        "ciudades_del_mundo:derived_subdivision_clone",
+                        kwargs={"country_code": country_code, "subdivision_slug": entry_slug},
+                    )
+                    if country_code
+                    else ""
+                ),
                 "include_count": summary["include_count"],
                 "subtract_count": summary["subtract_count"],
                 "child_count": summary["child_count"],
                 "group_count": summary["group_count"],
+                "area_text": area_text,
+                "population_text": population_text,
                 "search_text": " ".join(
                     [
                         record.slug,
@@ -5062,11 +9464,237 @@ def _derived_subdivision_rows_for_country(records: list[DerivedSubdivision], cou
                         record.code,
                         str(summary["include_count"]),
                         str(summary["subtract_count"]),
+                        area_text,
+                        population_text,
                     ]
                 ),
             }
         )
     return sorted(rows, key=lambda row: (str(row["internal_name"]), str(row["record"].name)))
+
+
+def _group_country_detail_payload(country_code: str) -> dict:
+    country_code = _normalize_group_country_key(country_code)
+    division_rows = _group_derived_subdivision_definition_rows(country_code)
+    group_entries = _subdivision_group_entries_for_country(_subdivision_groups_for_country(country_code), country_code)
+    return {
+        "ok": True,
+        "country_code": country_code,
+        "groups": _group_entries_payload(group_entries),
+        "level_rows": _group_level_rows_from_division_rows(division_rows),
+        "division_rows": _group_division_rows_payload(division_rows),
+    }
+
+
+def _derived_subdivision_country_detail_payload(country_code: str) -> dict:
+    country_code = _normalize_group_country_key(country_code)
+    try:
+        records = list(
+            DerivedSubdivision.objects.filter(source_country_code__iexact=country_code).order_by(
+                "source_country_code",
+                "name",
+                "slug",
+            )
+        )
+    except (OperationalError, ProgrammingError):
+        records = []
+    subdivision_rows = _derived_subdivision_rows_for_country(records, country_code)
+    group_entries = _subdivision_group_entries_for_country(_subdivision_groups_for_country(country_code), country_code)
+    return {
+        "ok": True,
+        "country_code": country_code,
+        "subdivisions": _derived_subdivision_list_rows_payload(subdivision_rows),
+        "groups": _group_entries_payload(group_entries),
+    }
+
+
+def _group_derived_subdivision_definition_rows(country_code: str) -> list[dict]:
+    country_code = _normalize_group_country_key(country_code)
+    rows = list(_pending_derived_subdivision_rows_by_country({country_code}).get(country_code, []))
+    rows.sort(key=lambda row: (int(row.get("level") or 0), str(row.get("name") or ""), str(row.get("id") or "")))
+    return rows
+
+
+def _group_entries_payload(entries: list[dict]) -> list[dict]:
+    return [
+        {
+            "internal_name": str(entry.get("internal_name") or ""),
+            "municipality_count": int(entry.get("municipality_count") or 0),
+            "municipality_count_text": str(entry.get("municipality_count_text") or "0"),
+            "href": str(entry.get("href") or ""),
+            "search_text": " ".join(
+                str(value or "")
+                for value in (
+                    entry.get("slug"),
+                    entry.get("internal_name"),
+                    entry.get("name"),
+                    entry.get("municipality_count"),
+                )
+            ),
+        }
+        for entry in entries
+    ]
+
+
+def _group_level_rows_from_division_rows(rows: list[dict]) -> list[dict]:
+    grouped: dict[int, dict] = {}
+    for row in rows:
+        try:
+            level = int(row.get("level") or 0)
+        except (TypeError, ValueError):
+            continue
+        if level <= 0:
+            continue
+        entry = grouped.setdefault(level, {"level": level, "types": set(), "count": 0})
+        type_text = str(row.get("type_text") or "").strip()
+        if type_text and type_text != "-":
+            entry["types"].add(type_text)
+        entry["count"] += 1
+    level_rows = []
+    for level, entry in sorted(grouped.items()):
+        type_names = sorted(entry["types"])
+        type_text = ", ".join(type_names[:3])
+        if len(type_names) > 3:
+            type_text = f"{type_text}, +{len(type_names) - 3}"
+        level_rows.append(
+            {
+                "level": level,
+                "label": f"L{level}",
+                "type_text": type_text or "-",
+                "count": int(entry["count"] or 0),
+                "count_text": _group_metric_text(entry["count"]),
+            }
+        )
+    return level_rows
+
+
+def _group_division_rows_payload(rows: list[dict]) -> list[dict]:
+    return [
+        {
+            "id": str(row.get("id") or ""),
+            "name": str(row.get("name") or ""),
+            "level": int(row.get("level") or 0),
+            "type_text": str(row.get("type_text") or "-"),
+            "type_level_text": str(row.get("type_level_text") or row.get("type_text") or "-"),
+            "area_text": str(row.get("area_text") or "-"),
+            "population_text": str(row.get("population_text") or "-"),
+            "search_text": str(row.get("search_text") or ""),
+            "href": str(row.get("href") or ""),
+            "clone_url": str(row.get("clone_url") or ""),
+            "delete_url": str(row.get("delete_url") or ""),
+        }
+        for row in rows
+    ]
+
+
+def _derived_subdivision_list_rows_payload(rows: list[dict]) -> list[dict]:
+    payload = []
+    for row in rows:
+        record = row.get("record")
+        payload.append(
+            {
+                "display_code": str(row.get("display_code") or ""),
+                "name": str(getattr(record, "name", "") or ""),
+                "entity_type": str(getattr(record, "entity_type", "") or "-"),
+                "area_text": str(row.get("area_text") or "-"),
+                "population_text": str(row.get("population_text") or "-"),
+                "include_count": int(row.get("include_count") or 0),
+                "subtract_count": int(row.get("subtract_count") or 0),
+                "group_count": int(row.get("group_count") or 0),
+                "href": str(row.get("href") or ""),
+                "clone_url": str(row.get("clone_url") or ""),
+                "delete_url": str(row.get("delete_url") or ""),
+                "search_text": str(row.get("search_text") or ""),
+            }
+        )
+    return payload
+
+
+def _derived_subdivision_materialized_rows_for_records(
+    records: list[DerivedSubdivision],
+    *,
+    data_by_slug: dict[str, dict],
+    code_counts: Counter,
+) -> dict[tuple[str, str], NuevoAdminArea]:
+    codes_by_country: dict[str, set[str]] = {}
+    for record in records:
+        data = data_by_slug.get(record.slug) or {}
+        source_code = _normalize_group_country_key(data.get("source_country_code") or record.source_country_code)
+        code = _derived_subdivision_materialized_code(record, data, code_counts)
+        if source_code and code:
+            codes_by_country.setdefault(source_code, set()).add(code)
+
+    materialized: dict[tuple[str, str], NuevoAdminArea] = {}
+    for source_code, codes in codes_by_country.items():
+        try:
+            rows = (
+                NuevoAdminArea.objects
+                .filter(country_code__iexact=source_code, code__in=codes)
+                .only("country_code", "code", "area_km2", "pop_latest", "updated_at")
+            )
+        except (OperationalError, ProgrammingError, ValueError):
+            continue
+        for row in rows:
+            materialized[(source_code, str(row.code or ""))] = row
+    return materialized
+
+
+def _derived_subdivision_metric_values(
+    record: DerivedSubdivision,
+    data: dict,
+    *,
+    code_counts: Counter,
+    materialized_rows: dict[tuple[str, str], NuevoAdminArea],
+) -> tuple[object, object]:
+    source_code = _normalize_group_country_key(data.get("source_country_code") or record.source_country_code)
+    code = _derived_subdivision_materialized_code(record, data, code_counts)
+    area_value = None
+    population_value = None
+    materialized = materialized_rows.get((source_code, code))
+    if materialized is not None:
+        area_value = materialized.area_km2
+        population_value = materialized.pop_latest
+    if materialized is not None and not _derived_subdivision_materialized_row_is_stale(record, materialized):
+        if area_value is not None and population_value is not None:
+            return area_value, population_value
+    preview_area, preview_population = _derived_subdivision_preview_metric_values(source_code, record.content)
+    if materialized is not None and _derived_subdivision_materialized_row_is_stale(record, materialized):
+        return (
+            preview_area if preview_area is not None else area_value,
+            preview_population if preview_population is not None else population_value,
+        )
+    if area_value is not None and population_value is not None:
+        return area_value, population_value
+    return (
+        area_value if area_value is not None else preview_area,
+        population_value if population_value is not None else preview_population,
+    )
+
+
+def _derived_subdivision_materialized_row_is_stale(record: DerivedSubdivision, materialized: NuevoAdminArea) -> bool:
+    record_updated = getattr(record, "updated_at", None)
+    materialized_updated = getattr(materialized, "updated_at", None)
+    return bool(record_updated and materialized_updated and record_updated > materialized_updated)
+
+
+def _derived_subdivision_preview_metric_values(country_code: str, content: str) -> tuple[object, object]:
+    country_code = _normalize_group_country_key(country_code)
+    if not country_code:
+        return None, None
+    try:
+        source_ids = _derived_subdivision_capital_source_ids(country_code, content)
+    except (OperationalError, ProgrammingError, ValueError):
+        return None, None
+    if not source_ids:
+        return None, None
+    try:
+        aggregate = _group_source_admin_areas().filter(id__in=source_ids).aggregate(
+            area=Sum("area_km2"),
+            population=Sum("pop_latest"),
+        )
+    except (OperationalError, ProgrammingError, ValueError):
+        return None, None
+    return aggregate.get("area"), aggregate.get("population")
 
 
 def _derived_subdivision_content_summary(content: str) -> dict[str, int]:
@@ -5203,17 +9831,28 @@ def _derived_subdivision_requested_code(record: DerivedSubdivision, data: dict |
     return str(data.get("code") or record.code or "").strip()
 
 
+def _derived_subdivision_requested_code_count_key(
+    record: DerivedSubdivision,
+    data: dict | None = None,
+) -> tuple[str, str]:
+    data = data if data is not None else _derived_subdivision_record_toml(record)
+    country_code = _normalize_group_country_key(data.get("source_country_code") or record.source_country_code)
+    return country_code, _derived_subdivision_requested_code(record, data)
+
+
 def _derived_subdivision_materialized_code(
     record: DerivedSubdivision,
     data: dict,
-    code_counts: Counter[str],
+    code_counts: Counter,
 ) -> str:
     requested_code = _derived_subdivision_requested_code(record, data)
-    if requested_code and code_counts[requested_code] == 1:
+    country_code = _normalize_group_country_key(data.get("source_country_code") or record.source_country_code)
+    count_key = (country_code, requested_code)
+    requested_code_count = code_counts[count_key] if count_key in code_counts else code_counts[requested_code]
+    if requested_code and requested_code_count == 1:
         code_value = requested_code
     else:
         code_value = str(data.get("internal_name") or record.internal_name or record.slug).strip()
-    country_code = _normalize_group_country_key(data.get("source_country_code") or record.source_country_code)
     parent_code = _derived_subdivision_clean_parent_code(data.get("parent_code"), country_code=country_code)
     try:
         return _derived_subdivision_compose_code(
@@ -5225,14 +9864,110 @@ def _derived_subdivision_materialized_code(
         return ""
 
 
-def _derived_subdivision_edit_link_index(country_codes: set[str] | None) -> dict[tuple[str, str], list[tuple[str, str]]]:
+def _derived_subdivision_materialized_code_candidates(record: DerivedSubdivision) -> tuple[str, set[str]]:
+    data = _derived_subdivision_record_toml(record)
+    country_code = _normalize_group_country_key(data.get("source_country_code") or record.source_country_code)
+    if not country_code:
+        return "", set()
+    country_records = list(DerivedSubdivision.objects.filter(source_country_code__iexact=country_code))
+    data_by_slug = {item.slug: _derived_subdivision_record_toml(item) for item in country_records}
+    code_counts = Counter(
+        _derived_subdivision_requested_code(item, data_by_slug.get(item.slug) or {})
+        for item in country_records
+    )
+    parent_code = _derived_subdivision_clean_parent_code(data.get("parent_code"), country_code=country_code)
+    candidates = set()
+    materialized_code = _derived_subdivision_materialized_code(record, data, code_counts)
+    if materialized_code:
+        candidates.add(materialized_code)
+    requested_code = _derived_subdivision_requested_code(record, data)
+    if requested_code and code_counts[requested_code] == 1:
+        try:
+            candidates.add(
+                _derived_subdivision_compose_code(
+                    country_code=country_code,
+                    parent_code=parent_code,
+                    code_value=requested_code,
+                )
+            )
+        except ValueError:
+            pass
+    legacy_code = str(data.get("internal_name") or record.internal_name or record.slug).strip()
+    if legacy_code:
+        try:
+            candidates.add(
+                _derived_subdivision_compose_code(
+                    country_code=country_code,
+                    parent_code=parent_code,
+                    code_value=legacy_code,
+                )
+            )
+        except ValueError:
+            pass
+    return country_code, {code for code in candidates if code}
+
+
+def _delete_materialized_rows_for_derived_subdivision(record: DerivedSubdivision) -> int:
+    country_code, code_candidates = _derived_subdivision_materialized_code_candidates(record)
+    if not country_code or not code_candidates:
+        return 0
+    qs = NuevoAdminArea.objects.filter(country_code=country_code)
+    root_ids = set(qs.filter(code__in=code_candidates).values_list("id", flat=True))
+    if not root_ids:
+        return 0
+    ids_to_delete = set(root_ids)
+    frontier = set(root_ids)
+    while frontier:
+        child_ids = set(qs.filter(parent_id__in=frontier).values_list("id", flat=True))
+        child_ids -= ids_to_delete
+        if not child_ids:
+            break
+        ids_to_delete.update(child_ids)
+        frontier = child_ids
+    deleted, _details = NuevoAdminArea.objects.filter(id__in=ids_to_delete).delete()
+    return int(deleted or 0)
+
+
+def _delete_materialized_rows_for_new_country_config(config: DerivedCountryConfig) -> int:
+    country_code = _new_country_config_built_code(config)
+    code_candidates = _new_country_config_materialized_code_candidates(config)
+    if not country_code or not code_candidates:
+        return 0
+    qs = NuevoAdminArea.objects.filter(country_code=country_code).exclude(parent__isnull=True)
+    root_ids = set(qs.filter(code__in=code_candidates).values_list("id", flat=True))
+    materialized = _new_country_config_materialized_entity(config)
+    if materialized is not None:
+        root_ids.add(materialized.id)
+    if not root_ids:
+        return 0
+    all_rows = NuevoAdminArea.objects.filter(country_code=country_code)
+    ids_to_delete = set(root_ids)
+    frontier = set(root_ids)
+    while frontier:
+        child_ids = set(all_rows.filter(parent_id__in=frontier).values_list("id", flat=True))
+        child_ids -= ids_to_delete
+        if not child_ids:
+            break
+        ids_to_delete.update(child_ids)
+        frontier = child_ids
+    deleted, _details = NuevoAdminArea.objects.filter(id__in=ids_to_delete).delete()
+    return int(deleted or 0)
+
+
+def _derived_subdivision_edit_link_indexes(
+    country_codes: set[str] | None,
+) -> tuple[
+    dict[tuple[str, str], list[tuple[str, str]]],
+    dict[tuple[str, str], list[tuple[str, str]]],
+    dict[str, dict],
+]:
     normalized_codes = {
         _normalize_group_country_key(code)
         for code in (country_codes or set())
         if _normalize_group_country_key(code)
     }
     if not normalized_codes:
-        return {}
+        return {}, {}, {}
     records = list(
         DerivedSubdivision.objects.filter(source_country_code__in=normalized_codes).order_by(
             "source_country_code",
@@ -5246,11 +9981,18 @@ def _derived_subdivision_edit_link_index(country_codes: set[str] | None) -> dict
             continue
         records_by_country.setdefault(source_code, []).append((record, _derived_subdivision_record_toml(record)))
 
-    links: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    code_links: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    name_links: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    metadata_by_href: dict[str, dict] = {}
     for source_code, country_records in records_by_country.items():
         code_counts = Counter(
             _derived_subdivision_requested_code(record, data)
             for record, data in country_records
+        )
+        name_counts = Counter(
+            name_key
+            for record, data in country_records
+            for name_key in _derived_subdivision_edit_name_keys(record, data)
         )
         for record, data in country_records:
             materialized_code = _derived_subdivision_materialized_code(record, data, code_counts)
@@ -5263,6 +10005,18 @@ def _derived_subdivision_edit_link_index(country_codes: set[str] | None) -> dict
             legacy_code = str(data.get("internal_name") or record.internal_name or record.slug).strip()
             if legacy_code and legacy_code not in link_codes:
                 link_codes.append(legacy_code)
+            if legacy_code:
+                parent_code = _derived_subdivision_clean_parent_code(data.get("parent_code"), country_code=source_code)
+                try:
+                    legacy_materialized_code = _derived_subdivision_compose_code(
+                        country_code=source_code,
+                        parent_code=parent_code,
+                        code_value=legacy_code,
+                    )
+                except ValueError:
+                    legacy_materialized_code = ""
+                if legacy_materialized_code and legacy_materialized_code not in link_codes:
+                    link_codes.append(legacy_materialized_code)
             href = reverse(
                 "ciudades_del_mundo:derived_subdivision_edit",
                 kwargs={
@@ -5270,9 +10024,58 @@ def _derived_subdivision_edit_link_index(country_codes: set[str] | None) -> dict
                     "subdivision_slug": _derived_subdivision_entry_slug(record),
                 },
             )
+            metadata_by_href[href] = _derived_subdivision_edit_metadata(record, data, href=href)
             for code in link_codes:
-                links.setdefault((source_code, source_code), []).append((code, href))
-    return links
+                code_links.setdefault((source_code, source_code), []).append((code, href))
+            for name_key in _derived_subdivision_edit_name_keys(record, data):
+                if name_counts[name_key] == 1:
+                    name_links.setdefault((source_code, source_code), []).append((name_key, href))
+    return code_links, name_links, metadata_by_href
+
+
+def _derived_subdivision_edit_link_index(country_codes: set[str] | None) -> dict[tuple[str, str], list[tuple[str, str]]]:
+    code_links, _name_links, _metadata = _derived_subdivision_edit_link_indexes(country_codes)
+    return code_links
+
+
+def _derived_subdivision_edit_metadata(record: DerivedSubdivision, data: dict, *, href: str) -> dict:
+    try:
+        level = _derived_subdivision_level(data.get("level") or 1)
+    except ValueError:
+        level = 1
+    entity_type = str(data.get("entity_type") or record.entity_type or data.get("generic_name") or "").strip()
+    return {
+        "href": href,
+        "delete_url": reverse(
+            "ciudades_del_mundo:derived_subdivision_delete",
+            kwargs={
+                "country_code": _normalize_group_country_key(record.source_country_code),
+                "subdivision_slug": _derived_subdivision_entry_slug(record),
+            },
+        ),
+        "clone_url": reverse(
+            "ciudades_del_mundo:derived_subdivision_clone",
+            kwargs={
+                "country_code": _normalize_group_country_key(record.source_country_code),
+                "subdivision_slug": _derived_subdivision_entry_slug(record),
+            },
+        ),
+        "name": str(data.get("name") or record.name or data.get("internal_name") or record.internal_name or "").strip(),
+        "level": level,
+        "type_text": entity_type or "-",
+        "source_country_code": _normalize_group_country_key(record.source_country_code),
+        "content": record.content,
+        "updated_at": record.updated_at,
+    }
+
+
+def _derived_subdivision_edit_name_keys(record: DerivedSubdivision, data: dict) -> set[str]:
+    keys = set()
+    for value in (data.get("name"), record.name, data.get("internal_name"), record.internal_name):
+        key = _group_name_match_key(str(value or ""))
+        if key:
+            keys.add(key)
+    return keys
 
 
 def _division_row_code_key(value: str | None) -> str:
@@ -5281,24 +10084,49 @@ def _division_row_code_key(value: str | None) -> str:
 
 def _derived_subdivision_edit_href_for_area(
     link_index: dict[tuple[str, str], list[tuple[str, str]]],
+    name_index: dict[tuple[str, str], list[tuple[str, str]]],
     source_codes: set[str],
     *,
     new_area_code: str,
     area_code: str | None,
+    area_name: str | None = None,
 ) -> str:
+    return _derived_subdivision_edit_match_for_area(
+        link_index,
+        name_index,
+        source_codes,
+        new_area_code=new_area_code,
+        area_code=area_code,
+        area_name=area_name,
+    ).get("href", "")
+
+
+def _derived_subdivision_edit_match_for_area(
+    link_index: dict[tuple[str, str], list[tuple[str, str]]],
+    name_index: dict[tuple[str, str], list[tuple[str, str]]],
+    source_codes: set[str],
+    *,
+    new_area_code: str,
+    area_code: str | None,
+    area_name: str | None = None,
+) -> dict:
     area_key = _division_row_code_key(area_code)
-    if not area_key:
-        return ""
+    area_name_key = _group_name_match_key(str(area_name or ""))
     for source_code in sorted(_normalize_group_country_key(code) for code in source_codes):
         entries = link_index.get((source_code, new_area_code), [])
-        for code, href in entries:
-            if _division_row_code_key(code) == area_key:
-                return href
-        for code, href in sorted(entries, key=lambda item: len(_division_row_code_key(item[0])), reverse=True):
-            code_key = _division_row_code_key(code)
-            if code_key and area_key.startswith(f"{code_key}-"):
-                return href
-    return ""
+        if area_key:
+            for code, href in entries:
+                if _division_row_code_key(code) == area_key:
+                    return {"href": href, "use_definition_metadata": True}
+            for code, href in sorted(entries, key=lambda item: len(_division_row_code_key(item[0])), reverse=True):
+                code_key = _division_row_code_key(code)
+                if code_key and area_key.startswith(f"{code_key}-"):
+                    return {"href": href, "use_definition_metadata": False}
+        if area_name_key:
+            for name_key, href in name_index.get((source_code, new_area_code), []):
+                if name_key == area_name_key:
+                    return {"href": href, "use_definition_metadata": True}
+    return {"href": "", "use_definition_metadata": False}
 
 
 def _group_division_rows_by_country(country_codes: set[str] | None = None) -> dict[str, list[dict]]:
@@ -5311,7 +10139,7 @@ def _group_division_rows_by_country(country_codes: set[str] | None = None) -> di
     }
     if not new_area_country_codes:
         return {}
-    edit_link_index = _derived_subdivision_edit_link_index(country_codes)
+    edit_link_index, edit_name_index, edit_metadata = _derived_subdivision_edit_link_indexes(country_codes)
     countries_by_new_area_code: dict[str, set[str]] = {}
     for source_code, derived_codes in new_area_codes_by_country.items():
         for derived_code in derived_codes:
@@ -5319,7 +10147,7 @@ def _group_division_rows_by_country(country_codes: set[str] | None = None) -> di
     try:
         areas = list(
             NuevoAdminArea.objects.filter(country_code__in=new_area_country_codes, level__gt=0)
-            .only("id", "country_code", "name", "level", "entity_type", "area_km2", "pop_latest")
+            .only("id", "country_code", "code", "name", "level", "entity_type", "area_km2", "pop_latest", "updated_at")
             .order_by("country_code", "level", "name", "id")
         )
     except (OperationalError, ProgrammingError):
@@ -5331,19 +10159,46 @@ def _group_division_rows_by_country(country_codes: set[str] | None = None) -> di
         source_codes = countries_by_new_area_code.get(new_area_code, set())
         if not source_codes:
             continue
+        edit_match = _derived_subdivision_edit_match_for_area(
+            edit_link_index,
+            edit_name_index,
+            source_codes,
+            new_area_code=new_area_code,
+            area_code=area.code,
+            area_name=area.name,
+        )
+        href = edit_match.get("href", "")
+        sql_metadata = edit_metadata.get(href, {}) if edit_match.get("use_definition_metadata") and href else {}
+        delete_metadata = edit_metadata.get(href, {}) if href else {}
         try:
-            level = int(area.level or 0)
+            level = int(sql_metadata.get("level") if sql_metadata else area.level or 0)
         except (TypeError, ValueError):
             level = 0
-        raw_type = str(area.entity_type or "").strip()
+        raw_type = str(sql_metadata.get("type_text") if sql_metadata else area.entity_type or "").strip()
+        display_name = str(sql_metadata.get("name") if sql_metadata else area.name or "").strip() or "-"
         type_text = raw_type or "-"
-        type_level_text = _("%(type)s (Nivel %(level)s)") % {"type": type_text, "level": level}
-        area_text = _group_metric_text(area.area_km2)
-        population_text = _group_metric_text(area.pop_latest)
+        type_level_text = type_text
+        area_value = area.area_km2
+        population_value = area.pop_latest
+        if (
+            sql_metadata
+            and sql_metadata.get("updated_at")
+            and area.updated_at
+            and sql_metadata["updated_at"] > area.updated_at
+        ):
+            preview_area, preview_population = _derived_subdivision_preview_metric_values(
+                str(sql_metadata.get("source_country_code") or ""),
+                str(sql_metadata.get("content") or ""),
+            )
+            area_value = preview_area if preview_area is not None else area_value
+            population_value = preview_population if preview_population is not None else population_value
+        area_text = _group_metric_text(area_value)
+        population_text = _group_metric_text(population_value)
         search_text = " ".join(
             str(value or "")
             for value in (
                 area.name,
+                display_name,
                 raw_type,
                 type_text,
                 level,
@@ -5353,22 +10208,117 @@ def _group_division_rows_by_country(country_codes: set[str] | None = None) -> di
         )
         row = {
             "id": area.id,
-            "name": area.name or "-",
+            "name": display_name,
             "level": level,
             "type_text": type_text,
             "type_level_text": type_level_text,
             "area_text": area_text,
             "population_text": population_text,
             "search_text": search_text,
-            "href": _derived_subdivision_edit_href_for_area(
-                edit_link_index,
-                source_codes,
-                new_area_code=new_area_code,
-                area_code=area.code,
-            ),
+            "href": href,
+            "delete_url": str(delete_metadata.get("delete_url") or ""),
+            "clone_url": str(delete_metadata.get("clone_url") or ""),
         }
         for code in sorted(source_codes):
             by_country.setdefault(code, []).append(row)
+    materialized_hrefs = {
+        str(row.get("href") or "")
+        for rows in by_country.values()
+        for row in rows
+        if str(row.get("href") or "")
+    }
+    for code, rows in _pending_derived_subdivision_rows_by_country(
+        country_codes,
+        exclude_hrefs=materialized_hrefs,
+    ).items():
+        by_country.setdefault(code, []).extend(rows)
+    for rows in by_country.values():
+        rows.sort(key=lambda row: (int(row.get("level") or 0), str(row.get("name") or ""), str(row.get("id") or "")))
+    return by_country
+
+
+def _pending_derived_subdivision_rows_by_country(
+    country_codes: set[str] | None = None,
+    *,
+    exclude_hrefs: set[str] | None = None,
+) -> dict[str, list[dict]]:
+    normalized_codes = {
+        _normalize_group_country_key(code)
+        for code in (country_codes or set())
+        if _normalize_group_country_key(code)
+    }
+    if not normalized_codes:
+        return {}
+    exclude_hrefs = {str(href) for href in (exclude_hrefs or set()) if str(href)}
+    by_country: dict[str, list[dict]] = {}
+    try:
+        records = list(
+            DerivedSubdivision.objects.filter(source_country_code__in=normalized_codes).order_by(
+                "source_country_code",
+                "slug",
+            )
+        )
+    except (OperationalError, ProgrammingError):
+        return {}
+    for record in records:
+        source_code = _normalize_group_country_key(record.source_country_code)
+        if not source_code:
+            continue
+        data = _derived_subdivision_record_toml(record)
+        entry_slug = _derived_subdivision_entry_slug(record)
+        href = reverse(
+            "ciudades_del_mundo:derived_subdivision_edit",
+            kwargs={"country_code": source_code, "subdivision_slug": entry_slug},
+        )
+        if href in exclude_hrefs:
+            continue
+        metadata = _derived_subdivision_edit_metadata(record, data, href=href)
+        try:
+            level = int(metadata.get("level") or 0)
+        except (TypeError, ValueError):
+            level = 0
+        type_text = str(metadata.get("type_text") or "-").strip() or "-"
+        name = str(metadata.get("name") or record.name or record.internal_name or record.slug).strip() or "-"
+        type_level_text = type_text
+        area_value, population_value = _derived_subdivision_preview_metric_values(source_code, record.content)
+        area_text = _group_metric_text(area_value)
+        population_text = _group_metric_text(population_value)
+        search_text = " ".join(
+            str(value or "")
+            for value in (
+                record.slug,
+                record.internal_name,
+                record.name,
+                record.entity_type,
+                record.code,
+                name,
+                type_text,
+                level,
+                area_text,
+                population_text,
+            )
+        )
+        by_country.setdefault(source_code, []).append(
+            {
+                "id": record.slug,
+                "name": name,
+                "level": level,
+                "type_text": type_text,
+                "type_level_text": type_level_text,
+                "area_text": area_text,
+                "population_text": population_text,
+                "search_text": search_text,
+                "href": href,
+                "clone_url": reverse(
+                    "ciudades_del_mundo:derived_subdivision_clone",
+                    kwargs={"country_code": source_code, "subdivision_slug": entry_slug},
+                ),
+                "delete_url": reverse(
+                    "ciudades_del_mundo:derived_subdivision_delete",
+                    kwargs={"country_code": source_code, "subdivision_slug": entry_slug},
+                ),
+            }
+        )
     return by_country
 
 
@@ -5474,23 +10424,119 @@ def _subdivision_group_content_country_codes(content: str) -> set[str]:
         return {explicit}
 
     legacy = data.get("legacy")
+    legacy_source_ref = _subdivision_group_legacy_source_reference_country_code(data.get("source_python"))
+    if legacy_source_ref:
+        return {legacy_source_ref}
+
     legacy_source = str(legacy.get("python_source") or "") if isinstance(legacy, dict) else ""
-    return {
-        match.group(1).lower()
-        for match in re.finditer(r"[\"']([a-z][a-z0-9_-]*)[\"']\s*:", legacy_source)
+    return _subdivision_group_legacy_spec_country_codes(legacy_source)
+
+
+def _subdivision_group_legacy_source_reference_country_code(value) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    candidates = []
+    for pattern in (
+        r"historical_divisions[\\/\.]([A-Za-z][A-Za-z0-9_]*)",
+        r"new_subdivisions[\\/\.]([A-Za-z][A-Za-z0-9_]*)",
+    ):
+        candidates.extend(match.group(1) for match in re.finditer(pattern, text))
+    if not candidates:
+        candidates.append(Path(text).stem or text.rsplit(".", 1)[-1])
+    aliases = {
+        "spain": "spain",
+        "spanish": "spain",
+        "france": "france",
+        "french": "france",
+        "italy": "italy",
+        "italian": "italy",
+        "portugal": "portugal",
+        "morocco": "morocco",
+        "colombia": "colombia",
+        "cuba": "cuba",
+        "guatemala": "guatemala",
+        "mexico": "mexico",
+        "equatorialguinea": "equatorialguinea",
+        "western_sahara": "westernsahara",
+        "westernsahara": "westernsahara",
     }
+    for candidate in candidates:
+        slug = re.sub(r"[^a-z0-9_]+", "_", str(candidate or "").casefold()).strip("_")
+        for prefix, country_code in sorted(aliases.items(), key=lambda item: len(item[0]), reverse=True):
+            if slug == prefix or slug.startswith(f"{prefix}_"):
+                return country_code
+    return ""
+
+
+def _subdivision_group_legacy_spec_country_codes(source: str) -> set[str]:
+    if not str(source or "").strip():
+        return set()
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return set()
+    codes: set[str] = set()
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        if not any(isinstance(target, ast.Name) and target.id == "DIVISIONS" for target in node.targets):
+            continue
+        for country_code in _legacy_division_spec_country_codes_from_node(node.value):
+            normalized = _normalize_group_country_key(country_code)
+            if normalized:
+                codes.add(normalized)
+    return codes
+
+
+def _legacy_division_spec_country_codes_from_node(node) -> set[str]:
+    codes: set[str] = set()
+    if isinstance(node, ast.List):
+        for item in node.elts:
+            codes.update(_legacy_division_spec_country_codes_from_node(item))
+        return codes
+    if not isinstance(node, ast.Dict):
+        return codes
+    for key, value in zip(node.keys, node.values):
+        if isinstance(key, ast.Constant) and key.value == "spec":
+            codes.update(_legacy_spec_value_country_codes(value))
+        elif isinstance(key, ast.Constant) and key.value == "source":
+            maybe_code = _literal_string_node(value)
+            if maybe_code:
+                codes.add(maybe_code)
+    return codes
+
+
+def _legacy_spec_value_country_codes(node) -> set[str]:
+    codes: set[str] = set()
+    if not isinstance(node, ast.Dict):
+        return codes
+    for key, value in zip(node.keys, node.values):
+        if isinstance(key, ast.Constant) and isinstance(key.value, str):
+            codes.add(key.value)
+            continue
+        if isinstance(value, ast.Dict):
+            for inner_key in value.keys:
+                if isinstance(inner_key, ast.Constant) and isinstance(inner_key.value, str):
+                    codes.add(inner_key.value)
+    return codes
+
+
+def _literal_string_node(node) -> str:
+    return str(node.value or "").strip() if isinstance(node, ast.Constant) and isinstance(node.value, str) else ""
 
 
 def _group_metric_text(value) -> str:
     if value is None or value == "":
         return "-"
     try:
-        number = float(value)
-    except (TypeError, ValueError):
+        number = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
         return str(value)
-    if number.is_integer():
-        return f"{int(number):,}"
-    return f"{number:,.2f}".rstrip("0").rstrip(".")
+    if number == number.to_integral_value():
+        return str(int(number))
+    number = number.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return f"{number:.2f}".rstrip("0").rstrip(".").replace(".", ",")
 
 
 def _group_source_level_options(country_code: str) -> list[dict]:
@@ -5652,7 +10698,7 @@ def _group_source_child_options(country_code: str, parent_id: str) -> list[dict]
         rows = list(
             _group_source_admin_areas()
             .filter(parent_id=parent_id, country_code__iexact=country_code)
-            .values("id", "country_code", "code", "name", "level", "entity_type", "parent_id")
+            .values("id", "country_code", "code", "name", "level", "entity_type", "parent_id", "city_merge_status")
             .order_by("name", "code", "id")
         )
     except (OperationalError, ProgrammingError, ValueError):
@@ -5660,7 +10706,12 @@ def _group_source_child_options(country_code: str, parent_id: str) -> list[dict]
     direct_child_levels = sorted({int(row.get("level") or 0) for row in rows if int(row.get("level") or 0) > 0})
     if len(direct_child_levels) > 1:
         direct_child_level = direct_child_levels[0]
-        rows = [row for row in rows if int(row.get("level") or 0) == direct_child_level]
+        rows = [
+            row
+            for row in rows
+            if int(row.get("level") or 0) == direct_child_level
+            or int(row.get("city_merge_status") or 0) == int(AdminArea.CityMergeStatus.UNIFIED)
+        ]
     children = []
     for row in rows:
         name = _display_name(row.get("name", ""), row.get("name", ""), country_code=row.get("country_code", ""))
@@ -5678,6 +10729,7 @@ def _group_source_child_options(country_code: str, parent_id: str) -> list[dict]
                 "level": int(row.get("level") or 0),
                 "entity_type": entity_type,
                 "parent_id": str(row.get("parent_id") or ""),
+                "city_merge_status": int(row.get("city_merge_status") or 0),
             }
         )
     return children
@@ -5806,6 +10858,48 @@ def _derived_subdivision_entry_slug(record: DerivedSubdivision) -> str:
     return _group_entry_slug(record.slug)
 
 
+def _derived_subdivision_clone_internal_and_code(record: DerivedSubdivision, data: dict) -> tuple[str, str, str]:
+    country_code = _normalize_group_country_key(data.get("source_country_code") or record.source_country_code)
+    source_key = _derived_subdivision_source_key(record, data)
+    base_internal = _group_internal_name(f"{source_key}_COPIA")
+    base_entry_slug = _group_entry_slug(base_internal)
+    suffix_index = 1
+    candidate_internal = base_internal
+    candidate_entry_slug = base_entry_slug
+    candidate_slug = _derived_subdivision_record_slug(country_code, candidate_entry_slug)
+    while DerivedSubdivision.objects.filter(slug=candidate_slug).exists():
+        suffix_index += 1
+        candidate_internal = _group_internal_name(f"{base_internal}_{suffix_index}")
+        candidate_entry_slug = _group_entry_slug(candidate_internal)
+        candidate_slug = _derived_subdivision_record_slug(country_code, candidate_entry_slug)
+    base_code = derived_code_piece(data.get("code") or record.code or source_key)
+    suffix = "COPIA" if suffix_index <= 1 else f"COPIA-{suffix_index}"
+    clone_code = f"{base_code}-{suffix}" if base_code else suffix
+    return candidate_internal, clone_code, candidate_slug
+
+
+def _clone_derived_subdivision(record: DerivedSubdivision) -> DerivedSubdivision:
+    data = _derived_subdivision_toml_data(record.content)
+    source_country_code = _normalize_group_country_key(data.get("source_country_code") or record.source_country_code)
+    clone_internal_name, clone_code, clone_slug = _derived_subdivision_clone_internal_and_code(record, data)
+    clone_name = _clone_display_name(record.name)
+    content = _set_toml_string_field_in_content(record.content, field="internal_name", value=clone_internal_name)
+    content = _set_toml_string_field_in_content(content, field="source_country_code", value=source_country_code)
+    content = _set_toml_string_field_in_content(content, field="name", value=clone_name)
+    content = _set_toml_string_field_in_content(content, field="code", value=clone_code)
+    _validate_plain_toml(content, expected_kind="derived_subdivision")
+    return DerivedSubdivision.objects.create(
+        slug=clone_slug,
+        internal_name=clone_internal_name,
+        name=clone_name,
+        source_country_code=source_country_code,
+        entity_type=str(data.get("entity_type") or record.entity_type or "").strip(),
+        code=clone_code,
+        description=record.description,
+        content=content.rstrip() + "\n",
+    )
+
+
 def _derived_subdivision_for_country(country_code: str, subdivision_slug: str) -> DerivedSubdivision | None:
     country_code = _normalize_group_country_key(country_code)
     subdivision_slug = _group_entry_slug(subdivision_slug)
@@ -5873,7 +10967,7 @@ def _validate_derived_subdivision_toml(content: str) -> dict:
                 raise ValueError(_("Cada bloque debe tener un nivel numerico.")) from None
             if level < 0 or level > 9:
                 raise ValueError(_("El nivel debe estar entre 0 y 9."))
-            for list_key in ("names", "groups", "ids", "codes"):
+            for list_key in ("names", "groups", "derived_subdivisions", "ids", "codes"):
                 value = block.get(list_key)
                 if value is not None and not isinstance(value, list):
                     raise ValueError(_("%(key)s.%(field)s debe ser una lista.") % {"key": key, "field": list_key})
@@ -6421,6 +11515,129 @@ def _render_group_entry_toml(
     return "\n".join(lines)
 
 
+def _rename_derived_subdivision_group_references(*, country_code: str, old_key: str, new_key: str) -> int:
+    country_code = _normalize_group_country_key(country_code)
+    old_key = _group_internal_name(old_key)
+    new_key = _group_internal_name(new_key)
+    if not country_code or not old_key or not new_key or old_key == new_key:
+        return 0
+    updated = 0
+    records = DerivedSubdivision.objects.filter(source_country_code__iexact=country_code).order_by("slug")
+    for record in records:
+        try:
+            data = tomllib.loads(record.content or "")
+        except tomllib.TOMLDecodeError:
+            continue
+        if not isinstance(data, dict):
+            continue
+        if not _replace_derived_subdivision_group_key(data, old_key=old_key, new_key=new_key):
+            continue
+        record.content = _render_derived_subdivision_toml_data(data)
+        record.save(update_fields=["content", "updated_at"])
+        updated += 1
+    return updated
+
+
+def _rename_subdivision_group_content_references(
+    *,
+    country_code: str,
+    old_key: str,
+    new_key: str,
+    exclude_slugs: set[str] | None = None,
+) -> int:
+    country_code = _normalize_group_country_key(country_code)
+    old_key = _group_internal_name(old_key)
+    new_key = _group_internal_name(new_key)
+    exclude_slugs = {str(slug) for slug in (exclude_slugs or set()) if str(slug)}
+    if not country_code or not old_key or not new_key or old_key == new_key:
+        return 0
+    pattern = re.compile(rf"((?<![A-Za-z0-9_])|(?<=[\\][nr])){re.escape(old_key)}(?![A-Za-z0-9_])")
+    updated = 0
+    for group in SubdivisionGroup.objects.order_by("slug"):
+        if group.slug in exclude_slugs:
+            continue
+        content = group.content or ""
+        if old_key not in content:
+            continue
+        if country_code not in _subdivision_group_record_country_codes(group):
+            continue
+        new_content, replacements = pattern.subn(new_key, content)
+        if not replacements:
+            continue
+        group.content = new_content
+        group.save(update_fields=["content", "updated_at"])
+        updated += 1
+    return updated
+
+
+def _replace_derived_subdivision_group_key(data: dict, *, old_key: str, new_key: str) -> bool:
+    changed = False
+    for table_key in ("include", "subtract"):
+        changed = _replace_group_key_in_source_blocks(data.get(table_key), old_key=old_key, new_key=new_key) or changed
+    changed = _replace_group_key_in_capital_blocks(data.get("capital_groups"), old_key=old_key, new_key=new_key) or changed
+    for child in data.get("children") if isinstance(data.get("children"), list) else []:
+        if not isinstance(child, dict):
+            continue
+        for table_key in ("include", "subtract"):
+            changed = _replace_group_key_in_source_blocks(child.get(table_key), old_key=old_key, new_key=new_key) or changed
+        changed = _replace_group_key_in_capital_blocks(child.get("capital_groups"), old_key=old_key, new_key=new_key) or changed
+    return changed
+
+
+def _replace_group_key_in_source_blocks(blocks, *, old_key: str, new_key: str) -> bool:
+    changed = False
+    if not isinstance(blocks, list):
+        return False
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        groups, block_changed = _renamed_group_key_list(block.get("groups"), old_key=old_key, new_key=new_key)
+        if block_changed:
+            block["groups"] = groups
+            changed = True
+    return changed
+
+
+def _replace_group_key_in_capital_blocks(blocks, *, old_key: str, new_key: str) -> bool:
+    changed = False
+    if not isinstance(blocks, list):
+        return False
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        for field in ("group", "group_key"):
+            value = str(block.get(field) or "").strip()
+            if value and _group_internal_name(value) == old_key:
+                block[field] = new_key
+                changed = True
+    return changed
+
+
+def _renamed_group_key_list(values, *, old_key: str, new_key: str) -> tuple[list[str], bool]:
+    if not isinstance(values, list):
+        return [], False
+    changed = False
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        raw = str(value or "").strip()
+        if not raw:
+            continue
+        normalized = _group_internal_name(raw)
+        if normalized == old_key:
+            candidate = new_key
+            changed = True
+        else:
+            candidate = raw
+        candidate_key = _group_internal_name(candidate)
+        if candidate_key in seen:
+            changed = True
+            continue
+        seen.add(candidate_key)
+        result.append(candidate)
+    return result, changed
+
+
 def _stored_visual_asset_image_url(asset: dict | None) -> str:
     if not isinstance(asset, dict):
         return ""
@@ -6707,11 +11924,13 @@ def _group_entry_form(request, *, country_code: str, entry: dict | None):
         )
         record = entry.get("record")
         mode = "edit"
+        previous_internal_name = _group_internal_name(initial_internal_name)
     else:
         initial_internal_name = ""
         initial_blocks = [{"country_code": country_code, "names": []}]
         record = None
         mode = "new"
+        previous_internal_name = ""
 
     form = {
         "internal_name": initial_internal_name,
@@ -6734,7 +11953,7 @@ def _group_entry_form(request, *, country_code: str, entry: dict | None):
                     _("Ya existe un grupo '%(name)s' para este pais.")
                     % {"name": duplicate.get("internal_name") or internal_name}
                 )
-            name = _group_entry_display_name(internal_name)
+            name = internal_name
             blocks = _group_blocks_from_json(form["blocks_json"], fallback_country_code=country_code)
             record_slug = _country_group_record_slug(country_code, group_slug)
             content = _render_group_entry_toml(
@@ -6746,24 +11965,50 @@ def _group_entry_form(request, *, country_code: str, entry: dict | None):
                 blocks=blocks,
             )
             _validate_plain_toml(content, expected_kind="subdivision_group")
-            group, _created = SubdivisionGroup.objects.update_or_create(
-                slug=record_slug,
-                defaults={
-                    "name": name,
-                    "source_country_code": country_code,
-                    "description": "",
-                    "content": content,
-                },
-            )
+            with transaction.atomic():
+                if record is not None:
+                    if record.slug != record_slug:
+                        SubdivisionGroup.objects.filter(slug=record.slug).update(slug=record_slug)
+                        record.slug = record_slug
+                    group = record
+                    group.name = name
+                    group.source_country_code = country_code
+                    group.description = ""
+                    group.content = content
+                    group.save(update_fields=["name", "source_country_code", "description", "content", "updated_at"])
+                else:
+                    group, _created = SubdivisionGroup.objects.update_or_create(
+                        slug=record_slug,
+                        defaults={
+                            "name": name,
+                            "source_country_code": country_code,
+                            "description": "",
+                            "content": content,
+                        },
+                    )
+                if previous_internal_name and previous_internal_name != internal_name:
+                    _rename_subdivision_group_content_references(
+                        country_code=country_code,
+                        old_key=previous_internal_name,
+                        new_key=internal_name,
+                        exclude_slugs={group.slug},
+                    )
+                    _rename_derived_subdivision_group_references(
+                        country_code=country_code,
+                        old_key=previous_internal_name,
+                        new_key=internal_name,
+                    )
         except ValueError as exc:
             messages.error(request, str(exc))
         else:
             messages.success(request, _("Grupo '%(slug)s' guardado.") % {"slug": group.slug})
-            return redirect(
+            redirect_url = reverse(
                 "ciudades_del_mundo:group_entry_edit",
-                country_code=country_code,
-                group_slug=group_slug,
+                kwargs={"country_code": country_code, "group_slug": group_slug},
             )
+            return redirect(f"{redirect_url}?saved=1")
+
+    data_slug = str(entry.get("slug") or "") if entry else ""
 
     return render(
         request,
@@ -6775,6 +12020,15 @@ def _group_entry_form(request, *, country_code: str, entry: dict | None):
             "source_countries": source_countries,
             "country_code": country_code,
             "source_data_url": reverse("ciudades_del_mundo:group_source_data"),
+            "return_row_href": (
+                reverse(
+                    "ciudades_del_mundo:group_entry_edit",
+                    kwargs={"country_code": country_code, "group_slug": data_slug},
+                )
+                if data_slug
+                else ""
+            ),
+            "return_needs_refresh": request.GET.get("saved") == "1",
             "blocks": _group_blocks_for_context(form["blocks_json"], fallback_country_code=country_code),
             "existing_group_keys": _group_existing_key_options(
                 country_code=country_code,
@@ -7599,12 +12853,44 @@ def _apply_numeric_range(queryset, field: str, minimum, maximum):
     return queryset
 
 
-def _page_size(request, *, default: int) -> int:
+def _page_size(request, *, default: int, max_value: int = 200) -> int:
     try:
         value = int(request.GET.get("page_size") or default)
     except (TypeError, ValueError):
         return default
-    return max(10, min(value, 200))
+    return max(10, min(value, max_value))
+
+
+def _country_browser_page_size(request) -> int:
+    return _page_size(
+        request,
+        default=COUNTRY_BROWSER_DEFAULT_PAGE_SIZE,
+        max_value=COUNTRY_BROWSER_MAX_PAGE_SIZE,
+    )
+
+
+def _new_country_option_page_size(request) -> int:
+    return _page_size(
+        request,
+        default=NEW_COUNTRY_OPTION_DEFAULT_PAGE_SIZE,
+        max_value=NEW_COUNTRY_OPTION_MAX_PAGE_SIZE,
+    )
+
+
+def _country_browser_page(rows, page: int | str | None, page_size: int):
+    paginator = Paginator(rows, max(1, min(int(page_size or COUNTRY_BROWSER_DEFAULT_PAGE_SIZE), COUNTRY_BROWSER_MAX_PAGE_SIZE)))
+    return paginator.get_page(page)
+
+
+def _pagination_payload(page_obj) -> dict:
+    return {
+        "page": page_obj.number,
+        "page_size": page_obj.paginator.per_page,
+        "total": page_obj.paginator.count,
+        "num_pages": page_obj.paginator.num_pages,
+        "has_next": page_obj.has_next(),
+        "has_previous": page_obj.has_previous(),
+    }
 
 
 def _querystring_without_page(request) -> str:
@@ -7855,7 +13141,13 @@ def _visual_assets_ready() -> bool:
         return False
 
 
-def _country_detail_payload(country_code: str, selected_level: int | str | None = None) -> dict:
+def _country_detail_payload(
+    country_code: str,
+    selected_level: int | str | None = None,
+    *,
+    page: int | str | None = None,
+    page_size: int = COUNTRY_BROWSER_DEFAULT_PAGE_SIZE,
+) -> dict:
     root = _canonical_country_area(country_code)
     country_record = next(
         (row for row in _admin_country_summary_records() if row["code"] == country_code),
@@ -7872,10 +13164,17 @@ def _country_detail_payload(country_code: str, selected_level: int | str | None 
         available_levels,
     )
 
-    first_order = list(_country_top_level_areas(country_code, root).select_related("parent").order_by("name"))
     population_total = country_record["population"]
     area_total = country_record["area_km2"] or 0
-    rows = _country_table_rows(country_code, root, selected_level, population_total, area_total, selected_entity_types)
+    row_queryset = _country_level_rows_queryset(
+        country_code,
+        root,
+        selected_level,
+        selected_entity_types,
+    )
+    page_obj = _country_browser_page(row_queryset, page, page_size)
+    first_order = list(page_obj.object_list)
+    rows = _country_table_rows_from_records(first_order, country_code, population_total, area_total)
     subdivision_count = _visible_admin_areas().filter(country_code=country_code).count() - (1 if root else 0)
     visual_assets = _visual_assets_payload("country", country_code, include_fallbacks=False)
 
@@ -7907,14 +13206,46 @@ def _country_detail_payload(country_code: str, selected_level: int | str | None 
         "selected_filter": selected_filter,
         "table": {
             "rows": rows,
+            "pagination": _pagination_payload(page_obj),
         },
         "first_order": {
             "population_chart": _donut_payload(first_order, "pop_latest", population_total),
             "area_chart": _donut_payload(first_order, "area_km2", area_total),
             "cards": _first_order_cards(country_code, root, first_order, population_total, area_total),
             "child_groups": _country_first_order_child_groups(country_code, root, first_order, population_total, area_total),
+            "pagination": _pagination_payload(page_obj),
         },
     }
+
+
+def _country_first_order_areas_for_selection(
+    country_code: str,
+    root: AdminArea | None,
+    selected_level: int | None,
+    selected_entity_types: tuple[str, ...],
+) -> list[AdminArea]:
+    return list(_country_level_rows_queryset(country_code, root, selected_level, selected_entity_types))
+
+
+def _country_level_rows_queryset(
+    country_code: str,
+    root: AdminArea | None,
+    selected_level: int | None,
+    selected_entity_types: tuple[str, ...],
+):
+    if selected_level is None:
+        return _visible_admin_areas().none()
+    rows = (
+        _visible_admin_areas()
+        .filter(country_code=country_code, level=selected_level)
+        .select_related("parent")
+        .order_by("name", "code", "id")
+    )
+    if selected_entity_types:
+        rows = rows.filter(entity_type__in=selected_entity_types)
+    if root:
+        rows = rows.exclude(id=root.id)
+    return rows
 
 
 
@@ -7953,6 +13284,1183 @@ def _admin_area_detail_payload(area: AdminArea) -> dict:
         "children": _admin_area_child_rows(children, area.pop_latest, area.area_km2),
         "child_groups": _admin_area_child_groups(area, children),
     }
+
+
+def _nuevo_country_root_or_404(country_id: str) -> NuevoAdminArea:
+    country_id = str(country_id or "").strip()
+    if not country_id:
+        raise Http404(_("No existe NuevoAdminArea '%(area_id)s'.") % {"area_id": country_id})
+    root = (
+        NuevoAdminArea.objects.select_related("parent", "most_populate_city")
+        .prefetch_related("capitals")
+        .filter(id__iexact=country_id, parent__isnull=True)
+        .order_by("name")
+        .first()
+    )
+    if root is None:
+        root = (
+            NuevoAdminArea.objects.select_related("parent", "most_populate_city")
+            .prefetch_related("capitals")
+            .filter(country_code__iexact=country_id, parent__isnull=True)
+            .order_by("name")
+            .first()
+        )
+    if root is None:
+        raise Http404(_("No existe NuevoAdminArea '%(area_id)s'.") % {"area_id": country_id})
+    return root
+
+
+def _nuevo_country_detail_payload(
+    root: NuevoAdminArea,
+    selected_level: int | str | None = None,
+    *,
+    page: int | str | None = None,
+    page_size: int = COUNTRY_BROWSER_DEFAULT_PAGE_SIZE,
+) -> dict:
+    country_code = root.country_code
+    population_total = _nuevo_country_total(country_code, "pop_latest", root) or 0
+    area_total = _number_or_none(_nuevo_country_total(country_code, "area_km2", root)) or 0
+    available_levels = _nuevo_country_available_levels(country_code, root)
+    selected_level, selected_entity_types, selected_filter = _resolve_country_level_selection(
+        selected_level,
+        available_levels,
+    )
+    row_queryset = _nuevo_country_level_rows_queryset(
+        country_code,
+        root,
+        selected_level,
+        selected_entity_types,
+    )
+    page_obj = _country_browser_page(row_queryset, page, page_size)
+    first_order = list(page_obj.object_list)
+    visual_assets = _new_country_visual_assets_for_root(root, _new_country_source_code_for_built_code(country_code))
+
+    return {
+        "country": {
+            "id": root.id,
+            "code": country_code,
+            "name": _area_display_name(root),
+            "official_name": _area_display_name(root),
+            "entity_type": _entity_type_label(root.entity_type, country_code=country_code),
+            "level": root.level,
+            "parent": "",
+            "population": int(population_total or 0),
+            "area_km2": area_total,
+            "density": _number_or_none(root.density) or _density(population_total, area_total),
+            "capital": _capital_names_for_area(root),
+            "subdivision_count": max(0, NuevoAdminArea.objects.filter(country_code=country_code).count() - 1),
+            "type_summary": _nuevo_country_type_summary(country_code, root),
+            "wikidata_query": root.name,
+            "wikidata_id": "",
+            "map_url": reverse("ciudades_del_mundo:area_map_detail", kwargs={"source": "derived", "area_id": root.id}),
+            "visual_assets": visual_assets,
+            "flag_asset": visual_assets.get("flag", {}),
+            "seal_asset": visual_assets.get("seal", {}),
+            "coat_asset": visual_assets.get("coat", {}) or visual_assets.get("seal", {}),
+        },
+        "levels": available_levels,
+        "selected_level": selected_level,
+        "selected_filter": selected_filter,
+        "table": {
+            "rows": _nuevo_country_table_rows_from_records(first_order, country_code, population_total, area_total),
+            "pagination": _pagination_payload(page_obj),
+        },
+        "first_order": {
+            "population_chart": _donut_payload(first_order, "pop_latest", population_total),
+            "area_chart": _donut_payload(first_order, "area_km2", area_total),
+            "cards": _nuevo_first_order_cards(country_code, root, first_order, population_total, area_total),
+            "child_groups": _nuevo_country_first_order_child_groups(
+                country_code,
+                root,
+                first_order,
+                population_total,
+                area_total,
+            ),
+            "pagination": _pagination_payload(page_obj),
+        },
+    }
+
+
+def _nuevo_first_order_areas_for_selection(
+    country_code: str,
+    root: NuevoAdminArea | None,
+    selected_level: int | None,
+    selected_entity_types: tuple[str, ...],
+) -> list[NuevoAdminArea]:
+    return list(_nuevo_country_level_rows_queryset(country_code, root, selected_level, selected_entity_types))
+
+
+def _nuevo_country_level_rows_queryset(
+    country_code: str,
+    root: NuevoAdminArea | None,
+    selected_level: int | None,
+    selected_entity_types: tuple[str, ...],
+):
+    if selected_level is None:
+        return NuevoAdminArea.objects.none()
+    rows = (
+        NuevoAdminArea.objects.filter(country_code=country_code, level=selected_level)
+        .select_related("parent")
+        .order_by("name", "code", "id")
+    )
+    if selected_entity_types:
+        rows = rows.filter(entity_type__in=selected_entity_types)
+    if root:
+        rows = rows.exclude(id=root.id)
+    return rows
+
+
+def _new_country_config_detail_payload(
+    country: DerivedCountry,
+    rows: list[dict],
+    selected_level: int | str | None = None,
+    *,
+    available_levels: list[dict] | None = None,
+    page: int | str | None = None,
+    page_size: int = COUNTRY_BROWSER_DEFAULT_PAGE_SIZE,
+) -> dict:
+    """Render an unbuilt DerivedCountry config tree as the country-browser payload."""
+    tree_rows = [row for row in rows if row.get("is_config_row") or row.get("is_assigned_subdivision")]
+    config_rows = [row for row in tree_rows if row.get("is_config_row")]
+    source_code = _new_country_config_rows_source_code(country, config_rows)
+    built_code = _new_country_config_rows_built_code(country, config_rows)
+    area_total, population_total = _new_country_detail_export_totals(country, config_rows)
+    area_total_value = _number_or_none(area_total) or 0
+    population_total_value = _new_country_json_number(population_total) or 0
+    available_levels = available_levels or _new_country_config_available_levels(tree_rows, source_code)
+    selected_level, selected_entity_types, selected_filter = _resolve_country_level_selection(
+        selected_level,
+        available_levels,
+    )
+    rows_by_tree_id = _new_country_config_rows_by_tree_id(tree_rows)
+    children_by_parent = _new_country_config_children_by_parent(tree_rows)
+    first_order_rows = _new_country_config_order_rows_for_selection(
+        tree_rows,
+        config_rows,
+        selected_level,
+        selected_entity_types,
+    )
+    page_obj = _country_browser_page(first_order_rows, page, page_size)
+    first_order = list(page_obj.object_list)
+    table_rows = [
+        _new_country_config_browser_row(
+            row,
+            rows_by_tree_id,
+            population_total_value,
+            area_total_value,
+            source_code,
+            country_slug=country.slug,
+            children_by_parent=children_by_parent,
+        )
+        for row in first_order
+    ]
+    visual_assets = {}
+    country_entity_type = _("Pais nuevo")
+    return {
+        "country": {
+            "id": country.slug,
+            "code": built_code,
+            "name": country.name,
+            "official_name": _new_country_official_name(country_entity_type, country.name),
+            "entity_type": country_entity_type,
+            "level": 0,
+            "parent": "",
+            "population": population_total_value,
+            "area_km2": area_total_value,
+            "density": _density(population_total_value, area_total_value),
+            "capital": _new_country_config_country_capital_names(config_rows),
+            "subdivision_count": _new_country_config_country_subdivision_count(config_rows),
+            "type_summary": _new_country_config_type_summary(tree_rows, source_code),
+            "wikidata_query": country.name,
+            "wikidata_id": "",
+            "map_url": "",
+            "visual_assets": visual_assets,
+            "flag_asset": visual_assets.get("flag", {}),
+            "seal_asset": visual_assets.get("seal", {}),
+            "coat_asset": visual_assets.get("coat", {}) or visual_assets.get("seal", {}),
+        },
+        "levels": available_levels,
+        "selected_level": selected_level,
+        "selected_filter": selected_filter,
+        "table": {
+            "rows": table_rows,
+            "pagination": _pagination_payload(page_obj),
+        },
+        "first_order": {
+            "population_chart": _new_country_config_donut_payload(first_order, "entity_population_value", population_total_value),
+            "area_chart": _new_country_config_donut_payload(first_order, "entity_area_value", area_total_value),
+            "cards": _new_country_config_first_order_cards(
+                first_order,
+                rows_by_tree_id,
+                population_total_value,
+                area_total_value,
+                source_code,
+                country.slug,
+                children_by_parent,
+            ),
+            "child_groups": _new_country_config_first_order_child_groups(
+                first_order,
+                rows_by_tree_id,
+                population_total_value,
+                area_total_value,
+                source_code,
+                country.slug,
+                children_by_parent,
+            ),
+            "pagination": _pagination_payload(page_obj),
+        },
+    }
+
+
+def _new_country_config_rows_source_code(country: DerivedCountry, rows: list[dict]) -> str:
+    source_code = _normalize_group_country_key(country.source_country_code)
+    if source_code:
+        return source_code
+    for row in rows:
+        source_code = _normalize_group_country_key(row.get("source_code"))
+        if source_code:
+            return source_code
+    return ""
+
+
+def _new_country_config_rows_built_code(country: DerivedCountry, rows: list[dict]) -> str:
+    for row in rows:
+        built_code = _normalize_group_country_key(row.get("built_code"))
+        if built_code:
+            return built_code
+    return _normalize_group_country_key(country.slug)
+
+
+def _new_country_json_number(value):
+    value = _new_country_export_decimal(value)
+    if value is None:
+        return None
+    if value == value.to_integral_value():
+        return int(value)
+    return float(value)
+
+
+def _new_country_config_rows_by_tree_id(rows: list[dict]) -> dict[str, dict]:
+    return {str(row.get("tree_id") or ""): row for row in rows if str(row.get("tree_id") or "")}
+
+
+def _new_country_config_available_levels(rows: list[dict], source_code: str) -> list[dict]:
+    grouped: dict[int, Counter[str]] = {}
+    for row in rows:
+        try:
+            level = int(row.get("level") or 0)
+        except (TypeError, ValueError):
+            continue
+        if level <= 0:
+            continue
+        entity_type = str(row.get("entity_type") or "").strip()
+        grouped.setdefault(level, Counter())[entity_type] += 1
+    return _new_country_config_available_levels_from_counts(grouped, source_code)
+
+
+def _new_country_config_available_levels_for_configs(
+    configs: list[DerivedCountryConfig],
+) -> list[dict]:
+    source_code = ""
+    for config in configs:
+        source_code = _new_country_config_source_code(config)
+        if source_code:
+            break
+    return _new_country_config_available_levels_from_counts(
+        _new_country_config_level_type_counts(configs),
+        source_code,
+    )
+
+
+def _new_country_config_available_levels_from_counts(
+    grouped: dict[int, Counter[str]],
+    source_code: str,
+) -> list[dict]:
+    result = []
+    for level, type_counts in sorted(grouped.items()):
+        level_total = sum(type_counts.values())
+        if level_total <= 0:
+            continue
+        entity_types = [
+            _entity_type_label(entity_type, country_code=source_code) or _("Sin tipo")
+            for entity_type in sorted(type_counts)
+        ]
+        entity_type_label = " / ".join(entity_types[:3])
+        result.append(
+            {
+                "value": level,
+                "filter_value": str(level),
+                "label": entity_type_label or _("Nivel %(level)s") % {"level": level},
+                "entity_type": entity_type_label,
+                "count": level_total,
+            }
+        )
+    return result
+
+
+def _new_country_config_level_type_counts(
+    configs: list[DerivedCountryConfig],
+) -> dict[int, Counter[str]]:
+    grouped: dict[int, Counter[str]] = {}
+    source_ids_cache: dict[tuple[str, str], set[str]] = {}
+    group_entry_cache: dict[tuple[str, str], dict | None] = {}
+    group_entries_cache: dict[str, list[dict]] = {}
+
+    def add(level: int, entity_type: str, count: int = 1) -> None:
+        try:
+            clean_level = int(level or 0)
+        except (TypeError, ValueError):
+            return
+        if clean_level <= 0 or count <= 0:
+            return
+        grouped.setdefault(clean_level, Counter())[str(entity_type or "").strip()] += int(count)
+
+    for config in configs:
+        data = _new_country_config_toml(config)
+        entity = _new_country_config_first_entity(data)
+        source_code = _new_country_config_source_code(config)
+        config_level = _new_country_config_level(config)
+        entity_type = str(entity.get("entity_type") or "").strip()
+        add(config_level, entity_type)
+
+        display_level = max(1, int(config_level or 1) + 1)
+        source_ids = _new_country_config_selected_source_ids(data, entity)
+        for direct_entity_type, total in _new_country_config_source_id_type_counts(source_ids).items():
+            add(display_level, direct_entity_type, total)
+
+        seen_derived: set[tuple[str, str]] = set()
+        for selection in _new_country_config_selected_derived_subdivisions(
+            entity,
+            fallback_country_code=source_code,
+        ):
+            record_country_code = _normalize_group_country_key(selection.get("country_code") or source_code)
+            record_key = str(selection.get("key") or "").strip()
+            if not record_country_code or not record_key:
+                continue
+            lookup_key = (record_country_code, record_key.casefold())
+            if lookup_key in seen_derived:
+                continue
+            seen_derived.add(lookup_key)
+            record = _derived_subdivision_source_record_for_key(record_country_code, record_key)
+            if record is None:
+                continue
+            record_data = _derived_subdivision_record_toml(record)
+            try:
+                assigned_level = int(selection.get("level") or display_level)
+            except (TypeError, ValueError):
+                assigned_level = display_level
+            assigned_level = max(display_level, max(1, min(9, assigned_level)))
+            add(assigned_level, record_data.get("entity_type") or record.entity_type)
+            source_count = _new_country_config_derived_source_row_count(
+                record,
+                source_ids_cache=source_ids_cache,
+                group_entry_cache=group_entry_cache,
+                group_entries_cache=group_entries_cache,
+            )
+            add(assigned_level + 1, "", source_count)
+    return grouped
+
+
+def _new_country_config_source_id_type_counts(source_ids: list[str]) -> Counter[str]:
+    clean_ids = [str(value).strip() for value in source_ids if str(value or "").strip()]
+    if not clean_ids:
+        return Counter()
+    try:
+        return Counter(
+            {
+                str(row["entity_type"] or ""): int(row["total"] or 0)
+                for row in _group_source_admin_areas()
+                .filter(id__in=clean_ids)
+                .values("entity_type")
+                .annotate(total=Count("id"))
+            }
+        )
+    except (OperationalError, ProgrammingError, ValueError):
+        return Counter({"": len(clean_ids)})
+
+
+def _new_country_config_derived_source_row_count(
+    record: DerivedSubdivision,
+    *,
+    source_ids_cache: dict[tuple[str, str], set[str]],
+    group_entry_cache: dict[tuple[str, str], dict | None],
+    group_entries_cache: dict[str, list[dict]],
+) -> int:
+    return len(
+        _derived_subdivision_source_ids_for_record(
+            record,
+            source_ids_cache=source_ids_cache,
+            group_entry_cache=group_entry_cache,
+            group_entries_cache=group_entries_cache,
+        )
+    )
+
+
+def _new_country_config_type_summary(rows: list[dict], source_code: str) -> list[dict]:
+    counts: Counter[tuple[int, str]] = Counter()
+    for row in rows:
+        try:
+            level = int(row.get("level") or 0)
+        except (TypeError, ValueError):
+            continue
+        if level <= 0:
+            continue
+        counts[(level, str(row.get("entity_type") or ""))] += 1
+    return [
+        {
+            "level": level,
+            "label": _("Nivel %(level)s") % {"level": level},
+            "entity_type": _entity_type_label(entity_type, country_code=source_code) or _("Sin tipo"),
+            "total": total,
+        }
+        for (level, entity_type), total in sorted(counts.items())
+    ]
+
+
+def _new_country_config_country_capital_names(config_rows: list[dict]) -> list[str]:
+    first_order = _new_country_config_first_order_rows(config_rows)
+    names = _new_country_config_unique_capital_names(first_order)
+    if names:
+        return names
+    return _new_country_config_unique_capital_names(config_rows)
+
+
+def _new_country_config_unique_capital_names(rows: list[dict]) -> list[str]:
+    names: list[str] = []
+    seen: set[str] = set()
+    for row in rows:
+        for name in _new_country_config_row_capital_names(row):
+            marker = name.casefold()
+            if marker and marker not in seen:
+                seen.add(marker)
+                names.append(name)
+    return names
+
+
+def _new_country_config_country_subdivision_count(config_rows: list[dict]) -> int:
+    context = _new_country_export_legal_context()
+    source_unit_ids: set[str] = set()
+    for row in config_rows:
+        source_unit_ids.update(_new_country_export_legal_source_unit_ids(row, context))
+    return len(source_unit_ids) or len(config_rows)
+
+
+def _new_country_config_first_order_rows(rows: list[dict]) -> list[dict]:
+    top_rows = [row for row in rows if not str(row.get("tree_parent") or "")]
+    if top_rows:
+        return sorted(top_rows, key=lambda row: str(row.get("entity_display_name") or "").casefold())
+    levels = sorted(
+        {
+            int(row.get("level") or 0)
+            for row in rows
+            if str(row.get("level") or "").isdigit() and int(row.get("level") or 0) > 0
+        }
+    )
+    if not levels:
+        return []
+    first_level = levels[0]
+    return sorted(
+        [row for row in rows if int(row.get("level") or 0) == first_level],
+        key=lambda row: str(row.get("entity_display_name") or "").casefold(),
+    )
+
+
+def _new_country_config_order_rows_for_selection(
+    tree_rows: list[dict],
+    config_rows: list[dict],
+    selected_level: int | None,
+    selected_entity_types: tuple[str, ...],
+) -> list[dict]:
+    if selected_level is None:
+        return _new_country_config_first_order_rows(config_rows)
+    rows = [
+        row
+        for row in tree_rows
+        if int(row.get("level") or 0) == selected_level
+        and (
+            not selected_entity_types
+            or str(row.get("entity_type") or "") in selected_entity_types
+        )
+    ]
+    if not rows:
+        return _new_country_config_first_order_rows(config_rows)
+    return sorted(rows, key=lambda row: str(row.get("entity_display_name") or "").casefold())
+
+
+def _new_country_config_browser_row(
+    row: dict,
+    rows_by_tree_id: dict[str, dict],
+    population_total,
+    area_total,
+    source_code: str,
+    *,
+    country_slug: str = "",
+    children_by_parent: dict[str, list[dict]] | None = None,
+) -> dict:
+    tree_id = str(row.get("tree_id") or "")
+    entity_node = row.get("entity_node")
+    parent = rows_by_tree_id.get(str(row.get("tree_parent") or ""))
+    parent_node = parent.get("entity_node") if parent else None
+    population = _new_country_json_number(row.get("entity_population_value"))
+    area_km2 = _number_or_none(row.get("entity_area_value"))
+    density = _number_or_none(row.get("entity_density_value")) or _density(population, area_km2)
+    config_child_count = len((children_by_parent or {}).get(tree_id, []))
+    dynamic_config_child_count = config_child_count or int(row.get("assigned_subdivision_child_count") or 0)
+    if isinstance(entity_node, AdminArea):
+        try:
+            source_child_count = int(row.get("source_child_count"))
+        except (TypeError, ValueError):
+            source_child_count = _admin_area_browser_child_count(entity_node)
+    else:
+        source_child_count = 0
+    new_area_child_count = _nuevo_area_browser_child_count(entity_node) if isinstance(entity_node, NuevoAdminArea) else 0
+    child_count = dynamic_config_child_count or source_child_count or new_area_child_count
+    detail_url = ""
+    if isinstance(entity_node, NuevoAdminArea) and new_area_child_count:
+        detail_url = _nuevo_area_detail_url(entity_node)
+    elif isinstance(entity_node, AdminArea) and source_child_count:
+        detail_url = _admin_area_detail_url(entity_node)
+    if not detail_url and country_slug and (dynamic_config_child_count or row.get("has_assigned_subdivision_children")):
+        detail_url = _new_country_config_node_detail_url(country_slug, tree_id)
+    parent_detail_url = _nuevo_area_detail_url(parent_node) if isinstance(parent_node, NuevoAdminArea) else ""
+    if not parent_detail_url and country_slug and parent:
+        parent_tree_id = str(parent.get("tree_id") or "")
+        if (children_by_parent or {}).get(parent_tree_id):
+            parent_detail_url = _new_country_config_node_detail_url(country_slug, parent_tree_id)
+    entity_type_label = _entity_type_label(
+        str(row.get("entity_type") or ""),
+        country_code=_normalize_group_country_key(
+            getattr(entity_node, "country_code", "")
+            or row.get("source_code")
+            or source_code
+        ),
+    )
+    name = str(row.get("entity_display_name") or row.get("display_name") or "")
+    return {
+        "id": tree_id,
+        "code": str(row.get("display_code") or ""),
+        "level": int(row.get("level") or 0),
+        "detail_url": detail_url,
+        "parent_id": str(parent.get("tree_id") or "") if parent else "",
+        "parent_level": int(parent.get("level") or 0) if parent else None,
+        "parent_detail_url": parent_detail_url,
+        "name": name,
+        "official_name": str(row.get("official_name") or "") or _new_country_official_name(entity_type_label, name),
+        "area_km2": area_km2,
+        "population": population,
+        "density": density,
+        "population_percent": _ratio_percent(population, population_total),
+        "area_percent": _ratio_percent(area_km2, area_total),
+        "parent": _new_country_config_parent_name(parent),
+        "entity_type": entity_type_label,
+        "capital": _new_country_config_row_capital_names(row),
+        "subdivision_count": child_count,
+        "annotations": "",
+        "child_count": child_count,
+    }
+
+
+def _new_country_official_name(entity_type: str, base_name: str) -> str:
+    entity_type = str(entity_type or "").strip()
+    base_name = str(base_name or "").strip()
+    if not entity_type:
+        return base_name
+    if not base_name:
+        return entity_type
+    entity_key = _group_name_match_key(entity_type)
+    base_key = _group_name_match_key(base_name)
+    if entity_key and (base_key == entity_key or base_key.startswith(f"{entity_key} ")):
+        return base_name
+    return f"{entity_type} {base_name}"
+
+
+def _new_country_config_row_capital_names(row: dict) -> list[str]:
+    text = _new_country_export_capitals(row)
+    if not text:
+        return []
+    names = []
+    seen = set()
+    for raw_name in str(text).split(" | "):
+        name = raw_name.strip()
+        marker = name.casefold()
+        if name and marker not in seen:
+            seen.add(marker)
+            names.append(name)
+    return names
+
+
+def _new_country_config_parent_name(parent: dict | None) -> str:
+    if not parent:
+        return ""
+    return str(parent.get("entity_display_name") or parent.get("display_name") or "")
+
+
+def _new_country_config_node_detail_payload(country: DerivedCountry, rows: list[dict], tree_id: str) -> dict:
+    tree_rows = [row for row in rows if row.get("is_config_row") or row.get("is_assigned_subdivision")]
+    rows_by_tree_id = _new_country_config_rows_by_tree_id(tree_rows)
+    node = rows_by_tree_id.get(str(tree_id or ""))
+    if not node:
+        raise Http404(_("No existe entidad de pais nuevo '%(area_id)s'.") % {"area_id": tree_id})
+    children_by_parent = _new_country_config_children_by_parent(tree_rows)
+    source_code = _new_country_config_rows_source_code(country, [row for row in tree_rows if row.get("is_config_row")])
+    children = children_by_parent.get(str(node.get("tree_id") or ""), [])
+    population = _new_country_json_number(node.get("entity_population_value"))
+    area_km2 = _number_or_none(node.get("entity_area_value"))
+    return {
+        "area": _new_country_config_browser_row(
+            node,
+            rows_by_tree_id,
+            population,
+            area_km2,
+            source_code,
+            country_slug=country.slug,
+            children_by_parent=children_by_parent,
+        ),
+        "children": [
+            _new_country_config_browser_row(
+                child,
+                rows_by_tree_id,
+                population,
+                area_km2,
+                source_code,
+                country_slug=country.slug,
+                children_by_parent=children_by_parent,
+            )
+            for child in children
+        ],
+        "child_groups": _new_country_config_area_child_groups(
+            country,
+            children,
+            rows_by_tree_id,
+            children_by_parent,
+            population,
+            area_km2,
+            source_code,
+        ),
+    }
+
+
+def _new_country_config_area_child_groups(
+    country: DerivedCountry,
+    children: list[dict],
+    rows_by_tree_id: dict[str, dict],
+    children_by_parent: dict[str, list[dict]],
+    population_total,
+    area_total,
+    source_code: str,
+) -> list[dict]:
+    if not children:
+        return []
+    grouped: dict[int, list[dict]] = {}
+    for child in children:
+        try:
+            level = int(child.get("level") or 0)
+        except (TypeError, ValueError):
+            continue
+        grouped.setdefault(level, []).append(child)
+    return [
+        {
+            "level": level,
+            "label": _("Nivel %(level)s") % {"level": level},
+            "children": [
+                _new_country_config_browser_row(
+                    child,
+                    rows_by_tree_id,
+                    population_total,
+                    area_total,
+                    source_code,
+                    country_slug=country.slug,
+                    children_by_parent=children_by_parent,
+                )
+                for child in rows_for_level
+            ],
+        }
+        for level, rows_for_level in sorted(grouped.items())
+    ]
+
+
+def _new_country_config_donut_payload(rows: list[dict], value_key: str, total) -> dict:
+    items = []
+    for row in rows:
+        value = _number_or_none(row.get(value_key))
+        if not value:
+            continue
+        items.append(
+            {
+                "key": str(row.get("tree_id") or row.get("display_code") or row.get("entity_display_name") or ""),
+                "label": str(row.get("entity_display_name") or row.get("display_name") or ""),
+                "value": value,
+            }
+        )
+    return {
+        "type": "donut",
+        "total": _number_or_none(total),
+        "items": items,
+    }
+
+
+def _new_country_config_first_order_cards(
+    first_order: list[dict],
+    rows_by_tree_id: dict[str, dict],
+    population_total,
+    area_total,
+    source_code: str,
+    country_slug: str = "",
+    children_by_parent: dict[str, list[dict]] | None = None,
+) -> list[dict]:
+    children_by_parent = children_by_parent or _new_country_config_children_by_parent(rows_by_tree_id.values())
+    cards = []
+    for row in first_order:
+        payload = _new_country_config_browser_row(
+            row,
+            rows_by_tree_id,
+            population_total,
+            area_total,
+            source_code,
+            country_slug=country_slug,
+            children_by_parent=children_by_parent,
+        )
+        config_child_count = len(children_by_parent.get(str(row.get("tree_id") or ""), []))
+        if config_child_count:
+            payload["child_count"] = config_child_count
+        payload["children"] = []
+        cards.append(payload)
+    return cards
+
+
+def _new_country_config_children_by_parent(rows) -> dict[str, list[dict]]:
+    children_by_parent: dict[str, list[dict]] = {}
+    for row in rows:
+        parent_id = str(row.get("tree_parent") or "")
+        if parent_id:
+            children_by_parent.setdefault(parent_id, []).append(row)
+    for children in children_by_parent.values():
+        children.sort(key=lambda row: str(row.get("entity_display_name") or "").casefold())
+    return children_by_parent
+
+
+def _new_country_config_share_row(
+    row: dict,
+    rows_by_tree_id: dict[str, dict],
+    population_total,
+    area_total,
+    source_code: str,
+    *,
+    country_slug: str = "",
+    children_by_parent: dict[str, list[dict]] | None = None,
+) -> dict:
+    payload = _new_country_config_browser_row(
+        row,
+        rows_by_tree_id,
+        population_total,
+        area_total,
+        source_code,
+        country_slug=country_slug,
+        children_by_parent=children_by_parent,
+    )
+    return {
+        "name": payload["name"],
+        "entity_type": payload["entity_type"],
+        "population": payload["population"],
+        "area_km2": payload["area_km2"],
+        "population_percent": payload["population_percent"],
+        "area_percent": payload["area_percent"],
+        "child_count": payload.get("child_count", 0),
+        "detail_url": payload.get("detail_url", ""),
+    }
+
+
+def _new_country_config_first_order_child_groups(
+    first_order: list[dict],
+    rows_by_tree_id: dict[str, dict],
+    population_total,
+    area_total,
+    source_code: str,
+    country_slug: str = "",
+    children_by_parent: dict[str, list[dict]] | None = None,
+) -> list[dict]:
+    children_by_parent = children_by_parent or _new_country_config_children_by_parent(rows_by_tree_id.values())
+    grouped: dict[int, list[dict]] = {}
+    for row in first_order:
+        try:
+            level = int(row.get("level") or 0)
+        except (TypeError, ValueError):
+            continue
+        grouped.setdefault(level, []).append(row)
+    return [
+        {
+            "level": level,
+            "label": _("Nivel %(level)s") % {"level": level},
+            "children": [
+                _new_country_config_browser_row(
+                    row,
+                    rows_by_tree_id,
+                    population_total,
+                    area_total,
+                    source_code,
+                    country_slug=country_slug,
+                    children_by_parent=children_by_parent,
+                )
+                for row in rows_for_level
+            ],
+        }
+        for level, rows_for_level in sorted(grouped.items())
+    ]
+
+
+def _nuevo_area_detail_payload(area: NuevoAdminArea) -> dict:
+    children = _nuevo_area_browser_children(area)
+    return {
+        "area": _nuevo_area_identity_payload(area, children),
+        "children": _nuevo_area_child_rows(children, area.pop_latest, area.area_km2),
+        "child_groups": _nuevo_area_child_groups(area, children),
+    }
+
+
+def _nuevo_area_identity_payload(area: NuevoAdminArea, children: list[NuevoAdminArea] | None = None) -> dict:
+    country_root = _area_country_root(area)
+    visual_assets = _new_country_visual_assets_for_root(area, _new_country_source_code_for_built_code(area.country_code)) if area.level == 0 else _visual_assets_payload("admin_area", str(area.id))
+    return {
+        "id": area.id,
+        "code": area.code,
+        "country_code": area.country_code,
+        "name": _area_display_name(area),
+        "official_name": _area_display_name(area),
+        "entity_type": _entity_type_label(area.entity_type, country_code=area.country_code),
+        "level": area.level,
+        "parent": _area_display_name(area.parent) if area.parent else "",
+        "population": int(area.pop_latest or 0) if area.pop_latest is not None else None,
+        "area_km2": _number_or_none(area.area_km2),
+        "density": _number_or_none(area.density) or _density(area.pop_latest, area.area_km2),
+        "capital": _capital_names_for_area(area),
+        "subdivision_count": len(children) if children is not None else _nuevo_area_browser_child_count(area),
+        "type_summary": [],
+        "wikidata_query": _area_wikidata_query(area, country_root),
+        "wikidata_id": "",
+        "map_url": reverse("ciudades_del_mundo:area_map_detail", kwargs={"source": "derived", "area_id": area.id}),
+        "detail_url": _nuevo_area_detail_url(area),
+        "visual_assets": visual_assets,
+        "flag_asset": visual_assets.get("flag", {}),
+        "seal_asset": visual_assets.get("seal", {}),
+        "coat_asset": visual_assets.get("coat", {}) or visual_assets.get("seal", {}),
+    }
+
+
+def _nuevo_area_child_rows(children: list[NuevoAdminArea], population_total, area_total) -> list[dict]:
+    return [
+        {
+            "id": child.id,
+            "name": _area_display_name(child),
+            "entity_type": _entity_type_label(child.entity_type, country_code=child.country_code),
+            "level": child.level,
+            "area_km2": _number_or_none(child.area_km2),
+            "population": int(child.pop_latest or 0) if child.pop_latest is not None else None,
+            "density": _number_or_none(child.density) or _density(child.pop_latest, child.area_km2),
+            "population_percent": _ratio_percent(child.pop_latest, population_total),
+            "area_percent": _ratio_percent(child.area_km2, area_total),
+            "child_count": _nuevo_area_browser_child_count(child),
+            "detail_url": _nuevo_area_detail_url(child),
+        }
+        for child in children
+    ]
+
+
+def _nuevo_area_browser_children(area: NuevoAdminArea) -> list[NuevoAdminArea]:
+    return list(
+        NuevoAdminArea.objects.filter(parent=area)
+        .select_related("parent")
+        .order_by("name")
+    )
+
+
+def _nuevo_area_browser_child_count(area: NuevoAdminArea) -> int:
+    return NuevoAdminArea.objects.filter(parent=area).count()
+
+
+def _nuevo_area_child_groups(area: NuevoAdminArea, children: list[NuevoAdminArea]) -> list[dict]:
+    if not children:
+        return []
+    grouped: dict[int, list[NuevoAdminArea]] = {}
+    for child in children:
+        grouped.setdefault(child.level, []).append(child)
+    return [
+        {
+            "level": level,
+            "label": _nuevo_area_child_group_label(area.country_code, level),
+            "children": _nuevo_area_child_rows(rows, area.pop_latest, area.area_km2),
+        }
+        for level, rows in sorted(grouped.items())
+    ]
+
+
+def _nuevo_country_top_level_areas(country_code: str, root: NuevoAdminArea | None = None):
+    if root:
+        children = NuevoAdminArea.objects.filter(parent=root)
+        first_child_level = children.values_list("level", flat=True).order_by("level").first()
+        if first_child_level is not None:
+            return children.filter(level=first_child_level).order_by("name")
+        next_level = (
+            NuevoAdminArea.objects.filter(country_code=country_code)
+            .exclude(id=root.id)
+            .values_list("level", flat=True)
+            .order_by("level")
+            .first()
+        )
+        if next_level is not None:
+            return NuevoAdminArea.objects.filter(country_code=country_code, level=next_level).exclude(id=root.id).order_by("name")
+        return NuevoAdminArea.objects.none()
+    return NuevoAdminArea.objects.filter(country_code=country_code, level=0, parent__isnull=True).order_by("name")
+
+
+def _nuevo_country_total(country_code: str, field: str, root: NuevoAdminArea | None):
+    if root and getattr(root, field) is not None:
+        return getattr(root, field)
+    return _nuevo_country_top_level_areas(country_code, root).aggregate(total=Sum(field))["total"]
+
+
+def _nuevo_country_available_levels(country_code: str, root: NuevoAdminArea | None) -> list[dict]:
+    levels = list(
+        NuevoAdminArea.objects.filter(country_code=country_code)
+        .values_list("level", flat=True)
+        .distinct()
+        .order_by("level")
+    )
+    rows = []
+    for level in levels:
+        if root and level == root.level:
+            continue
+        level_rows = NuevoAdminArea.objects.filter(country_code=country_code, level=level)
+        if root:
+            level_rows = level_rows.exclude(id=root.id)
+        type_stats = _nuevo_country_level_type_stats(level_rows)
+        level_total = sum(count for count, _rows_with_children in type_stats.values())
+        if level_total <= 0:
+            continue
+        entity_type_values = tuple(sorted(type_stats))
+        entity_types = [_entity_type_label(item, country_code=country_code) or _("Sin tipo") for item in entity_type_values]
+        entity_type_label = " / ".join(entity_types[:3])
+        rows.append(
+            {
+                "value": level,
+                "filter_value": str(level),
+                "label": entity_type_label or _("Nivel %(level)s") % {"level": _display_level(level, root)},
+                "entity_type": entity_type_label,
+                "count": level_total,
+            }
+        )
+    return rows
+
+
+def _nuevo_country_level_type_stats(level_rows) -> dict[str, tuple[int, int]]:
+    counts = {
+        str(row["entity_type"] or ""): int(row["count"])
+        for row in level_rows.values("entity_type").annotate(count=Count("id")).order_by("entity_type")
+    }
+    rows_with_children = {
+        str(row["entity_type"] or ""): int(row["count"])
+        for row in (
+            level_rows.filter(children__isnull=False)
+            .values("entity_type")
+            .annotate(count=Count("id", distinct=True))
+            .order_by("entity_type")
+        )
+    }
+    return {entity_type: (count, rows_with_children.get(entity_type, 0)) for entity_type, count in counts.items()}
+
+
+def _nuevo_country_table_rows(
+    country_code: str,
+    root: NuevoAdminArea | None,
+    selected_level: int | None,
+    population_total=0,
+    area_total=0,
+    selected_entity_types: tuple[str, ...] = (),
+) -> list[dict]:
+    rows = _nuevo_country_level_rows_queryset(country_code, root, selected_level, selected_entity_types)
+    return _nuevo_country_table_rows_from_records(rows, country_code, population_total, area_total)
+
+
+def _nuevo_country_table_rows_from_records(
+    rows,
+    country_code: str,
+    population_total=0,
+    area_total=0,
+) -> list[dict]:
+    return [
+        {
+            "id": row.id,
+            "level": row.level,
+            "detail_url": _nuevo_area_detail_url(row),
+            "parent_id": row.parent_id or "",
+            "parent_level": row.parent.level if row.parent else None,
+            "parent_detail_url": _nuevo_area_detail_url(row.parent) if row.parent else "",
+            "name": _area_display_name(row),
+            "area_km2": _number_or_none(row.area_km2),
+            "population": int(row.pop_latest or 0) if row.pop_latest is not None else None,
+            "density": _number_or_none(row.density) or _density(row.pop_latest, row.area_km2),
+            "population_percent": _ratio_percent(row.pop_latest, population_total),
+            "area_percent": _ratio_percent(row.area_km2, area_total),
+            "parent": _area_display_name(row.parent) if row.parent else "",
+            "entity_type": _entity_type_label(row.entity_type, country_code=country_code),
+            "annotations": "",
+        }
+        for row in rows
+    ]
+
+
+def _nuevo_country_type_summary(country_code: str, root: NuevoAdminArea | None) -> list[dict]:
+    rows = NuevoAdminArea.objects.filter(country_code=country_code)
+    if root:
+        rows = rows.exclude(id=root.id)
+    grouped = rows.values("level", "entity_type").annotate(total=Count("id")).order_by("level", "entity_type")
+    return [
+        {
+            "level": item["level"],
+            "label": _("Nivel %(level)s") % {"level": _display_level(item["level"], root)},
+            "entity_type": _entity_type_label(item["entity_type"], country_code=country_code) or _("Sin tipo"),
+            "total": item["total"],
+        }
+        for item in grouped
+    ]
+
+
+def _nuevo_country_first_order_child_groups(
+    country_code: str,
+    root: NuevoAdminArea | None,
+    children: list[NuevoAdminArea],
+    population_total,
+    area_total,
+) -> list[dict]:
+    if not children:
+        return []
+    grouped: dict[int, list[NuevoAdminArea]] = {}
+    for child in children:
+        grouped.setdefault(child.level, []).append(child)
+    return [
+        {
+            "level": level,
+            "label": _nuevo_area_child_group_label(country_code, level),
+            "children": _nuevo_area_child_rows(rows, population_total, area_total),
+        }
+        for level, rows in sorted(grouped.items())
+    ]
+
+
+def _nuevo_area_child_group_label(country_code: str, level: int) -> str:
+    types = _nuevo_level_entity_types(country_code, level)
+    base = _("Nivel %(level)s") % {"level": level}
+    if types:
+        return f"{base} - {', '.join(types[:3])}"
+    return base
+
+
+def _nuevo_level_entity_types(country_code: str, level: int) -> list[str]:
+    return [
+        _entity_type_label(item, country_code=country_code) or _("Sin tipo")
+        for item in (
+            NuevoAdminArea.objects.filter(country_code=country_code, level=level)
+            .exclude(entity_type="")
+            .values_list("entity_type", flat=True)
+            .distinct()
+            .order_by("entity_type")
+        )
+    ]
+
+
+def _nuevo_first_order_cards(
+    country_code: str,
+    root: NuevoAdminArea | None,
+    first_order: list[NuevoAdminArea],
+    population_total,
+    area_total,
+) -> list[dict]:
+    child_level = _second_order_level(first_order)
+    child_count = (
+        NuevoAdminArea.objects.filter(country_code=country_code, level=child_level).count()
+        if child_level is not None
+        else 0
+    )
+    include_children = child_level is not None and child_count < 150
+    return [
+        _nuevo_first_order_card(area, population_total, area_total, include_children=include_children)
+        for area in first_order
+    ]
+
+
+def _nuevo_first_order_card(area: NuevoAdminArea, population_total, area_total, *, include_children: bool = False) -> dict:
+    population = int(area.pop_latest or 0) if area.pop_latest is not None else 0
+    area_km2 = _number_or_none(area.area_km2) or 0
+    return {
+        "id": area.id,
+        "name": _area_display_name(area),
+        "entity_type": _entity_type_label(area.entity_type, country_code=area.country_code),
+        "level": area.level,
+        "population": population,
+        "area_km2": area_km2,
+        "density": _number_or_none(area.density) or _density(area.pop_latest, area.area_km2),
+        "population_percent": _ratio_percent(population, population_total),
+        "area_percent": _ratio_percent(area_km2, area_total),
+        "child_count": _nuevo_area_browser_child_count(area),
+        "detail_url": _nuevo_area_detail_url(area),
+        "children": _nuevo_second_order_share_rows(area) if include_children else [],
+    }
+
+
+def _nuevo_second_order_share_rows(area: NuevoAdminArea) -> list[dict]:
+    children = _nuevo_area_browser_children(area)
+    return [
+        {
+            "name": _area_display_name(child),
+            "entity_type": _entity_type_label(child.entity_type, country_code=child.country_code),
+            "population": int(child.pop_latest or 0) if child.pop_latest is not None else None,
+            "area_km2": _number_or_none(child.area_km2),
+            "population_percent": _ratio_percent(child.pop_latest, area.pop_latest),
+            "area_percent": _ratio_percent(child.area_km2, area.area_km2),
+        }
+        for child in children
+    ]
+
+
+def _nuevo_area_detail_url(area: NuevoAdminArea) -> str:
+    return reverse("ciudades_del_mundo:api_new_area_detail", kwargs={"area_id": area.id})
+
+
+def _new_country_config_node_detail_url(country_slug: str, tree_id: str) -> str:
+    return reverse(
+        "ciudades_del_mundo:api_new_country_config_node_detail",
+        kwargs={"country_slug": country_slug, "tree_id": tree_id},
+    )
+
+
+def _new_country_source_code_for_built_code(built_code: str) -> str:
+    built_code = _normalize_group_country_key(built_code)
+    if not built_code:
+        return ""
+    for config in DerivedCountryConfig.objects.select_related("country").all():
+        if _new_country_config_built_code(config) == built_code:
+            return _new_country_config_source_code(config)
+    return ""
+
+
+def _new_country_visual_assets_for_root(root: NuevoAdminArea, source_country_code: str = "") -> dict:
+    candidates = [
+        ("admin_area", str(root.id)),
+        ("country", str(root.country_code)),
+    ]
+    source_country_code = _normalize_group_country_key(source_country_code)
+    if source_country_code:
+        candidates.append(("country", source_country_code))
+    for entity_type, entity_key in candidates:
+        assets = _visual_assets_payload(entity_type, entity_key, include_fallbacks=False)
+        if _visual_assets_have_display_image(assets):
+            return assets
+    return {}
+
+
+def _visual_assets_have_display_image(assets: dict | None) -> bool:
+    if not isinstance(assets, dict):
+        return False
+    return any(_stored_visual_asset_image_url(assets.get(kind)) for kind in ("flag", "coat", "seal"))
 
 
 
@@ -8177,36 +14685,18 @@ def _country_available_levels(country_code: str, root: AdminArea | None) -> list
         level_total = sum(count for count, _rows_with_children in type_stats.values())
         if level_total <= 0:
             continue
-        partial_level = False
-        if level_total <= COUNTRY_LEVEL_OPTION_MAX_ROWS:
-            entity_type_values = tuple(sorted(type_stats))
-            filter_value = str(level)
-        else:
-            partial_level = True
-            entity_type_values = tuple(
-                sorted(
-                    entity_type
-                    for entity_type, (count, rows_with_children) in type_stats.items()
-                    if count <= COUNTRY_LEVEL_OPTION_MAX_ROWS and rows_with_children > 0
-                )
-            )
-            if not entity_type_values:
-                break
-            level_total = sum(type_stats[entity_type][0] for entity_type in entity_type_values)
-            filter_value = "|".join([str(level), *entity_type_values])
+        entity_type_values = tuple(sorted(type_stats))
         entity_types = [_entity_type_label(item, country_code=country_code) or _("Sin tipo") for item in entity_type_values]
         entity_type_label = " / ".join(entity_types[:3])
         rows.append(
             {
                 "value": level,
-                "filter_value": filter_value,
+                "filter_value": str(level),
                 "label": entity_type_label or _("Nivel %(level)s") % {"level": _display_level(level, root)},
                 "entity_type": entity_type_label,
                 "count": level_total,
             }
         )
-        if partial_level:
-            break
     return rows
 
 
@@ -8255,17 +14745,16 @@ def _country_table_rows(
     area_total=0,
     selected_entity_types: tuple[str, ...] = (),
 ) -> list[dict]:
-    if selected_level is None:
-        return []
-    rows = (
-        _visible_admin_areas().filter(country_code=country_code, level=selected_level)
-        .select_related("parent")
-        .order_by("name")
-    )
-    if selected_entity_types:
-        rows = rows.filter(entity_type__in=selected_entity_types)
-    if root:
-        rows = rows.exclude(id=root.id)
+    rows = _country_level_rows_queryset(country_code, root, selected_level, selected_entity_types)
+    return _country_table_rows_from_records(rows, country_code, population_total, area_total)
+
+
+def _country_table_rows_from_records(
+    rows,
+    country_code: str,
+    population_total=0,
+    area_total=0,
+) -> list[dict]:
     return [
         {
             "id": row.id,
@@ -8841,7 +15330,7 @@ def _config_city_rows_for_country(country_code: str) -> list[dict]:
     country_code = _normalize_group_country_key(country_code)
     if not country_code:
         return []
-    municipal_level = ORIGINAL_MUNICIPAL_LEVEL.get(country_code)
+    municipal_level = effective_source_municipal_level(country_code)
     try:
         areas = list(
             _visible_admin_areas()
@@ -9088,6 +15577,11 @@ def _config_city_sections_from_toml(
                 "parent_label": parent_payload["label"],
                 "parent_code": parent_payload["code"],
                 "parent_level": parent_level,
+                "parent_type": str(
+                    raw_city.get("parent_type")
+                    or raw_city.get("parent_entity_type")
+                    or parent_payload["type_text"]
+                ),
                 "city": str(raw_city.get("city") or parent_payload["name"]),
                 "code": str(raw_city.get("id") or parent_payload["code"] or parent_id),
                 "level": int(raw_city.get("level") or legal_level),
@@ -9660,7 +16154,7 @@ def _source_level_filter_options_for_country(country_code: str) -> list[dict]:
         return []
     levels: dict[str, dict[str, object]] = {}
     rows = (
-        _visible_admin_areas()
+        _group_source_admin_areas()
         .filter(country_code__iexact=country_code)
         .exclude(level=0)
         .values("level", "entity_type")
@@ -9818,6 +16312,7 @@ def _render_config_from_manual_post(slug: str, post, *, current_content: str = "
                     f"id = {_toml_string(city['id'])}",
                     f"level = {int(city['level'])}",
                     f"type = {_toml_string(city['type'])}",
+                    f"parent_type = {_toml_string(city['parent_type'])}",
                     f"from = {_toml_inline_table({int(city['parent_level']): [city['parent_name']]})}",
                 ]
             )
@@ -9976,6 +16471,7 @@ def _manual_cities_from_post(post, *, legal_subdivision: str) -> list[dict]:
                 "type": str(item.get("type") or "City").strip() or "City",
                 "parent_level": parent_level,
                 "parent_name": parent_name,
+                "parent_type": str(item.get("parent_type") or "").strip(),
                 "communes": communes,
                 "keep_communes": _form_bool(item.get("keep_communes"), default=False),
             }
@@ -11658,8 +18154,30 @@ def _normalize_config_slug(value: str) -> str:
 def _normalize_recipe_slug(value: str) -> str:
     slug = (value or "").strip().lower()
     if not RECIPE_SLUG_RE.fullmatch(slug):
-        raise ValueError(_("El slug de receta debe ser un identificador Python en minusculas."))
+        raise ValueError(_("El codigo debe empezar por una letra y usar letras sin acentos, numeros o guion bajo, sin espacios."))
     return slug
+
+
+def _normalize_new_country_code(value: str) -> str:
+    try:
+        return _normalize_recipe_slug(value)
+    except ValueError as exc:
+        raise ValueError(
+            _("El codigo debe empezar por una letra y usar mayusculas sin acentos, numeros o guion bajo, sin espacios.")
+        ) from exc
+
+
+def _new_country_entity_code_from_form(value: str) -> str:
+    text = str(value or "").strip()
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]*", text):
+        raise ValueError(
+            _("El codigo debe empezar por una letra y usar mayusculas sin acentos, numeros, guion o guion bajo, sin espacios.")
+        )
+    return text.upper()
+
+
+def _new_country_slug_from_entity_code(value: str) -> str:
+    return _normalize_new_country_code(str(value or "").replace("-", "_"))
 
 
 def _queue_derived_seed_import_tasks(
@@ -11668,17 +18186,18 @@ def _queue_derived_seed_import_tasks(
     section: str,
     key_prefix: str,
     label_template: str,
-) -> int:
-    count = 0
+) -> list[tuple[object, str]]:
+    queued_tasks = []
     for path in paths:
         slug = _derived_seed_task_identifier(path, section=section)
-        task_manager.start(
+        label = label_template % {"slug": slug}
+        task = task_manager.start(
             key=f"{key_prefix}:{slug.replace('/', '_')}",
-            label=label_template % {"slug": slug},
+            label=label,
             args=["sync_derived_configs", section, slug, "--force"],
         )
-        count += 1
-    return count
+        queued_tasks.append((task, label))
+    return queued_tasks
 
 
 def _derived_seed_task_identifier(path: Path, *, section: str) -> str:
@@ -11686,6 +18205,1331 @@ def _derived_seed_task_identifier(path: Path, *, section: str) -> str:
         return path.stem
     parent = path.parent.name
     return f"{parent}/{path.stem}" if parent and path.parent.parent.name == section else path.stem
+
+
+def _csv_text_values(value: str) -> list[str]:
+    return [part.strip() for part in str(value or "").split(",") if part.strip()]
+
+
+def _new_country_config_visual_form(country: DerivedCountry, config: DerivedCountryConfig) -> dict:
+    data = _new_country_config_toml(config)
+    entity = _new_country_config_first_entity(data)
+    selection = data.get("selection") if isinstance(data.get("selection"), dict) else {}
+    source_country_code = _normalize_group_country_key(
+        data.get("source_country_code")
+        or selection.get("source_country_code")
+        or config.source_country_code
+        or country.source_country_code
+    )
+    parent_config_slug = _normalize_group_country_key(
+        entity.get("parent_config_slug")
+        or entity.get("parent")
+        or data.get("parent_config_slug")
+        or data.get("parent")
+    )
+    selected_derived_subdivisions = _new_country_config_selected_derived_subdivisions(
+        entity,
+        fallback_country_code=source_country_code,
+    )
+    selected_subdivision_keys = [
+        _new_country_derived_subdivision_selection_value(item["country_code"], item["key"])
+        for item in selected_derived_subdivisions
+    ]
+    use_subdivisions = bool(entity.get("use_selected_entities_as_children")) or bool(selected_derived_subdivisions)
+    selected_ids = _new_country_config_selected_source_ids(data, entity)
+    selected_child_config_slugs = _new_country_config_direct_child_slugs(country, config.slug)
+    selection_json = json.dumps(
+        {
+            "source_country_code": source_country_code,
+            "selected_ids": selected_ids,
+            "use_subdivisions": use_subdivisions,
+            "selected_subdivision_keys": selected_subdivision_keys,
+            "selected_derived_subdivisions": selected_derived_subdivisions,
+            "selected_child_config_slugs": selected_child_config_slugs,
+        },
+        ensure_ascii=False,
+    )
+    try:
+        entity_level = int(entity.get("level") or _new_country_config_level(config))
+    except (TypeError, ValueError):
+        entity_level = _new_country_config_level(config)
+    parent_level = _new_country_parent_level(country, parent_config_slug)
+    return {
+        "slug": _new_country_config_local_code(config, data=data),
+        "name": str(entity.get("name") or data.get("name") or config.name or "").strip(),
+        "source_country_code": source_country_code,
+        "parent_config_slug": parent_config_slug,
+        "parent_level": str(parent_level),
+        "entity_level": str(entity_level or 1),
+        "use_subdivisions": use_subdivisions,
+        "entity_type": str(entity.get("entity_type") or "").strip() or "Subdivision",
+        "capitals": _derived_subdivision_capital_values(source_country_code, entity),
+        "content": config.content,
+        "selection_json": selection_json,
+    }
+
+
+def _new_country_config_first_entity(data: dict) -> dict:
+    entities = data.get("entities") if isinstance(data, dict) else None
+    if isinstance(entities, list):
+        for entity in entities:
+            if isinstance(entity, dict):
+                return entity
+    return {}
+
+
+def _new_country_config_raw_entity_code(config: DerivedCountryConfig, data: dict | None = None) -> str:
+    data = data if isinstance(data, dict) else _new_country_config_toml(config)
+    entity = _new_country_config_first_entity(data)
+    try:
+        return _new_country_entity_code_from_form(str(entity.get("code") or config.slug))
+    except ValueError:
+        return derived_code_piece(config.slug)
+
+
+def _new_country_config_local_code(config: DerivedCountryConfig, data: dict | None = None) -> str:
+    return _new_country_config_strip_parent_code_prefix(config, _new_country_config_raw_entity_code(config, data=data))
+
+
+def _new_country_config_strip_parent_code_prefix(config: DerivedCountryConfig, code: str) -> str:
+    code = derived_code_piece(code)
+    if not code:
+        return ""
+    parent_slug = _new_country_config_parent_slug(config)
+    if not parent_slug:
+        return code
+    parent = config.country.configs.filter(slug=parent_slug).first()
+    if parent is None:
+        return code
+    parent_code = _new_country_config_expected_full_code(parent, seen={config.slug})
+    return _new_country_code_without_parent_prefix(code, parent_code)
+
+
+def _new_country_code_without_parent_prefix(code: str, parent_code: str) -> str:
+    code = derived_code_piece(code)
+    parent_code = derived_code_piece(parent_code)
+    prefix = f"{parent_code}-" if parent_code else ""
+    if prefix and code.startswith(prefix):
+        return code[len(prefix) :] or code
+    return code
+
+
+def _new_country_config_selected_source_ids(data: dict, entity: dict) -> list[str]:
+    selection = data.get("selection") if isinstance(data.get("selection"), dict) else {}
+    result: list[str] = []
+    seen: set[str] = set()
+
+    def add_many(values) -> None:
+        for value in _new_country_config_text_values(values):
+            if value in seen:
+                continue
+            seen.add(value)
+            result.append(value)
+
+    selection_items = selection.get("items") if isinstance(selection, dict) else None
+    if isinstance(selection_items, list):
+        for item in selection_items:
+            if isinstance(item, dict):
+                add_many([item.get("id") or item.get("value")])
+    if result:
+        return result
+
+    if isinstance(selection, dict):
+        add_many(selection.get("include_ids"))
+        add_many(selection.get("subtract_ids"))
+    if result:
+        return result
+
+    for key in ("include", "subtract"):
+        blocks = entity.get(key) if isinstance(entity.get(key), list) else []
+        for block in blocks:
+            if isinstance(block, dict):
+                add_many(block.get("ids"))
+    return result
+
+
+def _new_country_config_selected_derived_subdivisions(
+    entity: dict,
+    *,
+    fallback_country_code: str,
+) -> list[dict[str, str | int]]:
+    values: list[dict[str, str | int]] = []
+    blocks = entity.get("include") if isinstance(entity.get("include"), list) else []
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        block_country = _normalize_group_country_key(block.get("country_code") or fallback_country_code)
+        block_level = _new_country_config_include_block_level(block)
+        for value in _new_country_config_text_values(block.get("derived_subdivisions")):
+            entry: dict[str, str | int] = {"country_code": block_country, "key": value}
+            if block_level is not None:
+                entry["level"] = block_level
+            values.append(entry)
+    return _new_country_normalized_derived_subdivision_selections(
+        values,
+        fallback_country_code=fallback_country_code,
+    )
+
+
+def _new_country_config_include_block_level(block: dict) -> int | None:
+    try:
+        level = int(block.get("level") or 0)
+    except (TypeError, ValueError):
+        return None
+    if level <= 0:
+        return None
+    return max(1, min(9, level))
+
+
+def _new_country_config_selected_subdivision_keys(entity: dict) -> list[str]:
+    return [
+        item["key"]
+        for item in _new_country_config_selected_derived_subdivisions(
+            entity,
+            fallback_country_code="",
+        )
+    ]
+
+
+def _new_country_config_text_values(values) -> list[str]:
+    if values in (None, ""):
+        return []
+    if not isinstance(values, (list, tuple)):
+        values = [values]
+    return [str(value).strip() for value in values if str(value or "").strip()]
+
+
+def _rename_new_country_config_parent_references(
+    country: DerivedCountry,
+    *,
+    old_slug: str,
+    new_slug: str,
+    exclude_config: DerivedCountryConfig | None = None,
+) -> int:
+    old_slug = _normalize_group_country_key(old_slug)
+    new_slug = _normalize_group_country_key(new_slug)
+    if not old_slug or not new_slug or old_slug == new_slug:
+        return 0
+    updated = 0
+    queryset = country.configs.select_for_update().order_by("slug")
+    if exclude_config is not None:
+        queryset = queryset.exclude(pk=exclude_config.pk)
+    for child in queryset:
+        if _new_country_config_parent_slug(child) != old_slug:
+            continue
+        content = _replace_new_country_parent_slug_in_content(child.content, old_slug=old_slug, new_slug=new_slug)
+        _validate_plain_toml(content, expected_kind="derived_country_config")
+        child.content = content
+        child.save(update_fields=["content", "updated_at"])
+        updated += 1
+    return updated
+
+
+def _replace_new_country_parent_slug_in_content(content: str, *, old_slug: str, new_slug: str) -> str:
+    old_slug = _normalize_group_country_key(old_slug)
+    new_slug = _normalize_group_country_key(new_slug)
+    if not old_slug or not new_slug or old_slug == new_slug:
+        return str(content or "")
+
+    def replace_line(match: re.Match) -> str:
+        value = str(match.group("value") or "")
+        if _normalize_group_country_key(value) != old_slug:
+            return match.group(0)
+        return f"{match.group('prefix')}{_toml_string(new_slug)}{match.group('suffix') or ''}"
+
+    return re.sub(
+        r'(?m)^(?P<prefix>\s*(?:parent_config_slug|parent)\s*=\s*)(?P<quote>["\'])(?P<value>[^"\']*)(?P=quote)(?P<suffix>\s*(?:#.*)?)$',
+        replace_line,
+        str(content or ""),
+    )
+
+
+def _set_new_country_config_slug_in_content(content: str, *, slug: str) -> str:
+    slug = _normalize_new_country_code(slug)
+    text = str(content or "")
+    value = _toml_string(slug)
+    replaced = re.sub(
+        r'(?m)^(?P<prefix>\s*slug\s*=\s*)(?P<quote>["\'])(?P<old>[^"\']*)(?P=quote)(?P<suffix>\s*(?:#.*)?)$',
+        lambda match: f"{match.group('prefix')}{value}{match.group('suffix') or ''}",
+        text,
+        count=1,
+    )
+    if replaced != text:
+        return replaced
+    lines = text.splitlines()
+    insert_at = 0
+    for index, line in enumerate(lines):
+        if line.strip().startswith("kind ="):
+            insert_at = index + 1
+            break
+    lines.insert(insert_at, f"slug = {value}")
+    suffix = "\n" if text.endswith("\n") else ""
+    return "\n".join(lines) + suffix
+
+
+def _set_toml_string_field_in_content(
+    content: str,
+    *,
+    field: str,
+    value: str,
+    table_marker: str = "",
+) -> str:
+    text = str(content or "")
+    assignment = f"{field} = {_toml_string(value)}"
+    pattern = re.compile(
+        rf'(?m)^(?P<prefix>\s*{re.escape(field)}\s*=\s*)(?P<quote>["\'])(?P<old>[^"\']*)(?P=quote)(?P<suffix>\s*(?:#.*)?)$'
+    )
+
+    if not table_marker:
+        first_table = re.search(r"(?m)^\s*\[", text)
+        search_text = text[: first_table.start()] if first_table else text
+        match = pattern.search(search_text)
+        if match:
+            return text[: match.start()] + assignment + (match.group("suffix") or "") + text[match.end() :]
+        insert_at = first_table.start() if first_table else len(text)
+        prefix = text[:insert_at]
+        suffix = text[insert_at:]
+        separator = "" if not prefix or prefix.endswith("\n") else "\n"
+        return prefix + separator + assignment + ("\n" if suffix else "") + suffix
+
+    marker_match = re.search(rf"(?m)^\s*{re.escape(table_marker)}\s*$", text)
+    if marker_match is None:
+        separator = "\n" if text and not text.endswith("\n") else ""
+        return f"{text}{separator}{table_marker}\n{assignment}\n"
+
+    section_start = marker_match.end()
+    next_table = re.search(r"(?m)^\s*\[", text[section_start:])
+    section_end = section_start + next_table.start() if next_table else len(text)
+    section = text[section_start:section_end]
+    match = pattern.search(section)
+    if match:
+        new_section = section[: match.start()] + assignment + (match.group("suffix") or "") + section[match.end() :]
+    else:
+        new_section = "\n" + assignment + section
+    return text[:section_start] + new_section + text[section_end:]
+
+
+def _clone_display_name(name: str) -> str:
+    text = str(name or "").strip()
+    suffix = _("Copia")
+    return f"{text} {suffix}".strip() if text else suffix
+
+
+def _new_country_clone_local_code(config: DerivedCountryConfig, data: dict, *, suffix_index: int = 1) -> str:
+    entity = _new_country_config_first_entity(data)
+    base_code = derived_code_piece(entity.get("code") or config.slug)
+    if not base_code:
+        base_code = derived_code_piece(config.slug)
+    suffix = "COPIA" if suffix_index <= 1 else f"COPIA-{suffix_index}"
+    if base_code.endswith(f"-{suffix}"):
+        return base_code
+    return f"{base_code}-{suffix}"
+
+
+def _new_country_clone_slug_and_code(config: DerivedCountryConfig, data: dict) -> tuple[str, str]:
+    base_slug = _normalize_new_country_code(f"{config.slug}_copia")
+    suffix_index = 1
+    candidate = base_slug
+    while config.country.configs.filter(slug=candidate).exists():
+        suffix_index += 1
+        candidate = _normalize_new_country_code(f"{base_slug}_{suffix_index}")
+    return candidate, _new_country_clone_local_code(config, data, suffix_index=suffix_index)
+
+
+def _clone_new_country_config(config: DerivedCountryConfig) -> DerivedCountryConfig:
+    data = _new_country_config_toml(config)
+    clone_slug, clone_code = _new_country_clone_slug_and_code(config, data)
+    clone_name = _clone_display_name(config.name)
+    content = _set_new_country_config_slug_in_content(config.content, slug=clone_slug)
+    content = _set_toml_string_field_in_content(content, field="name", value=clone_name)
+    content = _set_toml_string_field_in_content(content, field="code", value=clone_code, table_marker="[[entities]]")
+    content = _set_toml_string_field_in_content(content, field="name", value=clone_name, table_marker="[[entities]]")
+    parsed = _validate_plain_toml(content, expected_kind="derived_country_config")
+    return DerivedCountryConfig.objects.create(
+        country=config.country,
+        slug=clone_slug,
+        name=clone_name,
+        content=content.rstrip() + "\n",
+        source_country_code=_normalize_group_country_key(parsed.get("source_country_code") or config.source_country_code),
+        derived_country_code=_normalize_group_country_key(parsed.get("derived_country_code") or config.derived_country_code),
+        is_active=config.is_active,
+    )
+
+
+def _new_country_collision_child_slug(
+    country: DerivedCountry,
+    *,
+    parent_slug: str,
+    child_config: DerivedCountryConfig,
+) -> str:
+    parent_slug = _normalize_new_country_code(parent_slug)
+    child_code = _new_country_config_local_code(child_config)
+    base = _normalize_new_country_code(f"{parent_slug}_{_new_country_slug_from_entity_code(child_code)}")
+    reserved = set(country.configs.exclude(pk=child_config.pk).values_list("slug", flat=True))
+    reserved.add(parent_slug)
+    if base not in reserved:
+        return base
+    index = 2
+    while True:
+        candidate = _normalize_new_country_code(f"{base}_{index}")
+        if candidate not in reserved:
+            return candidate
+        index += 1
+
+
+def _rename_new_country_config_for_parent_code_collision(
+    country: DerivedCountry,
+    *,
+    child_config: DerivedCountryConfig,
+    parent_slug: str,
+) -> str:
+    old_slug = child_config.slug
+    new_slug = _new_country_collision_child_slug(country, parent_slug=parent_slug, child_config=child_config)
+    if old_slug == new_slug:
+        return new_slug
+    content = _set_new_country_config_slug_in_content(child_config.content, slug=new_slug)
+    _validate_plain_toml(content, expected_kind="derived_country_config")
+    child_config.slug = new_slug
+    child_config.content = content
+    child_config.save(update_fields=["slug", "content", "updated_at"])
+    _rename_new_country_config_parent_references(
+        country,
+        old_slug=old_slug,
+        new_slug=new_slug,
+        exclude_config=child_config,
+    )
+    return new_slug
+
+
+def _rename_new_country_selected_child_slug_collision(
+    country: DerivedCountry,
+    *,
+    slug: str,
+    use_subdivisions: bool,
+    selected_child_config_slugs: list[str],
+    current_config: DerivedCountryConfig | None = None,
+) -> list[str]:
+    colliding_children = country.configs.select_for_update().filter(slug=slug)
+    if current_config is not None:
+        colliding_children = colliding_children.exclude(pk=current_config.pk)
+    colliding_child = colliding_children.first()
+    if colliding_child is None:
+        return selected_child_config_slugs
+    if use_subdivisions or slug not in selected_child_config_slugs:
+        raise ValueError(
+            _("Ya existe una configuracion '%(slug)s' para este pais.") % {"slug": slug}
+        )
+    renamed_child_slug = _rename_new_country_config_for_parent_code_collision(
+        country,
+        child_config=colliding_child,
+        parent_slug=slug,
+    )
+    return [
+        renamed_child_slug if child_slug == slug else child_slug
+        for child_slug in selected_child_config_slugs
+    ]
+
+
+def _new_country_selection_uses_subdivisions(selection_json: str) -> bool:
+    try:
+        selection = json.loads(str(selection_json or "").strip() or "{}")
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(selection, dict):
+        return False
+    return selection.get("use_subdivisions") in (True, "1", 1, "true", "True", "on")
+
+
+def _new_country_selected_child_config_slugs_from_selection_json(selection_json: str) -> list[str]:
+    try:
+        selection = json.loads(str(selection_json or "").strip() or "{}")
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(selection, dict):
+        return []
+    values = (
+        selection.get("selected_child_config_slugs")
+        or selection.get("selected_config_slugs")
+        or selection.get("selected_created_entity_slugs")
+        or []
+    )
+    return _new_country_normalized_config_slugs(values)
+
+
+def _new_country_child_config_slugs_for_capital_payload(
+    payload: dict,
+    *,
+    country: DerivedCountry,
+    current_config: DerivedCountryConfig | None = None,
+) -> list[str]:
+    if not isinstance(payload, dict):
+        payload = {}
+    selection_touched = _form_bool(payload.get("selection_touched"), default=False) or _form_bool(
+        payload.get("child_config_selection_touched"),
+        default=False,
+    )
+    for key in ("selected_child_config_slugs", "selected_config_slugs", "selected_created_entity_slugs"):
+        if key in payload:
+            slugs = _new_country_normalized_config_slugs(payload.get(key))
+            if slugs or selection_touched or current_config is None:
+                return slugs
+            break
+    if current_config is None:
+        return []
+    return _new_country_config_direct_child_slugs(country, current_config.slug)
+
+
+def _new_country_selection_has_child_config_slugs(selection_json: str) -> bool:
+    try:
+        selection = json.loads(str(selection_json or "").strip() or "{}")
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(selection, dict):
+        return False
+    return any(
+        key in selection
+        for key in ("selected_child_config_slugs", "selected_config_slugs", "selected_created_entity_slugs")
+    )
+
+
+def _new_country_normalized_config_slugs(values) -> list[str]:
+    if values in (None, ""):
+        return []
+    if not isinstance(values, (list, tuple)):
+        values = [values]
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        try:
+            slug = _normalize_new_country_code(str(value or ""))
+        except ValueError:
+            continue
+        if slug in seen:
+            continue
+        seen.add(slug)
+        result.append(slug)
+    return result
+
+
+def _new_country_config_direct_child_slugs(country: DerivedCountry, parent_slug: str) -> list[str]:
+    parent_slug = _normalize_group_country_key(parent_slug)
+    if not parent_slug:
+        return []
+    slugs: list[str] = []
+    for config in country.configs.order_by("name", "slug"):
+        if _new_country_config_parent_slug(config) == parent_slug:
+            slugs.append(config.slug)
+    return slugs
+
+
+def _new_country_created_entity_queryset(
+    country: DerivedCountry,
+    search_term: str,
+    *,
+    current_config: DerivedCountryConfig | None = None,
+):
+    queryset = country.configs.order_by("name", "slug").only(
+        "id",
+        "country",
+        "slug",
+        "name",
+        "source_country_code",
+        "derived_country_code",
+        "content",
+    )
+    excluded_slugs: set[str] = set()
+    if current_config is not None:
+        excluded_slugs.add(current_config.slug)
+        excluded_slugs.update(_new_country_config_parent_chain(current_config))
+    if excluded_slugs:
+        queryset = queryset.exclude(slug__in=excluded_slugs)
+    search_term = str(search_term or "").strip()
+    if search_term:
+        queryset = queryset.filter(
+            Q(slug__icontains=search_term)
+            | Q(name__icontains=search_term)
+            | Q(source_country_code__icontains=search_term)
+            | Q(derived_country_code__icontains=search_term)
+            | Q(content__icontains=search_term)
+        )
+    return queryset
+
+
+def _new_country_created_entity_options_from_records(records: list[DerivedCountryConfig]) -> list[dict[str, str]]:
+    options: list[dict[str, str]] = []
+    for config in records:
+        data = _new_country_config_toml(config)
+        entity = _new_country_config_first_entity(data)
+        entity_type = str(entity.get("entity_type") or "").strip()
+        level = _new_country_config_level(config)
+        materialized = _new_country_config_materialized_entity(config, data=data)
+        area_value, population_value, density_value = _new_country_config_entity_metric_values(
+            data=data,
+            entity_node=materialized,
+        )
+        area_text = _group_metric_text(area_value)
+        population_text = _group_metric_text(population_value)
+        density_text = _group_metric_text(density_value)
+        options.append(
+            {
+                "value": config.slug,
+                "slug": config.slug,
+                "name": str(entity.get("name") or config.name or config.slug).strip(),
+                "type_text": entity_type or _("Sin tipo"),
+                "level": level,
+                "area_text": area_text,
+                "population_text": population_text,
+                "density_text": density_text,
+                "search_text": " ".join(
+                    [
+                        config.slug,
+                        config.name,
+                        str(entity.get("name") or ""),
+                        entity_type,
+                        str(level),
+                        area_text,
+                        population_text,
+                        density_text,
+                    ]
+                ),
+            }
+        )
+    return options
+
+
+def _new_country_config_stored_metric_values(entity: dict) -> tuple[object, object, object]:
+    area_value = _new_country_entity_number(entity, "area_km2", "area")
+    population_value = _new_country_entity_number(entity, "pop_latest", "population")
+    density_value = _new_country_entity_number(entity, "density")
+    return area_value, population_value, density_value
+
+
+def _new_country_entity_number(entity: dict, *keys: str):
+    if not isinstance(entity, dict):
+        return None
+    for key in keys:
+        if key not in entity:
+            continue
+        number = _number_or_none(entity.get(key))
+        if number is not None:
+            return number
+    return None
+
+
+def _new_country_config_preview_metric_values(
+    config: DerivedCountryConfig,
+    *,
+    data: dict | None = None,
+    seen: set[tuple[str, str]] | None = None,
+) -> tuple[object, object]:
+    cache_key = (str(config.country_id or ""), config.slug)
+    seen = set(seen or set())
+    if cache_key in seen:
+        return None, None
+    seen.add(cache_key)
+    try:
+        source_ids = _new_country_config_preview_source_ids(config, data=data)
+    except (OperationalError, ProgrammingError, ValueError):
+        source_ids = set()
+    if source_ids:
+        try:
+            aggregate = _group_source_admin_areas().filter(id__in=source_ids).aggregate(
+                area=Sum("area_km2"),
+                population=Sum("pop_latest"),
+            )
+        except (OperationalError, ProgrammingError, ValueError):
+            return None, None
+        return aggregate.get("area"), aggregate.get("population")
+
+    data = data if isinstance(data, dict) else _new_country_config_toml(config)
+    area_value, population_value = _new_country_config_own_derived_subdivision_metric_values(config, data=data)
+    parent_slug = _normalize_group_country_key(config.slug)
+    for child in config.country.configs.order_by("slug"):
+        if child.slug == config.slug or _new_country_config_parent_slug(child) != parent_slug:
+            continue
+        child_area, child_population = _new_country_config_preview_metric_values(child, seen=seen)
+        area_value = _add_optional_metric(area_value, child_area)
+        population_value = _add_optional_metric(population_value, child_population)
+    seen.remove(cache_key)
+    return area_value, population_value
+
+
+def _new_country_config_own_derived_subdivision_metric_values(
+    config: DerivedCountryConfig,
+    *,
+    data: dict | None = None,
+) -> tuple[object, object]:
+    data = data if isinstance(data, dict) else _new_country_config_toml(config)
+    entity = _new_country_config_first_entity(data)
+    selection = data.get("selection") if isinstance(data.get("selection"), dict) else {}
+    source_country_code = _normalize_group_country_key(
+        data.get("source_country_code")
+        or selection.get("source_country_code")
+        or config.source_country_code
+        or config.country.source_country_code
+    )
+    selections = _new_country_config_selected_derived_subdivisions(
+        entity,
+        fallback_country_code=source_country_code,
+    )
+    if not selections:
+        return None, None
+    records = []
+    seen_records = set()
+    for item in selections:
+        record = _derived_subdivision_source_record_for_key(item["country_code"], item["key"])
+        if record is None or record.pk in seen_records:
+            continue
+        seen_records.add(record.pk)
+        records.append(record)
+    if not records:
+        return None, None
+    data_by_slug = {record.slug: _derived_subdivision_record_toml(record) for record in records}
+    code_counts = _new_country_derived_subdivision_code_counts(records, data_by_slug=data_by_slug)
+    materialized_rows = _derived_subdivision_materialized_rows_for_records(
+        records,
+        data_by_slug=data_by_slug,
+        code_counts=code_counts,
+    )
+    area_value = None
+    population_value = None
+    for record in records:
+        record_area, record_population = _derived_subdivision_metric_values(
+            record,
+            data_by_slug.get(record.slug) or {},
+            code_counts=code_counts,
+            materialized_rows=materialized_rows,
+        )
+        area_value = _add_optional_metric(area_value, record_area)
+        population_value = _add_optional_metric(population_value, record_population)
+    return area_value, population_value
+
+
+def _add_optional_metric(total, value):
+    if value is None:
+        return total
+    if total is None:
+        return value
+    return total + value
+
+
+def _new_country_config_preview_source_ids(
+    config: DerivedCountryConfig,
+    *,
+    data: dict | None = None,
+    seen: set[tuple[str, str]] | None = None,
+    source_ids_cache: dict[tuple[str, str], set[str]] | None = None,
+    group_entry_cache: dict[tuple[str, str], dict | None] | None = None,
+    group_entries_cache: dict[str, list[dict]] | None = None,
+    config_source_ids_cache: dict[tuple[str, str], set[str]] | None = None,
+) -> set[str]:
+    data = data if isinstance(data, dict) else _new_country_config_toml(config)
+    cache_key = (str(config.country_id or ""), config.slug)
+    config_source_ids_cache = config_source_ids_cache if config_source_ids_cache is not None else {}
+    if cache_key in config_source_ids_cache:
+        return set(config_source_ids_cache[cache_key])
+    seen = set(seen or set())
+    if cache_key in seen:
+        return set()
+    seen.add(cache_key)
+    source_ids_cache = source_ids_cache if source_ids_cache is not None else {}
+    group_entry_cache = group_entry_cache if group_entry_cache is not None else {}
+    group_entries_cache = group_entries_cache if group_entries_cache is not None else {}
+
+    entity = _new_country_config_first_entity(data)
+    selection = data.get("selection") if isinstance(data.get("selection"), dict) else {}
+    default_country_code = _normalize_group_country_key(
+        data.get("source_country_code")
+        or selection.get("source_country_code")
+        or config.source_country_code
+        or config.country.source_country_code
+    )
+    include_ids = _derived_subdivision_blocks_source_ids(
+        entity.get("include"),
+        default_country_code=default_country_code,
+        seen=set(),
+        source_ids_cache=source_ids_cache,
+        group_entry_cache=group_entry_cache,
+        group_entries_cache=group_entries_cache,
+    )
+    subtract_ids = _derived_subdivision_blocks_source_ids(
+        entity.get("subtract"),
+        default_country_code=default_country_code,
+        seen=set(),
+        source_ids_cache=source_ids_cache,
+        group_entry_cache=group_entry_cache,
+        group_entries_cache=group_entries_cache,
+    )
+    result = include_ids - subtract_ids
+    if not result:
+        result = _new_country_config_derived_subdivision_source_ids(
+            entity,
+            default_country_code=default_country_code,
+            source_ids_cache=source_ids_cache,
+            group_entry_cache=group_entry_cache,
+            group_entries_cache=group_entries_cache,
+        )
+    if not result:
+        result = _new_country_config_selection_source_ids(
+            selection,
+            default_country_code=default_country_code,
+        )
+
+    parent_slug = _normalize_group_country_key(config.slug)
+    for child in config.country.configs.order_by("slug"):
+        if child.slug == config.slug or _new_country_config_parent_slug(child) != parent_slug:
+            continue
+        result.update(
+            _new_country_config_preview_source_ids(
+                child,
+                seen=seen,
+                source_ids_cache=source_ids_cache,
+                group_entry_cache=group_entry_cache,
+                group_entries_cache=group_entries_cache,
+                config_source_ids_cache=config_source_ids_cache,
+            )
+        )
+    seen.remove(cache_key)
+    config_source_ids_cache[cache_key] = set(result)
+    return result
+
+
+def _new_country_config_derived_subdivision_source_ids(
+    entity: dict,
+    *,
+    default_country_code: str,
+    source_ids_cache: dict[tuple[str, str], set[str]],
+    group_entry_cache: dict[tuple[str, str], dict | None],
+    group_entries_cache: dict[str, list[dict]],
+) -> set[str]:
+    result: set[str] = set()
+    for item in _new_country_config_selected_derived_subdivisions(
+        entity,
+        fallback_country_code=default_country_code,
+    ):
+        result.update(
+            _derived_subdivision_source_ids_for_key(
+                item["country_code"],
+                item["key"],
+                source_ids_cache=source_ids_cache,
+                group_entry_cache=group_entry_cache,
+                group_entries_cache=group_entries_cache,
+            )
+        )
+    return result
+
+
+def _new_country_config_selection_source_ids(selection: dict, *, default_country_code: str) -> set[str]:
+    if not isinstance(selection, dict):
+        return set()
+    include_ids: list[str] = []
+    subtract_ids: list[str] = []
+    items = selection.get("items")
+    if isinstance(items, list):
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            item_id = str(item.get("id") or item.get("value") or "").strip()
+            if not item_id:
+                continue
+            operation = str(item.get("operation") or "add").strip().lower()
+            if operation == "subtract":
+                subtract_ids.append(item_id)
+            else:
+                include_ids.append(item_id)
+    else:
+        include_ids = _new_country_config_text_values(selection.get("include_ids"))
+        subtract_ids = _new_country_config_text_values(selection.get("subtract_ids"))
+    return _new_country_config_admin_area_ids_to_source_ids(
+        include_ids,
+        default_country_code=default_country_code,
+    ) - _new_country_config_admin_area_ids_to_source_ids(
+        subtract_ids,
+        default_country_code=default_country_code,
+    )
+
+
+def _new_country_config_admin_area_ids_to_source_ids(
+    area_ids: list[str],
+    *,
+    default_country_code: str,
+) -> set[str]:
+    ids = {str(value).strip() for value in area_ids if str(value or "").strip()}
+    if not ids:
+        return set()
+    try:
+        areas = list(
+            _group_source_admin_areas()
+            .filter(id__in=ids)
+            .only("id", "country_code", "level", "parent_id", "city_merge_status")
+        )
+    except (OperationalError, ProgrammingError, ValueError):
+        return set()
+    areas_by_country: dict[str, list[AdminArea]] = {}
+    default_country_code = _normalize_group_country_key(default_country_code)
+    for area in areas:
+        country_code = _normalize_group_country_key(area.country_code or default_country_code)
+        if country_code:
+            areas_by_country.setdefault(country_code, []).append(area)
+    return _new_country_legal_source_unit_ids_for_source_areas_by_country(areas_by_country)
+
+
+def _new_country_legal_source_unit_ids_for_source_areas(areas: Iterable[AdminArea]) -> set[str]:
+    areas_by_country: dict[str, list[AdminArea]] = {}
+    for area in areas:
+        country_code = _normalize_group_country_key(getattr(area, "country_code", ""))
+        if country_code:
+            areas_by_country.setdefault(country_code, []).append(area)
+    return _new_country_legal_source_unit_ids_for_source_areas_by_country(areas_by_country)
+
+
+def _new_country_legal_source_unit_ids_for_source_areas_by_country(
+    areas_by_country: dict[str, list[AdminArea]],
+) -> set[str]:
+    result: set[str] = set()
+    for country_code, country_areas in areas_by_country.items():
+        result.update(_derived_subdivision_areas_to_capital_source_ids(country_areas, country_code=country_code))
+    return result
+
+
+def _new_country_config_materialized_entity(
+    config: DerivedCountryConfig,
+    *,
+    data: dict | None = None,
+) -> NuevoAdminArea | None:
+    data = data if isinstance(data, dict) else _new_country_config_toml(config)
+    entity = _new_country_config_first_entity(data)
+    built_code = _new_country_config_built_code(config)
+    code_candidates = _new_country_config_materialized_code_candidates(config, data=data)
+    if built_code and code_candidates:
+        match = (
+            NuevoAdminArea.objects.filter(country_code=built_code, code__in=code_candidates)
+            .exclude(parent__isnull=True)
+            .order_by("level", "id")
+            .first()
+        )
+        if match:
+            return match
+    name = str(entity.get("name") or config.name or "").strip()
+    if not built_code or not name:
+        return None
+    return (
+        NuevoAdminArea.objects.filter(country_code=built_code, name__iexact=name)
+        .exclude(parent__isnull=True)
+        .order_by("level", "id")
+        .first()
+    )
+
+
+def _new_country_config_materialized_code_candidates(
+    config: DerivedCountryConfig,
+    *,
+    data: dict | None = None,
+) -> list[str]:
+    data = data if isinstance(data, dict) else _new_country_config_toml(config)
+    entity = _new_country_config_first_entity(data)
+    candidates = []
+
+    def add(value) -> None:
+        code = derived_code_piece(value)
+        if code and code not in candidates:
+            candidates.append(code)
+
+    local_full_code = _new_country_config_expected_full_code(config, data=data)
+    add(local_full_code)
+    built_code = _new_country_config_built_code(config)
+    root_code = derived_country_root_code(built_code, data.get("root_code") or data.get("code") or built_code)
+    if root_code and local_full_code and not local_full_code.startswith(f"{root_code}-"):
+        add(f"{root_code}-{local_full_code}")
+    add(entity.get("code"))
+    add(config.slug)
+    return candidates
+
+
+def _new_country_metric_refresh_slugs_for_child_sync(
+    country: DerivedCountry,
+    *,
+    parent_config: DerivedCountryConfig,
+    selected_child_slugs: list[str],
+) -> list[str]:
+    selected = set(_new_country_normalized_config_slugs(selected_child_slugs))
+    if not selected:
+        return []
+    slugs: list[str] = []
+    seen: set[str] = set()
+    parent_slug = _normalize_group_country_key(parent_config.slug)
+    for child in country.configs.filter(slug__in=selected).order_by("slug"):
+        old_parent_slug = _new_country_config_parent_slug(child)
+        if old_parent_slug and old_parent_slug != parent_slug and old_parent_slug not in seen:
+            seen.add(old_parent_slug)
+            slugs.append(old_parent_slug)
+    return slugs
+
+
+def _refresh_new_country_config_metrics_for_slugs(country: DerivedCountry, config_slugs: list[str]) -> int:
+    changed = 0
+    visited: set[tuple[str, str]] = set()
+    for config_slug in config_slugs:
+        normalized_slug = _normalize_group_country_key(config_slug)
+        if not normalized_slug:
+            continue
+        config = country.configs.filter(slug=normalized_slug).first()
+        if config is None:
+            continue
+        changed += _refresh_new_country_config_metrics_with_ancestors(country, config, visited=visited)
+    return changed
+
+
+def _refresh_new_country_config_metrics_with_ancestors(
+    country: DerivedCountry,
+    config: DerivedCountryConfig,
+    *,
+    visited: set[tuple[str, str]] | None = None,
+) -> int:
+    changed = 0
+    visited = visited if visited is not None else set()
+    current = config
+    while current is not None:
+        cache_key = (str(country.pk or ""), current.slug)
+        if cache_key in visited:
+            break
+        visited.add(cache_key)
+        changed += _refresh_new_country_config_metrics(current)
+        parent_slug = _new_country_config_parent_slug(current)
+        current = country.configs.filter(slug=parent_slug).first() if parent_slug else None
+    return changed
+
+
+def _refresh_new_country_config_metrics(config: DerivedCountryConfig) -> int:
+    data = _new_country_config_toml(config)
+    area_value, population_value = _new_country_config_preview_metric_values(config, data=data)
+    content = _set_new_country_entity_metrics_in_content(
+        config.content,
+        area_value=area_value,
+        population_value=population_value,
+    )
+    if content == config.content:
+        return 0
+    _validate_plain_toml(content, expected_kind="derived_country_config")
+    config.content = content
+    config.save(update_fields=["content", "updated_at"])
+    return 1
+
+
+def _new_country_config_expected_full_code(
+    config: DerivedCountryConfig,
+    *,
+    data: dict | None = None,
+    seen: set[str] | None = None,
+) -> str:
+    data = data if isinstance(data, dict) else _new_country_config_toml(config)
+    code = _new_country_config_raw_entity_code(config, data=data)
+    if not code:
+        return ""
+    parent_slug = _new_country_config_parent_slug(config)
+    if parent_slug:
+        seen = set(seen or set())
+        if config.slug in seen:
+            return code
+        seen.add(config.slug)
+        parent = config.country.configs.filter(slug=parent_slug).first()
+        if parent is not None:
+            parent_code = _new_country_config_expected_full_code(parent, seen=seen)
+            code = _new_country_code_without_parent_prefix(code, parent_code)
+            if parent_code and code:
+                return f"{parent_code}-{code}"
+            return code or parent_code
+    return code
+
+
+def _sync_new_country_config_children(
+    country: DerivedCountry,
+    *,
+    parent_config: DerivedCountryConfig,
+    selected_child_slugs: list[str],
+) -> int:
+    parent_slug = _normalize_group_country_key(parent_config.slug)
+    selected = set(_new_country_normalized_config_slugs(selected_child_slugs))
+    if parent_slug in selected:
+        raise ValueError(_("Una division no puede ser hija de si misma."))
+    parent_chain = _new_country_config_parent_chain(parent_config)
+    invalid = selected.intersection(parent_chain)
+    if invalid:
+        raise ValueError(_("No se puede seleccionar una entidad padre como hija."))
+
+    configs = list(country.configs.select_for_update().order_by("slug"))
+    by_slug = {config.slug: config for config in configs}
+    missing = sorted(slug for slug in selected if slug not in by_slug)
+    if missing:
+        raise ValueError(_("La seleccion contiene entidades creadas que no existen."))
+
+    changed = 0
+    direct_children = {config.slug for config in configs if _new_country_config_parent_slug(config) == parent_slug}
+    target_slugs = selected.union(direct_children)
+    for child_slug in sorted(target_slugs):
+        child = by_slug.get(child_slug)
+        if child is None or child.slug == parent_slug:
+            continue
+        new_parent_slug = parent_slug if child_slug in selected else ""
+        changed += _set_new_country_config_parent_and_level(
+            country,
+            child,
+            parent_config_slug=new_parent_slug,
+        )
+        changed += _cascade_new_country_config_levels(country, child.slug, by_slug=by_slug)
+    return changed
+
+
+def _reparent_new_country_config_children_before_delete(
+    country: DerivedCountry,
+    *,
+    deleted_slug: str,
+    new_parent_slug: str,
+) -> list[str]:
+    deleted_slug = _normalize_group_country_key(deleted_slug)
+    new_parent_slug = _normalize_group_country_key(new_parent_slug)
+    configs = list(country.configs.select_for_update().order_by("slug"))
+    reparented_slugs: list[str] = []
+    for child in configs:
+        if child.slug == deleted_slug or _new_country_config_parent_slug(child) != deleted_slug:
+            continue
+        _set_new_country_config_parent_and_level(country, child, parent_config_slug=new_parent_slug)
+        reparented_slugs.append(child.slug)
+
+    if not reparented_slugs:
+        return []
+
+    by_slug = {config.slug: config for config in configs if config.slug != deleted_slug}
+    for child_slug in reparented_slugs:
+        if child_slug in by_slug:
+            _cascade_new_country_config_levels(country, child_slug, by_slug=by_slug)
+    return reparented_slugs
+
+
+def _set_new_country_config_parent_and_level(
+    country: DerivedCountry,
+    config: DerivedCountryConfig,
+    *,
+    parent_config_slug: str,
+) -> int:
+    parent_config_slug = _normalize_group_country_key(parent_config_slug)
+    level = _new_country_parent_level(country, parent_config_slug) + 1
+    local_code = _new_country_config_local_code(config)
+    content = _set_toml_string_field_in_content(
+        config.content,
+        field="code",
+        value=local_code,
+        table_marker="[[entities]]",
+    )
+    content = _set_new_country_parent_slug_in_content(content, parent_config_slug=parent_config_slug)
+    content = _set_new_country_entity_level_in_content(content, level=level)
+    if content == config.content:
+        return 0
+    _validate_plain_toml(content, expected_kind="derived_country_config")
+    config.content = content
+    config.save(update_fields=["content", "updated_at"])
+    return 1
+
+
+def _cascade_new_country_config_levels(
+    country: DerivedCountry,
+    parent_slug: str,
+    *,
+    by_slug: dict[str, DerivedCountryConfig] | None = None,
+    seen: set[str] | None = None,
+) -> int:
+    parent_slug = _normalize_group_country_key(parent_slug)
+    if not parent_slug:
+        return 0
+    by_slug = by_slug or {config.slug: config for config in country.configs.order_by("slug")}
+    seen = set(seen or set())
+    if parent_slug in seen:
+        raise ValueError(_("%(country)s tiene padres circulares entre sus divisiones.") % {"country": country.slug})
+    seen.add(parent_slug)
+    parent_level = _new_country_parent_level(country, parent_slug)
+    changed = 0
+    for child in list(by_slug.values()):
+        if _new_country_config_parent_slug(child) != parent_slug:
+            continue
+        level = parent_level + 1
+        content = _set_new_country_entity_level_in_content(child.content, level=level)
+        if content != child.content:
+            _validate_plain_toml(content, expected_kind="derived_country_config")
+            child.content = content
+            child.save(update_fields=["content", "updated_at"])
+            changed += 1
+        changed += _cascade_new_country_config_levels(country, child.slug, by_slug=by_slug, seen=seen)
+    seen.remove(parent_slug)
+    return changed
+
+
+def _set_new_country_parent_slug_in_content(content: str, *, parent_config_slug: str) -> str:
+    parent_config_slug = _normalize_group_country_key(parent_config_slug)
+    text = str(content or "")
+    value = _toml_string(parent_config_slug)
+    replaced = re.sub(
+        r'(?m)^(?P<prefix>\s*parent_config_slug\s*=\s*)(?P<quote>["\'])(?P<old>[^"\']*)(?P=quote)(?P<suffix>\s*(?:#.*)?)$',
+        lambda match: f"{match.group('prefix')}{value}{match.group('suffix') or ''}",
+        text,
+    )
+    return replaced
+
+
+def _set_new_country_entity_level_in_content(content: str, *, level: int) -> str:
+    level = max(1, min(5, int(level or 1)))
+    lines = str(content or "").splitlines()
+    result: list[str] = []
+    in_entity = False
+    replaced = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped == "[[entities]]":
+            in_entity = True
+            replaced = False
+            result.append(line)
+            continue
+        if in_entity and stripped.startswith("[") and stripped != "[[entities]]":
+            if not replaced:
+                result.append(f"level = {level}")
+                replaced = True
+            in_entity = False
+        if in_entity and re.match(r"^\s*level\s*=", line):
+            result.append(re.sub(r"^(\s*level\s*=\s*)\d+(\s*(?:#.*)?)$", rf"\g<1>{level}\2", line))
+            replaced = True
+            continue
+        result.append(line)
+    if in_entity and not replaced:
+        result.append(f"level = {level}")
+    suffix = "\n" if str(content or "").endswith("\n") else ""
+    updated = "\n".join(result) + suffix
+    return _set_new_country_derived_include_levels_in_content(updated, level=level + 1)
+
+
+def _set_new_country_derived_include_levels_in_content(content: str, *, level: int) -> str:
+    level = max(1, min(5, int(level or 1)))
+    lines = str(content or "").splitlines()
+    result: list[str] = []
+    block: list[str] = []
+    in_include = False
+
+    def flush_block() -> None:
+        nonlocal block, in_include
+        if not in_include:
+            result.extend(block)
+            block = []
+            return
+        has_derived_subdivisions = any(re.match(r"^\s*derived_subdivisions\s*=", line) for line in block)
+        if not has_derived_subdivisions:
+            result.extend(block)
+            block = []
+            in_include = False
+            return
+        replaced = False
+        output: list[str] = []
+        insert_at = 1
+        for index, line in enumerate(block):
+            if re.match(r"^\s*country_code\s*=", line):
+                insert_at = index + 1
+            if re.match(r"^\s*level\s*=", line):
+                output.append(re.sub(r"^(\s*level\s*=\s*)\d+(\s*(?:#.*)?)$", rf"\g<1>{level}\2", line))
+                replaced = True
+            else:
+                output.append(line)
+        if not replaced:
+            output.insert(insert_at, f"level = {level}")
+        result.extend(output)
+        block = []
+        in_include = False
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            flush_block()
+            if stripped == "[[entities.include]]":
+                in_include = True
+                block = [line]
+            else:
+                result.append(line)
+            continue
+        if in_include:
+            block.append(line)
+        else:
+            result.append(line)
+    flush_block()
+    suffix = "\n" if str(content or "").endswith("\n") else ""
+    return "\n".join(result) + suffix
+
+
+def _set_new_country_entity_metrics_in_content(
+    content: str,
+    *,
+    area_value,
+    population_value,
+) -> str:
+    metric_lines = [
+        line
+        for line in (
+            _new_country_metric_toml_line("area_km2", area_value),
+            _new_country_metric_toml_line("pop_latest", population_value, integer=True),
+            _new_country_metric_toml_line("density", _density(population_value, area_value)),
+        )
+        if line
+    ]
+    metric_keys = {"area_km2", "area", "pop_latest", "population", "density"}
+    lines = str(content or "").splitlines()
+    result: list[str] = []
+    in_entity = False
+    entity_seen = False
+    metrics_written = False
+
+    def write_metrics() -> None:
+        nonlocal metrics_written
+        result.extend(metric_lines)
+        metrics_written = True
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped == "[[entities]]":
+            if in_entity and not metrics_written:
+                write_metrics()
+            in_entity = not entity_seen
+            entity_seen = True
+            result.append(line)
+            continue
+        if in_entity and stripped.startswith("["):
+            if not metrics_written:
+                write_metrics()
+            in_entity = False
+        if in_entity and re.match(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=", line):
+            key = line.split("=", 1)[0].strip()
+            if key in metric_keys:
+                continue
+        result.append(line)
+    if in_entity and not metrics_written:
+        write_metrics()
+    if not entity_seen:
+        return str(content or "")
+    suffix = "\n" if str(content or "").endswith("\n") else ""
+    return "\n".join(result) + suffix
+
+
+def _new_country_metric_toml_line(key: str, value, *, integer: bool = False) -> str:
+    rendered = _new_country_toml_number(value, integer=integer)
+    return f"{key} = {rendered}" if rendered is not None else ""
+
+
+def _new_country_toml_number(value, *, integer: bool = False) -> str | None:
+    if value in (None, ""):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if integer:
+        return str(int(round(number)))
+    if number.is_integer():
+        return str(int(number))
+    return f"{number:.6f}".rstrip("0").rstrip(".")
 
 
 def _derived_country_content_from_create_post(
@@ -11697,6 +19541,11 @@ def _derived_country_content_from_create_post(
     derived_country_code: str,
     raw_content: str,
     selection_json: str,
+    parent_config_slug: str = "",
+    entity_level: int = 1,
+    entity_code: str | None = None,
+    entity_type: str = "",
+    capitals=None,
 ) -> str:
     selection_json = str(selection_json or "").strip()
     if selection_json:
@@ -11705,8 +19554,30 @@ def _derived_country_content_from_create_post(
         except json.JSONDecodeError as exc:
             raise ValueError(_("La seleccion visual no es JSON valido: %(error)s") % {"error": exc}) from exc
         selected_ids = selection.get("selected_ids") if isinstance(selection, dict) else None
+        use_subdivisions = bool(selection.get("use_subdivisions")) if isinstance(selection, dict) else False
+        selected_subdivision_keys = (
+            selection.get("selected_subdivision_keys") if isinstance(selection, dict) else []
+        ) or []
+        selected_derived_subdivisions = (
+            selection.get("selected_derived_subdivisions") if isinstance(selection, dict) else []
+        ) or []
+        selected_child_config_slugs = (
+            selection.get("selected_child_config_slugs") if isinstance(selection, dict) else []
+        ) or []
         if not isinstance(selected_ids, list):
             raise ValueError(_("La seleccion visual debe contener una lista de subdivisiones."))
+        if not isinstance(selected_subdivision_keys, list):
+            raise ValueError(_("La seleccion visual debe contener una lista de subdivisiones creadas."))
+        if not isinstance(selected_derived_subdivisions, list):
+            raise ValueError(_("La seleccion visual debe contener una lista de subdivisiones creadas."))
+        if not isinstance(selected_child_config_slugs, list):
+            raise ValueError(_("La seleccion visual debe contener una lista de entidades creadas."))
+        selected_derived_subdivisions = _new_country_normalized_derived_subdivision_selections(
+            selected_derived_subdivisions or selected_subdivision_keys,
+            fallback_country_code=source_country_code,
+        )
+        selected_child_config_slugs = _new_country_normalized_config_slugs(selected_child_config_slugs)
+        entity_mode = "intermediate" if not use_subdivisions and selected_child_config_slugs else "final"
         if not str(source_country_code or "").strip():
             raise ValueError(_("El pais fuente es obligatorio."))
         return render_derived_country_selection_toml(
@@ -11716,6 +19587,15 @@ def _derived_country_content_from_create_post(
             source_country_code=source_country_code,
             derived_country_code=derived_country_code,
             selected_ids=[str(value) for value in selected_ids],
+            selected_derived_subdivisions=selected_derived_subdivisions,
+            entity_name=name,
+            entity_code=entity_code or slug,
+            entity_type=entity_type,
+            entity_mode=entity_mode,
+            use_subdivisions=use_subdivisions,
+            parent_config_slug=parent_config_slug,
+            entity_level=entity_level,
+            capitals=_normalized_derived_subdivision_capital_values(capitals),
         )
 
     content = str(raw_content or "").strip()
@@ -11779,6 +19659,754 @@ def _source_country_root_for_code(country_code: str) -> AdminArea | None:
         .order_by("parent_id", "name", "id")
         .first()
     )
+
+
+def _source_country_display_label(country_code: str) -> str:
+    country_code = _normalize_group_country_key(country_code)
+    if not country_code:
+        return ""
+    root = _source_country_root_for_code(country_code)
+    if root:
+        return _display_name(root.name, country_code, country_code=country_code)
+    return _display_name("", country_code, country_code=country_code)
+
+
+def _new_country_detail_url(country: DerivedCountry) -> str:
+    source_country_code = _normalize_group_country_key(country.source_country_code)
+    if source_country_code:
+        return reverse(
+            "ciudades_del_mundo:new_country_detail",
+            kwargs={"source_country_code": source_country_code, "country_slug": country.slug},
+        )
+    return reverse("ciudades_del_mundo:new_country_detail_legacy", kwargs={"country_slug": country.slug})
+
+
+def _validate_new_country_source_or_404(country: DerivedCountry, source_country_code: str) -> None:
+    source_country_code = _normalize_group_country_key(source_country_code)
+    expected_source = _normalize_group_country_key(country.source_country_code)
+    if expected_source and source_country_code and source_country_code != expected_source:
+        raise Http404(_("El pais nuevo no pertenece a '%(country)s'.") % {"country": source_country_code})
+
+
+def _new_country_source_kwargs(country: DerivedCountry) -> dict[str, str]:
+    return {
+        "source_country_code": _normalize_group_country_key(country.source_country_code),
+        "country_slug": country.slug,
+    }
+
+
+def _new_country_config_new_url(country: DerivedCountry) -> str:
+    source_country_code = _normalize_group_country_key(country.source_country_code)
+    if source_country_code:
+        return reverse("ciudades_del_mundo:new_country_config_new", kwargs=_new_country_source_kwargs(country))
+    return reverse("ciudades_del_mundo:new_country_config_new_legacy", kwargs={"country_slug": country.slug})
+
+
+def _new_country_detail_export_excel_url(country: DerivedCountry) -> str:
+    source_country_code = _normalize_group_country_key(country.source_country_code)
+    if source_country_code:
+        return reverse("ciudades_del_mundo:new_country_detail_export_excel", kwargs=_new_country_source_kwargs(country))
+    return reverse("ciudades_del_mundo:new_country_detail_export_excel_legacy", kwargs={"country_slug": country.slug})
+
+
+def _new_country_config_edit_url(config: DerivedCountryConfig) -> str:
+    country = config.country
+    source_country_code = _normalize_group_country_key(country.source_country_code)
+    if source_country_code:
+        return reverse(
+            "ciudades_del_mundo:new_country_config_edit",
+            kwargs={**_new_country_source_kwargs(country), "config_slug": config.slug},
+        )
+    return reverse(
+        "ciudades_del_mundo:new_country_config_edit_legacy",
+        kwargs={"country_slug": country.slug, "config_slug": config.slug},
+    )
+
+
+def _new_country_config_delete_url(config: DerivedCountryConfig) -> str:
+    country = config.country
+    source_country_code = _normalize_group_country_key(country.source_country_code)
+    if source_country_code:
+        return reverse(
+            "ciudades_del_mundo:new_country_config_delete",
+            kwargs={**_new_country_source_kwargs(country), "config_slug": config.slug},
+        )
+    return reverse(
+        "ciudades_del_mundo:new_country_config_delete_legacy",
+        kwargs={"country_slug": country.slug, "config_slug": config.slug},
+    )
+
+
+def _new_country_config_clone_url(config: DerivedCountryConfig) -> str:
+    country = config.country
+    source_country_code = _normalize_group_country_key(country.source_country_code)
+    if source_country_code:
+        return reverse(
+            "ciudades_del_mundo:new_country_config_clone",
+            kwargs={**_new_country_source_kwargs(country), "config_slug": config.slug},
+        )
+    return reverse(
+        "ciudades_del_mundo:new_country_config_clone_legacy",
+        kwargs={"country_slug": country.slug, "config_slug": config.slug},
+    )
+
+
+def _new_country_config_task_url(config: DerivedCountryConfig, action: str) -> str:
+    country = config.country
+    source_country_code = _normalize_group_country_key(country.source_country_code)
+    if source_country_code:
+        return reverse(
+            "ciudades_del_mundo:start_new_country_config_task",
+            kwargs={**_new_country_source_kwargs(country), "config_slug": config.slug, "action": action},
+        )
+    return reverse(
+        "ciudades_del_mundo:start_new_country_config_task_legacy",
+        kwargs={"country_slug": country.slug, "config_slug": config.slug, "action": action},
+    )
+
+
+def _new_country_config_parent_options(
+    country: DerivedCountry,
+    current_config: DerivedCountryConfig | None = None,
+) -> list[dict[str, object]]:
+    excluded = {current_config.slug} if current_config else set()
+    if current_config:
+        excluded.update(_new_country_config_descendant_slugs(country, current_config.slug))
+    options: list[dict[str, object]] = [
+        {"value": "", "label": _("%(name)s (Nivel 0)") % {"name": country.name}, "level": 0}
+    ]
+    for config in country.configs.order_by("name", "slug"):
+        if config.slug in excluded:
+            continue
+        level = _new_country_config_level(config)
+        options.append(
+            {
+                "value": config.slug,
+                "label": _("%(name)s (Nivel %(level)s)") % {"name": config.name, "level": level},
+                "level": level,
+            }
+        )
+    return options
+
+
+def _validate_new_country_config_parent(
+    country: DerivedCountry,
+    parent_config_slug: str,
+    current_config: DerivedCountryConfig | None = None,
+) -> str:
+    parent_config_slug = _normalize_group_country_key(parent_config_slug)
+    if not parent_config_slug:
+        return ""
+    if current_config and parent_config_slug == current_config.slug:
+        raise ValueError(_("Una division no puede ser padre de si misma."))
+    try:
+        parent = country.configs.get(slug=parent_config_slug)
+    except DerivedCountryConfig.DoesNotExist as exc:
+        raise ValueError(_("El padre seleccionado no existe.")) from exc
+    if current_config and current_config.slug in _new_country_config_parent_chain(parent):
+        raise ValueError(_("El padre seleccionado crearia una referencia circular."))
+    return parent.slug
+
+
+def _new_country_parent_level(country: DerivedCountry, parent_config_slug: str) -> int:
+    parent_config_slug = _normalize_group_country_key(parent_config_slug)
+    if not parent_config_slug:
+        return 0
+    try:
+        return _new_country_config_level(country.configs.get(slug=parent_config_slug))
+    except DerivedCountryConfig.DoesNotExist:
+        return 0
+
+
+def _new_country_config_level(config: DerivedCountryConfig) -> int:
+    data = _new_country_config_toml(config)
+    for entity in data.get("entities") or []:
+        if not isinstance(entity, dict):
+            continue
+        try:
+            level = int(entity.get("level"))
+        except (TypeError, ValueError):
+            level = 0
+        if level > 0:
+            return level
+    parent_slug = _new_country_config_parent_slug(config)
+    if parent_slug:
+        return _new_country_parent_level(config.country, parent_slug) + 1
+    return 1
+
+
+def _new_country_config_parent_slug(config: DerivedCountryConfig) -> str:
+    data = _new_country_config_toml(config)
+    for entity in data.get("entities") or []:
+        if isinstance(entity, dict):
+            parent_slug = _normalize_group_country_key(entity.get("parent_config_slug") or entity.get("parent"))
+            if parent_slug:
+                return parent_slug
+    return _normalize_group_country_key(data.get("parent_config_slug") or data.get("parent"))
+
+
+def _new_country_config_parent_chain(config: DerivedCountryConfig) -> set[str]:
+    chain: set[str] = set()
+    parent_slug = _new_country_config_parent_slug(config)
+    while parent_slug and parent_slug not in chain:
+        chain.add(parent_slug)
+        parent = config.country.configs.filter(slug=parent_slug).first()
+        if parent is None:
+            break
+        parent_slug = _new_country_config_parent_slug(parent)
+    return chain
+
+
+def _new_country_config_descendant_slugs(country: DerivedCountry, config_slug: str) -> set[str]:
+    descendants: set[str] = set()
+    changed = True
+    while changed:
+        changed = False
+        for config in country.configs.all():
+            if config.slug in descendants:
+                continue
+            parent_slug = _new_country_config_parent_slug(config)
+            if parent_slug == config_slug or parent_slug in descendants:
+                descendants.add(config.slug)
+                changed = True
+    return descendants
+
+
+def _new_country_selected_derived_subdivisions_from_selection_json(
+    selection_json: str,
+    *,
+    fallback_country_code: str,
+) -> list[dict[str, str]]:
+    try:
+        selection = json.loads(str(selection_json or "").strip() or "{}")
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(selection, dict):
+        return []
+    return _new_country_normalized_derived_subdivision_selections(
+        selection.get("selected_derived_subdivisions")
+        or selection.get("selected_subdivision_keys")
+        or selection.get("derived_subdivisions")
+        or [],
+        fallback_country_code=fallback_country_code,
+    )
+
+
+def _new_country_selected_subdivision_keys_from_selection_json(
+    selection_json: str,
+    *,
+    fallback_country_code: str = "",
+) -> list[str]:
+    return [
+        _new_country_derived_subdivision_selection_value(item["country_code"], item["key"])
+        for item in _new_country_selected_derived_subdivisions_from_selection_json(
+            selection_json,
+            fallback_country_code=fallback_country_code,
+        )
+    ]
+
+
+def _new_country_derived_subdivision_selection_value(country_code: str, subdivision_key: str) -> str:
+    return _derived_subdivision_record_source_item_id(country_code, subdivision_key)
+
+
+def _new_country_normalized_derived_subdivision_selections(
+    values,
+    *,
+    fallback_country_code: str,
+) -> list[dict[str, str | int]]:
+    if values in (None, ""):
+        return []
+    if not isinstance(values, (list, tuple)):
+        values = [values]
+    result: list[dict[str, str | int]] = []
+    seen: dict[tuple[str, str], dict[str, str | int]] = {}
+    fallback_country_code = _normalize_group_country_key(fallback_country_code)
+    for value in values:
+        country_code = ""
+        subdivision_key = ""
+        selection_level: int | None = None
+        if isinstance(value, dict):
+            encoded_id = str(value.get("id") or value.get("value") or "").strip()
+            encoded_country, encoded_key = _new_country_split_derived_subdivision_value(encoded_id)
+            country_code = _normalize_group_country_key(
+                value.get("country_code") or value.get("source_country_code") or encoded_country or fallback_country_code
+            )
+            subdivision_key = str(
+                value.get("key")
+                or value.get("derived_subdivision_key")
+                or value.get("internal_name")
+                or encoded_key
+                or value.get("code")
+                or ""
+            ).strip()
+            try:
+                raw_level = int(value.get("level") or 0)
+            except (TypeError, ValueError):
+                raw_level = 0
+            if raw_level > 0:
+                selection_level = max(1, min(9, raw_level))
+        else:
+            encoded_country, encoded_key = _new_country_split_derived_subdivision_value(str(value or "").strip())
+            country_code = _normalize_group_country_key(encoded_country or fallback_country_code)
+            subdivision_key = encoded_key or str(value or "").strip()
+        try:
+            subdivision_key = _group_internal_name(subdivision_key)
+        except ValueError:
+            continue
+        marker = (country_code, subdivision_key.casefold())
+        if not country_code:
+            continue
+        if marker in seen:
+            if selection_level is not None and "level" not in seen[marker]:
+                seen[marker]["level"] = selection_level
+            continue
+        entry: dict[str, str | int] = {"country_code": country_code, "key": subdivision_key}
+        if selection_level is not None:
+            entry["level"] = selection_level
+        seen[marker] = entry
+        result.append(entry)
+    return result
+
+
+def _new_country_split_derived_subdivision_value(value: str) -> tuple[str, str]:
+    value = str(value or "").strip()
+    if not value.startswith("derived-subdivision::"):
+        return "", value
+    parts = value.split("::", 2)
+    if len(parts) < 3:
+        return "", ""
+    return _normalize_group_country_key(parts[1]), parts[2]
+
+
+def _new_country_normalized_subdivision_keys(values) -> list[str]:
+    if values in (None, ""):
+        return []
+    if not isinstance(values, (list, tuple)):
+        values = [values]
+    result = []
+    seen = set()
+    for value in values:
+        key = str(value or "").strip()
+        marker = key.casefold()
+        if not key or marker in seen:
+            continue
+        seen.add(marker)
+        result.append(key)
+    return result
+
+
+def _new_country_capital_source_ids(
+    country_code: str,
+    selected_subdivision_keys: list[str] | None = None,
+    *,
+    country: DerivedCountry | None = None,
+    selected_source_ids=None,
+    selected_derived_subdivisions=None,
+    selected_child_config_slugs=None,
+    require_selection: bool = False,
+) -> set[str] | None:
+    selections = _new_country_normalized_derived_subdivision_selections(
+        selected_derived_subdivisions if selected_derived_subdivisions is not None else selected_subdivision_keys,
+        fallback_country_code=country_code,
+    )
+    child_config_slugs = _new_country_normalized_config_slugs(selected_child_config_slugs)
+    selected_source_ids = _new_country_normalized_subdivision_keys(selected_source_ids)
+    has_explicit_scope = bool(selections or child_config_slugs or selected_source_ids)
+    if not has_explicit_scope:
+        return set() if require_selection else None
+    source_ids: set[str] = set()
+    source_ids_cache: dict[tuple[str, str], set[str]] = {}
+    group_entry_cache: dict[tuple[str, str], dict | None] = {}
+    group_entries_cache: dict[str, list[dict]] = {}
+    source_ids.update(
+        _new_country_config_admin_area_ids_to_source_ids(
+            selected_source_ids,
+            default_country_code=country_code,
+        )
+    )
+    for item in selections:
+        item_country_code = item["country_code"]
+        item_key = item["key"]
+        source_ids.update(
+            _derived_subdivision_source_ids_for_key(
+                item_country_code,
+                item_key,
+                source_ids_cache=source_ids_cache,
+                group_entry_cache=group_entry_cache,
+                group_entries_cache=group_entries_cache,
+            )
+        )
+        source_ids.update(_derived_subdivision_declared_capital_ids_for_key(item_country_code, item_key))
+    source_ids.update(
+        _new_country_child_config_source_ids(
+            country,
+            child_config_slugs,
+            source_ids_cache=source_ids_cache,
+            group_entry_cache=group_entry_cache,
+            group_entries_cache=group_entries_cache,
+        )
+    )
+    return source_ids
+
+
+def _new_country_config_capital_options_payload(
+    country_code: str,
+    *,
+    country: DerivedCountry | None = None,
+    selected_ids=None,
+    selected_source_ids=None,
+    selected_subdivision_keys=None,
+    selected_derived_subdivisions=None,
+    selected_child_config_slugs=None,
+    search_term: str = "",
+    use_subdivisions: bool = False,
+) -> list[dict]:
+    country_code = _normalize_group_country_key(country_code)
+    if not country_code:
+        return []
+    source_ids = _new_country_capital_source_ids(
+        country_code,
+        _new_country_normalized_subdivision_keys(selected_subdivision_keys),
+        country=country,
+        selected_source_ids=selected_source_ids,
+        selected_derived_subdivisions=selected_derived_subdivisions,
+        selected_child_config_slugs=selected_child_config_slugs,
+        require_selection=bool(use_subdivisions),
+    )
+    return _derived_subdivision_capital_options(
+        country_code,
+        source_ids=source_ids,
+        selected_ids=selected_ids,
+        search_term=search_term,
+    )
+
+
+def _new_country_child_config_source_ids(
+    country: DerivedCountry | None,
+    selected_child_config_slugs,
+    *,
+    source_ids_cache: dict[tuple[str, str], set[str]],
+    group_entry_cache: dict[tuple[str, str], dict | None],
+    group_entries_cache: dict[str, list[dict]],
+) -> set[str]:
+    if country is None:
+        return set()
+    slugs = _new_country_normalized_config_slugs(selected_child_config_slugs)
+    if not slugs:
+        return set()
+    try:
+        configs = {
+            config.slug: config
+            for config in country.configs.filter(slug__in=slugs).select_related("country")
+        }
+    except (OperationalError, ProgrammingError, ValueError):
+        return set()
+    result: set[str] = set()
+    config_source_ids_cache: dict[tuple[str, str], set[str]] = {}
+    for slug in slugs:
+        config = configs.get(slug)
+        if config is None:
+            continue
+        try:
+            result.update(
+                _new_country_config_preview_source_ids(
+                    config,
+                    source_ids_cache=source_ids_cache,
+                    group_entry_cache=group_entry_cache,
+                    group_entries_cache=group_entries_cache,
+                    config_source_ids_cache=config_source_ids_cache,
+                )
+            )
+            result.update(_new_country_config_declared_capital_source_ids(config))
+        except (OperationalError, ProgrammingError, ValueError):
+            continue
+    return result
+
+
+def _new_country_config_declared_capital_source_ids(
+    config: DerivedCountryConfig,
+    *,
+    data: dict | None = None,
+    seen: set[tuple[str, str]] | None = None,
+) -> set[str]:
+    data = data if isinstance(data, dict) else _new_country_config_toml(config)
+    cache_key = (str(config.country_id or ""), config.slug)
+    seen = set(seen or set())
+    if cache_key in seen:
+        return set()
+    seen.add(cache_key)
+
+    entity = _new_country_config_first_entity(data)
+    selection = data.get("selection") if isinstance(data.get("selection"), dict) else {}
+    source_country_code = _normalize_group_country_key(
+        data.get("source_country_code")
+        or selection.get("source_country_code")
+        or config.source_country_code
+        or config.country.source_country_code
+    )
+    result = _declared_capital_ids_from_data(source_country_code, entity)
+    for item in _new_country_config_selected_derived_subdivisions(
+        entity,
+        fallback_country_code=source_country_code,
+    ):
+        result.update(
+            _derived_subdivision_declared_capital_ids_for_key(
+                item["country_code"],
+                item["key"],
+            )
+        )
+
+    parent_slug = _normalize_group_country_key(config.slug)
+    for child in config.country.configs.order_by("slug"):
+        if child.slug == config.slug or _new_country_config_parent_slug(child) != parent_slug:
+            continue
+        result.update(_new_country_config_declared_capital_source_ids(child, seen=seen))
+    seen.remove(cache_key)
+    return result
+
+
+def _new_country_derived_subdivision_options(source_country_code: str) -> list[dict[str, str]]:
+    source_country_code = _normalize_group_country_key(source_country_code)
+    try:
+        records = list(_new_country_derived_subdivision_queryset(""))
+    except (OperationalError, ProgrammingError):
+        return []
+    return _new_country_derived_subdivision_options_from_records(records)
+
+
+def _new_country_created_subdivision_country_options() -> list[dict[str, str]]:
+    try:
+        country_codes = list(
+            DerivedSubdivision.objects.exclude(source_country_code="")
+            .values_list("source_country_code", flat=True)
+            .distinct()
+            .order_by("source_country_code")
+        )
+    except (OperationalError, ProgrammingError):
+        return []
+    options = []
+    seen = set()
+    for raw_code in country_codes:
+        code = _normalize_group_country_key(raw_code)
+        if not code or code in seen:
+            continue
+        seen.add(code)
+        options.append({"value": code, "label": _source_country_display_label(code)})
+    return options
+
+
+def _new_country_derived_subdivision_queryset(search_term: str, *, country_code: str = ""):
+    queryset = DerivedSubdivision.objects.order_by("source_country_code", "name", "slug").only(
+        "slug",
+        "internal_name",
+        "name",
+        "code",
+        "entity_type",
+        "source_country_code",
+        "content",
+    )
+    country_code = _normalize_group_country_key(country_code)
+    if country_code:
+        queryset = queryset.filter(source_country_code__iexact=country_code)
+    search_term = str(search_term or "").strip()
+    if search_term:
+        queryset = queryset.filter(
+            Q(slug__icontains=search_term)
+            | Q(internal_name__icontains=search_term)
+            | Q(name__icontains=search_term)
+            | Q(code__icontains=search_term)
+            | Q(entity_type__icontains=search_term)
+            | Q(source_country_code__icontains=search_term)
+            | Q(content__icontains=search_term)
+        )
+    return queryset
+
+
+def _new_country_derived_subdivision_options_from_records(
+    records: list[DerivedSubdivision],
+) -> list[dict[str, str]]:
+    data_by_slug = {record.slug: _derived_subdivision_record_toml(record) for record in records}
+    code_counts = _new_country_derived_subdivision_code_counts(records, data_by_slug=data_by_slug)
+    materialized_rows = _derived_subdivision_materialized_rows_for_records(
+        records,
+        data_by_slug=data_by_slug,
+        code_counts=code_counts,
+    )
+    options = []
+    for record in records:
+        data = data_by_slug.get(record.slug) or {}
+        area_value, population_value = _derived_subdivision_metric_values(
+            record,
+            data,
+            code_counts=code_counts,
+            materialized_rows=materialized_rows,
+        )
+        area_text = _group_metric_text(area_value)
+        population_text = _group_metric_text(population_value)
+        density_text = _group_metric_text(_density(population_value, area_value))
+        try:
+            level = _derived_subdivision_level(data.get("level") or 1)
+        except ValueError:
+            level = 1
+        entity_type = str(data.get("entity_type") or record.entity_type or "").strip()
+        type_text = entity_type or _("Sin tipo")
+        record_country_code = _normalize_group_country_key(record.source_country_code)
+        record_key = _derived_subdivision_source_key(record, data)
+        country_label = _source_country_display_label(record_country_code)
+        clean_name = _new_country_clean_created_subdivision_name(record.name)
+        selection_name = str(record.name or "").strip() or clean_name or str(record.internal_name or record.slug).strip()
+        content_search_text = _new_country_derived_subdivision_content_search_text(data)
+        options.append(
+            {
+                "value": _new_country_derived_subdivision_selection_value(record_country_code, record_key),
+                "country_code": record_country_code,
+                "country_label": country_label,
+                "key": record_key,
+                "label": _new_country_derived_subdivision_label(record),
+                "name": clean_name,
+                "selection_name": selection_name,
+                "code": str(record.code or record.internal_name or record.slug),
+                "entity_type": entity_type,
+                "level": level,
+                "type_text": type_text,
+                "area_text": area_text,
+                "population_text": population_text,
+                "density_text": density_text,
+                "search_text": " ".join(
+                    [
+                        record.slug,
+                        record.internal_name,
+                        record.name,
+                        clean_name,
+                        selection_name,
+                        record.entity_type,
+                        record.code,
+                        record.source_country_code,
+                        country_label,
+                        entity_type,
+                        str(level),
+                        type_text,
+                        area_text,
+                        population_text,
+                        density_text,
+                        content_search_text,
+                    ]
+                ),
+            }
+        )
+    return options
+
+
+def _new_country_source_area_options_from_records(records: list[AdminArea]) -> list[dict[str, str]]:
+    options = []
+    country_labels: dict[str, str] = {}
+    for area in records:
+        country_code = _normalize_group_country_key(area.country_code)
+        if country_code not in country_labels:
+            country_labels[country_code] = _source_country_display_label(country_code)
+        name = _area_display_name(area)
+        entity_type = _entity_type_label(area.entity_type, country_code=country_code)
+        parent = getattr(area, "parent", None)
+        parent_label = _area_display_name(parent) if parent else ""
+        label = name
+        if entity_type:
+            label = f"{label} ({entity_type})"
+        options.append(
+            {
+                "value": str(area.id),
+                "id": str(area.id),
+                "country_code": country_code,
+                "country_label": country_labels[country_code],
+                "name": name,
+                "label": label,
+                "code": str(area.code or ""),
+                "level": int(area.level or 0),
+                "type_text": entity_type,
+                "entity_type": entity_type,
+                "parent_id": str(area.parent_id or ""),
+                "parent_label": parent_label,
+            }
+        )
+    return options
+
+
+def _new_country_derived_subdivision_content_search_text(data: dict) -> str:
+    if not isinstance(data, dict):
+        return ""
+    values: list[str] = []
+
+    def add(value) -> None:
+        if value in (None, ""):
+            return
+        if isinstance(value, (list, tuple)):
+            for item in value:
+                add(item)
+            return
+        text = str(value or "").strip()
+        if text:
+            values.append(text)
+
+    for key in ("internal_name", "name", "code", "entity_type", "parent_code", "capitals"):
+        add(data.get(key))
+    for section_name in ("include", "subtract"):
+        blocks = data.get(section_name) if isinstance(data.get(section_name), list) else []
+        for block in blocks:
+            if not isinstance(block, dict):
+                continue
+            for key in ("country_code", "names", "ids", "codes", "groups", "derived_subdivisions", "expressions"):
+                add(block.get(key))
+    return " ".join(values)
+
+
+def _new_country_derived_subdivision_code_counts(
+    records: list[DerivedSubdivision],
+    *,
+    data_by_slug: dict[str, dict],
+) -> Counter:
+    country_codes = {
+        _normalize_group_country_key((data_by_slug.get(record.slug) or {}).get("source_country_code") or record.source_country_code)
+        for record in records
+    }
+    country_codes = {country_code for country_code in country_codes if country_code}
+    if not country_codes:
+        return Counter()
+    try:
+        count_records = list(
+            DerivedSubdivision.objects.filter(source_country_code__in=country_codes).only(
+                "slug",
+                "internal_name",
+                "code",
+                "source_country_code",
+                "content",
+            )
+        )
+    except (OperationalError, ProgrammingError):
+        count_records = records
+    count_data_by_slug = {
+        record.slug: data_by_slug.get(record.slug) or _derived_subdivision_record_toml(record)
+        for record in count_records
+    }
+    return Counter(
+        _derived_subdivision_requested_code_count_key(record, count_data_by_slug.get(record.slug) or {})
+        for record in count_records
+    )
+
+
+def _new_country_derived_subdivision_label(row: DerivedSubdivision) -> str:
+    code = str(row.code or row.internal_name or row.slug).strip()
+    suffix = f" - {code}" if code else ""
+    name = _new_country_clean_created_subdivision_name(row.name) or str(row.internal_name or row.slug).strip()
+    return f"{name}{suffix}"
+
+
+def _new_country_clean_created_subdivision_name(value: str | None) -> str:
+    original = str(value or "").strip()
+    if not original:
+        return ""
+    cleaned = re.sub(r"\s*\([^)]*\)", "", original).strip()
+    cleaned = re.sub(r"\s{2,}", " ", cleaned)
+    return cleaned or original
 
 
 def _admin_area_child_counts(parent_ids: list[str], *, group_source_only: bool = False) -> dict[str, int]:

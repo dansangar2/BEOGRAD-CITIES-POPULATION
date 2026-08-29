@@ -11,45 +11,83 @@
   </div>
   <div class="actions">
     <a class="button secondary" href="{% url 'ciudades_del_mundo:new_country_list' %}">{% trans "Volver" %}</a>
-    <a class="button secondary" href="{% url 'ciudades_del_mundo:new_country_config_new' country.slug %}">{% trans "Nueva entidad" %}</a>
+    <a class="button secondary" href="{{ export_excel_url }}">{% trans "Exportar Excel" %}</a>
+    <a class="button secondary" href="{{ new_country_config_new_url }}">{% trans "Nueva entidad" %}</a>
   </div>
 </section>
 
-<div class="table-wrap">
-  <table>
+<section class="panel new-country-data-panel">
+  <form class="new-country-data-form" method="post" action="{{ country_detail_url }}" data-new-country-data-form>
+    {% csrf_token %}
+    <div class="section-title">
+      <div>
+        <h2>{% trans "Datos generales del pais" %}</h2>
+      </div>
+      <button type="submit">{% trans "Guardar" %}</button>
+    </div>
+    {% include "ciudades_del_mundo/_new_country_data_fields.html" with form=form new_country_data_edit=True %}
+  </form>
+</section>
+
+<div
+  id="new-country-config-tree"
+  class="table-wrap new-country-subentities-table-wrap"
+  data-new-country-config-tree
+  data-tree-url="{{ tree_data_url }}"
+  data-csrf-token="{{ csrf_token }}"
+  data-loading-label="{% trans 'Cargando entidades...' %}"
+  data-empty-label="{% trans 'Este pais aun no tiene configuraciones.' %}"
+  data-error-label="{% trans 'No se pudieron cargar las entidades.' %}"
+  data-expand-label="{% trans 'Desplegar' %}"
+  data-collapse-label="{% trans 'Plegar' %}"
+  data-parent-label="{% trans 'Padre' %}"
+  data-clone-label="{% trans 'Clonar' %}"
+  data-clone-title="{% trans 'Clonar entidad' %}"
+  data-delete-label="X"
+  data-delete-title="{% trans 'Eliminar entidad' %}"
+  data-delete-confirm="{% trans 'Eliminar esta entidad?' %}"
+>
+  <div class="new-country-config-tree-toolbar">
+    <label>
+      <span>{% trans "Nivel" %}</span>
+      <select data-new-country-config-tree-level>
+        <option value="">{% trans "Jerarquia" %}</option>
+        {% for level in tree_levels %}
+        <option value="{{ level.value }}">{{ level.label }} ({{ level.count }})</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      <span>{% trans "Filas por pagina" %}</span>
+      <select data-new-country-config-tree-page-size></select>
+    </label>
+    <nav class="country-table-pagination new-country-config-tree-pagination" data-new-country-config-tree-pagination hidden>
+      <button type="button" class="secondary" data-new-country-config-tree-page="previous">{% trans "Anterior" %}</button>
+      <span data-new-country-config-tree-page-status>1/1 - 0</span>
+      <button type="button" class="secondary" data-new-country-config-tree-page="next">{% trans "Siguiente" %}</button>
+    </nav>
+  </div>
+  <table class="new-country-config-tree-table">
     <thead>
       <tr>
-        <th>Slug</th>
+        <th class="new-country-tree-toggle-heading"><span class="visually-hidden">{% trans "Desplegar" %}</span></th>
+        <th>{% trans "Nivel" %}</th>
+        <th>{% trans "Codigo" %}</th>
         <th>{% trans "Nombre" %}</th>
-        <th>{% trans "Codigo derivado" %}</th>
-        <th>{% trans "Filas creadas" %}</th>
-        <th>{% trans "Estado" %}</th>
+        <th>{% trans "Tipo" %}</th>
+        <th>{% trans "Terreno" %}</th>
+        <th>{% trans "Poblacion" %}</th>
+        <th>{% trans "Densidad" %}</th>
         <th>{% trans "Acciones" %}</th>
       </tr>
     </thead>
-    <tbody>
-      {% for row in rows %}
-      <tr>
-        <td><code>{{ row.config.slug }}</code></td>
-        <td>{{ row.config.name }}</td>
-        <td><code>{{ row.built_code }}</code></td>
-        <td>{{ row.built_count }}</td>
-        <td>
-          {% if row.config.is_active %}
-          {% trans "Activa" %}
-          {% else %}
-          {% trans "Inactiva" %}
-          {% endif %}
-        </td>
-        <td>
-          <a href="{% url 'ciudades_del_mundo:new_country_config_edit' country.slug row.config.slug %}">{% trans "Configuracion" %}</a>
-          <span class="muted">/</span>
-          <a href="{% url 'ciudades_del_mundo:new_country_config_view' country.slug row.config.slug %}">{% trans "Vista" %}</a>
+    <tbody data-new-country-config-tree-body>
+      <tr data-new-country-config-tree-status>
+        <td colspan="9">
+          <span class="loading-spinner" aria-hidden="true"></span>
+          {% trans "Cargando entidades..." %}
         </td>
       </tr>
-      {% empty %}
-      <tr><td colspan="6">{% trans "Este pais aun no tiene configuraciones." %}</td></tr>
-      {% endfor %}
     </tbody>
   </table>
 </div>

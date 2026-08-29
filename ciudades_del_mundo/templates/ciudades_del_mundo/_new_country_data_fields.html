@@ -1,0 +1,20 @@
+{% load i18n %}
+
+<div class="form-grid compact-form-grid new-country-data-form-grid">
+  <label class="new-country-data-row">
+    {% trans "Codigo" %}
+    {% if new_country_data_edit %}
+    <input class="code-input" value="{{ form.slug|upper }}" readonly>
+    {% else %}
+    <input class="code-input" name="slug" value="{{ form.slug }}" autocomplete="off" autocapitalize="characters" spellcheck="false" data-uppercase-code-input required>
+    {% endif %}
+  </label>
+  <label class="new-country-data-row">
+    {% trans "Nombre" %}
+    <input name="name" value="{{ form.name }}" required>
+  </label>
+  <label class="new-country-data-description">
+    {% trans "Descripcion" %}
+    <textarea class="description-textarea" name="description" rows="2">{{ form.description }}</textarea>
+  </label>
+</div>

@@ -464,6 +464,10 @@ def _render_city_merge_blocks(cities: list[dict]) -> str:
         lines.append(f"type = {_toml_string(city.get('type', 'City'))}")
         if city.get("district_types"):
             lines.append(f"district_types = {_toml_array(city.get('district_types') or [])}")
+        if city.get("parent_type"):
+            lines.append(f"parent_type = {_toml_string(city.get('parent_type'))}")
+        elif city.get("parent_entity_type"):
+            lines.append(f"parent_type = {_toml_string(city.get('parent_entity_type'))}")
         lines.append(f"from = {_toml_inline_table(city.get('from') or {})}")
         if city.get("communes"):
             lines.append(f"communes = {_toml_array(city.get('communes') or [])}")

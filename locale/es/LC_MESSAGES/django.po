@@ -95,6 +95,21 @@ msgstr "Tarea"
 msgid "Acciones"
 msgstr "Acciones"
 
+msgid "Clonar"
+msgstr "Clonar"
+
+msgid "Clonar entidad"
+msgstr "Clonar entidad"
+
+msgid "Entidad clonada."
+msgstr "Entidad clonada."
+
+msgid "Copia"
+msgstr "Copia"
+
+msgid "El codigo debe empezar por una letra y usar mayusculas sin acentos, numeros, guion o guion bajo, sin espacios."
+msgstr "El codigo debe empezar por una letra y usar mayusculas sin acentos, numeros, guion o guion bajo, sin espacios."
+
 msgid "Validar"
 msgstr "Validar"
 
@@ -596,6 +611,9 @@ msgstr "Sistema preparado para activar/desactivar IA. El login se abre en la web
 msgid "Automático"
 msgstr "Automático"
 
+msgid "País"
+msgstr "País"
+
 msgid "Países"
 msgstr "Países"
 
@@ -1016,14 +1034,38 @@ msgstr "El nivel de scrapeo debe ser numérico."
 msgid "El slug de configuracion solo puede usar letras, numeros, guion y guion bajo."
 msgstr "El slug de configuracion solo puede usar letras, numeros, guion y guion bajo."
 
-msgid "El slug de receta debe ser un identificador Python en minusculas."
-msgstr "El slug de receta debe ser un identificador Python en minusculas."
+msgid "El codigo debe empezar por una letra y usar letras sin acentos, numeros o guion bajo, sin espacios."
+msgstr "El codigo debe empezar por una letra y usar letras sin acentos, numeros o guion bajo, sin espacios."
+
+msgid "El codigo debe empezar por una letra y usar mayusculas sin acentos, numeros o guion bajo, sin espacios."
+msgstr "El codigo debe empezar por una letra y usar mayusculas sin acentos, numeros o guion bajo, sin espacios."
+
+msgid "Ya existe un pais nuevo con codigo '%(code)s'."
+msgstr "Ya existe un pais nuevo con codigo '%(code)s'."
+
+msgid "El pais nuevo no pertenece a '%(country)s'."
+msgstr "El pais nuevo no pertenece a '%(country)s'."
+
+msgid "Datos guardados."
+msgstr "Datos guardados."
+
+msgid "Codigo derivado"
+msgstr "Codigo derivado"
 
 msgid "Entidades a unificar"
 msgstr "Entidades a unificar"
 
 msgid "Entidades disponibles"
 msgstr "Entidades disponibles"
+
+msgid "Entidades creadas"
+msgstr "Entidades creadas"
+
+msgid "No hay entidades creadas."
+msgstr "No hay entidades creadas."
+
+msgid "Buscar entidad"
+msgstr "Buscar entidad"
 
 msgid "Error"
 msgstr "Error"
@@ -1087,6 +1129,12 @@ msgstr "Buscar grupo"
 
 msgid "Grupos"
 msgstr "Grupos"
+
+msgid "Entidades"
+msgstr "Entidades"
+
+msgid "Filtrar tipos"
+msgstr "Filtrar tipos"
 
 msgid "Selecciona un nivel"
 msgstr "Selecciona un nivel"
@@ -1801,3 +1849,98 @@ msgstr "Buscando..."
 
 msgid "capitals debe ser una lista."
 msgstr "capitals debe ser una lista."
+msgid "Usar subdivisiones"
+msgstr "Usar subdivisiones"
+
+msgid "Subdivisiones reales"
+msgstr "Subdivisiones reales"
+
+msgid "Seleccionar"
+msgstr "Seleccionar"
+
+msgid "No hay subdivisiones creadas."
+msgstr "No hay subdivisiones creadas."
+
+msgid "Aun no hay datos NuevoAdminArea creados para este codigo."
+msgstr "Aun no hay datos NuevoAdminArea creados para este codigo."
+
+msgid "La seleccion visual debe contener una lista de subdivisiones creadas."
+msgstr "La seleccion visual debe contener una lista de subdivisiones creadas."
+
+msgid "El padre seleccionado no existe."
+msgstr "El padre seleccionado no existe."
+
+msgid "El padre seleccionado crearia una referencia circular."
+msgstr "El padre seleccionado crearia una referencia circular."
+
+msgid "Selecciona al menos una subdivision creada."
+msgstr "Selecciona al menos una subdivision creada."
+
+msgid "%(config)s: el padre '%(parent)s' no existe en este pais nuevo."
+msgstr "%(config)s: el padre '%(parent)s' no existe en este pais nuevo."
+
+msgid "%(country)s tiene padres circulares entre sus divisiones."
+msgstr "%(country)s tiene padres circulares entre sus divisiones."
+
+msgid "%(name)s (Nivel 0)"
+msgstr "%(name)s (Nivel 0)"
+
+msgid "%(name)s (Nivel %(level)s)"
+msgstr "%(name)s (Nivel %(level)s)"
+
+msgid "Una division no puede ser padre de si misma."
+msgstr "Una division no puede ser padre de si misma."
+
+msgid "Usar entidades marcadas como hijos"
+msgstr "Usar entidades marcadas como hijos"
+
+msgid "km^2"
+msgstr "km^2"
+
+msgid "Plegar"
+msgstr "Plegar"
+
+msgid "Eliminar esta entidad?"
+msgstr "Eliminar esta entidad?"
+
+msgid "Eliminar entidad"
+msgstr "Eliminar entidad"
+
+msgid "Reasigna o elimina primero sus hijos"
+msgstr "Reasigna o elimina primero sus hijos"
+
+msgid "No se puede eliminar una entidad con hijos. Reasigna o elimina primero sus hijos."
+msgstr "No se puede eliminar una entidad con hijos. Reasigna o elimina primero sus hijos."
+
+msgid "Entidad eliminada."
+msgstr "Entidad eliminada."
+
+msgid "Num municipios"
+msgstr "Num municipios"
+
+msgid "Poblacion capital"
+msgstr "Poblacion capital"
+
+msgid "% capital"
+msgstr "% capital"
+
+msgid "Ciudad mas poblada"
+msgstr "Ciudad mas poblada"
+
+msgid "Poblacion ciudad mas poblada"
+msgstr "Poblacion ciudad mas poblada"
+
+msgid "% ciudad mas poblada"
+msgstr "% ciudad mas poblada"
+
+msgid "Ranking poblacion"
+msgstr "Ranking poblacion"
+
+msgid "Ranking terreno"
+msgstr "Ranking terreno"
+
+msgid "Ranking capital"
+msgstr "Ranking capital"
+
+msgid "Ranking ciudad mas poblada"
+msgstr "Ranking ciudad mas poblada"

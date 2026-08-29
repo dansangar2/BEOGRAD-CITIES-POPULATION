@@ -1,78 +1,276 @@
 {% extends "ciudades_del_mundo/base.html" %}
 {% load i18n %}
 
-{% block title %}{% trans "Nueva entidad" %} - {% trans "Ciudades del Mundo" %}{% endblock %}
+{% block title %}{% if config %}{{ form.name }}{% else %}{% trans "Nueva entidad" %}{% endif %} - {% trans "Ciudades del Mundo" %}{% endblock %}
 
 {% block content %}
 <section class="page-head compact">
   <div>
     <p class="eyebrow">{{ country.name }}</p>
-    <h1>{% trans "Nueva entidad" %}</h1>
+    <h1>{% if config %}{{ form.name }}{% else %}{% trans "Nueva entidad" %}{% endif %}</h1>
+    {% if source_country_label %}
+    <p class="muted">{{ source_country_label }}</p>
+    {% endif %}
   </div>
-  <a class="button secondary" href="{% url 'ciudades_del_mundo:new_country_detail' country.slug %}">{% trans "Volver" %}</a>
+  <div class="actions">
+    <a class="button secondary" href="{{ country_detail_url }}">{% trans "Volver" %}</a>
+  </div>
 </section>
 
-<form class="panel derived-create-form" method="post" data-derived-create-form>
+{{ capital_options|json_script:"new-country-capital-options" }}
+{{ form.capitals|json_script:"new-country-capital-values" }}
+
+<form class="derived-create-form" method="post" data-derived-create-form data-new-country-capital-options-url="{{ capital_options_url }}" data-created-entity-options-url="{{ created_entity_options_url }}">
   {% csrf_token %}
   <input type="hidden" name="selection_json" data-derived-selection-json value="{{ form.selection_json }}">
+  <input type="hidden" name="source_country_code" value="{{ form.source_country_code }}" data-derived-source-select>
   <textarea name="content" hidden>{{ form.content }}</textarea>
 
-  <div class="derived-create-grid">
-    <section class="derived-create-fields">
+  <div class="group-form-actions top">
+    <button type="submit">{% if config %}{% trans "Guardar" %}{% else %}{% trans "Crear" %}{% endif %}</button>
+  </div>
+
+  <section class="panel group-entry-main-box derived-create-main-box">
+    <div class="form-grid compact-form-grid derived-create-main-grid">
       <label>
-        Slug
-        <input name="slug" value="{{ form.slug }}" required>
+        {% trans "Codigo" %}
+        <input class="code-input" name="slug" value="{{ form.slug }}" autocomplete="off" autocapitalize="characters" spellcheck="false" data-uppercase-code-input required>
       </label>
       <label>
         {% trans "Nombre" %}
         <input name="name" value="{{ form.name }}" required>
       </label>
+      <label class="new-country-subdivision-toggle">
+        <span>{% trans "Usar subdivisiones" %}</span>
+        <span class="derived-child-mode-switch">
+          <input class="derived-child-mode-input" type="checkbox" name="use_subdivisions" value="1" data-use-subdivisions-toggle {% if form.use_subdivisions %}checked{% endif %}>
+          <span class="derived-child-mode-slider" aria-hidden="true"></span>
+        </span>
+      </label>
+      <input type="hidden" name="parent_config_slug" value="{{ form.parent_config_slug }}" data-parent-config-select>
       <label>
-        {% trans "Codigo derivado" %}
-        <input name="derived_country_code" value="{{ form.derived_country_code }}">
+        {% trans "Tipo" %}
+        <input name="entity_type" value="{{ form.entity_type }}">
       </label>
-      <label>
-        {% trans "Pais fuente" %}
-        <select name="source_country_code" data-derived-source-select required>
-          <option value="">{% trans "Selecciona un pais" %}</option>
-          {% for source in source_countries %}
-          <option value="{{ source.value }}" data-root-id="{{ source.root_id }}" {% if source.value == form.source_country_code %}selected{% endif %}>{{ source.label }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label class="checkbox-row">
-        <input type="checkbox" name="is_active" value="1" {% if form.is_active %}checked{% endif %}>
-        <span>{% trans "Activa" %}</span>
-      </label>
-    </section>
-
-    <section class="derived-tree-panel" aria-live="polite">
-      <div class="derived-tree-head">
-        <h2>{% trans "Subdivisiones fuente" %}</h2>
-        <div class="derived-tree-legend">
-          <span class="operation-badge add">{% trans "Suma" %}</span>
-          <span class="operation-badge subtract">{% trans "Resta" %}</span>
+      <label class="derived-capital-field wide">
+        {% trans "Capitales" %}
+        <div
+          class="derived-capital-picker"
+          data-new-country-capital-picker
+          data-empty-label="{% trans 'Sin capitales' %}"
+          data-remove-label="{% trans 'Quitar capital' %}"
+        >
+          <div class="derived-capital-search-column">
+            <select
+              data-new-country-capital-select
+              data-placeholder="{% trans 'Buscar capital' %}"
+              data-input-too-short-label="{% trans 'Escribe al menos 2 letras' %}"
+              data-no-results-label="{% trans 'Sin resultados' %}"
+              data-searching-label="{% trans 'Buscando...' %}"
+            ></select>
+          </div>
+          <div class="derived-capital-selected-column">
+            <div class="derived-capital-badge-rail" data-new-country-capital-badges aria-live="polite"></div>
+            <div data-new-country-capital-hidden-inputs></div>
+          </div>
         </div>
-      </div>
-      <p class="muted">{% trans "Si marcas una subdivisión sin tener marcada una superior, suma. Si la marcas dentro de una superior marcada, resta." %}</p>
-      <div
-        class="derived-tree"
-        data-derived-tree
-        data-children-url="{{ children_url }}"
-        data-empty-label="{% trans 'Selecciona un pais fuente.' %}"
-        data-loading-label="{% trans 'Cargando...' %}"
-        data-load-children-label="{% trans 'Ver hijos' %}"
-        data-hide-children-label="{% trans 'Ocultar hijos' %}"
-        data-add-label="{% trans 'Suma' %}"
-        data-subtract-label="{% trans 'Resta' %}"
-        data-no-children-label="{% trans 'Sin hijos' %}"
-        data-error-label="{% trans 'No se pudieron cargar los hijos.' %}"
-      ></div>
-    </section>
-  </div>
+      </label>
+    </div>
+  </section>
 
-  <div class="actions">
-    <button type="submit">{% trans "Crear" %}</button>
+  <section class="panel derived-tree-panel derived-create-source-panel" data-created-entity-panel hidden>
+    <div class="derived-tree-head">
+      <h2>{% trans "Entidades creadas" %}</h2>
+    </div>
+    <div id="new-country-created-entities-table" class="created-entity-option-table" data-options-url="{{ created_entity_options_url }}" data-page-size="20" data-empty-label="{% trans 'No hay entidades creadas.' %}" data-loading-label="{% trans 'Cargando tabla...' %}" data-error-label="{% trans 'La tabla no se pudo cargar. Reintenta en unos segundos.' %}">
+      <div class="group-table-toolbar new-country-created-entity-toolbar">
+        <div
+          class="group-table-controls new-country-created-entity-controls"
+          data-new-country-created-entity-controls
+          data-empty-label="{% trans 'No hay entidades creadas.' %}"
+          data-target="#new-country-created-entities-table"
+        >
+          <label>
+            {% trans "Buscar" %}
+            <input type="search" name="created_entity_q" autocomplete="off" placeholder="{% trans 'Buscar entidad' %}" data-new-country-created-entity-search>
+          </label>
+          <label>
+            {% trans "Filas" %}
+            <select name="created_entity_page_size" data-new-country-created-entity-page-size>
+              <option value="20" selected>20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </label>
+        </div>
+        <div class="country-table-pagination group-table-pagination" data-client-pagination data-new-country-created-entity-pagination data-initial-page-size="20" hidden></div>
+      </div>
+      <div class="table-wrap subtle group-division-table-wrap">
+        <table class="group-division-table new-country-created-entity-table">
+          <thead>
+            <tr>
+              <th class="selection-cell"><span class="visually-hidden">{% trans "Seleccionar" %}</span></th>
+              <th>{% trans "Nombre" %}</th>
+              <th>{% trans "Nivel" %}</th>
+              <th>{% trans "Tipo" %}</th>
+              <th>{% trans "Terreno" %}</th>
+              <th>{% trans "Población" %}</th>
+              <th>{% trans "Densidad" %}</th>
+            </tr>
+          </thead>
+          <tbody data-client-page-rows>
+            <tr data-client-empty><td colspan="7">{% trans "No hay entidades creadas." %}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="country-table-pagination group-table-pagination group-table-pagination-foot" data-client-pagination data-new-country-created-entity-pagination data-initial-page-size="20" hidden></div>
+    </div>
+  </section>
+
+  <section class="panel derived-tree-panel derived-create-source-panel" data-derived-subdivision-panel hidden>
+    <div class="derived-tree-head">
+      <h2>{% trans "Subdivisiones creadas" %}</h2>
+    </div>
+    <div id="new-country-derived-subdivisions-table" class="derived-subdivision-option-table" data-options-url="{{ derived_subdivision_options_url }}" data-page-size="20" data-empty-label="{% trans 'No hay subdivisiones creadas.' %}" data-loading-label="{% trans 'Cargando tabla...' %}" data-error-label="{% trans 'La tabla no se pudo cargar. Reintenta en unos segundos.' %}">
+      <div class="group-table-toolbar new-country-derived-subdivision-toolbar">
+        <div
+          class="group-table-controls new-country-derived-subdivision-controls"
+          data-new-country-derived-subdivision-controls
+          data-empty-label="{% trans 'No hay subdivisiones creadas.' %}"
+          data-target="#new-country-derived-subdivisions-table"
+        >
+          <label>
+            {% trans "Buscar" %}
+            <input type="search" name="q" autocomplete="off" placeholder="{% trans 'Buscar subdivisión' %}" data-new-country-derived-subdivision-search>
+          </label>
+          <label>
+            {% trans "País" %}
+            <select
+              name="country"
+              data-new-country-derived-subdivision-country-filter
+              data-select2
+              data-select2-search="always"
+              data-placeholder="{% trans 'Buscar pais' %}"
+            >
+              <option value="">{% trans "Todos" %}</option>
+              {% for source_country in source_countries %}
+                <option value="{{ source_country.value }}">{{ source_country.label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            {% trans "Filas" %}
+            <select name="page_size" data-new-country-derived-subdivision-page-size>
+              <option value="20" selected>20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </label>
+        </div>
+        <div class="country-table-pagination group-table-pagination" data-client-pagination data-new-country-derived-subdivision-pagination data-initial-page-size="20" hidden></div>
+      </div>
+      <div class="table-wrap subtle group-division-table-wrap">
+        <table class="group-division-table new-country-derived-subdivision-table">
+          <thead>
+            <tr>
+              <th class="selection-cell"><span class="visually-hidden">{% trans "Seleccionar" %}</span></th>
+              <th>{% trans "Nombre" %}</th>
+              <th>{% trans "País" %}</th>
+              <th>{% trans "Tipo" %}</th>
+              <th>{% trans "Terreno" %}</th>
+              <th>{% trans "Población" %}</th>
+              <th>{% trans "Densidad" %}</th>
+            </tr>
+          </thead>
+          <tbody data-client-page-rows>
+            <tr data-client-empty><td colspan="7">{% trans "No hay subdivisiones creadas." %}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="country-table-pagination group-table-pagination group-table-pagination-foot" data-client-pagination data-new-country-derived-subdivision-pagination data-initial-page-size="20" hidden></div>
+    </div>
+  </section>
+
+  <section class="panel derived-tree-panel derived-create-source-panel" data-source-area-panel hidden>
+    <div class="derived-tree-head">
+      <h2>{% trans "Subdivisiones fuente" %}</h2>
+    </div>
+    <div
+      id="new-country-source-areas-table"
+      class="source-area-option-table"
+      data-options-url="{{ source_area_options_url }}"
+      data-page-size="20"
+      data-empty-label="{% trans 'No hay datos' %}"
+      data-loading-label="{% trans 'Cargando datos...' %}"
+      data-error-label="{% trans 'No se pudieron cargar los datos.' %}"
+      data-country-required-label="{% trans 'Selecciona un pais' %}"
+      data-level-required-label="{% trans 'Selecciona un nivel' %}"
+    >
+      <div class="group-table-toolbar new-country-source-area-toolbar">
+        <div
+          class="group-table-controls new-country-source-area-controls"
+          data-new-country-source-area-controls
+          data-target="#new-country-source-areas-table"
+        >
+          <label>
+            {% trans "Buscar" %}
+            <input type="search" name="source_area_q" autocomplete="off" placeholder="{% trans 'Buscar entidad' %}" data-new-country-source-area-search>
+          </label>
+          <label>
+            {% trans "Pais" %}
+            <select
+              name="source_area_country"
+              data-new-country-source-area-country-filter
+              data-select2
+              data-select2-search="always"
+              data-placeholder="{% trans 'Buscar pais' %}"
+            >
+              <option value="">{% trans "Selecciona un pais" %}</option>
+              {% for source_area_country in source_area_countries %}
+                <option value="{{ source_area_country.value }}" {% if source_area_country.value == form.source_country_code %}selected{% endif %}>{{ source_area_country.label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            {% trans "Nivel" %}
+            <select name="source_area_level" data-new-country-source-area-level-filter>
+              <option value="">{% trans "Selecciona un nivel" %}</option>
+            </select>
+          </label>
+          <label>
+            {% trans "Filas" %}
+            <select name="source_area_page_size" data-new-country-source-area-page-size>
+              <option value="20" selected>20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </label>
+        </div>
+        <div class="country-table-pagination group-table-pagination" data-client-pagination data-new-country-source-area-pagination data-initial-page-size="20" hidden></div>
+      </div>
+      <div class="table-wrap subtle group-division-table-wrap">
+        <table class="group-division-table new-country-source-area-table">
+          <thead>
+            <tr>
+              <th class="selection-cell"><span class="visually-hidden">{% trans "Seleccionar" %}</span></th>
+              <th>{% trans "Nombre" %}</th>
+              <th>{% trans "Pais" %}</th>
+              <th>{% trans "Nivel" %}</th>
+              <th>{% trans "Tipo" %}</th>
+              <th>{% trans "Codigo" %}</th>
+            </tr>
+          </thead>
+          <tbody data-client-page-rows>
+            <tr data-client-empty><td colspan="6">{% trans "Selecciona un nivel" %}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="country-table-pagination group-table-pagination group-table-pagination-foot" data-client-pagination data-new-country-source-area-pagination data-initial-page-size="20" hidden></div>
+    </div>
+  </section>
+
+  <div class="group-form-actions bottom">
+    <button type="submit">{% if config %}{% trans "Guardar" %}{% else %}{% trans "Crear" %}{% endif %}</button>
   </div>
 </form>
 {% endblock %}
@@ -85,190 +283,1306 @@
     return;
   }
   var select = form.querySelector("[data-derived-source-select]");
-  var tree = form.querySelector("[data-derived-tree]");
   var hidden = form.querySelector("[data-derived-selection-json]");
-  var selected = new Set();
+  var useSubdivisions = form.querySelector("[data-use-subdivisions-toggle]");
+  var derivedSubdivisionPanel = form.querySelector("[data-derived-subdivision-panel]");
+  var derivedSubdivisionTable = document.getElementById("new-country-derived-subdivisions-table");
+  var derivedSubdivisionRows = derivedSubdivisionTable ? derivedSubdivisionTable.querySelector("[data-client-page-rows]") : null;
+  var derivedSubdivisionSearch = form.querySelector("[data-new-country-derived-subdivision-search]");
+  var derivedSubdivisionCountryFilter = form.querySelector("[data-new-country-derived-subdivision-country-filter]");
+  var derivedSubdivisionPageSize = form.querySelector("[data-new-country-derived-subdivision-page-size]");
+  var derivedSubdivisionOptionsUrl = derivedSubdivisionTable ? derivedSubdivisionTable.dataset.optionsUrl || "" : "";
+  var derivedSubdivisionRequest = null;
+  var derivedSubdivisionLoaded = false;
+  var selectedDerivedSubdivisionMap = {};
+  var derivedSubdivisionSelectionTouched = false;
+  var sourceAreaPanel = form.querySelector("[data-source-area-panel]");
+  var sourceAreaTable = document.getElementById("new-country-source-areas-table");
+  var sourceAreaRows = sourceAreaTable ? sourceAreaTable.querySelector("[data-client-page-rows]") : null;
+  var sourceAreaSearch = form.querySelector("[data-new-country-source-area-search]");
+  var sourceAreaCountryFilter = form.querySelector("[data-new-country-source-area-country-filter]");
+  var sourceAreaLevelFilter = form.querySelector("[data-new-country-source-area-level-filter]");
+  var sourceAreaPageSize = form.querySelector("[data-new-country-source-area-page-size]");
+  var sourceAreaOptionsUrl = sourceAreaTable ? sourceAreaTable.dataset.optionsUrl || "" : "";
+  var sourceAreaRequest = null;
+  var sourceAreaLevelsLoadedFor = "";
+  var sourceAreaLoaded = false;
+  var selectedSourceAreaMap = {};
+  var sourceAreaSelectionTouched = false;
+  var createdEntityPanel = form.querySelector("[data-created-entity-panel]");
+  var createdEntityTable = document.getElementById("new-country-created-entities-table");
+  var createdEntityRows = createdEntityTable ? createdEntityTable.querySelector("[data-client-page-rows]") : null;
+  var createdEntitySearch = form.querySelector("[data-new-country-created-entity-search]");
+  var createdEntityPageSize = form.querySelector("[data-new-country-created-entity-page-size]");
+  var createdEntityOptionsUrl = createdEntityTable ? createdEntityTable.dataset.optionsUrl || "" : (form.dataset.createdEntityOptionsUrl || "");
+  var createdEntityRequest = null;
+  var createdEntityLoaded = false;
+  var selectedChildConfigMap = {};
+  var createdEntitySelectionTouched = false;
+  var parentField = form.querySelector("[data-parent-config-field]");
+  var parentSelect = form.querySelector("[data-parent-config-select]");
+  var capitalSelect = form.querySelector("[data-new-country-capital-select]");
+  var capitalPicker = form.querySelector("[data-new-country-capital-picker]");
+  var capitalBadgeRail = form.querySelector("[data-new-country-capital-badges]");
+  var capitalHiddenInputs = form.querySelector("[data-new-country-capital-hidden-inputs]");
+  var capitalOptionsUrl = form.dataset.newCountryCapitalOptionsUrl || "";
+  var capitalOptionsNode = document.getElementById("new-country-capital-options");
+  var capitalValuesNode = document.getElementById("new-country-capital-values");
+  var initialSelection = parseJsonText(hidden ? hidden.value : "", {});
+  var capitalOptions = parseJsonScript(capitalOptionsNode, []);
+  var selectedCapitals = [];
+  selectedCapitals = normalizedCapitalValues(parseJsonScript(capitalValuesNode, [])).map(function (value) {
+    return { value: value, label: capitalLabelFromOptions(value, capitalOptions) };
+  });
 
-  function label(name) {
-    return tree.dataset[name] || "";
+  function parseJsonScript(node, fallback) {
+    if (!node) {
+      return fallback;
+    }
+    try {
+      return JSON.parse(node.textContent || "");
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  function parseJsonText(text, fallback) {
+    try {
+      return JSON.parse(text || "");
+    } catch (error) {
+      return fallback;
+    }
   }
 
   function currentCountry() {
     return select ? select.value : "";
   }
 
-  function clearTree(message) {
-    tree.innerHTML = "";
-    var empty = document.createElement("p");
-    empty.className = "empty";
-    empty.textContent = message || label("emptyLabel");
-    tree.appendChild(empty);
-  }
-
-  function operationFor(row) {
-    if (!selected.has(row.dataset.areaId)) {
-      return "";
-    }
-    var parent = row.parentElement.closest("[data-area-row]");
-    while (parent) {
-      if (selected.has(parent.dataset.areaId)) {
-        return "subtract";
-      }
-      parent = parent.parentElement.closest("[data-area-row]");
-    }
-    return "add";
-  }
-
-  function refreshOperations() {
-    tree.querySelectorAll("[data-area-row]").forEach(function (row) {
-      var operation = operationFor(row);
-      row.dataset.operation = operation;
-      var badge = row.querySelector("[data-operation-badge]");
-      if (badge) {
-        badge.hidden = !operation;
-        badge.textContent = operation === "subtract" ? label("subtractLabel") : label("addLabel");
-        badge.classList.toggle("subtract", operation === "subtract");
-        badge.classList.toggle("add", operation === "add");
-      }
+  function selectedSourceIds() {
+    return Object.keys(selectedSourceAreaMap).map(function (key) {
+      return selectedSourceAreaMap[key];
     });
   }
 
-  function setLoading(container) {
-    container.innerHTML = "";
-    var loading = document.createElement("p");
-    loading.className = "muted";
-    loading.textContent = label("loadingLabel");
-    container.appendChild(loading);
-  }
-
-  function renderChildren(container, children, depth) {
-    container.innerHTML = "";
-    if (!children.length) {
-      var empty = document.createElement("p");
-      empty.className = "muted";
-      empty.textContent = label("noChildrenLabel");
-      container.appendChild(empty);
+  function rememberSourceArea(value) {
+    value = String(value || "").trim();
+    if (!value) {
       return;
     }
-    children.forEach(function (child) {
-      var row = document.createElement("div");
-      row.className = "derived-tree-row";
-      row.dataset.areaRow = "1";
-      row.dataset.areaId = child.id;
-      row.dataset.depth = String(depth || 0);
+    selectedSourceAreaMap[value] = value;
+  }
 
-      var line = document.createElement("div");
-      line.className = "derived-tree-line";
-      line.style.setProperty("--depth", String(depth || 0));
+  function forgetSourceArea(value) {
+    delete selectedSourceAreaMap[String(value || "").trim()];
+  }
 
-      var checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.value = child.id;
-      checkbox.checked = selected.has(child.id);
-      checkbox.addEventListener("change", function () {
-        if (checkbox.checked) {
-          selected.add(child.id);
-        } else {
-          selected.delete(child.id);
-        }
-        refreshOperations();
+  function hydrateInitialSourceAreas() {
+    var values = initialSelection.selected_ids || [];
+    if (!Array.isArray(values)) {
+      values = [values];
+    }
+    values.forEach(rememberSourceArea);
+  }
+
+  function csrfToken() {
+    var input = form.querySelector('input[name="csrfmiddlewaretoken"]');
+    return input ? input.value : "";
+  }
+
+  function derivedSubdivisionMapKey(countryCode, subdivisionKey) {
+    return String(countryCode || "").trim().toLowerCase() + "\u0001" + String(subdivisionKey || "").trim().toUpperCase();
+  }
+
+  function encodedDerivedSubdivisionValue(countryCode, subdivisionKey) {
+    return "derived-subdivision::" + String(countryCode || "").trim().toLowerCase() + "::" + String(subdivisionKey || "").trim().toUpperCase();
+  }
+
+  function splitDerivedSubdivisionValue(value) {
+    value = String(value || "").trim();
+    if (value.indexOf("derived-subdivision::") !== 0) {
+      return { country_code: "", key: value };
+    }
+    var parts = value.split("::");
+    return {
+      country_code: String(parts[1] || "").trim().toLowerCase(),
+      key: String(parts.slice(2).join("::") || "").trim().toUpperCase()
+    };
+  }
+
+  function normalizeDerivedSubdivisionSelection(value) {
+    var countryCode = "";
+    var key = "";
+    var id = "";
+    if (value && typeof value === "object") {
+      id = String(value.id || value.value || "").trim();
+      var encoded = splitDerivedSubdivisionValue(id);
+      countryCode = String(value.country_code || value.source_country_code || encoded.country_code || currentCountry()).trim().toLowerCase();
+      key = String(value.key || value.derived_subdivision_key || value.internal_name || encoded.key || value.code || "").trim().toUpperCase();
+    } else {
+      id = String(value || "").trim();
+      var parsed = splitDerivedSubdivisionValue(id);
+      countryCode = String(parsed.country_code || currentCountry()).trim().toLowerCase();
+      key = String(parsed.key || id).trim().toUpperCase();
+    }
+    if (!countryCode || !key) {
+      return null;
+    }
+    return {
+      id: id && id.indexOf("derived-subdivision::") === 0 ? id : encodedDerivedSubdivisionValue(countryCode, key),
+      country_code: countryCode,
+      key: key
+    };
+  }
+
+  function rememberDerivedSubdivision(value) {
+    var item = normalizeDerivedSubdivisionSelection(value);
+    if (!item) {
+      return;
+    }
+    selectedDerivedSubdivisionMap[derivedSubdivisionMapKey(item.country_code, item.key)] = item;
+  }
+
+  function forgetDerivedSubdivision(countryCode, subdivisionKey) {
+    delete selectedDerivedSubdivisionMap[derivedSubdivisionMapKey(countryCode, subdivisionKey)];
+  }
+
+  function hydrateInitialDerivedSubdivisions() {
+    var values = Array.isArray(initialSelection.selected_derived_subdivisions) && initialSelection.selected_derived_subdivisions.length
+      ? initialSelection.selected_derived_subdivisions
+      : (initialSelection.selected_subdivision_keys || []);
+    if (!Array.isArray(values)) {
+      values = [values];
+    }
+    values.forEach(rememberDerivedSubdivision);
+  }
+
+  function selectedSubdivisionKeys() {
+    return Object.keys(selectedDerivedSubdivisionMap).map(function (key) {
+      return selectedDerivedSubdivisionMap[key].id;
+    });
+  }
+
+  function selectedDerivedSubdivisions() {
+    return Object.keys(selectedDerivedSubdivisionMap).map(function (key) {
+      var item = selectedDerivedSubdivisionMap[key];
+      return {
+        id: item.id,
+        country_code: item.country_code,
+        key: item.key
+      };
+    });
+  }
+
+  function normalizeCreatedEntitySlug(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function rememberCreatedEntity(value) {
+    var slug = normalizeCreatedEntitySlug(value);
+    if (!slug) {
+      return;
+    }
+    selectedChildConfigMap[slug] = slug;
+  }
+
+  function forgetCreatedEntity(value) {
+    delete selectedChildConfigMap[normalizeCreatedEntitySlug(value)];
+  }
+
+  function hydrateInitialCreatedEntities() {
+    var values = initialSelection.selected_child_config_slugs || initialSelection.selected_config_slugs || [];
+    if (!Array.isArray(values)) {
+      values = [values];
+    }
+    values.forEach(rememberCreatedEntity);
+  }
+
+  function selectedChildConfigSlugs() {
+    if (createdEntityRows) {
+      Array.from(createdEntityRows.querySelectorAll("[data-created-entity-option]:checked")).forEach(function (checkbox) {
+        rememberCreatedEntity(checkbox.value);
       });
-      line.appendChild(checkbox);
+    }
+    return Object.keys(selectedChildConfigMap).map(function (key) {
+      return selectedChildConfigMap[key];
+    });
+  }
 
-      var text = document.createElement("span");
-      text.className = "derived-tree-label";
-      text.textContent = child.label || child.name || child.id;
-      line.appendChild(text);
+  function normalizedCapitalValues(values) {
+    if (values == null || values === "") {
+      return [];
+    }
+    if (!Array.isArray(values)) {
+      values = [values];
+    }
+    var seen = {};
+    return values.map(function (value) {
+      return String(value || "").trim();
+    }).filter(function (value) {
+      if (!value || seen[value]) {
+        return false;
+      }
+      seen[value] = true;
+      return true;
+    });
+  }
 
-      var meta = document.createElement("span");
-      meta.className = "derived-tree-meta";
-      meta.textContent = "L" + child.level + (child.entity_type ? " · " + child.entity_type : "");
-      line.appendChild(meta);
+  function selectedCapitalValues() {
+    return selectedCapitals.map(function (capital) {
+      return capital.value;
+    });
+  }
+
+  function capitalLabelFromOptions(value, options) {
+    var found = (options || []).find(function (option) {
+      return String(option.value || "") === String(value || "");
+    });
+    if (found) {
+      return found.label || found.name || found.value || value;
+    }
+    found = (selectedCapitals || []).find(function (capital) {
+      return String(capital.value || "") === String(value || "");
+    });
+    return found ? found.label : value;
+  }
+
+  function setSelectedCapitals(values, options) {
+    selectedCapitals = normalizedCapitalValues(values).map(function (value) {
+      return { value: value, label: capitalLabelFromOptions(value, options) };
+    });
+    renderCapitalBadges();
+  }
+
+  function addSelectedCapital(value, label) {
+    value = String(value || "").trim();
+    if (!value || selectedCapitalValues().indexOf(value) !== -1) {
+      return;
+    }
+    selectedCapitals.push({ value: value, label: label || value });
+    renderCapitalBadges();
+  }
+
+  function removeSelectedCapital(value) {
+    value = String(value || "");
+    selectedCapitals = selectedCapitals.filter(function (capital) {
+      return capital.value !== value;
+    });
+    renderCapitalBadges();
+    refreshCapitalOptions("");
+  }
+
+  function renderCapitalBadges() {
+    if (!capitalBadgeRail || !capitalHiddenInputs) {
+      return;
+    }
+    capitalBadgeRail.innerHTML = "";
+    capitalHiddenInputs.innerHTML = "";
+    if (!selectedCapitals.length) {
+      var empty = document.createElement("span");
+      empty.className = "derived-capital-empty";
+      empty.textContent = capitalPicker ? capitalPicker.dataset.emptyLabel || "" : "";
+      capitalBadgeRail.appendChild(empty);
+      return;
+    }
+    selectedCapitals.forEach(function (capital) {
+      var input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "capitals";
+      input.value = capital.value;
+      capitalHiddenInputs.appendChild(input);
 
       var badge = document.createElement("span");
-      badge.className = "operation-badge";
-      badge.dataset.operationBadge = "1";
-      badge.hidden = true;
-      line.appendChild(badge);
-
-      if (child.has_children) {
-        var toggle = document.createElement("button");
-        toggle.type = "button";
-        toggle.className = "mini-button";
-        toggle.textContent = label("loadChildrenLabel");
-        toggle.addEventListener("click", function () {
-          var childContainer = row.querySelector("[data-child-container]");
-          if (row.dataset.loaded === "1") {
-            var collapsed = childContainer.hidden;
-            childContainer.hidden = !collapsed;
-            toggle.textContent = collapsed ? label("hideChildrenLabel") : label("loadChildrenLabel");
-            return;
-          }
-          childContainer.hidden = false;
-          toggle.textContent = label("hideChildrenLabel");
-          loadChildren(childContainer, child.id, (depth || 0) + 1);
-          row.dataset.loaded = "1";
-        });
-        line.appendChild(toggle);
-      }
-
-      row.appendChild(line);
-      var childContainer = document.createElement("div");
-      childContainer.className = "derived-tree-children";
-      childContainer.dataset.childContainer = "1";
-      childContainer.hidden = true;
-      row.appendChild(childContainer);
-      container.appendChild(row);
+      badge.className = "derived-capital-badge";
+      badge.title = capital.label;
+      var label = document.createElement("span");
+      label.className = "derived-capital-badge-label";
+      label.textContent = capital.label;
+      var remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "derived-capital-badge-remove";
+      remove.textContent = "x";
+      remove.setAttribute("aria-label", (capitalPicker ? capitalPicker.dataset.removeLabel || "" : "") + " " + capital.label);
+      remove.addEventListener("click", function () {
+        removeSelectedCapital(capital.value);
+      });
+      badge.appendChild(label);
+      badge.appendChild(remove);
+      capitalBadgeRail.appendChild(badge);
     });
-    refreshOperations();
   }
 
-  function loadChildren(container, parentId, depth) {
-    var country = currentCountry();
-    if (!country) {
-      clearTree(label("emptyLabel"));
+  function renderCapitalOptions(options, selectedValues) {
+    if (!capitalSelect) {
       return;
     }
-    setLoading(container);
-    var url = new URL(tree.dataset.childrenUrl, window.location.origin);
-    url.searchParams.set("country_code", country);
-    if (parentId) {
-      url.searchParams.set("parent_id", parentId);
+    var selected = selectedValues == null ? selectedCapitalValues() : normalizedCapitalValues(selectedValues);
+    capitalSelect.innerHTML = '<option></option>';
+    var available = selected.reduce(function (acc, value) {
+      acc[value] = true;
+      return acc;
+    }, {});
+    (options || []).forEach(function (option) {
+      var node = document.createElement("option");
+      node.value = option.value || "";
+      node.textContent = option.label || option.name || option.value || "";
+      if (node.value) {
+        available[node.value] = true;
+      }
+      capitalSelect.appendChild(node);
+    });
+    selected = selected.filter(function (value) {
+      return available[value];
+    });
+    setSelectedCapitals(selected, options || []);
+    initCapitalSelect2(capitalSelect);
+    if (window.jQuery && window.jQuery.fn && window.jQuery.fn.select2) {
+      try {
+        window.jQuery(capitalSelect).val(null).trigger("change.select2");
+      } catch (error) {}
     }
-    window.fetch(url.toString(), { headers: { "Accept": "application/json" } })
-      .then(function (response) {
-        if (!response.ok) {
-          throw new Error("load failed");
+  }
+
+  function derivedSubdivisionCurrentPageSize() {
+    var raw = derivedSubdivisionPageSize ? derivedSubdivisionPageSize.value : "";
+    var value = parseInt(raw || (derivedSubdivisionTable ? derivedSubdivisionTable.dataset.pageSize || "20" : "20"), 10);
+    return Number.isFinite(value) && value > 0 ? Math.min(value, 100) : 20;
+  }
+
+  function setDerivedSubdivisionTableMessage(message) {
+    if (!derivedSubdivisionRows) {
+      return;
+    }
+    derivedSubdivisionRows.innerHTML = "";
+    var row = document.createElement("tr");
+    row.setAttribute("data-client-empty", "");
+    var cell = document.createElement("td");
+    cell.colSpan = 7;
+    cell.textContent = message || (derivedSubdivisionTable ? derivedSubdivisionTable.dataset.emptyLabel || "" : "");
+    row.appendChild(cell);
+    derivedSubdivisionRows.appendChild(row);
+    renderDerivedSubdivisionPagination({ page: 1, num_pages: 1, total: 0, page_size: derivedSubdivisionCurrentPageSize() });
+  }
+
+  function appendTextCell(row, text, className) {
+    var cell = document.createElement("td");
+    if (className) {
+      cell.className = className;
+    }
+    cell.textContent = text || "";
+    row.appendChild(cell);
+    return cell;
+  }
+
+  function renderDerivedSubdivisionRows(options) {
+    if (!derivedSubdivisionRows) {
+      return;
+    }
+    derivedSubdivisionRows.innerHTML = "";
+    if (!options || !options.length) {
+      setDerivedSubdivisionTableMessage(derivedSubdivisionTable ? derivedSubdivisionTable.dataset.emptyLabel || "" : "");
+      return;
+    }
+    options.forEach(function (option) {
+      var visibleName = option.selection_name || option.name || "";
+      var row = document.createElement("tr");
+      row.setAttribute("data-client-row", "");
+
+      var selectCell = document.createElement("td");
+      var checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = option.value || encodedDerivedSubdivisionValue(option.country_code, option.key);
+      checkbox.dataset.derivedSubdivisionOption = "";
+      checkbox.dataset.countryCode = option.country_code || "";
+      checkbox.dataset.subdivisionKey = option.key || "";
+      checkbox.setAttribute("aria-label", "Seleccionar " + visibleName + " " + (option.country_label || ""));
+      checkbox.checked = Boolean(selectedDerivedSubdivisionMap[derivedSubdivisionMapKey(option.country_code, option.key)]);
+      selectCell.appendChild(checkbox);
+      row.appendChild(selectCell);
+
+      var nameCell = document.createElement("td");
+      nameCell.textContent = visibleName;
+      row.appendChild(nameCell);
+      appendTextCell(row, option.country_label || option.country_code || "");
+      appendTextCell(row, option.type_text || "");
+      appendTextCell(row, option.area_text || "", "numeric");
+      appendTextCell(row, option.population_text || "", "numeric");
+      appendTextCell(row, option.density_text || "", "numeric");
+      derivedSubdivisionRows.appendChild(row);
+    });
+  }
+
+  function derivedSubdivisionPaginationPages(page, pageCount) {
+    var pages = [];
+    if (pageCount <= 7) {
+      for (var index = 1; index <= pageCount; index += 1) {
+        pages.push(index);
+      }
+      return pages;
+    }
+    pages.push(1);
+    if (page > 4) {
+      pages.push("ellipsis");
+    }
+    var start = Math.max(2, page - 1);
+    var end = Math.min(pageCount - 1, page + 1);
+    for (var middle = start; middle <= end; middle += 1) {
+      pages.push(middle);
+    }
+    if (page < pageCount - 3) {
+      pages.push("ellipsis");
+    }
+    pages.push(pageCount);
+    return pages;
+  }
+
+  function renderDerivedSubdivisionPagination(payload) {
+    if (!derivedSubdivisionTable) {
+      return;
+    }
+    var navs = Array.from(derivedSubdivisionTable.querySelectorAll("[data-new-country-derived-subdivision-pagination]"));
+    var page = parseInt(payload && payload.page || "1", 10) || 1;
+    var pageCount = parseInt(payload && payload.num_pages || "1", 10) || 1;
+    var total = parseInt(payload && payload.total || "0", 10) || 0;
+    var pageSize = parseInt(payload && payload.page_size || derivedSubdivisionCurrentPageSize(), 10) || 20;
+    navs.forEach(function (nav) {
+      nav.innerHTML = "";
+      nav.hidden = nav.classList.contains("group-table-pagination-foot") && total <= pageSize;
+      if (nav.hidden) {
+        return;
+      }
+      var previous = document.createElement("button");
+      previous.type = "button";
+      previous.textContent = "<";
+      previous.title = "Anterior";
+      previous.setAttribute("aria-label", "Anterior");
+      previous.disabled = page <= 1;
+      previous.addEventListener("click", function () {
+        loadDerivedSubdivisionOptions(page - 1);
+      });
+      nav.appendChild(previous);
+
+      derivedSubdivisionPaginationPages(page, pageCount).forEach(function (entry) {
+        if (entry === "ellipsis") {
+          var ellipsis = document.createElement("span");
+          ellipsis.className = "client-page-ellipsis";
+          ellipsis.textContent = "...";
+          ellipsis.setAttribute("aria-hidden", "true");
+          nav.appendChild(ellipsis);
+          return;
         }
-        return response.json();
+        var button = document.createElement("button");
+        button.type = "button";
+        button.textContent = String(entry);
+        button.title = "Pagina " + entry;
+        button.setAttribute("aria-label", "Pagina " + entry);
+        if (entry === page) {
+          button.classList.add("is-current");
+          button.setAttribute("aria-current", "page");
+          button.disabled = true;
+        }
+        button.addEventListener("click", function () {
+          loadDerivedSubdivisionOptions(entry);
+        });
+        nav.appendChild(button);
+      });
+
+      var next = document.createElement("button");
+      next.type = "button";
+      next.textContent = ">";
+      next.title = "Siguiente";
+      next.setAttribute("aria-label", "Siguiente");
+      next.disabled = page >= pageCount;
+      next.addEventListener("click", function () {
+        loadDerivedSubdivisionOptions(page + 1);
+      });
+      nav.appendChild(next);
+    });
+  }
+
+  function createdEntityCurrentPageSize() {
+    var raw = createdEntityPageSize ? createdEntityPageSize.value : "";
+    var value = parseInt(raw || (createdEntityTable ? createdEntityTable.dataset.pageSize || "20" : "20"), 10);
+    return Number.isFinite(value) && value > 0 ? Math.min(value, 100) : 20;
+  }
+
+  function setCreatedEntityTableMessage(message) {
+    if (!createdEntityRows) {
+      return;
+    }
+    createdEntityRows.innerHTML = "";
+    var row = document.createElement("tr");
+    row.setAttribute("data-client-empty", "");
+    var cell = document.createElement("td");
+    cell.colSpan = 7;
+    cell.textContent = message || (createdEntityTable ? createdEntityTable.dataset.emptyLabel || "" : "");
+    row.appendChild(cell);
+    createdEntityRows.appendChild(row);
+    renderCreatedEntityPagination({ page: 1, num_pages: 1, total: 0, page_size: createdEntityCurrentPageSize() });
+  }
+
+  function renderCreatedEntityRows(options) {
+    if (!createdEntityRows) {
+      return;
+    }
+    createdEntityRows.innerHTML = "";
+    if (!options || !options.length) {
+      setCreatedEntityTableMessage(createdEntityTable ? createdEntityTable.dataset.emptyLabel || "" : "");
+      return;
+    }
+    options.forEach(function (option) {
+      var slug = normalizeCreatedEntitySlug(option.slug || option.value);
+      var row = document.createElement("tr");
+      row.setAttribute("data-client-row", "");
+
+      var selectCell = document.createElement("td");
+      var checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = slug;
+      checkbox.dataset.createdEntityOption = "";
+      checkbox.setAttribute("aria-label", "Seleccionar " + (option.name || ""));
+      checkbox.checked = Boolean(selectedChildConfigMap[slug]);
+      selectCell.appendChild(checkbox);
+      row.appendChild(selectCell);
+
+      appendTextCell(row, option.name || "");
+      appendTextCell(row, option.level || "");
+      appendTextCell(row, option.type_text || "");
+      appendTextCell(row, option.area_text || "", "numeric");
+      appendTextCell(row, option.population_text || "", "numeric");
+      appendTextCell(row, option.density_text || "", "numeric");
+      createdEntityRows.appendChild(row);
+    });
+  }
+
+  function renderCreatedEntityPagination(payload) {
+    if (!createdEntityTable) {
+      return;
+    }
+    var navs = Array.from(createdEntityTable.querySelectorAll("[data-new-country-created-entity-pagination]"));
+    var page = parseInt(payload && payload.page || "1", 10) || 1;
+    var pageCount = parseInt(payload && payload.num_pages || "1", 10) || 1;
+    var total = parseInt(payload && payload.total || "0", 10) || 0;
+    var pageSize = parseInt(payload && payload.page_size || createdEntityCurrentPageSize(), 10) || 20;
+    navs.forEach(function (nav) {
+      nav.innerHTML = "";
+      nav.hidden = total <= pageSize;
+      if (nav.hidden) {
+        return;
+      }
+      var previous = document.createElement("button");
+      previous.type = "button";
+      previous.textContent = "<";
+      previous.title = "Anterior";
+      previous.setAttribute("aria-label", "Anterior");
+      previous.disabled = page <= 1;
+      previous.addEventListener("click", function () {
+        loadCreatedEntityOptions(page - 1);
+      });
+      nav.appendChild(previous);
+
+      derivedSubdivisionPaginationPages(page, pageCount).forEach(function (entry) {
+        if (entry === "ellipsis") {
+          var ellipsis = document.createElement("span");
+          ellipsis.className = "client-page-ellipsis";
+          ellipsis.textContent = "...";
+          ellipsis.setAttribute("aria-hidden", "true");
+          nav.appendChild(ellipsis);
+          return;
+        }
+        var button = document.createElement("button");
+        button.type = "button";
+        button.textContent = String(entry);
+        button.title = "Pagina " + entry;
+        button.setAttribute("aria-label", "Pagina " + entry);
+        if (entry === page) {
+          button.classList.add("is-current");
+          button.setAttribute("aria-current", "page");
+          button.disabled = true;
+        }
+        button.addEventListener("click", function () {
+          loadCreatedEntityOptions(entry);
+        });
+        nav.appendChild(button);
+      });
+
+      var next = document.createElement("button");
+      next.type = "button";
+      next.textContent = ">";
+      next.title = "Siguiente";
+      next.setAttribute("aria-label", "Siguiente");
+      next.disabled = page >= pageCount;
+      next.addEventListener("click", function () {
+        loadCreatedEntityOptions(page + 1);
+      });
+      nav.appendChild(next);
+    });
+  }
+
+  function loadCreatedEntityOptions(page) {
+    if (!createdEntityOptionsUrl || !createdEntityRows) {
+      return;
+    }
+    page = parseInt(page || "1", 10) || 1;
+    var params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("page_size", String(createdEntityCurrentPageSize()));
+    if (createdEntitySearch && createdEntitySearch.value.trim()) {
+      params.set("q", createdEntitySearch.value.trim());
+    }
+    if (createdEntityRequest) {
+      createdEntityRequest.abort();
+    }
+    createdEntityRequest = window.AbortController ? new AbortController() : null;
+    setCreatedEntityTableMessage(createdEntityTable ? createdEntityTable.dataset.loadingLabel || "" : "");
+    fetch(createdEntityOptionsUrl + "?" + params.toString(), {
+      headers: { "Accept": "application/json" },
+      signal: createdEntityRequest ? createdEntityRequest.signal : undefined
+    })
+      .then(function (response) {
+        return response.json().then(function (payload) {
+          if (!response.ok || !payload.ok) {
+            throw new Error(payload.error || "Error");
+          }
+          renderCreatedEntityRows(payload.results || []);
+          renderCreatedEntityPagination(payload);
+          createdEntityLoaded = true;
+        });
       })
-      .then(function (data) {
-        renderChildren(container, Array.isArray(data.children) ? data.children : [], depth || 0);
-      })
-      .catch(function () {
-        clearTree(label("errorLabel"));
+      .catch(function (error) {
+        if (error && error.name === "AbortError") {
+          return;
+        }
+        setCreatedEntityTableMessage(createdEntityTable ? createdEntityTable.dataset.errorLabel || "" : "");
       });
   }
 
-  if (select) {
-    select.addEventListener("change", function () {
-      selected.clear();
-      loadChildren(tree, "", 0);
+  function ensureCreatedEntityOptionsLoaded() {
+    if (!createdEntityLoaded) {
+      loadCreatedEntityOptions(1);
+    }
+  }
+
+  function loadDerivedSubdivisionOptions(page) {
+    if (!derivedSubdivisionOptionsUrl || !derivedSubdivisionRows) {
+      return;
+    }
+    page = parseInt(page || "1", 10) || 1;
+    var params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("page_size", String(derivedSubdivisionCurrentPageSize()));
+    if (derivedSubdivisionSearch && derivedSubdivisionSearch.value.trim()) {
+      params.set("q", derivedSubdivisionSearch.value.trim());
+    }
+    if (derivedSubdivisionCountryFilter && derivedSubdivisionCountryFilter.value) {
+      params.set("country", derivedSubdivisionCountryFilter.value);
+    }
+    if (derivedSubdivisionRequest) {
+      derivedSubdivisionRequest.abort();
+    }
+    derivedSubdivisionRequest = window.AbortController ? new AbortController() : null;
+    setDerivedSubdivisionTableMessage(derivedSubdivisionTable ? derivedSubdivisionTable.dataset.loadingLabel || "" : "");
+    fetch(derivedSubdivisionOptionsUrl + "?" + params.toString(), {
+      credentials: "same-origin",
+      signal: derivedSubdivisionRequest ? derivedSubdivisionRequest.signal : undefined,
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    })
+      .then(function (response) {
+        return response.json().then(function (payload) {
+          if (!response.ok || !payload.ok) {
+            throw new Error(payload.error || "Error");
+          }
+          return payload;
+        });
+      })
+      .then(function (payload) {
+        derivedSubdivisionLoaded = true;
+        renderDerivedSubdivisionRows(payload.results || []);
+        renderDerivedSubdivisionPagination(payload);
+      })
+      .catch(function (error) {
+        if (error && error.name === "AbortError") {
+          return;
+        }
+        setDerivedSubdivisionTableMessage(derivedSubdivisionTable ? derivedSubdivisionTable.dataset.errorLabel || "" : "");
+      });
+  }
+
+  function ensureDerivedSubdivisionOptionsLoaded() {
+    if (!derivedSubdivisionLoaded) {
+      loadDerivedSubdivisionOptions(1);
+    }
+  }
+
+  function sourceAreaCurrentPageSize() {
+    var raw = sourceAreaPageSize ? sourceAreaPageSize.value : "";
+    var value = parseInt(raw || (sourceAreaTable ? sourceAreaTable.dataset.pageSize || "20" : "20"), 10);
+    return Number.isFinite(value) && value > 0 ? Math.min(value, 100) : 20;
+  }
+
+  function sourceAreaCurrentCountry() {
+    return sourceAreaCountryFilter ? sourceAreaCountryFilter.value : currentCountry();
+  }
+
+  function setSourceAreaTableMessage(message) {
+    if (!sourceAreaRows) {
+      return;
+    }
+    sourceAreaRows.innerHTML = "";
+    var row = document.createElement("tr");
+    row.setAttribute("data-client-empty", "");
+    var cell = document.createElement("td");
+    cell.colSpan = 6;
+    cell.textContent = message || (sourceAreaTable ? sourceAreaTable.dataset.emptyLabel || "" : "");
+    row.appendChild(cell);
+    sourceAreaRows.appendChild(row);
+    renderSourceAreaPagination({ page: 1, num_pages: 1, total: 0, page_size: sourceAreaCurrentPageSize() });
+  }
+
+  function populateSourceAreaLevels(levels, selectedLevel) {
+    if (!sourceAreaLevelFilter) {
+      return;
+    }
+    var previous = selectedLevel == null ? sourceAreaLevelFilter.value : String(selectedLevel || "");
+    sourceAreaLevelFilter.innerHTML = "";
+    var empty = document.createElement("option");
+    empty.value = "";
+    empty.textContent = sourceAreaTable ? sourceAreaTable.dataset.levelRequiredLabel || "" : "";
+    sourceAreaLevelFilter.appendChild(empty);
+    var hasPrevious = false;
+    (levels || []).forEach(function (level) {
+      var option = document.createElement("option");
+      option.value = String(level.value || "");
+      option.textContent = level.label || level.value || "";
+      if (option.value === previous) {
+        hasPrevious = true;
+      }
+      sourceAreaLevelFilter.appendChild(option);
+    });
+    sourceAreaLevelFilter.value = hasPrevious ? previous : "";
+  }
+
+  function renderSourceAreaRows(options) {
+    if (!sourceAreaRows) {
+      return;
+    }
+    sourceAreaRows.innerHTML = "";
+    if (!options || !options.length) {
+      setSourceAreaTableMessage(sourceAreaTable ? sourceAreaTable.dataset.emptyLabel || "" : "");
+      return;
+    }
+    options.forEach(function (option) {
+      var row = document.createElement("tr");
+      row.setAttribute("data-client-row", "");
+
+      var selectCell = document.createElement("td");
+      var checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = option.value || option.id || "";
+      checkbox.dataset.newCountrySourceAreaOption = "";
+      checkbox.setAttribute("aria-label", "Seleccionar " + (option.name || ""));
+      checkbox.checked = Boolean(selectedSourceAreaMap[checkbox.value]);
+      selectCell.appendChild(checkbox);
+      row.appendChild(selectCell);
+
+      appendTextCell(row, option.name || "");
+      appendTextCell(row, option.country_label || option.country_code || "");
+      appendTextCell(row, option.level || "");
+      appendTextCell(row, option.type_text || "");
+      appendTextCell(row, option.code || "");
+      sourceAreaRows.appendChild(row);
+    });
+  }
+
+  function renderSourceAreaPagination(payload) {
+    if (!sourceAreaTable) {
+      return;
+    }
+    var navs = Array.from(sourceAreaTable.querySelectorAll("[data-new-country-source-area-pagination]"));
+    var page = parseInt(payload && payload.page || "1", 10) || 1;
+    var pageCount = parseInt(payload && payload.num_pages || "1", 10) || 1;
+    var total = parseInt(payload && payload.total || "0", 10) || 0;
+    var pageSize = parseInt(payload && payload.page_size || sourceAreaCurrentPageSize(), 10) || 20;
+    navs.forEach(function (nav) {
+      nav.innerHTML = "";
+      nav.hidden = nav.classList.contains("group-table-pagination-foot") && total <= pageSize;
+      if (nav.hidden) {
+        return;
+      }
+      var previous = document.createElement("button");
+      previous.type = "button";
+      previous.textContent = "<";
+      previous.title = "Anterior";
+      previous.setAttribute("aria-label", "Anterior");
+      previous.disabled = page <= 1;
+      previous.addEventListener("click", function () {
+        loadSourceAreaOptions(page - 1);
+      });
+      nav.appendChild(previous);
+
+      derivedSubdivisionPaginationPages(page, pageCount).forEach(function (entry) {
+        if (entry === "ellipsis") {
+          var ellipsis = document.createElement("span");
+          ellipsis.className = "client-page-ellipsis";
+          ellipsis.textContent = "...";
+          ellipsis.setAttribute("aria-hidden", "true");
+          nav.appendChild(ellipsis);
+          return;
+        }
+        var button = document.createElement("button");
+        button.type = "button";
+        button.textContent = String(entry);
+        button.title = "Pagina " + entry;
+        button.setAttribute("aria-label", "Pagina " + entry);
+        if (entry === page) {
+          button.classList.add("is-current");
+          button.setAttribute("aria-current", "page");
+          button.disabled = true;
+        }
+        button.addEventListener("click", function () {
+          loadSourceAreaOptions(entry);
+        });
+        nav.appendChild(button);
+      });
+
+      var next = document.createElement("button");
+      next.type = "button";
+      next.textContent = ">";
+      next.title = "Siguiente";
+      next.setAttribute("aria-label", "Siguiente");
+      next.disabled = page >= pageCount;
+      next.addEventListener("click", function () {
+        loadSourceAreaOptions(page + 1);
+      });
+      nav.appendChild(next);
+    });
+  }
+
+  function loadSourceAreaOptions(page) {
+    if (!sourceAreaOptionsUrl || !sourceAreaRows) {
+      return;
+    }
+    page = parseInt(page || "1", 10) || 1;
+    var country = sourceAreaCurrentCountry();
+    var level = sourceAreaLevelFilter ? sourceAreaLevelFilter.value : "";
+    if (!country) {
+      populateSourceAreaLevels([], "");
+      setSourceAreaTableMessage(sourceAreaTable ? sourceAreaTable.dataset.countryRequiredLabel || "" : "");
+      sourceAreaLoaded = false;
+      return;
+    }
+    var params = new URLSearchParams();
+    params.set("country", country);
+    params.set("page", String(page));
+    params.set("page_size", String(sourceAreaCurrentPageSize()));
+    if (level) {
+      params.set("level", level);
+    } else {
+      params.set("levels_only", "1");
+    }
+    if (level && sourceAreaSearch && sourceAreaSearch.value.trim()) {
+      params.set("q", sourceAreaSearch.value.trim());
+    }
+    if (sourceAreaRequest) {
+      sourceAreaRequest.abort();
+    }
+    sourceAreaRequest = window.AbortController ? new AbortController() : null;
+    setSourceAreaTableMessage(level ? (sourceAreaTable ? sourceAreaTable.dataset.loadingLabel || "" : "") : (sourceAreaTable ? sourceAreaTable.dataset.levelRequiredLabel || "" : ""));
+    fetch(sourceAreaOptionsUrl + "?" + params.toString(), {
+      credentials: "same-origin",
+      signal: sourceAreaRequest ? sourceAreaRequest.signal : undefined,
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    })
+      .then(function (response) {
+        return response.json().then(function (payload) {
+          if (!response.ok || !payload.ok) {
+            throw new Error(payload.error || "Error");
+          }
+          return payload;
+        });
+      })
+      .then(function (payload) {
+        populateSourceAreaLevels(payload.levels || [], level);
+        sourceAreaLevelsLoadedFor = country;
+        if (!level) {
+          sourceAreaLoaded = false;
+          setSourceAreaTableMessage(sourceAreaTable ? sourceAreaTable.dataset.levelRequiredLabel || "" : "");
+          return;
+        }
+        sourceAreaLoaded = true;
+        renderSourceAreaRows(payload.results || []);
+        renderSourceAreaPagination(payload);
+      })
+      .catch(function (error) {
+        if (error && error.name === "AbortError") {
+          return;
+        }
+        setSourceAreaTableMessage(sourceAreaTable ? sourceAreaTable.dataset.errorLabel || "" : "");
+      });
+  }
+
+  function ensureSourceAreaOptionsLoaded() {
+    var country = sourceAreaCurrentCountry();
+    var level = sourceAreaLevelFilter ? sourceAreaLevelFilter.value : "";
+    if (!country || sourceAreaLevelsLoadedFor !== country || (level && !sourceAreaLoaded)) {
+      loadSourceAreaOptions(1);
+    }
+  }
+
+  function refreshDerivedSubdivisionCountryFilterSelect2() {
+    if (
+      derivedSubdivisionCountryFilter &&
+      window.CiudadesSelect2 &&
+      typeof window.CiudadesSelect2.refresh === "function"
+    ) {
+      window.CiudadesSelect2.refresh(derivedSubdivisionCountryFilter);
+    }
+  }
+
+  function refreshSourceAreaCountryFilterSelect2() {
+    if (
+      sourceAreaCountryFilter &&
+      window.CiudadesSelect2 &&
+      typeof window.CiudadesSelect2.refresh === "function"
+    ) {
+      window.CiudadesSelect2.refresh(sourceAreaCountryFilter);
+    }
+  }
+
+  function postCapitalOptions(query, onSuccess, onFailure, controller) {
+    if (!capitalOptionsUrl) {
+      onSuccess({ ok: true, capital_options: [], capitals: selectedCapitalValues() });
+      return;
+    }
+    var selected = selectedCapitalValues();
+    fetch(capitalOptionsUrl, {
+      method: "POST",
+      credentials: "same-origin",
+      signal: controller ? controller.signal : undefined,
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrfToken(),
+        "X-Requested-With": "XMLHttpRequest"
+      },
+      body: JSON.stringify({
+        source_country_code: currentCountry(),
+        selected_ids: selectedSourceIds(),
+        selected_subdivision_keys: selectedSubdivisionKeys(),
+        selected_derived_subdivisions: selectedDerivedSubdivisions(),
+        selected_child_config_slugs: selectedChildConfigSlugs(),
+        source_selection_touched: sourceAreaSelectionTouched,
+        derived_subdivision_selection_touched: derivedSubdivisionSelectionTouched,
+        child_config_selection_touched: createdEntitySelectionTouched,
+        use_subdivisions: !!(useSubdivisions && useSubdivisions.checked),
+        capitals: selected,
+        capital: selected[0] || "",
+        query: query || ""
+      })
+    })
+      .then(function (response) {
+        return response.json().then(function (payload) {
+          if (!response.ok || !payload.ok) {
+            throw new Error(payload.error || "Error");
+          }
+          return payload;
+        });
+      })
+      .then(onSuccess)
+      .catch(function (error) {
+        if (error && error.name === "AbortError") {
+          return;
+        }
+        if (onFailure) {
+          onFailure(error);
+        }
+      });
+  }
+
+  function refreshCapitalOptions(query) {
+    postCapitalOptions(query || "", function (payload) {
+      renderCapitalOptions(payload.capital_options || [], payload.capitals || selectedCapitalValues());
+    });
+  }
+
+  function initCapitalSelect2(selectNode) {
+    if (!selectNode || !window.jQuery || !window.jQuery.fn || !window.jQuery.fn.select2) {
+      return;
+    }
+    var node = window.jQuery(selectNode);
+    try {
+      if (node.data("select2")) {
+        node.select2("destroy");
+      } else if (selectNode.nextElementSibling && selectNode.nextElementSibling.classList.contains("select2-container")) {
+        selectNode.nextElementSibling.remove();
+        selectNode.classList.remove("select2-hidden-accessible");
+        selectNode.removeAttribute("aria-hidden");
+        selectNode.removeAttribute("tabindex");
+      }
+      node.select2({
+        width: "100%",
+        placeholder: node.data("placeholder") || "",
+        allowClear: true,
+        minimumInputLength: 2,
+        ajax: {
+          delay: 250,
+          data: function (params) {
+            return { term: params.term || "" };
+          },
+          transport: function (params, success, failure) {
+            var term = params && params.data ? params.data.term || "" : "";
+            var controller = window.AbortController ? new AbortController() : null;
+            postCapitalOptions(term, success, failure, controller);
+            return {
+              abort: function () {
+                if (controller) {
+                  controller.abort();
+                }
+              }
+            };
+          },
+          processResults: function (payload) {
+            var selected = selectedCapitalValues().reduce(function (acc, value) {
+              acc[value] = true;
+              return acc;
+            }, {});
+            return {
+              results: (payload.capital_options || []).map(function (option) {
+                return {
+                  id: option.value || "",
+                  text: option.label || option.name || option.value || ""
+                };
+              }).filter(function (option) {
+                return option.id && !selected[option.id];
+              })
+            };
+          }
+        },
+        language: {
+          inputTooShort: function () { return selectNode.dataset.inputTooShortLabel || ""; },
+          noResults: function () { return selectNode.dataset.noResultsLabel || ""; },
+          searching: function () { return selectNode.dataset.searchingLabel || ""; }
+        },
+        dropdownCssClass: "select2-dropdown-search-visible"
+      });
+      node.off("select2:open.newCountryCapitalSearch").on("select2:open.newCountryCapitalSearch", function () {
+        window.setTimeout(function () {
+          var search = document.querySelector(".select2-container--open .select2-search__field");
+          if (search) {
+            search.placeholder = node.data("placeholder") || "";
+            search.focus();
+          }
+        }, 0);
+      });
+      node.off("select2:select.newCountryCapitalPick").on("select2:select.newCountryCapitalPick", function (event) {
+        var data = event.params && event.params.data ? event.params.data : {};
+        addSelectedCapital(data.id, data.text);
+        node.val(null).trigger("change.select2");
+      });
+      node.trigger("change.select2");
+    } catch (error) {}
+  }
+
+  function refreshMode() {
+    var enabled = !!(useSubdivisions && useSubdivisions.checked);
+    if (derivedSubdivisionPanel) {
+      derivedSubdivisionPanel.hidden = !enabled;
+      if (enabled) {
+        refreshDerivedSubdivisionCountryFilterSelect2();
+        ensureDerivedSubdivisionOptionsLoaded();
+      }
+    }
+    if (sourceAreaPanel) {
+      sourceAreaPanel.hidden = !enabled;
+      if (enabled) {
+        refreshSourceAreaCountryFilterSelect2();
+        ensureSourceAreaOptionsLoaded();
+      }
+    }
+    if (createdEntityPanel) {
+      createdEntityPanel.hidden = enabled;
+      if (!enabled) {
+        ensureCreatedEntityOptionsLoaded();
+      }
+    }
+    if (parentField) {
+      parentField.hidden = true;
+    }
+  }
+
+  hydrateInitialSourceAreas();
+  hydrateInitialDerivedSubdivisions();
+  hydrateInitialCreatedEntities();
+
+  if (useSubdivisions) {
+    useSubdivisions.addEventListener("change", function () {
+      refreshMode();
+      refreshCapitalOptions("");
+    });
+  }
+  if (capitalSelect) {
+    capitalSelect.addEventListener("change", function () {
+      var value = capitalSelect.value || "";
+      if (!value) {
+        return;
+      }
+      var option = capitalSelect.selectedOptions.length ? capitalSelect.selectedOptions[0] : null;
+      addSelectedCapital(value, option ? option.textContent : value);
+      capitalSelect.value = "";
+    });
+  }
+  if (derivedSubdivisionRows) {
+    derivedSubdivisionRows.addEventListener("change", function (event) {
+      var checkbox = event.target && event.target.closest ? event.target.closest("[data-derived-subdivision-option]") : null;
+      if (!checkbox) {
+        return;
+      }
+      var item = {
+        id: checkbox.value,
+        country_code: checkbox.dataset.countryCode || currentCountry(),
+        key: checkbox.dataset.subdivisionKey || checkbox.value
+      };
+      derivedSubdivisionSelectionTouched = true;
+      if (checkbox.checked) {
+        rememberDerivedSubdivision(item);
+      } else {
+        forgetDerivedSubdivision(item.country_code, item.key);
+      }
+      refreshCapitalOptions("");
+    });
+  }
+  if (sourceAreaRows) {
+    sourceAreaRows.addEventListener("change", function (event) {
+      var checkbox = event.target && event.target.closest ? event.target.closest("[data-new-country-source-area-option]") : null;
+      if (!checkbox) {
+        return;
+      }
+      sourceAreaSelectionTouched = true;
+      if (checkbox.checked) {
+        rememberSourceArea(checkbox.value);
+      } else {
+        forgetSourceArea(checkbox.value);
+      }
+      refreshCapitalOptions("");
+    });
+  }
+  if (createdEntityRows) {
+    createdEntityRows.addEventListener("change", function (event) {
+      var checkbox = event.target && event.target.closest ? event.target.closest("[data-created-entity-option]") : null;
+      if (!checkbox) {
+        return;
+      }
+      createdEntitySelectionTouched = true;
+      if (checkbox.checked) {
+        rememberCreatedEntity(checkbox.value);
+      } else {
+        forgetCreatedEntity(checkbox.value);
+      }
+    });
+  }
+  if (derivedSubdivisionSearch) {
+    derivedSubdivisionSearch.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+      }
+    });
+    derivedSubdivisionSearch.addEventListener("input", function () {
+      if (derivedSubdivisionSearch._dynamicFilterTimer) {
+        window.clearTimeout(derivedSubdivisionSearch._dynamicFilterTimer);
+      }
+      derivedSubdivisionSearch._dynamicFilterTimer = window.setTimeout(function () {
+        loadDerivedSubdivisionOptions(1);
+      }, 250);
+    });
+  }
+  if (derivedSubdivisionPageSize) {
+    derivedSubdivisionPageSize.addEventListener("change", function () {
+      loadDerivedSubdivisionOptions(1);
+    });
+  }
+  if (derivedSubdivisionCountryFilter) {
+    derivedSubdivisionCountryFilter.addEventListener("change", function () {
+      loadDerivedSubdivisionOptions(1);
+    });
+  }
+  if (sourceAreaSearch) {
+    sourceAreaSearch.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+      }
+    });
+    sourceAreaSearch.addEventListener("input", function () {
+      if (!sourceAreaLevelFilter || !sourceAreaLevelFilter.value) {
+        return;
+      }
+      if (sourceAreaSearch._dynamicFilterTimer) {
+        window.clearTimeout(sourceAreaSearch._dynamicFilterTimer);
+      }
+      sourceAreaSearch._dynamicFilterTimer = window.setTimeout(function () {
+        loadSourceAreaOptions(1);
+      }, 250);
+    });
+  }
+  if (sourceAreaCountryFilter) {
+    sourceAreaCountryFilter.addEventListener("change", function () {
+      sourceAreaLoaded = false;
+      sourceAreaLevelsLoadedFor = "";
+      if (sourceAreaLevelFilter) {
+        sourceAreaLevelFilter.value = "";
+      }
+      loadSourceAreaOptions(1);
+    });
+  }
+  if (sourceAreaLevelFilter) {
+    sourceAreaLevelFilter.addEventListener("change", function () {
+      sourceAreaLoaded = false;
+      loadSourceAreaOptions(1);
+    });
+  }
+  if (sourceAreaPageSize) {
+    sourceAreaPageSize.addEventListener("change", function () {
+      sourceAreaLoaded = false;
+      loadSourceAreaOptions(1);
+    });
+  }
+  if (createdEntitySearch) {
+    createdEntitySearch.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+      }
+    });
+    createdEntitySearch.addEventListener("input", function () {
+      if (createdEntitySearch._dynamicFilterTimer) {
+        window.clearTimeout(createdEntitySearch._dynamicFilterTimer);
+      }
+      createdEntitySearch._dynamicFilterTimer = window.setTimeout(function () {
+        loadCreatedEntityOptions(1);
+      }, 250);
+    });
+  }
+  if (createdEntityPageSize) {
+    createdEntityPageSize.addEventListener("change", function () {
+      loadCreatedEntityOptions(1);
     });
   }
 
   form.addEventListener("submit", function () {
     hidden.value = JSON.stringify({
       source_country_code: currentCountry(),
-      selected_ids: Array.from(selected)
+      selected_ids: selectedSourceIds(),
+      use_subdivisions: !!(useSubdivisions && useSubdivisions.checked),
+      selected_subdivision_keys: selectedSubdivisionKeys(),
+      selected_derived_subdivisions: selectedDerivedSubdivisions(),
+      selected_child_config_slugs: selectedChildConfigSlugs()
     });
   });
 
-  if (currentCountry()) {
-    loadChildren(tree, "", 0);
-  } else {
-    clearTree(label("emptyLabel"));
-  }
+  refreshMode();
+  renderCapitalOptions(capitalOptions, selectedCapitalValues());
 })();
 </script>
 {% endblock %}

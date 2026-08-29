@@ -27,6 +27,7 @@ class NuevoAdminAreaSummary:
     entity_type: str | None = None
     parent_id: str | None = None
     area_km2: Decimal | None = None
+    density: Decimal | None = None
     pop_latest: int | None = None
     population_index: Decimal = Decimal("1")
     province_status: str = "normal"
@@ -36,6 +37,7 @@ class NuevoAdminAreaSummary:
     capitals: tuple[NuevoAdminCitySummary, ...] = ()
     most_populated_city: NuevoAdminCitySummary | None = None
     source_units_count: int = 0
+    source_unit_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -52,6 +54,14 @@ class Table:
 
 
 @dataclass(frozen=True)
+class CellMerge:
+    start_row: int
+    start_column: int
+    end_row: int
+    end_column: int
+
+
+@dataclass(frozen=True)
 class Sheet:
     name: str
     rows: tuple[tuple[CellValue, ...], ...]
@@ -59,6 +69,9 @@ class Sheet:
     auto_filter: bool = True
     auto_filter_ref: str | None = None
     tables: tuple[Table, ...] = ()
+    merged_cells: tuple[CellMerge, ...] = ()
+    center_cells: bool = False
+    auto_column_widths: bool = False
 
 
 @dataclass(frozen=True)

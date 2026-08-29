@@ -26,7 +26,15 @@
       <button type="submit" class="secondary">{% trans "Importar TOML" %}</button>
     </form>
     {% endif %}
-    <a class="button secondary" href="{% url 'ciudades_del_mundo:group_list' %}">{% trans "Volver" %}</a>
+    <a
+      class="button secondary"
+      href="{% url 'ciudades_del_mundo:group_list' %}"
+      data-group-return-link
+      data-group-return-country="{{ country_code }}"
+      data-group-return-row-href="{{ return_row_href }}"
+      data-group-return-table="divisions"
+      data-group-return-refresh="{% if return_needs_refresh %}1{% else %}0{% endif %}"
+    >{% trans "Volver" %}</a>
   </div>
 </section>
 
@@ -43,16 +51,22 @@
   data-derived-subdivision-form
   data-source-url="{{ source_data_url }}"
   data-root-code="{{ root_code }}"
+  data-current-level="{{ form.level }}"
+  data-current-subdivision="{{ current_subdivision_key }}"
   data-derived-subdivision-load-url="{{ data_url }}"
   data-derived-capital-options-url="{{ capital_options_url }}"
   data-derived-load-on-start="{% if load_dynamic %}1{% else %}0{% endif %}"
   data-load-error-label="{% trans 'No se pudieron cargar los datos.' %}"
   data-capital-empty-label="{% trans 'Sin capital' %}"
+  data-save-label="{% trans 'Guardar' %}"
+  data-saving-label="{% trans 'Guardando configuración...' %}"
+  data-save-error-label="{% trans 'No se pudo guardar la configuración.' %}"
 >
   {% csrf_token %}
   <input type="hidden" name="source_country_code" value="{{ country_code }}">
   <input type="hidden" name="code" value="{{ form.code }}" data-derived-full-code>
   <input type="hidden" name="parent_code" value="{{ root_code }}" data-derived-parent-code>
+  <input type="hidden" name="level" value="{{ form.level }}" data-derived-level>
   <input type="hidden" name="include_ids_json" data-derived-include-ids-json value="">
   <input type="hidden" name="subtract_ids_json" data-derived-subtract-ids-json value="">
   <input type="hidden" name="derived_source_dirty" data-derived-source-dirty value="0">
@@ -90,18 +104,22 @@
         {% trans "Tipo" %}
         <input name="entity_type" value="{{ form.entity_type }}">
       </label>
-      <label>
-        {% trans "Nivel" %}
-        <input name="level" value="{{ form.level }}" min="1" max="5" step="1" type="number" required data-derived-level>
-      </label>
-      <label>
-        {% trans "Bandera" %}
-        <input name="flag_url" value="{{ form.flag_url }}" placeholder="https://..." type="url" autocomplete="url">
-      </label>
-      <label>
-        {% trans "Escudo" %}
-        <input name="coat_url" value="{{ form.coat_url }}" placeholder="https://..." type="url" autocomplete="url">
-      </label>
+      <input
+        type="hidden"
+        name="use_selected_entities_as_children"
+        value="{% if form.use_selected_entities_as_children %}1{% else %}0{% endif %}"
+        data-derived-child-mode
+      >
+      <div class="derived-identity-assets-row">
+        <label>
+          {% trans "Bandera" %}
+          <input name="flag_url" value="{{ form.flag_url }}" placeholder="https://..." type="url" autocomplete="url">
+        </label>
+        <label>
+          {% trans "Escudo" %}
+          <input name="coat_url" value="{{ form.coat_url }}" placeholder="https://..." type="url" autocomplete="url">
+        </label>
+      </div>
       <label class="derived-capital-field">
         {% trans "Capitales" %}
         <div
@@ -172,23 +190,21 @@
           <div class="group-hierarchy-controls" data-group-hierarchy-controls></div>
           <div class="table-wrap subtle group-section-table-wrap">
             <table class="compact-table group-section-table">
-              <colgroup>
+                <colgroup>
                 <col class="derived-source-included-col">
                 <col class="derived-source-excluded-col">
-                <col class="derived-source-level-col">
                 <col class="derived-source-actions-col">
               </colgroup>
               <thead>
                 <tr>
                   <th>{% trans "Incluidos" %}</th>
                   <th>{% trans "Excluidos" %}</th>
-                  <th>{% trans "Nivel" %}</th>
                   <th>{% trans "Acciones" %}</th>
                 </tr>
               </thead>
               <tbody data-derived-source-item-table>
                 <tr data-derived-source-item-empty-row>
-                  <td colspan="4" class="table-empty-cell">{% trans "Sin datos." %}</td>
+                  <td colspan="3" class="table-empty-cell">{% trans "Sin datos." %}</td>
                 </tr>
               </tbody>
             </table>
@@ -231,6 +247,7 @@
   }
   var levelInput = form.querySelector("[data-derived-level]");
   var internalNameInput = form.querySelector("[data-derived-internal-name]");
+  var childModeInput = form.querySelector("[data-derived-child-mode]");
   var parentInput = form.querySelector("[data-derived-parent-code]");
   var capitalSelect = form.querySelector("[data-derived-capital-select]");
   var capitalPicker = form.querySelector("[data-derived-capital-picker]");
@@ -315,6 +332,28 @@
       .replace(/[^A-Za-z0-9_]+/g, "-")
       .replace(/^[-_]+|[-_]+$/g, "")
       .toUpperCase();
+  }
+
+  function currentDerivedLevel() {
+    return String((levelInput && levelInput.value) || form.dataset.currentLevel || "").trim();
+  }
+
+  function currentDerivedSubdivisionKey() {
+    return cleanCode((internalNameInput && internalNameInput.value) || form.dataset.currentSubdivision || "");
+  }
+
+  function sourceRequestContext() {
+    return {
+      include_groups: "1",
+      include_derived_subdivisions: "1",
+      current_level: currentDerivedLevel(),
+      current_subdivision: currentDerivedSubdivisionKey(),
+      current_subdivision_country: "{{ country_code|escapejs }}"
+    };
+  }
+
+  function withSourceRequestContext(params) {
+    return Object.assign({}, params || {}, sourceRequestContext());
   }
 
   function setLoading(isLoading, message, isError) {
@@ -951,11 +990,11 @@
   }
 
   function loadChildren(countryCode, parentId) {
-    var key = countryCode + "::" + parentId;
+    var key = countryCode + "::" + parentId + "::" + currentDerivedLevel() + "::" + currentDerivedSubdivisionKey();
     if (childDataCache[key]) {
       return Promise.resolve(childDataCache[key]);
     }
-    childDataCache[key] = fetchJson({ country_code: countryCode, parent_id: parentId, include_groups: "1" }).then(function (data) {
+    childDataCache[key] = fetchJson(withSourceRequestContext({ country_code: countryCode, parent_id: parentId })).then(function (data) {
       childDataCache[key] = data.children || [];
       return childDataCache[key];
     }).catch(function () {
@@ -1242,7 +1281,7 @@
       var emptyRow = document.createElement("tr");
       emptyRow.dataset.groupSectionEmptyRow = "";
       var emptyCell = document.createElement("td");
-      emptyCell.colSpan = 4;
+      emptyCell.colSpan = 3;
       emptyCell.className = "table-empty-cell";
       emptyCell.textContent = "{% trans 'Sin datos.' %}";
       emptyRow.appendChild(emptyCell);
@@ -1648,6 +1687,12 @@
     if (!kind && (item.group_key || itemId.indexOf("group::") === 0)) {
       kind = "group";
     }
+    if (!kind && (item.derived_subdivision_key || itemId.indexOf("derived-subdivision::") === 0)) {
+      kind = "derived_subdivision";
+    }
+    if (kind === "derived-subdivision") {
+      kind = "derived_subdivision";
+    }
     return kind;
   }
 
@@ -1659,8 +1704,10 @@
     }
     var itemKind = sourceItemKind(item);
     var groupParts = itemId.indexOf("group::") === 0 ? itemId.split("::") : [];
-    var itemCountryCode = item.country_code || countryCode || (groupParts.length >= 3 ? groupParts[1] : "");
+    var subdivisionParts = itemId.indexOf("derived-subdivision::") === 0 ? itemId.split("::") : [];
+    var itemCountryCode = item.country_code || countryCode || (groupParts.length >= 3 ? groupParts[1] : "") || (subdivisionParts.length >= 3 ? subdivisionParts[1] : "");
     var groupKey = item.group_key || (itemKind === "group" && groupParts.length >= 3 ? groupParts.slice(2).join("::") : "");
+    var subdivisionKey = item.derived_subdivision_key || (itemKind === "derived_subdivision" && subdivisionParts.length >= 3 ? subdivisionParts.slice(2).join("::") : "");
     return {
       id: itemId,
       value: itemId,
@@ -1676,6 +1723,8 @@
       ancestor_ids: Array.isArray(item.ancestor_ids) ? item.ancestor_ids.map(function (value) { return String(value); }) : [],
       group_key: groupKey,
       group_slug: item.group_slug || "",
+      derived_subdivision_key: subdivisionKey,
+      derived_subdivision_slug: item.derived_subdivision_slug || "",
       member_count: item.member_count || 0,
       member_text: item.member_text || "",
       description: item.description || "",
@@ -1718,7 +1767,13 @@
       item_type: item.item_type || "",
       group_key: item.group_key || "",
       group_slug: item.group_slug || "",
-      member_count: item.member_count || 0
+      derived_subdivision_key: item.derived_subdivision_key || "",
+      derived_subdivision_slug: item.derived_subdivision_slug || "",
+      member_count: item.member_count || 0,
+      member_text: item.member_text || "",
+      description: item.description || "",
+      member_names: item.member_names || [],
+      member_ids: item.member_ids || []
     };
   }
 
@@ -1740,7 +1795,29 @@
     if ((child.ancestor_ids || []).some(function (ancestorId) { return String(ancestorId) === String(parent.id); })) {
       return true;
     }
+    if (sourceItemKind(parent) === "group" || sourceItemKind(parent) === "derived_subdivision") {
+      var parentMemberIds = (parent.member_ids || []).map(function (memberId) {
+        return String(memberId || "").trim();
+      }).filter(Boolean);
+      if (parentMemberIds.some(function (memberId) {
+        return String(child.parent_id || "") === memberId
+          || String(child.id || "") === memberId
+          || (child.ancestor_ids || []).some(function (ancestorId) { return String(ancestorId) === memberId; });
+      })) {
+        return true;
+      }
+    }
     return Number(parent.level || 0) === 0 && parent.country_code && child.country_code === parent.country_code;
+  }
+
+  function sourceItemDescendantParentIds(item) {
+    item = item || {};
+    if (sourceItemKind(item) === "group" || sourceItemKind(item) === "derived_subdivision") {
+      return (item.member_ids || []).map(function (memberId) {
+        return String(memberId || "").trim();
+      }).filter(Boolean);
+    }
+    return item.id ? [String(item.id)] : [];
   }
 
   function sourceItemBlocksFromFlatItems(items, fallbackCountryCode) {
@@ -1836,17 +1913,16 @@
 
   function loadSourceItems(countryCode, level, sectionParentId) {
     var parentKey = sectionParentId || "";
-    var key = "items::" + countryCode + "::" + level + "::" + parentKey;
+    var key = "items::" + countryCode + "::" + level + "::" + parentKey + "::" + currentDerivedLevel() + "::" + currentDerivedSubdivisionKey();
     if (sectionDataCache[key]) {
       return Promise.resolve(sectionDataCache[key]);
     }
-    sectionDataCache[key] = fetchJson({
+    sectionDataCache[key] = fetchJson(withSourceRequestContext({
       country_code: countryCode,
       level: level,
       section_parent_id: parentKey,
-      source_mode: "items",
-      include_groups: "1"
-    }).then(function (data) {
+      source_mode: "items"
+    })).then(function (data) {
       sectionDataCache[key] = data.sections || [];
       return sectionDataCache[key];
     }).catch(function () {
@@ -1864,16 +1940,15 @@
       return Promise.resolve([]);
     }
     var parentKey = parentIds.join(",");
-    var key = "descendants::" + countryCode + "::" + parentKey;
+    var key = "descendants::" + countryCode + "::" + parentKey + "::" + currentDerivedLevel() + "::" + currentDerivedSubdivisionKey();
     if (childDataCache[key]) {
       return Promise.resolve(childDataCache[key]);
     }
-    childDataCache[key] = fetchJson({
+    childDataCache[key] = fetchJson(withSourceRequestContext({
       country_code: countryCode,
       source_mode: "descendants",
-      descendant_parent_ids: parentKey,
-      include_groups: "1"
-    }).then(function (data) {
+      descendant_parent_ids: parentKey
+    })).then(function (data) {
       childDataCache[key] = data.children || [];
       return childDataCache[key];
     }).catch(function () {
@@ -1950,7 +2025,6 @@
     item = item || {};
     return [
       String(item.country_code || countryCode || ""),
-      sourceItemKind(item) || "area",
       sourceItemLevelValue(item),
       String(item.parent_id || "")
     ].join("::");
@@ -1982,13 +2056,13 @@
     normalizeSourceItems(block && block.__selectedItems || [], fallbackCountryCode).forEach(function (item) {
       var countryCode = item.country_code || fallbackCountryCode;
       var key = sourceItemScopeKey(item, countryCode);
+      var parentId = String(item.parent_id || "");
       if (!groupsByKey[key]) {
         groupsByKey[key] = {
           key: key,
           country_code: countryCode,
-          kind: sourceItemKind(item) || "area",
           level: sourceItemLevelValue(item),
-          parent_id: item.parent_id || "",
+          parent_id: parentId,
           items: []
         };
         groups.push(groupsByKey[key]);
@@ -2189,7 +2263,7 @@
       selected: {},
       filterQuery: "",
       filterCursor: 0,
-      groupsOnly: false
+      kindFilters: {}
     };
     if (sourceItemModalTitle) {
       sourceItemModalTitle.textContent = sectionData.label || sectionData.name || "{% trans 'Entidad' %}";
@@ -2211,14 +2285,14 @@
         return !used[item.id];
       });
       sourceItemModalState.selected = {};
-      renderSourceItemModalContent();
+      renderSourceItemModalContent(true);
     }).catch(function () {
       if (!sourceItemModalState) {
         return;
       }
       sourceItemModalState.items = [];
       sourceItemModalState.selected = {};
-      renderSourceItemModalContent();
+      renderSourceItemModalContent(true);
     });
   }
 
@@ -2239,18 +2313,21 @@
       selected: selectedSourceItemIdsFromList(existing),
       filterQuery: "",
       filterCursor: 0,
-      groupsOnly: false
+      kindFilters: {}
     };
     if (sourceItemModalTitle) {
       sourceItemModalTitle.textContent = group.items.map(sourceItemLabel).join(", ") || "{% trans 'Entidad' %}";
     }
     sourceItemModal.hidden = false;
     sourceItemModalContent.innerHTML = '<div class="table-loading"><span class="loading-spinner" aria-hidden="true"></span><span>{% trans "Cargando datos..." %}</span></div>';
-    loadDescendants(group.country_code || block.dataset.countryCode || "", group.items.filter(function (item) {
-      return sourceItemKind(item) !== "group";
-    }).map(function (item) {
-      return item.id;
-    })).then(function (children) {
+    loadDescendants(group.country_code || block.dataset.countryCode || "", group.items.reduce(function (parentIds, item) {
+      sourceItemDescendantParentIds(item).forEach(function (parentId) {
+        if (parentIds.indexOf(parentId) === -1) {
+          parentIds.push(parentId);
+        }
+      });
+      return parentIds;
+    }, [])).then(function (children) {
       if (!sourceItemModalState || sourceItemModalState.block !== block || sourceItemModalState.group !== group) {
         return;
       }
@@ -2266,14 +2343,14 @@
           sourceItemModalState.selected[child.id] = true;
         }
       });
-      renderSourceItemModalContent();
+      renderSourceItemModalContent(true);
     }).catch(function () {
       if (!sourceItemModalState) {
         return;
       }
       sourceItemModalState.items = existing;
       sourceItemModalState.selected = selectedSourceItemIdsFromList(existing);
-      renderSourceItemModalContent();
+      renderSourceItemModalContent(true);
     });
   }
 
@@ -2363,8 +2440,14 @@
   function renderSourceItemModalBadge(container, item, target) {
     var badge = document.createElement("button");
     var kind = sourceItemKind(item) || "area";
+    var classNames = ["group-transfer-badge"];
+    if (kind === "group") {
+      classNames.push("derived-source-group-chip");
+    } else if (kind === "derived_subdivision") {
+      classNames.push("derived-source-subdivision-chip");
+    }
     badge.type = "button";
-    badge.className = "group-transfer-badge" + (kind === "group" ? " derived-source-group-chip" : "");
+    badge.className = classNames.join(" ");
     badge.textContent = item.label || item.name || item.id;
     badge.title = sourceItemTitle(item);
     badge.dataset.sourceKind = kind;
@@ -2388,20 +2471,29 @@
       item.code,
       item.entity_type,
       item.group_key,
+      item.derived_subdivision_key,
       item.member_text,
       Array.isArray(item.member_names) ? item.member_names.join(" ") : ""
     ];
     return parts.filter(Boolean).join(" ");
   }
 
+  function sourceItemFilterKind(item) {
+    var kind = sourceItemKind(item);
+    return kind === "group" || kind === "derived_subdivision" ? kind : "area";
+  }
+
   function sourceItemModalFilteredItems(items) {
     var query = normalizeSearchText(sourceItemModalState ? sourceItemModalState.filterQuery || "" : "");
-    var groupsOnly = Boolean(sourceItemModalState && sourceItemModalState.groupsOnly);
-    if (!query && !groupsOnly) {
+    var kindFilters = sourceItemModalState && sourceItemModalState.kindFilters ? sourceItemModalState.kindFilters : {};
+    var activeKinds = Object.keys(kindFilters).filter(function (kind) {
+      return Boolean(kindFilters[kind]);
+    });
+    if (!query && !activeKinds.length) {
       return items || [];
     }
     return (items || []).filter(function (item) {
-      if (groupsOnly && sourceItemKind(item) !== "group") {
+      if (activeKinds.length && activeKinds.indexOf(sourceItemFilterKind(item)) === -1) {
         return false;
       }
       return !query || normalizeSearchText(sourceItemModalFilterText(item)).indexOf(query) !== -1;
@@ -2413,7 +2505,8 @@
     var groupsByKey = {};
     (items || []).forEach(function (item) {
       var level = sourceItemLevelValue(item);
-      var kind = sourceItemKind(item) === "group" ? "group" : "area";
+      var itemKind = sourceItemKind(item);
+      var kind = itemKind === "group" || itemKind === "derived_subdivision" ? itemKind : "area";
       var key = kind + "::" + (level || "__empty__");
       if (!groupsByKey[key]) {
         groupsByKey[key] = { kind: kind, level: level, items: [] };
@@ -2428,7 +2521,8 @@
         return leftNumber - rightNumber;
       }
       if (left.kind !== right.kind) {
-        return left.kind === "area" ? -1 : 1;
+        var order = { area: 0, group: 1, derived_subdivision: 2 };
+        return (order[left.kind] || 99) - (order[right.kind] || 99);
       }
       return String(left.level || "").localeCompare(String(right.level || ""));
     });
@@ -2437,6 +2531,9 @@
   function sourceItemModalLevelGroupTitle(group) {
     if (group.kind === "group") {
       return "{% trans 'Grupos' %}" + (group.level ? " - {% trans 'Nivel' %} " + group.level : "");
+    }
+    if (group.kind === "derived_subdivision") {
+      return "{% trans 'Subdivisiones creadas' %}" + (group.level ? " - {% trans 'Nivel' %} " + group.level : "");
     }
     return "{% trans 'Nivel' %}" + (group.level ? " " + group.level : "");
   }
@@ -2449,7 +2546,9 @@
     }
     groups.forEach(function (group) {
       var block = document.createElement("div");
-      block.className = "derived-source-modal-level-block" + (group.kind === "group" ? " is-group-source" : "");
+      block.className = "derived-source-modal-level-block"
+        + (group.kind === "group" ? " is-group-source" : "")
+        + (group.kind === "derived_subdivision" ? " is-derived-subdivision-source" : "");
       var title = document.createElement("h5");
       title.textContent = sourceItemModalLevelGroupTitle(group);
       var badgeList = document.createElement("div");
@@ -2468,6 +2567,7 @@
     if (!sourceItemModalState || !sourceItemModalContent) {
       return;
     }
+    captureSourceItemModalScroll();
     var filterWasFocused = Boolean(preserveFilterFocus);
     var selectedTitle = sourceItemModalState.mode === "exclude" ? "{% trans 'Restar' %}" : (sourceItemModalState.mode === "edit" ? "{% trans 'Incluidos' %}" : "{% trans 'Grupo' %}");
     var section = document.createElement("section");
@@ -2475,10 +2575,20 @@
     section.innerHTML = [
       '<div class="derived-source-modal-filter-row">',
       '<input type="search" class="group-search-select-input derived-source-modal-filter" data-derived-source-modal-filter placeholder="{% trans "Buscar" %}" autocomplete="off">',
-      '<label class="check-inline derived-source-modal-groups-only">',
-      '<input type="checkbox" data-derived-source-modal-groups-only>',
+      '<div class="derived-source-modal-kind-filters" aria-label="{% trans "Filtrar tipos" %}">',
+      '<label class="derived-source-modal-kind-filter">',
+      '<input type="checkbox" data-derived-source-modal-kind-filter value="area">',
+      '<span>{% trans "Entidades" %}</span>',
+      '</label>',
+      '<label class="derived-source-modal-kind-filter">',
+      '<input type="checkbox" data-derived-source-modal-kind-filter value="group">',
       '<span>{% trans "Grupos" %}</span>',
       '</label>',
+      '<label class="derived-source-modal-kind-filter">',
+      '<input type="checkbox" data-derived-source-modal-kind-filter value="derived_subdivision">',
+      '<span>{% trans "Subdivisiones creadas" %}</span>',
+      '</label>',
+      '</div>',
       '</div>',
       '<div class="group-transfer-grid">',
       '<div class="group-transfer-pane">',
@@ -2492,7 +2602,7 @@
       '</div>'
     ].join("");
     var filterInput = section.querySelector("[data-derived-source-modal-filter]");
-    var groupsOnlyInput = section.querySelector("[data-derived-source-modal-groups-only]");
+    var kindFilterInputs = Array.prototype.slice.call(section.querySelectorAll("[data-derived-source-modal-kind-filter]"));
     var availableBox = section.querySelector("[data-derived-source-modal-available]");
     var selectedBox = section.querySelector("[data-derived-source-modal-selected]");
     if (filterInput) {
@@ -2506,16 +2616,26 @@
         renderSourceItemModalContent(true);
       });
     }
-    if (groupsOnlyInput) {
-      groupsOnlyInput.checked = Boolean(sourceItemModalState.groupsOnly);
-      groupsOnlyInput.addEventListener("change", function () {
+    kindFilterInputs.forEach(function (kindInput) {
+      var filterKind = kindInput.value || "";
+      var filterLabel = kindInput.closest ? kindInput.closest(".derived-source-modal-kind-filter") : null;
+      function syncKindFilterLabel() {
+        if (filterLabel) {
+          filterLabel.classList.toggle("is-checked", kindInput.checked);
+        }
+      }
+      kindInput.checked = Boolean(sourceItemModalState.kindFilters && sourceItemModalState.kindFilters[filterKind]);
+      syncKindFilterLabel();
+      kindInput.addEventListener("change", function () {
         if (!sourceItemModalState) {
           return;
         }
-        sourceItemModalState.groupsOnly = groupsOnlyInput.checked;
+        sourceItemModalState.kindFilters = sourceItemModalState.kindFilters || {};
+        sourceItemModalState.kindFilters[filterKind] = kindInput.checked;
+        syncKindFilterLabel();
         renderSourceItemModalContent(false);
       });
-    }
+    });
     var availableCount = 0;
     var selectedCount = 0;
     if (sourceItemModalState.mode === "exclude") {
@@ -2533,6 +2653,7 @@
       availableCount = renderSourceItemModalLevelGroups(availableBox, sourceItemModalFilteredItems(availableItems), "available");
       selectedCount = renderSourceItemModalLevelGroups(selectedBox, sourceItemModalFilteredItems(selectedItems), "selected");
       sourceItemModalContent.replaceChildren(section);
+      restoreSourceItemModalScroll();
       restoreSourceItemModalFilterFocus(filterWasFocused);
       return;
     }
@@ -2550,7 +2671,42 @@
     availableCount = renderSourceItemModalLevelGroups(availableBox, sourceItemModalFilteredItems(availableItems), "available");
     selectedCount = renderSourceItemModalLevelGroups(selectedBox, sourceItemModalFilteredItems(selectedItems), "selected");
     sourceItemModalContent.replaceChildren(section);
+    restoreSourceItemModalScroll();
     restoreSourceItemModalFilterFocus(filterWasFocused);
+  }
+
+  function captureSourceItemModalScroll() {
+    if (!sourceItemModalContent || !sourceItemModalState) {
+      return;
+    }
+    var positions = sourceItemModalState.scrollPositions || {};
+    [
+      ["available", "[data-derived-source-modal-available]"],
+      ["selected", "[data-derived-source-modal-selected]"]
+    ].forEach(function (entry) {
+      var box = sourceItemModalContent.querySelector(entry[1]);
+      if (box) {
+        positions[entry[0]] = { top: box.scrollTop || 0, left: box.scrollLeft || 0 };
+      }
+    });
+    sourceItemModalState.scrollPositions = positions;
+  }
+
+  function restoreSourceItemModalScroll() {
+    if (!sourceItemModalContent || !sourceItemModalState || !sourceItemModalState.scrollPositions) {
+      return;
+    }
+    [
+      ["available", "[data-derived-source-modal-available]"],
+      ["selected", "[data-derived-source-modal-selected]"]
+    ].forEach(function (entry) {
+      var box = sourceItemModalContent.querySelector(entry[1]);
+      var position = sourceItemModalState.scrollPositions[entry[0]];
+      if (box && position) {
+        box.scrollTop = position.top || 0;
+        box.scrollLeft = position.left || 0;
+      }
+    });
   }
 
   function restoreSourceItemModalFilterFocus(shouldFocus) {
@@ -2604,12 +2760,38 @@
     return item ? item.label || item.name || item.id || "" : "";
   }
 
+  function stripTrailingParentheticalLabel(value) {
+    return String(value || "").replace(/\s*\([^()]*\)\s*$/, "").trim();
+  }
+
+  function derivedSubdivisionKeyFromItem(item) {
+    item = item || {};
+    var itemId = String(item.id || item.value || "").trim();
+    if (item.derived_subdivision_key) {
+      return String(item.derived_subdivision_key);
+    }
+    if (itemId.indexOf("derived-subdivision::") === 0) {
+      return itemId.split("::").slice(2).join("::");
+    }
+    return String(item.code || item.name || item.label || itemId || "");
+  }
+
+  function sourceItemSelectedLabel(item) {
+    if (!item) {
+      return "";
+    }
+    if (sourceItemKind(item) === "derived_subdivision") {
+      return derivedSubdivisionKeyFromItem(item);
+    }
+    return stripTrailingParentheticalLabel(item.name || item.label || item.id || "");
+  }
+
   function sourceItemTitle(item) {
     if (!item) {
       return "";
     }
     var label = sourceItemLabel(item);
-    if (sourceItemKind(item) !== "group") {
+    if (sourceItemKind(item) !== "group" && sourceItemKind(item) !== "derived_subdivision") {
       return label;
     }
     var detail = item.member_text || item.description || "";
@@ -2622,8 +2804,17 @@
   function appendSourceTableChip(container, item, className) {
     var chip = document.createElement("span");
     var kind = sourceItemKind(item) || "area";
-    chip.className = "config-city-entity-chip " + (className || "") + (kind === "group" ? " derived-source-group-chip" : "");
-    chip.textContent = sourceItemLabel(item);
+    var classNames = ["config-city-entity-chip"];
+    if (className) {
+      classNames.push(className);
+    }
+    if (kind === "group") {
+      classNames.push("derived-source-group-chip");
+    } else if (kind === "derived_subdivision") {
+      classNames.push("derived-source-subdivision-chip");
+    }
+    chip.className = classNames.join(" ");
+    chip.textContent = sourceItemSelectedLabel(item);
     chip.title = sourceItemTitle(item);
     chip.dataset.sourceKind = kind;
     container.appendChild(chip);
@@ -2661,8 +2852,7 @@
     var countryCode = group.country_code || item.country_code || block.dataset.countryCode || "";
     var level = sourceItemLevelValue(group.level || item.level);
     var parentId = group.parent_id || item.parent_id || "";
-    var itemKind = group.kind || sourceItemKind(item) || "area";
-    var selectedInScope = selectedSourceItemsInEditScope(block, countryCode, level, parentId, itemKind);
+    var selectedInScope = selectedSourceItemsInEditScope(block, countryCode, level, parentId, "");
     sourceItemModalState = {
       mode: "edit",
       block: block,
@@ -2671,14 +2861,13 @@
       editScope: {
         country_code: countryCode,
         level: level,
-        parent_id: parentId,
-        kind: itemKind
+        parent_id: parentId
       },
       items: [],
       selected: selectedSourceItemIdsFromList(selectedInScope),
       filterQuery: "",
       filterCursor: 0,
-      groupsOnly: false
+      kindFilters: {}
     };
     if (sourceItemModalTitle) {
       sourceItemModalTitle.textContent = group.items.map(sourceItemLabel).join(", ") || "{% trans 'Entidad' %}";
@@ -2699,14 +2888,14 @@
       });
       sourceItemModalState.items = modalItems;
       sourceItemModalState.selected = selectedSourceItemIdsFromList(selectedInScope);
-      renderSourceItemModalContent();
+      renderSourceItemModalContent(true);
     }).catch(function () {
       if (!sourceItemModalState) {
         return;
       }
       sourceItemModalState.items = selectedInScope;
       sourceItemModalState.selected = selectedSourceItemIdsFromList(selectedInScope);
-      renderSourceItemModalContent();
+      renderSourceItemModalContent(true);
     });
   }
 
@@ -2720,7 +2909,7 @@
     if (!items.length) {
       var emptyRow = document.createElement("tr");
       var emptyCell = document.createElement("td");
-      emptyCell.colSpan = 4;
+      emptyCell.colSpan = 3;
       emptyCell.className = "table-empty-cell";
       emptyCell.textContent = "{% trans 'Sin datos.' %}";
       emptyRow.appendChild(emptyCell);
@@ -2742,9 +2931,6 @@
       subtractList.className = "config-city-entity-list derived-source-table-chip-list";
       subtractCell.appendChild(subtractList);
       renderExcludedItemsList(group, subtractList);
-      var levelCell = document.createElement("td");
-      levelCell.className = "numeric";
-      levelCell.textContent = group.level || "";
       var actionCell = document.createElement("td");
       actionCell.className = "group-section-table-actions-cell";
       var actions = document.createElement("div");
@@ -2770,7 +2956,6 @@
       actionCell.appendChild(actions);
       row.appendChild(includeCell);
       row.appendChild(subtractCell);
-      row.appendChild(levelCell);
       row.appendChild(actionCell);
       tbody.appendChild(row);
     });
@@ -2953,8 +3138,20 @@
     setFieldValue('input[name="name"]', data.name);
     setFieldValue('input[name="entity_type"]', data.entity_type);
     setFieldValue("[data-derived-level]", data.level || "1");
+    form.dataset.currentLevel = String(data.level || "1");
+    form.dataset.currentSubdivision = cleanCode(data.internal_name || "");
     setFieldValue('input[name="flag_url"]', data.flag_url);
     setFieldValue('input[name="coat_url"]', data.coat_url);
+    if (childModeInput) {
+      var childModeEnabled = data.use_selected_entities_as_children === true
+        || String(data.use_selected_entities_as_children || "").toLowerCase() === "true"
+        || String(data.use_selected_entities_as_children || "") === "1";
+      if (childModeInput.type === "checkbox") {
+        childModeInput.checked = childModeEnabled;
+      } else {
+        childModeInput.value = childModeEnabled ? "1" : "0";
+      }
+    }
     setFieldValue("[data-derived-full-code]", data.code);
     setFieldValue("[data-derived-parent-code]", form.dataset.rootCode || data.parent_code);
     setFieldValue('textarea[name="description"]', data.description);
@@ -2962,11 +3159,18 @@
       contentInput.value = data.content || "";
     }
     parentOptions = payload.parent_options || [];
+    sectionDataCache = {};
+    childDataCache = {};
     renderParentOptions(data.parent_code);
     renderCapitalOptions(payload.capital_options || [], data.capitals || (data.capital ? [data.capital] : []));
-    includeItems = payload.include_items || includeItems;
-    subtractItems = payload.subtract_items || subtractItems;
-    renderDerivedSourcePanels(false);
+    if (
+      Object.prototype.hasOwnProperty.call(payload || {}, "include_items")
+      || Object.prototype.hasOwnProperty.call(payload || {}, "subtract_items")
+    ) {
+      includeItems = payload.include_items || includeItems;
+      subtractItems = payload.subtract_items || subtractItems;
+      renderDerivedSourcePanels(false);
+    }
     updateFullCode();
   }
 
@@ -2996,14 +3200,99 @@
       });
   }
 
+  function setSaveBusy(isSaving) {
+    form.querySelectorAll("[data-group-save-button]").forEach(function (button) {
+      if (!button.dataset.originalText) {
+        button.dataset.originalText = button.textContent;
+      }
+      button.disabled = Boolean(isSaving);
+      button.textContent = isSaving
+        ? (form.dataset.savingLabel || button.dataset.originalText)
+        : (button.dataset.originalText || form.dataset.saveLabel || button.textContent);
+    });
+  }
+
+  function showFormMessage(message, isError) {
+    if (!message) {
+      return;
+    }
+    var shell = document.querySelector("main.shell") || document.body;
+    var messages = shell.querySelector(".messages");
+    if (!messages) {
+      messages = document.createElement("div");
+      messages.className = "messages";
+      shell.insertBefore(messages, shell.firstChild);
+    }
+    messages.innerHTML = "";
+    var node = document.createElement("div");
+    node.className = "message " + (isError ? "error" : "success");
+    node.textContent = message;
+    messages.appendChild(node);
+  }
+
+  function groupReturnStorageKey() {
+    return "ciudades_del_mundo_group_return_state";
+  }
+
+  function rememberReturnTarget(rowHref, countryCode) {
+    var returnLink = document.querySelector("[data-group-return-link]");
+    rowHref = rowHref || (returnLink ? returnLink.dataset.groupReturnRowHref : "") || window.location.pathname;
+    countryCode = countryCode || (returnLink ? returnLink.dataset.groupReturnCountry : "") || "{{ country_code|escapejs }}";
+    if (!rowHref || !countryCode || !window.sessionStorage) {
+      return;
+    }
+    try {
+      window.sessionStorage.setItem(groupReturnStorageKey(), JSON.stringify({
+        country: countryCode,
+        rowHref: rowHref,
+        table: "divisions",
+        refreshList: true,
+        createdAt: Date.now()
+      }));
+      if (returnLink) {
+        returnLink.dataset.groupReturnRefresh = "1";
+      }
+    } catch (error) {}
+  }
+
+  function updateSavedUrls(payload) {
+    var returnLink = document.querySelector("[data-group-return-link]");
+    if (payload.redirect_url) {
+      form.setAttribute("action", payload.redirect_url);
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState(window.history.state, "", payload.redirect_url);
+      }
+      if (returnLink) {
+        returnLink.dataset.groupReturnRowHref = payload.redirect_url;
+      }
+    }
+    if (payload.country_code && returnLink) {
+      returnLink.dataset.groupReturnCountry = payload.country_code;
+    }
+    if (payload.data_url) {
+      loadUrl = payload.data_url;
+      form.dataset.derivedSubdivisionLoadUrl = payload.data_url;
+    }
+    if (payload.capital_options_url) {
+      capitalOptionsUrl = payload.capital_options_url;
+      form.dataset.derivedCapitalOptionsUrl = payload.capital_options_url;
+    }
+  }
+
   if (levelInput) {
     levelInput.addEventListener("input", function () {
+      form.dataset.currentLevel = currentDerivedLevel();
+      sectionDataCache = {};
+      childDataCache = {};
       renderParentOptions();
       updateFullCode();
     });
   }
   if (internalNameInput) {
     internalNameInput.addEventListener("input", function () {
+      form.dataset.currentSubdivision = currentDerivedSubdivisionKey();
+      sectionDataCache = {};
+      childDataCache = {};
       updateFullCode();
     });
   }
@@ -3062,10 +3351,11 @@
       if (!badge || !sourceItemModalContent.contains(badge)) {
         return;
       }
+      event.preventDefault();
       toggleSourceItemModalSelection(badge.dataset.derivedSourceModalItemId || "", badge.dataset.target || "");
     });
   }
-  form.addEventListener("submit", function () {
+  form.addEventListener("submit", function (event) {
     if (sectionModalState) {
       closeSectionModal(true);
     }
@@ -3073,6 +3363,46 @@
       closeSourceItemModal(true);
     }
     refreshSourceHidden(false);
+    if (!window.fetch) {
+      return;
+    }
+    event.preventDefault();
+    if (form.dataset.saving === "1") {
+      return;
+    }
+    form.dataset.saving = "1";
+    setSaveBusy(true);
+    fetch(form.getAttribute("action") || form.action || window.location.href, {
+      method: "POST",
+      body: new FormData(form),
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+        "X-CSRFToken": csrfToken()
+      }
+    })
+      .then(function (response) {
+        return response.json().then(function (payload) {
+          if (!response.ok || !payload.ok) {
+            throw new Error(payload.error || form.dataset.saveErrorLabel || "Error");
+          }
+          return payload;
+        });
+      })
+      .then(function (payload) {
+        updateSavedUrls(payload);
+        hydrateForm(payload);
+        rememberReturnTarget(payload.redirect_url, payload.country_code);
+        showFormMessage(payload.message || "", false);
+      })
+      .catch(function (error) {
+        showFormMessage(error.message || form.dataset.saveErrorLabel || form.dataset.loadErrorLabel || "Error", true);
+      })
+      .finally(function () {
+        form.dataset.saving = "0";
+        setSaveBusy(false);
+      });
   });
   if (loadOnStart) {
     loadFormData();

@@ -455,6 +455,8 @@ def _apply_forced_parent_levels(entities: list[ScrapedAdminArea]) -> list[Scrape
     by_level: dict[int, list[ScrapedAdminArea]] = {}
     for entity in entities:
         by_level.setdefault(int(entity.level), []).append(entity)
+    indexes_by_level = {level: _forced_parent_index(rows) for level, rows in by_level.items()}
+    scope_tokens_cache: dict[int, set[str]] = {}
 
     updated: list[ScrapedAdminArea] = []
     for entity in entities:
@@ -465,8 +467,11 @@ def _apply_forced_parent_levels(entities: list[ScrapedAdminArea]) -> list[Scrape
         if not _should_apply_forced_parent(entity, target_level):
             updated.append(_strip_forced_parent_level_marker(entity))
             continue
-        candidates = by_level.get(target_level, ())
-        parent = _best_forced_parent(entity, candidates)
+        parent = _best_forced_parent(
+            entity,
+            indexes_by_level.get(target_level, _empty_forced_parent_index()),
+            scope_tokens_cache=scope_tokens_cache,
+        )
         if parent is None:
             updated.append(_strip_forced_parent_level_marker(entity))
             continue
@@ -492,46 +497,97 @@ def _should_apply_forced_parent(entity: ScrapedAdminArea, target_level: int) -> 
 
 def _best_forced_parent(
     entity: ScrapedAdminArea,
-    candidates: Iterable[ScrapedAdminArea],
+    candidates: Iterable[ScrapedAdminArea] | dict[str, object],
+    *,
+    scope_tokens_cache: dict[int, set[str]] | None = None,
 ) -> ScrapedAdminArea | None:
+    index = candidates if isinstance(candidates, dict) else _forced_parent_index(candidates)
     entity_code = str(entity.code or "")
     current_parent_code = str(entity.parent_code or "")
-    candidate_rows = [
-        candidate
-        for candidate in candidates
-        if candidate is not entity and str(candidate.code) != entity_code
-    ]
-    prefix_matches = [
-        candidate
-        for candidate in candidate_rows
-        if entity_code.startswith(str(candidate.code or ""))
-        and _prefix_safe_code(str(candidate.code or ""))
-    ]
-    if prefix_matches:
-        return max(prefix_matches, key=lambda candidate: len(str(candidate.code or "")))
+    for length in index["prefix_lengths"]:
+        if int(length) >= len(entity_code):
+            continue
+        for candidate in index["prefix"].get(entity_code[: int(length)], ()):
+            if _valid_forced_parent_candidate(entity, candidate) and _prefix_parent_scope_matches(
+                entity,
+                candidate,
+                scope_tokens_cache=scope_tokens_cache,
+            ):
+                return candidate
     entity_qid = _qid(entity.data_wd)
     if entity_qid:
-        qid_matches = [candidate for candidate in candidate_rows if _qid(candidate.data_wd) == entity_qid]
+        qid_matches = [
+            candidate
+            for candidate in index["qid"].get(entity_qid, ())
+            if _valid_forced_parent_candidate(entity, candidate)
+        ]
         if qid_matches:
             return max(qid_matches, key=lambda candidate: _forced_parent_score(entity, candidate))
     entity_name = _identity_name(entity.name) or _norm_name(entity.name)
     if entity_name:
         name_matches = [
             candidate
-            for candidate in candidate_rows
-            if entity_name in {_identity_name(candidate.name), _norm_name(candidate.name)}
+            for candidate in index["name"].get(entity_name, ())
+            if _valid_forced_parent_candidate(entity, candidate)
         ]
         if name_matches:
             return max(name_matches, key=lambda candidate: _forced_parent_score(entity, candidate))
-    scope_matches = [
-        candidate
-        for candidate in candidate_rows
-        if _parent_name_in_child_url_scope(entity, candidate)
-    ]
+    scope_matches = []
+    seen_scope_ids: set[int] = set()
+    for token in _url_scope_tokens_cached(entity, scope_tokens_cache):
+        for candidate in index["scope_name"].get(token, ()):
+            candidate_id = id(candidate)
+            if candidate_id in seen_scope_ids or not _valid_forced_parent_candidate(entity, candidate):
+                continue
+            seen_scope_ids.add(candidate_id)
+            scope_matches.append(candidate)
     if scope_matches:
         return max(scope_matches, key=lambda candidate: _forced_parent_score(entity, candidate))
-    current = next((candidate for candidate in candidate_rows if str(candidate.code) == current_parent_code), None)
+    current = index["code"].get(current_parent_code)
+    if current is not None and not _valid_forced_parent_candidate(entity, current):
+        return None
     return current
+
+
+def _forced_parent_index(candidates: Iterable[ScrapedAdminArea]) -> dict[str, object]:
+    index = _empty_forced_parent_index()
+    safe_code_cache: dict[str, bool] = {}
+    for candidate in candidates:
+        code = str(candidate.code or "")
+        if code:
+            index["code"].setdefault(code, candidate)
+            if _prefix_safe_code_cached(code, safe_code_cache):
+                index["prefix"].setdefault(code, []).append(candidate)
+        qid = _qid(candidate.data_wd)
+        if qid:
+            index["qid"].setdefault(qid, []).append(candidate)
+        name_keys = {
+            key
+            for key in (_identity_name(candidate.name), _norm_name(candidate.name))
+            if key
+        }
+        for name_key in name_keys:
+            index["name"].setdefault(name_key, []).append(candidate)
+        scope_name = _identity_name(candidate.name) or _norm_name(candidate.name)
+        if scope_name:
+            index["scope_name"].setdefault(scope_name, []).append(candidate)
+    index["prefix_lengths"] = tuple(sorted({len(code) for code in index["prefix"]}, reverse=True))
+    return index
+
+
+def _empty_forced_parent_index() -> dict[str, object]:
+    return {
+        "code": {},
+        "prefix": {},
+        "prefix_lengths": (),
+        "qid": {},
+        "name": {},
+        "scope_name": {},
+    }
+
+
+def _valid_forced_parent_candidate(entity: ScrapedAdminArea, candidate: ScrapedAdminArea) -> bool:
+    return candidate is not entity and str(candidate.code) != str(entity.code or "")
 
 
 def _forced_parent_score(entity: ScrapedAdminArea, candidate: ScrapedAdminArea) -> tuple[int, int, int]:
@@ -972,34 +1028,59 @@ def _collapse_equivalent_rows(entities: list[ScrapedAdminArea]) -> list[ScrapedA
     kept: list[ScrapedAdminArea] = []
     replacements: dict[str, str] = {}
     key_owner: dict[tuple[str, object], ScrapedAdminArea] = {}
+    kept_index_by_owner: dict[int, int] = {}
+    keys_by_owner: dict[int, set[tuple[str, object]]] = {}
+    duplicate_keys_cache: dict[int, tuple[tuple[str, object], ...]] = {}
+    duplicate_score_cache: dict[int, tuple[int, int, int, int]] = {}
     by_code = _by_code_first(entities)
 
+    def duplicate_keys(entity: ScrapedAdminArea) -> tuple[tuple[str, object], ...]:
+        return duplicate_keys_cache.setdefault(id(entity), _duplicate_keys(entity))
+
+    def duplicate_score(entity: ScrapedAdminArea) -> tuple[int, int, int, int]:
+        return duplicate_score_cache.setdefault(id(entity), _duplicate_score(entity, by_code))
+
+    def register_owner(entity: ScrapedAdminArea) -> None:
+        owner_id = id(entity)
+        owner_keys = keys_by_owner.setdefault(owner_id, set())
+        for key in duplicate_keys(entity):
+            if key in key_owner:
+                continue
+            key_owner[key] = entity
+            owner_keys.add(key)
+
+    def replace_owner(old: ScrapedAdminArea, new: ScrapedAdminArea) -> None:
+        old_id = id(old)
+        new_id = id(new)
+        kept_index = kept_index_by_owner.pop(old_id, None)
+        if kept_index is not None:
+            kept[kept_index] = new
+            kept_index_by_owner[new_id] = kept_index
+        for key in keys_by_owner.pop(old_id, set()):
+            if key_owner.get(key) is old:
+                key_owner[key] = new
+                keys_by_owner.setdefault(new_id, set()).add(key)
+        register_owner(new)
+
     for entity in entities:
-        duplicate = _first_duplicate_for(entity, key_owner)
+        duplicate = _first_duplicate_for(entity, key_owner, duplicate_keys=duplicate_keys(entity))
         if duplicate is None:
+            kept_index_by_owner[id(entity)] = len(kept)
             kept.append(entity)
-            _register_duplicate_keys(entity, key_owner)
+            register_owner(entity)
             continue
 
-        preferred = _preferred_duplicate(duplicate, entity, by_code)
+        preferred = entity if duplicate_score(entity) > duplicate_score(duplicate) else duplicate
         preferred_was_duplicate = preferred is duplicate
         discarded = entity if preferred is duplicate else duplicate
         preferred = _merge_duplicate_parent(preferred, discarded, by_code)
         replacements[str(discarded.code)] = str(preferred.code)
         if preferred_was_duplicate:
             if preferred is not duplicate:
-                kept = [preferred if item is duplicate else item for item in kept]
-                for key, owner in list(key_owner.items()):
-                    if owner is duplicate:
-                        key_owner[key] = preferred
-                _register_duplicate_keys(preferred, key_owner)
+                replace_owner(duplicate, preferred)
             continue
 
-        kept = [preferred if item is duplicate else item for item in kept]
-        for key, owner in list(key_owner.items()):
-            if owner is duplicate:
-                key_owner[key] = preferred
-        _register_duplicate_keys(preferred, key_owner)
+        replace_owner(duplicate, preferred)
 
     if not replacements:
         return kept
@@ -1125,8 +1206,10 @@ def _parents_equivalent(
 def _first_duplicate_for(
     entity: ScrapedAdminArea,
     key_owner: dict[tuple[str, object], ScrapedAdminArea],
+    *,
+    duplicate_keys: tuple[tuple[str, object], ...] | None = None,
 ) -> ScrapedAdminArea | None:
-    for key in _duplicate_keys(entity):
+    for key in (duplicate_keys if duplicate_keys is not None else _duplicate_keys(entity)):
         duplicate = key_owner.get(key)
         if duplicate is not None:
             if str(duplicate.code) != str(entity.code) and _code_prefix_related(duplicate, entity):
@@ -1217,16 +1300,28 @@ def _rewire_parent_codes(entities: list[ScrapedAdminArea]) -> list[ScrapedAdminA
     codes = {str(entity.code) for entity in entities}
     by_code = _by_code_first(entities)
     prefix_index = _prefix_parent_index(entities)
+    safe_code_cache: dict[str, bool] = {}
+    scope_tokens_cache: dict[int, set[str]] = {}
 
     updated: list[ScrapedAdminArea] = []
     for entity in entities:
         parent_code = str(entity.parent_code) if entity.parent_code else None
-        prefix_parent = _best_prefix_parent(entity, prefix_index)
+        prefix_parent = _best_prefix_parent(
+            entity,
+            prefix_index,
+            safe_code_cache=safe_code_cache,
+            scope_tokens_cache=scope_tokens_cache,
+        )
         if prefix_parent is not None:
             current_parent = by_code.get(parent_code) if parent_code else None
             expected_parent = str(prefix_parent.code)
             expected_level = int(prefix_parent.level) + 1
-            if _should_use_prefix_parent(entity, current_parent, prefix_parent):
+            if _should_use_prefix_parent(
+                entity,
+                current_parent,
+                prefix_parent,
+                scope_tokens_cache=scope_tokens_cache,
+            ):
                 updated.append(replace(entity, parent_code=expected_parent, level=expected_level))
                 continue
         if parent_code and parent_code not in codes:
@@ -1247,12 +1342,19 @@ def _repair_self_parent_links(country_code: str, entities: list[ScrapedAdminArea
     """
     root = _preferred_country_root(country_code, entities)
     prefix_index = _prefix_parent_index(entities)
+    safe_code_cache: dict[str, bool] = {}
+    scope_tokens_cache: dict[int, set[str]] = {}
     updated: list[ScrapedAdminArea] = []
     for entity in entities:
         if str(entity.parent_code or "") != str(entity.code):
             updated.append(entity)
             continue
-        prefix_parent = _best_prefix_parent(entity, prefix_index)
+        prefix_parent = _best_prefix_parent(
+            entity,
+            prefix_index,
+            safe_code_cache=safe_code_cache,
+            scope_tokens_cache=scope_tokens_cache,
+        )
         if prefix_parent is not None:
             updated.append(
                 replace(
@@ -1337,6 +1439,8 @@ def _should_use_prefix_parent(
     entity: ScrapedAdminArea,
     current_parent: ScrapedAdminArea | None,
     prefix_parent: ScrapedAdminArea,
+    *,
+    scope_tokens_cache: dict[int, set[str]] | None = None,
 ) -> bool:
     if str(entity.parent_code or "") == str(prefix_parent.code) and int(entity.level) == int(prefix_parent.level) + 1:
         return False
@@ -1356,7 +1460,7 @@ def _should_use_prefix_parent(
     if current_gap == 1:
         if (
             int(prefix_parent.level) <= int(current_parent.level)
-            and _parent_name_in_child_url_scope(entity, current_parent)
+            and _parent_name_in_child_url_scope(entity, current_parent, scope_tokens_cache=scope_tokens_cache)
         ):
             return False
         if (
@@ -1373,11 +1477,16 @@ def _should_use_prefix_parent(
     return False
 
 
-def _parent_name_in_child_url_scope(entity: ScrapedAdminArea, parent: ScrapedAdminArea) -> bool:
+def _parent_name_in_child_url_scope(
+    entity: ScrapedAdminArea,
+    parent: ScrapedAdminArea,
+    *,
+    scope_tokens_cache: dict[int, set[str]] | None = None,
+) -> bool:
     parent_name = _identity_name(parent.name) or _norm_name(parent.name)
     if not parent_name:
         return False
-    return parent_name in _url_scope_tokens(entity)
+    return parent_name in _url_scope_tokens_cached(entity, scope_tokens_cache)
 
 
 def _entity_by_code(
@@ -1398,9 +1507,10 @@ def _entity_by_code(
 def _prefix_parent_index(entities: list[ScrapedAdminArea]) -> dict[int, dict[str, list[ScrapedAdminArea]]]:
     """Index possible code-prefix parents by code length, longest first."""
     by_length: dict[int, dict[str, list[ScrapedAdminArea]]] = {}
+    safe_code_cache: dict[str, bool] = {}
     for entity in entities:
         code = str(entity.code or "")
-        if not code or _is_explicit_repeat(entity):
+        if not code or _is_explicit_repeat(entity) or not _prefix_safe_code_cached(code, safe_code_cache):
             continue
         by_length.setdefault(len(code), {}).setdefault(code, []).append(entity)
     for by_code in by_length.values():
@@ -1412,6 +1522,9 @@ def _prefix_parent_index(entities: list[ScrapedAdminArea]) -> dict[int, dict[str
 def _best_prefix_parent(
     entity: ScrapedAdminArea,
     prefix_index: dict[int, dict[str, list[ScrapedAdminArea]]],
+    *,
+    safe_code_cache: dict[str, bool] | None = None,
+    scope_tokens_cache: dict[int, set[str]] | None = None,
 ) -> ScrapedAdminArea | None:
     """Return the longest valid code-prefix parent for city/locality rows.
 
@@ -1424,7 +1537,7 @@ def _best_prefix_parent(
         return None
 
     code = str(entity.code or "")
-    if len(code) < 3 or not _prefix_safe_code(code):
+    if len(code) < 3 or not _prefix_safe_code_cached(code, safe_code_cache):
         return None
 
     for length, candidates_by_code in prefix_index.items():
@@ -1434,14 +1547,23 @@ def _best_prefix_parent(
             candidate_code = str(candidate.code or "")
             if not candidate_code or candidate_code == code:
                 continue
-            if not _prefix_safe_code(candidate_code):
+            if not _prefix_safe_code_cached(candidate_code, safe_code_cache):
                 continue
             if not code.startswith(candidate_code):
                 continue
-            if not _prefix_parent_scope_matches(entity, candidate):
+            if not _prefix_parent_scope_matches(entity, candidate, scope_tokens_cache=scope_tokens_cache):
                 continue
             return candidate
     return None
+
+
+def _prefix_safe_code_cached(code: str, cache: dict[str, bool] | None = None) -> bool:
+    if cache is None:
+        return _prefix_safe_code(code)
+    text = str(code or "").strip()
+    if text not in cache:
+        cache[text] = _prefix_safe_code(text)
+    return cache[text]
 
 
 def _prefix_safe_code(code: str) -> bool:
@@ -1449,14 +1571,28 @@ def _prefix_safe_code(code: str) -> bool:
     return bool(text) and sum(1 for char in text if char.isdigit()) >= max(2, len(text) // 2)
 
 
-def _prefix_parent_scope_matches(entity: ScrapedAdminArea, candidate: ScrapedAdminArea) -> bool:
-    entity_tokens = _url_scope_tokens(entity)
-    candidate_tokens = _url_scope_tokens(candidate)
+def _prefix_parent_scope_matches(
+    entity: ScrapedAdminArea,
+    candidate: ScrapedAdminArea,
+    *,
+    scope_tokens_cache: dict[int, set[str]] | None = None,
+) -> bool:
+    entity_tokens = _url_scope_tokens_cached(entity, scope_tokens_cache)
+    candidate_tokens = _url_scope_tokens_cached(candidate, scope_tokens_cache)
     if entity_tokens and not candidate_tokens:
         return not _is_block_anchor(candidate)
     if entity_tokens and candidate_tokens:
         return bool(entity_tokens & candidate_tokens)
     return True
+
+
+def _url_scope_tokens_cached(entity: ScrapedAdminArea, cache: dict[int, set[str]] | None = None) -> set[str]:
+    if cache is None:
+        return _url_scope_tokens(entity)
+    owner_id = id(entity)
+    if owner_id not in cache:
+        cache[owner_id] = _url_scope_tokens(entity)
+    return cache[owner_id]
 
 
 def _url_scope_tokens(entity: ScrapedAdminArea) -> set[str]:

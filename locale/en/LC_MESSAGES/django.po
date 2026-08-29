@@ -134,6 +134,21 @@ msgstr "Task"
 msgid "Acciones"
 msgstr "Actions"
 
+msgid "Clonar"
+msgstr "Clone"
+
+msgid "Clonar entidad"
+msgstr "Clone entity"
+
+msgid "Entidad clonada."
+msgstr "Entity cloned."
+
+msgid "Copia"
+msgstr "Copy"
+
+msgid "El codigo debe empezar por una letra y usar mayusculas sin acentos, numeros, guion o guion bajo, sin espacios."
+msgstr "The code must start with a letter and use uppercase ASCII letters, numbers, hyphen or underscore, with no spaces."
+
 msgid "running"
 msgstr "running"
 
@@ -190,6 +205,12 @@ msgstr "Search group"
 
 msgid "Grupos"
 msgstr "Groups"
+
+msgid "Entidades"
+msgstr "Entities"
+
+msgid "Filtrar tipos"
+msgstr "Filter types"
 
 msgid "Selecciona un nivel"
 msgstr "Select a level"
@@ -1130,8 +1151,23 @@ msgstr "El level de scrapeo must ser numérico."
 msgid "El slug de configuracion solo puede usar letras, numeros, guion y guion bajo."
 msgstr "El slug de configuration solo puede usar letras, numeros, guion y guion bajo."
 
-msgid "El slug de receta debe ser un identificador Python en minusculas."
-msgstr "El slug de recipe must ser un identificador Python en minusculas."
+msgid "El codigo debe empezar por una letra y usar letras sin acentos, numeros o guion bajo, sin espacios."
+msgstr "The code must start with a letter and use unaccented letters, numbers or underscores, with no spaces."
+
+msgid "El codigo debe empezar por una letra y usar mayusculas sin acentos, numeros o guion bajo, sin espacios."
+msgstr "The code must start with a letter and use unaccented uppercase letters, numbers or underscores, with no spaces."
+
+msgid "Ya existe un pais nuevo con codigo '%(code)s'."
+msgstr "A new country with code '%(code)s' already exists."
+
+msgid "El pais nuevo no pertenece a '%(country)s'."
+msgstr "The new country does not belong to '%(country)s'."
+
+msgid "Datos guardados."
+msgstr "Data saved."
+
+msgid "Codigo derivado"
+msgstr "Derived code"
 
 msgid "Elx"
 msgstr "Elx"
@@ -1141,6 +1177,15 @@ msgstr "Entities to unify"
 
 msgid "Entidades disponibles"
 msgstr "Available entities"
+
+msgid "Entidades creadas"
+msgstr "Created entities"
+
+msgid "No hay entidades creadas."
+msgstr "No created entities."
+
+msgid "Buscar entidad"
+msgstr "Search entity"
 
 msgid "Error"
 msgstr "Error"
@@ -1339,6 +1384,9 @@ msgstr "Pagina {{ number }} de {{ total }}"
 
 msgid "Pakistan"
 msgstr "Pakistan"
+
+msgid "País"
+msgstr "Country"
 
 msgid "Países"
 msgstr "Countries"
@@ -1801,3 +1849,98 @@ msgstr "Searching..."
 
 msgid "capitals debe ser una lista."
 msgstr "capitals must be a list."
+msgid "Usar subdivisiones"
+msgstr "Use subdivisions"
+
+msgid "Subdivisiones reales"
+msgstr "Real subdivisions"
+
+msgid "Seleccionar"
+msgstr "Select"
+
+msgid "No hay subdivisiones creadas."
+msgstr "No created subdivisions."
+
+msgid "Aun no hay datos NuevoAdminArea creados para este codigo."
+msgstr "No NuevoAdminArea data has been created for this code yet."
+
+msgid "La seleccion visual debe contener una lista de subdivisiones creadas."
+msgstr "The visual selection must contain a list of created subdivisions."
+
+msgid "El padre seleccionado no existe."
+msgstr "The selected parent does not exist."
+
+msgid "El padre seleccionado crearia una referencia circular."
+msgstr "The selected parent would create a circular reference."
+
+msgid "Selecciona al menos una subdivision creada."
+msgstr "Select at least one created subdivision."
+
+msgid "%(config)s: el padre '%(parent)s' no existe en este pais nuevo."
+msgstr "%(config)s: parent '%(parent)s' does not exist in this new country."
+
+msgid "%(country)s tiene padres circulares entre sus divisiones."
+msgstr "%(country)s has circular parents among its divisions."
+
+msgid "%(name)s (Nivel 0)"
+msgstr "%(name)s (Level 0)"
+
+msgid "%(name)s (Nivel %(level)s)"
+msgstr "%(name)s (Level %(level)s)"
+
+msgid "Una division no puede ser padre de si misma."
+msgstr "A division cannot be its own parent."
+
+msgid "Usar entidades marcadas como hijos"
+msgstr "Use selected entities as children"
+
+msgid "km^2"
+msgstr "km^2"
+
+msgid "Plegar"
+msgstr "Collapse"
+
+msgid "Eliminar esta entidad?"
+msgstr "Delete this entity?"
+
+msgid "Eliminar entidad"
+msgstr "Delete entity"
+
+msgid "Reasigna o elimina primero sus hijos"
+msgstr "Reassign or delete its children first"
+
+msgid "No se puede eliminar una entidad con hijos. Reasigna o elimina primero sus hijos."
+msgstr "You cannot delete an entity with children. Reassign or delete its children first."
+
+msgid "Entidad eliminada."
+msgstr "Entity deleted."
+
+msgid "Num municipios"
+msgstr "Num municipios"
+
+msgid "Poblacion capital"
+msgstr "Poblacion capital"
+
+msgid "% capital"
+msgstr "% capital"
+
+msgid "Ciudad mas poblada"
+msgstr "Ciudad mas poblada"
+
+msgid "Poblacion ciudad mas poblada"
+msgstr "Poblacion ciudad mas poblada"
+
+msgid "% ciudad mas poblada"
+msgstr "% ciudad mas poblada"
+
+msgid "Ranking poblacion"
+msgstr "Ranking poblacion"
+
+msgid "Ranking terreno"
+msgstr "Ranking terreno"
+
+msgid "Ranking capital"
+msgstr "Ranking capital"
+
+msgid "Ranking ciudad mas poblada"
+msgstr "Ranking ciudad mas poblada"

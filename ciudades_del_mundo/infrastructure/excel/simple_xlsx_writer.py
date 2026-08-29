@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
-from ciudades_del_mundo.domain.nuevo_admin_export import CellValue, Sheet, Table, Workbook
+from ciudades_del_mundo.domain.nuevo_admin_export import CellMerge, CellValue, Sheet, Table, Workbook
 
 
 class SimpleXlsxWriter:
@@ -143,21 +143,29 @@ def _styles_xml() -> str:
         '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
         '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
         '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-        '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
-        '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>'
+        '<cellXfs count="4">'
+        '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+        '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+        '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1">'
+        '<alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
+        '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1">'
+        '<alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
+        '</cellXfs>'
         '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
         "</styleSheet>"
     )
 
 
 def _sheet_xml(sheet: Sheet) -> str:
-    rows_xml = "".join(_row_xml(row, row_idx) for row_idx, row in enumerate(sheet.rows, start=1))
+    rows_xml = "".join(_row_xml(row, row_idx, sheet.center_cells) for row_idx, row in enumerate(sheet.rows, start=1))
     max_row = len(sheet.rows)
     max_col = max((len(row) for row in sheet.rows), default=1)
     dimension = f"A1:{_column_name(max_col)}{max(max_row, 1)}"
     views = _sheet_views(sheet.freeze_panes)
+    cols = _cols_xml(sheet) if sheet.auto_column_widths else ""
     auto_filter_ref = sheet.auto_filter_ref or dimension
     auto_filter = f'<autoFilter ref="{auto_filter_ref}"/>' if sheet.auto_filter and max_row > 1 else ""
+    merge_cells = _merge_cells_xml(sheet.merged_cells)
     table_parts = ""
     if sheet.tables:
         refs = "".join(
@@ -171,11 +179,52 @@ def _sheet_xml(sheet: Sheet) -> str:
         'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
         f'<dimension ref="{dimension}"/>'
         f"{views}"
+        f"{cols}"
         f"<sheetData>{rows_xml}</sheetData>"
+        f"{merge_cells}"
         f"{auto_filter}"
         f"{table_parts}"
         "</worksheet>"
     )
+
+
+def _cols_xml(sheet: Sheet) -> str:
+    widths = _inferred_column_widths(sheet)
+    if not widths:
+        return ""
+    cols = "".join(
+        f'<col min="{index}" max="{index}" width="{width:.2f}" customWidth="1"/>'
+        for index, width in enumerate(widths, start=1)
+    )
+    return f"<cols>{cols}</cols>"
+
+
+def _inferred_column_widths(sheet: Sheet) -> list[float]:
+    max_col = max((len(row) for row in sheet.rows), default=0)
+    if not max_col:
+        return []
+    widths = [12.0] * max_col
+    for row in sheet.rows:
+        for index, value in enumerate(row):
+            if value in (None, ""):
+                continue
+            text = str(value)
+            max_line = max((len(line) for line in text.splitlines()), default=0)
+            widths[index] = max(widths[index], min(max_line + 3, 42))
+    return widths
+
+
+def _merge_cells_xml(merged_cells: tuple[CellMerge, ...]) -> str:
+    refs = []
+    for item in merged_cells:
+        if item.start_row >= item.end_row and item.start_column >= item.end_column:
+            continue
+        start = f"{_column_name(item.start_column)}{item.start_row}"
+        end = f"{_column_name(item.end_column)}{item.end_row}"
+        refs.append(f'<mergeCell ref="{start}:{end}"/>')
+    if not refs:
+        return ""
+    return f'<mergeCells count="{len(refs)}">{"".join(refs)}</mergeCells>'
 
 
 def _table_xml(table: Table, table_id: int) -> str:
@@ -249,17 +298,21 @@ def _sheet_views(freeze_panes: str | None) -> str:
     )
 
 
-def _row_xml(row: tuple[CellValue, ...], row_idx: int) -> str:
-    cells = "".join(_cell_xml(value, row_idx, col_idx) for col_idx, value in enumerate(row, start=1))
+def _row_xml(row: tuple[CellValue, ...], row_idx: int, center_cells: bool) -> str:
+    cells = "".join(_cell_xml(value, row_idx, col_idx, center_cells) for col_idx, value in enumerate(row, start=1))
     return f'<row r="{row_idx}">{cells}</row>'
 
 
-def _cell_xml(value: CellValue, row_idx: int, col_idx: int) -> str:
+def _cell_xml(value: CellValue, row_idx: int, col_idx: int, center_cells: bool) -> str:
     if value is None or value == "":
         return ""
 
     ref = f"{_column_name(col_idx)}{row_idx}"
-    style = ' s="1"' if row_idx == 1 else ""
+    if center_cells:
+        style_id = 3 if row_idx == 1 else 2
+    else:
+        style_id = 1 if row_idx == 1 else 0
+    style = f' s="{style_id}"' if style_id else ""
     if isinstance(value, bool):
         return f'<c r="{ref}" t="b"{style}><v>{int(value)}</v></c>'
     if isinstance(value, (int, float, Decimal)) and not isinstance(value, bool):

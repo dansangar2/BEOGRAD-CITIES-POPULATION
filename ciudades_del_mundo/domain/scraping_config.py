@@ -175,6 +175,7 @@ class CityConfig:
     parent_from: dict[int, tuple[str, ...]]
     communes: tuple[str, ...]
     keep_communes: bool = True
+    parent_entity_type: str | None = None
     child_code: str | None = None
     child_level: int | None = None
     child_entity_type: str | None = None
@@ -198,6 +199,10 @@ class CityConfig:
             parent_from={int(level): _as_tuple(labels) for level, labels in raw_parent.items()},
             communes=_as_tuple(data.get("communes") or ()),
             keep_communes=bool(data.get("keep_communes", True)),
+            parent_entity_type=(
+                str(data.get("parent_type") or data.get("parent_entity_type") or "").strip()
+                or None
+            ),
             child_code=str(data["child_id"]) if data.get("child_id") is not None else None,
             child_level=child_level,
             child_entity_type=str(data["child_type"]) if data.get("child_type") is not None else None,

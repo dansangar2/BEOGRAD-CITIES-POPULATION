@@ -19,6 +19,16 @@ agents know what the feature does, how to use it, which files own it and any
 important side effects. Also update `AGENTS.md` with durable context when the
 feature changes project workflow or architecture.
 
+Conversation memory rule: at the end of each project-related request, review the
+conversation for durable information that future chats should know and record it
+in the best project memory file. Use `AGENTS.md` for agent workflow,
+architecture, scraping/config behavior, recurring pitfalls and user corrections;
+use `README.md` for user-facing commands or workflows; use the relevant local
+SKILL for reusable code-generation, UI/API or review rules when it is available
+and writable. Summarize decisions, constraints, commands and side effects
+concisely; do not paste full chat transcripts, temporary task status,
+speculation, unrelated requests or private/off-project details.
+
 ## Project Summary
 
 `BEOGRAD-CITIES-POPULATION` is a local Django project for population and
@@ -38,6 +48,14 @@ artifacts used only by `sync_scraping_configs` to instantiate or refresh
 `/configs/` rows. Once SQL rows exist, scraping, validation and web actions must
 not depend on those files. Do not add old-style Python country modules for
 ordinary CityPopulation scraping unless the user explicitly asks.
+
+The same source-of-truth rule applies to derived-country and subdivision-group
+workflows: `DerivedCountryConfig`, `DerivedSubdivision` and `SubdivisionGroup`
+rows are the application data. Their `content` fields may store TOML text, but
+runtime views, selectors, builders and API endpoints must read SQL rows and SQL
+content, not local seed files under `new_country_configs/` or
+`subdivision_groups/`. TOML files are only import/export bridges to and from
+SQL.
 
 ## Architectural Direction
 
@@ -86,7 +104,19 @@ TOML bridge: `Importar TOML` / `Exportar TOML` read and write only
 `ciudades_del_mundo/cities_merge/<slug>.toml`. Those files contain standalone
 `[[cities]]` blocks. Importing them replaces only `[[cities]]` in the SQL
 `ScrapingConfig.content`; it must preserve `[[pages]]`, assets, scraping fields
-and every other config fragment.
+and every other config fragment. The normal `/configs/<slug>/` editor save is
+allowed to call `ciudades_del_mundo.services.configured_city_materializer` as a
+best-effort follow-up: if that SQL config has pending `[[cities]]` and the
+country already has `AdminArea` rows, it writes the unified city rows and marks
+their source rows without running a scrape. TOML import actions remain
+configuration-only; use `py manage.py materialize_city_merges <slug>` when an
+already-saved SQL config needs this DB materialization explicitly.
+For `[[cities]]`, do not reuse the source parent subdivision code as the
+configured city `id` when that parent must remain selectable in the city
+builder or derived-subdivision selectors. Use a distinct synthetic code, and set
+`parent_type` when the parent label/type must be preserved during materializer
+repairs; Morocco uses this for prefecture parents such as Casablanca,
+Marrakech, Rabat and Salé.
 
 Configured `[[pages]] source` values are `cities`, `admin` and `citiesadmin`.
 Infrastructure still exposes legacy concrete scrapers for tests/import
@@ -210,9 +240,12 @@ rows whose conflict-safe code still carries a parent scope such as `17_174 ->
 17`, attaches `sum_to_root` branches and guards roll-ups against parent cycles.
 Large countries enter this linker immediately after all `FOUND ... entities`
 scrape logs and before the final SQL save. Keep parent/code lookups indexed:
-`_rewire_parent_codes`, duplicate scoring and prefix repair must use code maps
-or prefix maps instead of scanning the full entity list per row. Spain has
-roughly 37k rows and should normalize in seconds, not appear stuck for minutes.
+`_apply_forced_parent_levels`, `_rewire_parent_codes`, duplicate scoring and
+prefix repair must use level/code/QID/name/scope maps or prefix maps instead of
+scanning the full entity list, or the target forced-parent level, per row.
+Portugal has roughly 21k rows with many `parent_level = 2` city rows and Spain
+has roughly 37k rows; both should normalize in seconds, not appear stuck for
+minutes.
 After duplicate/shortcut cleanup, self-parent links (`parent_code == code`) are
 invalid and must be repaired generically by the most specific safe code-prefix
 parent before falling back to the country root; this protects cases such as
@@ -324,8 +357,8 @@ both exist.
 
 Local diagnostic logs expire after 90 days. `ciudades_del_mundo.web.log_retention`
 cleans `.web_task_logs/`, `.web_scrape_block_errors/`, `.web_scrape_pages/`,
-`.web_ai_autoconfig/`, `.web_task_progress/` and `.web_scrape_resume/`. New web
-task logs are grouped by task key/country, for example
+`.web_ai_autoconfig/`, `.web_export_logs/`, `.web_task_progress/` and
+`.web_scrape_resume/`. New web task logs are grouped by task key/country, for example
 `.web_task_logs/algeria/<task_id>.log`; validation logs are grouped by country,
 for example `.web_scrape_block_errors/algeria/algeria_link_*.txt`.
 `scrape_subdivisions` also writes page snapshots by country and task/run under
@@ -408,6 +441,17 @@ project's scope is enough.
 ## Immediate Agent Rules
 
 - Read this file first, then `README.md` only if more context is needed.
+- Use the local BEOGRAD Codex skills from `$CODEX_HOME/skills` when they are
+  available. `beograd-code-generation` captures transversal engineering,
+  UI/API, frontend-controller, i18n and testing rules. Use
+  `beograd-scraping-configs` for CityPopulation `ScrapingConfig`, `/configs/`,
+  parser/linker, validation-log and AI-autoconfig work. Use
+  `beograd-derived-data` for `DerivedCountryConfig`, `DerivedSubdivision`,
+  `SubdivisionGroup`, `NuevoAdminArea`, `/new-countries/`, `/groups/`,
+  `/subdivisions/`, build commands and derived exports.
+- When a user correction adds or changes a durable code-generation, UI, API or
+  workflow rule, update the relevant local SKILL in the same task whenever the
+  skill is available and filesystem permissions allow it.
 - Check `git status --short` before editing. The tree may contain user changes.
 - Keep changes scoped. Do not refactor unrelated code while doing data/config
   work. Do not modify already working UI/UX, table sizes, card proportions,
@@ -420,6 +464,16 @@ project's scope is enough.
   `gettext`, and update gettext catalogs when the change is meant to ship.
 - For every new feature, add or update user/developer documentation in the
   appropriate place before finishing.
+- Dynamic selectors that depend on source country and level must keep those
+  filters in the API request. Selecting a country must not load all country data
+  at once; fetch only the currently selected level/page/search scope from SQL.
+  In new-country config forms, a source-country-only request may return level
+  metadata, but row data must remain empty until a level is selected. Capital
+  and child selectors for existing SQL configs must preserve the stored SQL
+  selection when the frontend sends an empty initial payload; treat an empty
+  list as clearing only when the request marks the relevant selection as
+  touched. New-country option tables use dynamic pagination with 20 rows by
+  default and 100 as the maximum accepted `page_size`.
 - When the user reports a console scraping error, inspect the latest log for
   that country first. New task logs live under `.web_task_logs/<slug>/` and
   scrape validation logs under `.web_scrape_block_errors/<slug>/`; older flat
@@ -483,7 +537,9 @@ Hexagonal dependency rules for the AI-readable core:
 - `domain/` stays pure and does not import Django, models, services,
   application or infrastructure.
 - `ports/` defines boundary protocols and domain-facing exceptions only. It may
-  import `domain/`, but not Django models or concrete adapters.
+  import `domain/`, but not Django models or concrete adapters. Repository,
+  scraper, fetcher and export writer contracts live here; application use cases
+  should import those ports instead of declaring boundary protocols locally.
 - `application/` orchestrates use cases and may import `domain/`, `ports/` and
   sibling application modules, but not `models`, `services`, `web`,
   `management` or `infrastructure`.
@@ -645,20 +701,247 @@ Page-level scraping config hints:
 `DerivedCountry` and `DerivedCountryConfig` in
 `ciudades_del_mundo/models.py`:
 
-- SQL base for future TOML-driven derived countries
+- SQL base for TOML-driven derived countries
 - `DerivedCountry.slug` groups variants for one conceptual country, such as
   Spain with several historical/political configurations
 - `DerivedCountryConfig.content` stores TOML with `kind =
   "derived_country_config"`, `derived_country_code`, group references and SQL
   source-selection fields. The visual `Nueva entidad` flow stores selected
   `AdminArea.id` values under `[selection] include_ids` / `subtract_ids` plus
-  `[[selection.items]]` rows with `operation = "add"` or `"subtract"`.
-- `/new-countries/` lists containers, `/new-countries/<slug>/` lists configs,
-  `Nueva entidad` creates TOML from a SQL AdminArea tree, `Configuracion` edits
-  TOML and `Vista` links to built `NuevoAdminArea` data when rows exist for the
-  config's `derived_country_code`
-- Current builder compatibility still uses legacy Python modules; do not remove
-  `new_subdivisions/*.py` until the TOML builder exists
+  `[[selection.items]]` rows with `operation = "add"` or `"subtract"`. It also
+  writes a first `[[entities]]` block. With `Usar subdivisiones` off, the form
+  shows a dynamically loaded created-entity table from
+  `/new-countries/<source>/<country>/configs/<code-or-new>/created-entities/`;
+  selected same-country `DerivedCountryConfig` rows become direct children of
+  the config being saved. Saving rewrites those children' `parent_config_slug`
+  and recalculates their `level` plus descendant levels in cascade. A new
+  top-level container with selected child configs stays level 1; the selected
+  children become level 2. The visual `Nueva entidad` form must not show a
+  `Nivel` field; level is derived automatically from the hierarchy and written
+  only into generated TOML. Saving a `DerivedCountryConfig` calculates and
+  persists `area_km2`, `pop_latest` and `density` in the first `[[entities]]`
+  block. The created-entity selector must display terrain, population and
+  density from the materialized `NuevoAdminArea` row when available, or from
+  those stored TOML metrics before the new country is built; its visible
+  columns include compact checkbox selection, name, generated level, type,
+  terrain, population and density. It must not recalculate source selections or
+  child sums while listing rows. New-country
+  metric display text uses the shared number formatter: no thousands grouping
+  and comma decimals. With `Usar subdivisiones` on, the source tree is replaced
+  by saved `DerivedSubdivision` rows from `/subdivisions/`, including rows whose `source_country_code`
+  belongs to another source country, stored as `derived_subdivisions` with
+  `use_selected_entities_as_children = true`. When
+  those selections span countries, emit one `[[entities.include]]` block per
+  `country_code` so the TOML keeps each created subdivision's source context.
+  The created-subdivision selector is loaded from the JSON endpoint
+  `/new-countries/<source>/<country>/configs/new/created-subdivisions/` and is
+  rendered as a separated searchable/paginated table, not a plain checkbox list
+  or a preloaded HTML dataset. It also exposes a source-country filter populated
+  from countries that have created `DerivedSubdivision` rows, because created
+  subdivisions from any country can be selected. The country filter uses the
+  shared Select2 initializer and must stay searchable with normalized
+  accent-insensitive and case-insensitive matching. The real-source subdivision
+  tree is not shown on this form. Its visible columns are the
+  compact checkbox selection, name, source country, type without legacy level
+  suffixes, terrain, population and density using materialized `NuevoAdminArea`
+  metrics when present and TOML preview metrics otherwise. Its toolbar keeps a
+  single row spanning the same 100% table width as the rows below it: the search
+  field takes the remaining space, the source-country filter is wide enough for
+  country names, the rows selector stays compact and pagination keeps the right
+  slot. The toolbar pagination slot remains visible even when there is only one
+  page.
+  During selection, the created-subdivision table's visible `Nombre` column may
+  show the original stored subdivision name including parenthetical text. Once a
+  created subdivision is assigned and rendered inside the new-country hierarchy,
+  its visible `Nombre` column should strip parenthetical suffixes from stored
+  names while keeping the original text searchable. Each `[[entities.include]]` block that
+  references `derived_subdivisions = [...]` must persist the level assigned to
+  those children inside the new-country hierarchy, normally the parent entity
+  level plus one; do not leave that level as a display-only calculation.
+  `Capitales` on this form uses the same searchable badge picker as
+  `/groups/subdivisions/`: selected `AdminArea.id` values are posted as repeated
+  `capitals` inputs and rendered into TOML `capitals = [...]`. The
+  new-country capital-options endpoint searches the source country's capital
+  candidates and, when created subdivisions or created child entities are
+  selected, constrains options to those selections' resolved source IDs even
+  when they belong to other source countries. The frontend capital AJAX payload
+  must include current `selected_child_config_slugs` from the checked created
+  entity rows without reinitializing the Select2 widget on each row toggle. The
+  edit route `/new-countries/<source>/<country>/configs/<config>/capital-options/`
+  may infer saved direct child configs from `<config>` when the payload omits
+  child slugs, so existing configs such as `por` can still search capitals from
+  their stored children.
+  Capital search must match the displayed/localized name and
+  slash/parenthetical aliases, not only raw `AdminArea.name`; for example a row
+  stored as `Donostia` must be found when
+  the UI displays or the user types
+  `San Sebastián`. With `Usar subdivisiones` enabled and no created
+  subdivision checked, the endpoint must return no capital options rather than
+  falling back to the whole source country.
+  `/new-countries/<source>/<country>/configs/<code>/` uses the same visual form
+  as the create route; editing hydrates it from SQL TOML and saving re-renders
+  TOML from the visual fields. If `Codigo` changes, update same-country child
+  configs that reference the old value through `parent_config_slug`. Configs do
+  not have a separate `view/` route; their only own page is the edit form.
+  `/new-countries/` cards must represent one `DerivedCountry` container, not
+  one config row, so values such as `ESP_PERFECTA` do not appear duplicated.
+  The container detail table at
+  `/new-countries/<source_country_code>/<country_slug>/` is not an action-button
+  table: render it as a collapsible hierarchy by config levels (`NV 1` rows with
+  `NV 2+` children), make the row click open the config edit page, remove
+  `Crear`, `Ver`, `Excel` and `Configuracion` from that table. The remaining
+  config-row actions are POST-only `Clonar` and `Borrar`; cloning duplicates the
+  SQL `DerivedCountryConfig`, keeps selections/capitals, changes the visible
+  local code to `COD-COPIA` and uses a route-safe technical slug such as
+  `cod_copia`. Deleting a config must not delete its SQL child configs; direct
+  children are reassigned to the deleted config's parent and their levels plus
+  hierarchy-derived visible codes, including descendants, are recalculated in
+  cascade. Source `AdminArea` selections and selected `DerivedSubdivision` rows
+  assigned to a config are displayed as read-only child rows with their assigned
+  `NV` and a clean, color-differentiated local code only; do
+  not show technical IDs such as `derived-subdivision::<pais>::<codigo>`,
+  parent codes or visible source levels on those assigned rows. The table must
+  fit the panel width without horizontal
+  scrolling; use `Terreno`, `Poblacion` and `Densidad` as metric columns, never
+  a visible `km^2` header. The `Acciones` column must stay wide enough for
+  `Clonar` and `Borrar` on the same row. Config metrics come from the materialized
+  `NuevoAdminArea` entity or the stored first-entity TOML metrics. The container
+  detail header has one page-level `Exportar Excel` action at
+  `/new-countries/<source_country_code>/<country_slug>/export-excel/`; when a
+  materialized `NuevoAdminArea` root exists, it exports the complete built tree
+  instead of only visible config rows. The `Jerarquia` sheet is a wide hierarchy
+  path table, not a flat entity list: the first block is the new country with
+  `Nombre`, `Poblacion`, `%`, `Ranking poblacion`, `Terreno`, `%`, `Ranking
+  terreno`, `Densidad`, `Capital`, `Poblacion capital`, `% capital`, `Ranking
+  capital`, `Ciudad mas poblada`, `Poblacion ciudad mas poblada`, `% ciudad mas
+  poblada`, `Ranking ciudad mas poblada` and `Num municipios`; following blocks
+  repeat those columns for `NV1`, `NV2` and deeper levels. Each row represents
+  one branch path; repeated country/parent blocks across consecutive child paths
+  are vertically merged cell-by-cell so names and metrics are not repeated. All
+  children of one parent are grouped before the next sibling. `Num municipios`
+  comes from accumulated `municipios_originales`, rolling child source units up
+  to parents; the fallback export resolves most-populated city from those source
+  units when no materialized relation is available. When fallback rows mix
+  several original countries, legal source units must use each source country's
+  own effective municipal/legal level from SQL `LEGAL_SUBDIVISION` or
+  `ORIGINAL_MUNICIPAL_LEVEL`; level `0` is valid and a selected lower-level
+  source row must roll up to its level-0 root instead of counting level-1
+  children. Only fall back to the
+  config/assigned-row export when no built root exists. The XLSX contains only
+  the `Jerarquia` data sheet, centers cells and enables inferred column widths;
+  keep summary/audit data in the JSONL log, not in an extra workbook sheet. The
+  action writes the XLSX copy to
+  `excels/new-countries/<source_country_code>/`, and appends an audit JSONL line under
+  `.web_export_logs/new-countries/<source_country_code>/<country_slug>.jsonl`
+  with row, level and legal-subdivision counts.
+  Do not reintroduce per-row Excel actions in this table.
+- `/new-countries/` keeps a two-step browser: first render populated source
+  country cards with the same visual card format as `/countries/`; clicking one
+  opens a second panel listing that source's unique `DerivedCountry` containers.
+  That second panel's container grid must occupy the full panel width, like the
+  initial source-country grid. When a container is selected, the embedded detail
+  places the level selector above the detail grid, then uses the same desktop
+  two-column `stats-country-detail-grid` shape used by drill-down levels:
+  country data on the left and the level-1 subdivisions panel on the right. The
+  level-1 subdivisions panel must be a direct grid panel, not a separate
+  side-stack, so it keeps the same proportions and stretched sizing as the
+  boxes opened for level 2 and deeper drill-down levels.
+  Do not flatten the page into one global container grid, and do not render one
+  card per individual `DerivedCountryConfig`. Container cards show flag when a
+  built root has one, population and terrain from the built root when
+  available, otherwise the sum of the top-level config metrics. Clicking a
+  container must use the shared country-browser detail renderer through
+  `/api/new-country-containers/<country_slug>/`; that endpoint delegates to the
+  built `NuevoAdminArea` payload when a root exists and otherwise returns a
+  config-tree payload with the same `country`, `levels`, `table.rows` and
+  `first_order` shape used by `/countries/`. For unbuilt countries, include
+  child configs, assigned source rows and assigned `DerivedSubdivision` rows in
+  that navigable tree; selected created subdivisions must expand to their
+  source municipal units as child rows. For unbuilt containers, the `Nivel`
+  selector must be computed from a cheap per-level summary of config rows plus
+  assigned source/created-subdivision rows; do not materialize every source row
+  just to decide whether a level is selectable. A requested level that is not in
+  the allowed summary, such as an oversized municipality/source-unit level, must
+  resolve to an allowed level before rows are expanded. The unbuilt container
+  info panel should show the first available configured capital, falling back
+  from top-level configs to child configs when needed, and `Numero de
+  subdivisiones` should count legal source units when selections expose them,
+  falling back to config count only when no legal units are available. When materialized
+  `municipios_originales` are present, project those source IDs back to each
+  original country's effective legal level before using them, because old
+  materializations may contain deeper rows such as Gibraltar enumeration areas;
+  use TOML expansion as a fallback. Any
+  card or table row with children should expose a detail URL until the entity is
+  a leaf. Built subdivision drill-down uses `/api/new-areas/<area_id>/`;
+  unbuilt config-tree drill-down uses
+  `/api/new-country-containers/<country_slug>/config-nodes/<tree_id>/`, and
+  assigned source `AdminArea` rows with children drill into
+  `/api/admin-areas/<area_id>/`. Do not
+  reintroduce `Crear`, `Ver`, per-config build forms or per-config Excel forms
+  on this listing. The only visual difference from `/countries/` inside
+  editable new-country cards is compact action links for full-container Excel
+  export and container configuration. Changes to country-browser charts, tables,
+  level selectors or share panels should be made in the shared renderer/API
+  contract used by both `/countries/` and `/new-countries/` unless the user
+  explicitly scopes the change to one view. In that shared country browser, the
+  level selector updates the table, first-order charts and card/table summaries
+  together and exposes every available non-root level, including commune or
+  municipality leaf levels with no children. Do not reintroduce row-count limits
+  for selectable levels; large levels are handled by API pagination with 20 rows
+  by default and 100 as the maximum page size. Selecting Spain provinces, for
+  example, should replace the 19 region cards with the 52 province rows/cards,
+  and selecting municipalities/communes should page those rows rather than hide
+  the level.
+  The derived-country container detail URL is
+  `/new-countries/<source_country_code>/<country_slug>/`; the old
+  `/new-countries/<country_slug>/` route redirects there when the container has
+  a source country. That detail page shows editable container `name` and
+  `description` fields immediately; the user-visible `Codigo` is read-only
+  there because the slug is route identity. Container create and edit pages
+  share `templates/ciudades_del_mundo/_new_country_data_fields.html`: code and
+  name share the first row, description is compact and full-width on
+  desktop, and the detail table uses `.new-country-subentities-table-wrap` to
+  keep space after the base-data panel. The contextual create URL remains
+  `/new-countries/<source_country_code>/new/` for source-scoped creation flows;
+  do not use `/new-countries/new/?source_country_code=...`. In new-country
+  forms, `slug`
+  is presented to users as `Codigo`, and `source_country_code` is hidden/fixed
+  from the selected source country rather than shown as an editable `Pais fuente`
+  field. The visible `Codigo` inputs are normalized by
+  `app.js` to uppercase ASCII-style IDs without spaces; `-` and `_` are allowed
+  in the visible code, while backend routes use `_` in the technical slug for
+  compatibility. The `Descripcion`
+  field on the country container form uses the compact
+  `.description-textarea` override because the global `textarea` rule is for
+  large TOML editors. Config URLs are source-qualified:
+  `/new-countries/<source_country_code>/<country_slug>/configs/new/` and
+  `/new-countries/<source_country_code>/<country_slug>/configs/<config_slug>/`;
+  old config URLs without `<source_country_code>` redirect there. The visual
+  `Nueva entidad` form follows the `/groups/subdivisions/<country>/<slug>/`
+  editor shape: the `<form>` itself is not a panel, `Crear` appears above and
+  below, base identity fields live in a `panel group-entry-main-box`, and the
+  source-subdivision or derived-subdivision selector lives in its own `panel`
+  below it. `Codigo derivado` and `Activa` are not user-facing in this module;
+  hierarchical codes are derived from `parent_config_slug`: top-level entities
+  use their local `Codigo` and child entities get the parent config code as
+  prefix (`ARA-VAL`), while the edit form still displays only the child's local
+  code (`VAL`). If a parent is created or edited with the same local code as a
+  selected existing child, rename only the selected child's technical config
+  slug (`ara` -> `ara_ara`) and reparent it; the child keeps local `Codigo`
+  `ARA`, so the hierarchy displays `ARA-ARA` without a duplicate-config error.
+  Creation/editing sets the config active and derives `derived_country_code`
+  from the containing `DerivedCountry.slug`.
+- `build_new_subdivisions --country-id <id>` first keeps legacy Python recipe
+  compatibility, but if no recipe exists it resolves a SQL
+  `DerivedCountryConfig` by `derived_country_code`, slug or container slug and
+  builds `NuevoAdminArea` through
+  `ciudades_del_mundo.services.derived_country_builder`. When several configs
+  share the same derived country code, the SQL builder materializes them
+  together and orders them by `parent_config_slug`, so child configs are built
+  under their selected parent division.
+- Legacy `new_subdivisions/*.py` remain supported; do not add new Python
+  recipes when the requested hierarchy can be expressed in SQL
+  `DerivedCountryConfig.content`, `/groups/` or `/subdivisions/`.
 
 `SubdivisionGroup` in `ciudades_del_mundo/models.py`:
 
@@ -671,6 +954,13 @@ Page-level scraping config hints:
   countries. Import/export seed files are grouped by source country as
   `subdivision_groups/groups/<country>.toml`; each top-level assignment in that
   file maps to one SQL row. Group keys must be unique within one source country.
+  Legacy SQL rows with an empty `source_country_code` infer their country from
+  explicit `source_country_code` fields first, then from the `source_python`
+  path/module slug, and only then from `[legacy].python_source` by parsing
+  `DIVISIONS` / `spec` keys. Do not infer group country by regex over arbitrary
+  legacy Python dictionary keys, because embedded keys such as `spain`,
+  `restar`, `name` or `code` can make a Portugal legacy group appear under
+  Spain.
 - `/groups/` lists and edits these groups; `Importar TOML` queues one SQL
   import task per `subdivision_groups/groups/<country>.toml` seed
 - `/groups/` uses the same source-country card format as `/countries/`. Country
@@ -714,8 +1004,21 @@ Page-level scraping config hints:
   left: search, page-size selector, client pagination and a level filter. Its
   rows are user-created `NuevoAdminArea` entities, mapped from the selected
   source country through `DerivedCountry`/`DerivedCountryConfig` when available,
-  with `Nombre de la entidad`, `Tipo (Nivel)`, `Terreno` and `Población`; it
-  does not show the old level-summary `Sumar nivel` column.
+  plus saved SQL `DerivedSubdivision` definitions that have not been materialized
+  yet. Pending definition rows link to their editor and show `-` for `Terreno`
+  and `Población` until `Popular` / `build_derived_subdivisions` rebuilds them.
+  The table columns are `Nombre de la entidad`, `Tipo`, `Terreno`,
+  `Población` and `Acciones`; that action cell must fit both compact POST
+  actions, `Clonar` and `Borrar`, on the same row. `Clonar` duplicates the SQL
+  `DerivedSubdivision` definition using the same `COD-COPIA` convention as
+  `/subdivisions/`. `Borrar` is a
+  POST-only `X` button with browser confirmation as the non-JS fallback, but
+  normal browser use is AJAX: the delete view returns JSON, the clicked row is
+  removed from the current table and client-side filters/pagination are
+  re-rendered without a full page reload. The action removes the SQL
+  `DerivedSubdivision` definition and also removes any directly materialized
+  `NuevoAdminArea` row plus descendants for that definition. It does not show
+  the old level-summary `Sumar nivel` column.
 - `/groups/groups/<country_code>/new/` and `/groups/groups/<country_code>/<group_slug>/`
   edit one country-scoped grouping entry. The editor header shows only the
   internal code, or `NUEVO GRUPO` while creating; do not show the `Agrupaciones`
@@ -738,8 +1041,10 @@ Page-level scraping config hints:
   subdivisions and every lower select filters by the parent selected in the previous level through the
   `/groups/source-data/` `section_parent_id` query parameter. Every level row
   has its own `Añadir` button, and subdivisions already added to that country
-  block must disappear from the relevant add select. Section options and badge
-  labels include the entity type in parentheses, such as `Abla (Municipio)`.
+  block must disappear from the relevant add select. Section options include
+  the entity type in parentheses while the user is managing/selecting rows,
+  such as `Abla (Municipio)`, but once an item is selected its visible
+  table/badge label must be clean, without parentheses or visible level text.
   Keep `ancestor_ids` in the client state: adding an upper entity must remove
   lower section blocks that depend on it, and lower options whose ancestor is
   already selected must be hidden. These selects must not include a blank option
@@ -775,6 +1080,19 @@ Page-level scraping config hints:
   line under the internal-code input and is positioned outside normal layout
   flow, so showing the error does not resize or vertically misalign the
   code/select/button control grid.
+  After saving or importing a group editor, the `Volver` link preserves the
+  `/groups/` country/table/row return state and marks the list stale so a
+  browser-history return reloads `/groups/` before reopening the panel and
+  scrolling to the row.
+  The group SQL `name` must stay equal to the uppercase internal key such as
+  `ALICANTE_A_MURCIA`; do not title-case or prettify it. When editing a
+  country-scoped group and changing that internal key, rename the existing
+  `SubdivisionGroup.slug` row instead of creating a second row, and rewrite
+  same-country `DerivedSubdivision.content` references in `groups = [...]` and
+  `capital_groups.group`. The same rename also rewrites same-country
+  `SubdivisionGroup.content` references, including legacy `[legacy].python_source`
+  bundles, so the old virtual group does not remain selectable after the modern
+  row has been renamed.
   Compatibility routes `/groups/new/` and `/groups/<slug>/` redirect to the
   country-scoped editor when they can infer the target.
 - Importable group TOML lives under `subdivision_groups/groups/<country>.toml`.
@@ -803,8 +1121,7 @@ Page-level scraping config hints:
   `country_code` and queues only the matching country bundle. That same panel
   shows `Exportar TOML` next to `Importar TOML`; it posts to
   `/groups/<country>/export-toml/` and writes the country bundle from SQL.
-  Forms marked `data-loading-submit` show the standard button spinner while
-  posting.
+  Task-starting forms must use the shared popup behavior, not a page redirect.
 - The group edit page exposes per-group `Exportar TOML` and `Importar TOML`
   actions. Export writes the current SQL groups for that source country back to
   `ciudades_del_mundo/subdivision_groups/groups/<country>.toml`; import reads
@@ -817,7 +1134,16 @@ Page-level scraping config hints:
 
 - SQL base for fictional or historical administrative units that can be built
   into `NuevoAdminArea` with `py manage.py build_derived_subdivisions <pais>
-  --force`
+  --force`; pass `--continue-on-error` to build every resolvable row and log
+  stale definitions that cannot currently resolve instead of aborting the whole
+  country. Pass one or more `--slug <slug-or-internal-name>` values to rebuild
+  only selected `DerivedSubdivision` rows; with `--force`, this replaces only
+  those materialized rows instead of clearing the whole country. Partial rebuild
+  must delete the target materialized row, its parent-chain descendants and any
+  stale same-country `NuevoAdminArea.code` prefix descendants before recreating
+  it, because `NuevoAdminArea.parent` uses `SET_NULL` and generated child codes
+  otherwise collide with orphaned rows. The web `Popular` action uses tolerant
+  full-country mode by default.
 - `content` stores TOML with `kind = "derived_subdivision"`, root metadata
   (`internal_name`, `source_country_code`, `name`, `code`, `parent_code`,
   `entity_type`, `level`, `generic_name`, `capitals`, `flag_url`, `coat_url`)
@@ -828,6 +1154,27 @@ Page-level scraping config hints:
   parents; for example a province can include `Albacete (Provincia)` and
   subtract group `ALBACETE_A_CUENCA`, while another subdivision can include that
   same group
+- When `build_derived_subdivisions` resolves a `[[subtract]]` name or group and
+  several source `AdminArea` rows share that label, it prefers the candidate
+  whose municipal-level expansion is already inside the parent territory included
+  for that source country. This prevents groups such as Fenolleda from subtracting
+  same-name municipalities in another French department while leaving the intended
+  Pyrénées-Orientales rows inside the derived area.
+- For mixed-depth CityPopulation sources such as France, a commune may be a
+  terminal leaf at a shallower level than the nominal municipal level because an
+  intermediate arrondissement layer is skipped. `nuevo_admin_builder` must treat
+  those terminal lower-level leaves as effective atomic units when resolving
+  names and expanding included parents/macros, while keeping normal descendant
+  expansion for rows that do have children. The French `Berry` seed must include
+  `Cher` and `Indre` plus `CREUSE_A_BERRY`; `CREUSE_A_BERRY` alone excludes
+  Bourges and cannot satisfy the capital.
+- Some imported legacy `DerivedSubdivision` bundles store metadata on the root
+  row and put the actual source selection inside a single `[[children]]` block
+  with the same name/level, sometimes with a different local code. The builder
+  must fold that self-child wrapper into the parent `NuevoAdminArea` so rows
+  such as `Artois` > `Artois` are not materialized. If the wrapper record also
+  has other real children, keep those children and refresh parent totals from
+  the unique source units plus child rows.
 - `[[capital_groups]]` can assign capitals made from a `SubdivisionGroup` or
   explicit names; `capital_name` is optional and is stored as a capital display
   override for the grouped municipalities
@@ -837,16 +1184,57 @@ Page-level scraping config hints:
   country-level seeds from `subdivision_groups/subdivisions/<country>.toml` via
   `sync_derived_configs subdivisions <country> --force`; export writes that
   same country bundle from SQL. `Popular` enqueues
-  `build_derived_subdivisions <country> --force`.
+  `build_derived_subdivisions <country> --force --continue-on-error`. The created-subdivision table
+  has compact POST actions for `Clonar` and `Borrar`; cloning copies the SQL
+  `DerivedSubdivision` TOML, keeps selections/capitals/children, changes the
+  visible `code` to `COD-COPIA` and uses a route-safe `internal_name`/slug such
+  as `COD_COPIA` / `cod_copia`.
+  The `/subdivisions/` country cards are driven only by SQL
+  `DerivedSubdivision` rows. Imported `AdminArea` countries, reusable
+  `SubdivisionGroup` rows or TOML seeds alone must not create a country card
+  there; the global import action remains the entry point for seed-only
+  countries.
+  Legacy dictionary rows imported from
+  `subdivision_groups/subdivisions/<country>.toml` infer `source_country_code`
+  per row when all included blocks point to a single explicit country. This
+  prevents entries such as Oran embedded in Spain's legacy bundle from being
+  saved under Spain when their `spec` includes only Algeria. Mixed-country
+  rows keep the bundle country. A forced import that reclasifies a legacy row
+  also removes the old bundle-country slug with the same `internal_name`, e.g.
+  `spain_oran`, before creating the corrected row.
+  The `/groups/` country panel may still show stale `NuevoAdminArea` rows after
+  a `DerivedSubdivision` definition has been edited but before `Popular`
+  rebuilds it. Keep those rows editable by resolving the link to the SQL
+  definition through code first and a unique normalized definition name/internal
+  name fallback second; code matching must include both the current requested
+  code and the root-prefixed `internal_name`, so duplicate visible names such as
+  `CATALUNHA_A` / `CATALUNHA_B` remain separately clickable even if one row was
+  materialized before a code edit. When the row matches the definition itself,
+  show name/type/level from the SQL definition, not the stale materialized row.
+  Do not require the already-materialized code or level to match the edited TOML.
+  If the SQL `DerivedSubdivision.updated_at` is newer than the matched
+  materialized `NuevoAdminArea.updated_at`, `/groups/` must display terrain and
+  population from the TOML preview instead of stale materialized metrics until
+  `Popular` rebuilds persisted `NuevoAdminArea` rows.
+  Navigating from a `/groups/` row to `/groups/subdivisions/<country>/<slug>/`
+  stores a short-lived browser `sessionStorage` return target. The editor saves
+  with AJAX when possible; changing `internal_name` or the calculated `code` on
+  an existing `DerivedSubdivision` must update that same SQL row and preserve
+  its `slug`/route instead of creating a second definition. Its `Volver` link
+  returns to `/groups/` (or browser history when the
+  previous page was `/groups/`) with the source country panel reopened, the
+  correct client-pagination page selected and the edited row scrolled into view.
 - `/groups/subdivisions/<country>/<slug>/` uses the same lower source-selection
   pattern as `/groups/groups/<country>/<group>/`: compact header, save actions
   above and below, a first `group-entry-main-box` for base fields, then two
   visual panels for `Sumar` and `Restar`. The source country is always the
-  country segment in the URL and is stored in a hidden field only; the form no
-  longer exposes separate `Pais fuente`, `Seccion padre` or `Codigo propio`
-  controls. On save, `parent_code` is fixed to the selected source country's
-  root code and the full `code` is derived from `internal_name`; do not add a
-  visible `Codigo calculado` field back. For example source country Spain uses
+  country segment in the URL and is stored in a hidden field only; the main box
+  no longer shows the numeric `Nivel` control, but keeps its value in a hidden
+  POST field until level editing moves to its final location. The form no longer
+  exposes separate `Pais fuente`, `Seccion padre` or `Codigo propio` controls.
+  On save, `parent_code` is fixed to the selected source country's root code and
+  the full `code` is derived from `internal_name`; do not add a visible `Codigo
+  calculado` field back. For example source country Spain uses
   root `ESP`, so `internal_name = "CASTILLA_VIEJA"` saves
   `code = "ESP-CASTILLA_VIEJA"`. GET requests render only
   the shell and spinner; `/groups/subdivisions/<country>/<slug>/data/` hydrates
@@ -854,56 +1242,91 @@ Page-level scraping config hints:
   labels and only the current `[[include]]` / `[[subtract]]` source selections.
   It must not preload all `SubdivisionGroup` rows or return a `group_countries`
   list, except for hydrating already referenced group badges in the current TOML.
+  Existing `[[subtract]] groups = [...]` badges must resolve flat group member
+  names inside the municipal scope already included for that source country; the
+  editor should show the same scoped members and parent as the builder will
+  subtract, not same-name rows from another parent.
   The lower source area queries SQL `AdminArea` lazily through
   `/groups/source-data/` using the same level/section rules as
   `/groups/groups/`; do not expose deeper leaf levels in the derived-subdivision
   UI when the group editor hides them. When this editor passes
   `include_groups=1`, `/groups/source-data/` may also return country-scoped
   `SubdivisionGroup` options as `source_kind = "group"` badges at their resolved
-  member level and common parent scope. Resolve those group badge candidates in
-  bulk per request and filter by level/parent before building member tooltip
-  text; do not call the full `AdminArea` payload/ancestor metadata path once per
-  grouped municipality. Like the group editor, the direct-source
+  member level and common parent scope. When it passes
+  `include_derived_subdivisions=1`, `/groups/source-data/` may also return
+  same-country lower-level `DerivedSubdivision` options as `source_kind =
+  "derived_subdivision"` badges, filtered by the editor's `current_level`,
+  `current_subdivision`, `current_subdivision_country` and selected parent
+  municipal scope; only exclude the current subdivision key inside that current
+  country, because another source country may have the same internal key. Resolve those
+  special badge candidates in bulk per request and filter by level/parent before
+  building member tooltip text; do not call the full `AdminArea`
+  payload/ancestor metadata path once per grouped municipality. Like the group editor, the direct-source
   hierarchy includes a root country row before `Nivel 1`; its modal includes the
   country itself as level 0 plus direct level-1 administrations, all loaded from
-  SQL, so either can be added as direct source badges. Visible TOML
+  SQL, so either can be added as direct source badges. A selected source-country
+  root, e.g. Gibraltar, must persist as a `level = 0` `ids = [...]` include or
+  subtract block for that source country and hydrate back as a selected root
+  badge; do not drop it because normal source levels start at 1. Visible TOML
   editing is not part of this form, but the hidden `content` textarea remains
   the persistence carrier. When the lower visual selection is dirty, POST data
   includes `include_ids_json` / `subtract_ids_json`; the view converts selected
   source rows to `[[include]]` / `[[subtract]]` blocks with DB `ids = [...]` for
-  `AdminArea` badges and `groups = [...]` for reusable group badges.
+  `AdminArea` badges, `groups = [...]` for reusable group badges and
+  `derived_subdivisions = [...]` for already-created `DerivedSubdivision`
+  badges. The lower selected-source table has exactly three columns
+  (`Incluidos`, `Excluidos`, `Acciones`); empty rows must span three columns and
+  the actions column must fit `Editar`, `Excluir` and `Quitar` without
+  overlapping.
+  Saving through AJAX keeps the editor on the same page but records fresh
+  `/groups/` return state; after a save or import, `Volver` reloads a stale
+  browser-history copy of `/groups/` before reopening the country panel and
+  scrolling to the edited row.
   The lower country selector lives in its own control panel and has one
   `Anadir` action that adds a source-country block. Do not render separate
   `Sumar` and `Restar` country panels. Inside that single block, the hierarchy
   `Anadir` buttons open a transfer modal with `Disponibles` and `Grupo`,
   matching the `/groups/groups/` interaction style, and selected badges can be
-  direct `AdminArea` entities or reusable `SubdivisionGroup` references. Group
-  badges use a distinct color and a title/tooltip listing the resolved SQL
-  members. The transfer modal has one search filter that normalizes case and
-  accents, so queries such as `Le`, `le` and `Lé` match the same badges, plus a
-  `Grupos` checkbox that filters both modal columns to group badges only. Modal
+  direct `AdminArea` entities, reusable `SubdivisionGroup` references or
+  lower-level `DerivedSubdivision` references. Group badges use a distinct
+  color, derived-subdivision badges use a third color, and both expose a
+  title/tooltip listing the resolved SQL members. The transfer modal has one search filter that normalizes case and
+  accents, so queries such as `Le`, `le` and `Lé` match the same badges, plus
+  combinable type checkboxes for normal `AdminArea` entities, reusable groups
+  and lower-level `DerivedSubdivision` references. Clicking modal badges must
+  not refocus the search input or scroll the page; preserve focus only after
+  actual filter input. Modal options returned by `/groups/source-data/` use per-request caches for
+  `SubdivisionGroup` TOML entries and derived-subdivision municipal expansions;
+  compact available group/derived-subdivision options must keep full
+  `member_ids` for `Excluir`, but should not ship full `member_names` lists.
   Direct `Anadir` modal calls must limit reusable groups to the same level as
   the direct children of the selected hierarchy row, so root country add shows
   only level-1 groups. Descendant/exclusion modal calls must resolve reusable
   groups across all lower descendant levels under the selected included parents.
-  Modal blocks and selected-source table rows separate normal `AdminArea` badges from
-  group badges by type and level, e.g. `Nivel 3` and `Grupos - Nivel 3`. In the
-  modal, separate those sections with a title and neutral thick line inside the
-  `Disponibles`/selected badge container; do not use nested boxes/cards for
-  each level. When `/groups/source-data/` loads direct children, it keeps only
-  the shallowest direct child layer if inconsistent DB rows put multiple levels
-  under the same parent. The
-  selected-source table groups rows
-  by source country, source type, level and parent scope so same-scope items render as badges
-  in one row. That table column order is `Incluidos`, `Excluidos`, `Nivel`,
-  `Acciones`. The two first columns render badge labels and split the remaining
-  width 50/50 after reserving fixed narrow widths for `Nivel` and the row
-  buttons. `Editar` opens a same-scope selector for all sibling `AdminArea` rows
-  with the same source country, level and parent as the edited row; for example
-  Spain L1 rows show all Spanish autonomous communities, while a province under
-  Castilla y Leon shows the other provinces under that same parent. That edit
-  selector uses `/groups/source-data/` with `source_mode=items` so it returns
-  all rows at that level, not only sections that have children. `Excluir` opens
+  Modal blocks separate normal `AdminArea` badges from group badges by type and
+  level, e.g. `Nivel 3` and `Grupos - Nivel 3`. In the modal, separate those
+  sections with a title and neutral thick line inside the `Disponibles`/selected
+  badge container; do not use nested boxes/cards for each level. When
+  `/groups/source-data/` loads direct children, it keeps only the shallowest
+  direct child layer if inconsistent DB rows put multiple levels under the same
+  parent, except direct unified city rows (`city_merge_status = 1`), which must
+  remain available even when they are deeper than sibling administrative rows.
+  The selected-source table groups rows by source country, level and
+  parent scope, not by source type, so normal entities, reusable groups and
+  lower-level derived-subdivision references from the same parent render as
+  badges in one row while special badges keep their distinct colors. Normal
+  `AdminArea` badges keep the default color, `SubdivisionGroup` badges use the
+  group color and `DerivedSubdivision` badges use a third color. Visible
+  selected labels must omit parenthetical type hints, `L3`/level text and
+  technical IDs; a selected `DerivedSubdivision` reference shows only its local
+  code. That table column order is `Incluidos`, `Excluidos`, `Acciones`. The
+  two first columns render badge labels and split the remaining width 50/50
+  after reserving a fixed narrow width for row buttons. `Editar` opens a selector for the same source country, level and
+  parent scope as the edited row. For example, Spain L1 rows show all Spanish
+  autonomous communities, while a province row under Castilla y Leon shows the
+  other provinces under that same parent. That edit selector uses
+  `/groups/source-data/` with `source_mode=items` so it returns all rows at that
+  level, not only sections that have children. `Excluir` opens
   a lower-level descendant selector for every included item in that table row
   through `/groups/source-data/` with `source_mode=descendants`; selected
   descendant and in-scope group badges are shown in the same modal but separated
@@ -943,9 +1366,11 @@ Page-level scraping config hints:
   source JSON and typed capital prefix to
   `/groups/subdivisions/<country>/<slug>/capital-options/` once the user has
   typed at least two letters. That endpoint filters candidate municipalities by
-  the normalized starts-with prefix first, then checks whether each candidate is
-  inside the current include/subtract selection; do not expand every possible
-  source city before applying the prefix. The select displays just the
+  the normalized starts-with prefix first, then checks displayed/localized names
+  and slash/parenthetical aliases before rejecting candidates. If the raw prefix
+  misses a valid localized match, it may inspect candidates from the current
+  include selection, but must not expand every possible source city in the
+  country. The select displays just the
   municipality name.
   Capital options and `/groups/source-data/`
   badge children use only base source rows plus unified city rows
@@ -955,6 +1380,20 @@ Page-level scraping config hints:
   `DerivedSubdivision` rows; the country-level build then recalculates terrain,
   population, density, capitals and source `municipios_originales` in
   `NuevoAdminArea`.
+  Root `DerivedSubdivision` TOML may set
+  `use_selected_entities_as_children = true/false`. If the key is absent, old
+  records do not auto-generate child nodes. If it is false, the builder creates
+  child `NuevoAdminArea` rows from the source municipal/comunal units in
+  `municipios_originales`. If it is true, the builder materializes the selected
+  `[[include]]` badges themselves as child nodes (`AdminArea`,
+  `SubdivisionGroup` or referenced `DerivedSubdivision`), and referenced
+  lower-level `DerivedSubdivision` children default to false so they can expose
+  their own source units and preserve fictitious intermediate levels. The web
+  editor no longer exposes this boolean in the main form; it keeps the current
+  value as a hidden POST field until that control is moved elsewhere. `flag_url`
+  and `coat_url` split that full row evenly. AJAX saves return a lightweight payload and should not recalculate or
+  replace the already-mounted include/subtract visual source blocks; use the
+  `/data/` endpoint for full hydration.
 
 `DynamicTranslation` in `ciudades_del_mundo/models.py`:
 
@@ -1568,14 +2007,25 @@ Excel details:
 - `export_nuevoadmin_excel` refreshes derived most-populated city before export.
 - Default output directory is `excels/`.
 - `SimpleXlsxWriter` is a custom no-third-party XLSX writer using `zipfile`.
-- Workbook rows are one path from root to leaf.
-- Top-level and child rows are sorted alphabetically by name, not code.
-- Each level block includes `Lx_ranking_poblacion_pais`, ranking areas by
-  population against every area in the derived country at that same level.
-- The workbook writes only the main path table; it does not append secondary
-  child-summary tables to the right of the main columns.
-- The main sheet name is `NuevoAdminArea`.
-- Main table name starts as `TablaPrincipal`.
+- Workbook rows are wide hierarchy paths. The first block describes the country
+  with `Nombre`, `Poblacion`, `%`, `Ranking poblacion`, `Terreno`, `%`,
+  `Ranking terreno`, `Densidad`, `Capital`, `Poblacion capital`, `% capital`,
+  `Ranking capital`, `Ciudad mas poblada`, `Poblacion ciudad mas poblada`, `%
+  ciudad mas poblada`, `Ranking ciudad mas poblada` and `Num municipios`;
+  following blocks repeat those columns for `NV1`, `NV2` and deeper levels.
+- Each exported row follows one branch. Repeated country/parent blocks across
+  consecutive child paths are vertically merged cell-by-cell. Descendant paths
+  are grouped under their parent before moving to the next sibling, with
+  siblings sorted alphabetically by name, not code.
+- `Num municipios` is calculated from accumulated `municipios_originales` source
+  units and is rolled up from children to parents. The fallback web export uses
+  those source units to resolve the most-populated city when needed. The workbook
+  no longer exports technical columns, a `Resumen` sheet, structured Excel tables
+  when merged cells are present, or secondary child-summary tables to the right.
+- The main sheet name is `Jerarquia`.
+- The hierarchy sheet uses `CellMerge` metadata rendered by `SimpleXlsxWriter`
+  as `<mergeCells>` ranges, plus optional centered styles and inferred column
+  widths.
 
 ## Management Commands
 
@@ -2022,6 +2472,16 @@ If the user asks about web UI:
   partial endpoints (`/areas/table/`, `/derived/<id>/table/`), with advanced
   filters and Select2-enhanced selects. Keep non-JS/native-select fallback
   working when editing these pages.
+- `/groups/` and `/subdivisions/` country-card panels must lazy-load their
+  country tables only after the user opens a country card. `/groups/` uses
+  `/groups/countries/<country>/data/`; `/subdivisions/` uses
+  `/subdivisions/countries/<country>/data/`. The initial page HTML should
+  include cards, action shells and empty table bodies, not all row data. The
+  `/groups/` right-hand `Nuevas divisiones` table is a list of SQL
+  `DerivedSubdivision` definitions for the source country; do not populate it
+  from scraped `AdminArea` municipalities/localities or from materialized
+  `NuevoAdminArea` child rows. Level filters in that panel come from those
+  definitions, not from built hierarchy rows.
 - Dashboard/statistical country bars and country selectors display names from
   root database rows (`AdminArea.level=0` and root `NuevoAdminArea`) while
   keeping `country_code` as the submitted/filter value. Display labels are
@@ -2030,7 +2490,9 @@ If the user asks about web UI:
   the `locale/*/LC_MESSAGES/django.po` catalogs and compiled.
 - Dashboard/statistical data loads dynamically with visible loading spinners.
   Current web data should be consumed through the local API endpoints:
-  `/api/countries/`, `/api/countries/<country_code>/` and `/api/derived/`.
+  `/api/countries/`, `/api/countries/<country_code>/`,
+  `/api/new-country-containers/`, `/api/new-country-containers/<country_slug>/`
+  and `/api/derived/`.
   The older `/dashboard/population/`, `/dashboard/derived/` and
   `/dashboard/country/<country_code>/` JSON endpoints remain for compatibility.
   `/api/countries/` returns root-country population and area donut data and uses
@@ -2051,16 +2513,13 @@ If the user asks about web UI:
   country, and changing its level selector reloads only that table panel.
   The country table level selector is rendered by `renderCountryTablePanel`
   in `.country-level-controls`, directly above the `Tabla de datos` heading,
-  and only when more than one useful level option exists. If no `level` query
-  parameter is selected, `/api/countries/<country_code>/` uses the first
-  non-root level (NV1 for normal countries). Selector options are the translated
-  entity-type names for levels whose total visible row count in that country is
-  greater than 0 and no more than `COUNTRY_LEVEL_OPTION_MAX_ROWS` (500 by
-  default). If a whole level is too large but contains entity-type groups with
-  children and at most 500 rows, the API offers one partial option for those
-  types (`filter_value` uses `level|EntityType|...`) and stops offering deeper
-  levels. Examples expected by the UI are Spain level 1/2 and France level
-  1/2/3, while massive commune/locality levels are not offered.
+    and only when more than one useful level option exists. If no `level` query
+    parameter is selected, `/api/countries/<country_code>/` uses the first
+    non-root level (NV1 for normal countries). Selector options are the translated
+    entity-type names for every level whose total visible row count in that
+    country is greater than 0; massive commune/locality levels remain selectable
+    and are handled by API pagination rather than hidden. The shared country
+    browser defaults to 20 rows per page and caps requested `page_size` at 100.
   First-order comparison rows are shown as a compact client-sortable table below
   the two donuts; its header is sticky inside the table scroll area and the table
   should avoid horizontal scroll on desktop by keeping numeric columns narrow.
@@ -2140,7 +2599,11 @@ If the user asks about web UI:
   based on that country's flag colors. The rainbow complex effect is intentionally
   faster and layered, using multiple subtle gradients plus `rainbow-shift`; keep
   it smooth enough to avoid abrupt color jumps. Keep theme-specific colors in CSS
-  variables where possible.
+  variables where possible. Theme hardening belongs in shared CSS: Select2,
+  custom search selects, modal dialogs, image previews and task toasts must
+  inherit `--surface`, `--ink`, `--muted`, `--line` and `--accent`; decorative
+  complex-theme overlays must stay below interactive overlays so modal details
+  and previews render consistently in every style.
 - map pages do not use stored geometry. They geocode by area name in the
   browser using OpenStreetMap/Nominatim through Leaflet, and try to resolve
   flag/coat-of-arms/locator-map images from Wikidata/Wikimedia Commons in
@@ -2313,6 +2776,16 @@ If the user asks about web UI:
   tasks can continue after the browser closes, but cannot continue when
   the PC or Django process is powered off; use an always-on machine or external
   worker if true offline/background execution is required.
+- Any web control that creates or starts a `WebTask` should follow the
+  `/configs/` pattern: template form marked `data-config-task-form`, submit
+  button marked `data-config-action`, AJAX request asking for JSON, and a view
+  response with `task_id`, `status_url`, `detail_url`, `status` and `label`.
+  Keep direct POSTs as non-AJAX fallbacks, but do not use `data-loading-submit`
+  for new task-start forms. This applies to imports, builds and exports from
+  `/new-countries/`, `/groups/`, `/subdivisions/`, `/recipes/` and
+  `/derived/<id>/`. `/subdivisions/import-toml/` still supports the editor's
+  immediate AJAX import when `queue_task` is absent; list pages send
+  `queue_task=1` so the TOML import is enqueued and the current page stays put.
 - country dashboard/API chart and table data should use
   `_visible_admin_areas()` so rows with `AdminArea.city_merge_status == 3` stay
   hidden from `/api/countries/`, `/api/countries/<country_code>/`, `/stats/`
@@ -2349,7 +2822,9 @@ If the user asks about web UI:
 - Running scraping can delete DB rows not found in the new scrape because of
   `delete_missing`.
 - Running `build_new_subdivisions` deletes and rebuilds all non-root derived
-  rows for the requested country.
+  rows for the requested country. If the requested `country_id` has no legacy
+  Python recipe, it may resolve and build the matching SQL `DerivedCountryConfig`
+  instead.
 - Running `build_derived_subdivisions <country> --force` deletes and rebuilds
   non-root `NuevoAdminArea` rows whose `country_code` is that source country,
   based only on SQL `DerivedSubdivision.content`; TOML files are not read at

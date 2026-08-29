@@ -10,14 +10,16 @@ from __future__ import annotations
 import unicodedata
 import re
 from typing import Optional, Iterable
+import tomllib
 from urllib.parse import unquote, urlparse
 
 from django.db import transaction
 from django.db.models import Sum
+from django.db.utils import OperationalError, ProgrammingError
 
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
-from ciudades_del_mundo.models import AdminArea, NuevoAdminArea
+from ciudades_del_mundo.models import AdminArea, NuevoAdminArea, ScrapingConfig
 from ciudades_del_mundo.services.source_population_indices import SourcePopulationIndexRegistry
 
 
@@ -30,7 +32,7 @@ ORIGINAL_MUNICIPAL_LEVEL: dict[str, int] = {
     "france": 4,
     "portugal": 2,
     "andorra": 2,
-    "gibraltar": 1,
+    "gibraltar": 0,
     "puertorico": 3,
     "equatorialguinea": 2,
     "morocco": 3,
@@ -72,6 +74,46 @@ ORIGINAL_MUNICIPAL_LEVEL: dict[str, int] = {
     "costarica": 3,
     "panama": 3,
 }
+
+
+def effective_source_municipal_level(country_code: str, fallback: int | None = None) -> int | None:
+    """Return the configured legal subdivision level used as source unit."""
+    country_code = str(country_code or "").strip().lower()
+    if not country_code:
+        return fallback
+    configured = _scraping_config_legal_subdivision_level(country_code)
+    if configured is not None:
+        return configured
+    if country_code in ORIGINAL_MUNICIPAL_LEVEL:
+        return int(ORIGINAL_MUNICIPAL_LEVEL[country_code])
+    return fallback
+
+
+def _scraping_config_legal_subdivision_level(country_code: str) -> int | None:
+    for filters in ({"country_code__iexact": country_code}, {"slug__iexact": country_code}):
+        try:
+            content = (
+                ScrapingConfig.objects.filter(**filters)
+                .order_by("slug")
+                .values_list("content", flat=True)
+                .first()
+            )
+        except (OperationalError, ProgrammingError):
+            return None
+        if not content:
+            continue
+        try:
+            data = tomllib.loads(content)
+        except tomllib.TOMLDecodeError:
+            continue
+        raw_level = data.get("LEGAL_SUBDIVISION") if isinstance(data, dict) else None
+        if raw_level in (None, ""):
+            continue
+        try:
+            return int(raw_level)
+        except (TypeError, ValueError):
+            continue
+    return None
 
 MAKE_CITIES = {
     "morocco": [
@@ -419,6 +461,61 @@ def _is_label_selector(value) -> bool:
     )
 
 
+def _resolve_adminarea_candidates_in_qs(
+    qs,
+    label_or_id: str,
+    city_merge_status_preference=None,
+) -> list[AdminArea]:
+    """Return all matches using the same priority as ``_resolve_adminarea_in_qs``."""
+    lookup_value = _label_lookup_value(label_or_id)
+    if not lookup_value:
+        return []
+
+    candidates = _preferred_adminareas(
+        qs.filter(id=lookup_value),
+        city_merge_status_preference,
+    )
+    if candidates:
+        return candidates
+
+    candidates = _preferred_adminareas(
+        list(qs.filter(code__iexact=lookup_value)) + list(qs.filter(name__iexact=lookup_value)),
+        city_merge_status_preference,
+    )
+    if candidates:
+        return candidates
+
+    n = _norm(lookup_value)
+    cache = list(qs.only("id", "country_code", "code", "name", "level", "city_merge_status", "parent_id"))
+    candidates = _preferred_adminareas(
+        [
+            area
+            for area in cache
+            if n in {_norm(area.id), _norm(area.code), _norm(area.name)}
+        ],
+        city_merge_status_preference,
+    )
+    if candidates:
+        return candidates
+
+    try:
+        qs_ordered = qs.order_by("-level")
+    except Exception:
+        qs_ordered = qs
+
+    candidates = _preferred_adminareas(
+        qs_ordered.filter(name__icontains=lookup_value),
+        city_merge_status_preference,
+    )
+    if candidates:
+        return candidates
+
+    return _preferred_adminareas(
+        qs_ordered.filter(code__icontains=lookup_value),
+        city_merge_status_preference,
+    )
+
+
 def _resolve_adminarea_in_qs(
     qs,
     label_or_id: str,
@@ -508,6 +605,9 @@ def _lookup_many_with_preferences(
     level: int,
     labels_or_seq,
     city_merge_status_preference=None,
+    *,
+    scoped_municipal_ids: set[str] | None = None,
+    scoped_atomic_level: int | None = None,
 ) -> list[tuple[AdminArea, tuple[int, ...]]]:
     labels = _labels_to_list(labels_or_seq)
 
@@ -522,6 +622,7 @@ def _lookup_many_with_preferences(
         )
         lookup_qs = qs
         parent_label = _label_parent(raw_label)
+        parent = None
         if parent_label:
             parent = _resolve_adminarea_in_qs(
                 AdminArea.objects.filter(country_code=country_code, level__lt=level),
@@ -536,11 +637,44 @@ def _lookup_many_with_preferences(
             city_merge_status__in=_child_city_merge_statuses(preference)
         )
 
-        obj = _resolve_adminarea_in_qs(
+        candidates = _resolve_adminarea_candidates_in_qs(
             lookup_qs,
             label,
             city_merge_status_preference=preference,
         )
+        if not candidates:
+            fallback_qs = _effective_atomic_lookup_qs(
+                country_code,
+                level,
+                parent_id=parent.id if parent is not None else None,
+                city_merge_status_preference=preference,
+            )
+            candidates = [
+                area
+                for area in _resolve_adminarea_candidates_in_qs(
+                    fallback_qs,
+                    label,
+                    city_merge_status_preference=preference,
+                )
+                if _is_effective_atomic_leaf(area, level, preference)
+            ]
+        obj = None
+        if scoped_municipal_ids and scoped_atomic_level is not None:
+            obj = _preferred_adminarea(
+                [
+                    area
+                    for area in candidates
+                    if _area_matches_municipal_scope(
+                        area,
+                        scoped_atomic_level,
+                        scoped_municipal_ids,
+                        preference,
+                    )
+                ],
+                preference,
+            )
+        if obj is None and candidates:
+            obj = candidates[0]
         if obj:
             found.append((obj, preference))
         else:
@@ -553,6 +687,41 @@ def _lookup_many_with_preferences(
         )
 
     return found
+
+
+def _effective_atomic_lookup_qs(
+    country_code: str,
+    requested_level: int,
+    *,
+    parent_id: str | None = None,
+    city_merge_status_preference=None,
+):
+    atomic_level = effective_source_municipal_level(country_code)
+    if atomic_level is None or requested_level != atomic_level:
+        return AdminArea.objects.none()
+    queryset = AdminArea.objects.filter(
+        country_code=country_code,
+        level__lt=requested_level,
+        city_merge_status__in=_child_city_merge_statuses(city_merge_status_preference),
+    )
+    if parent_id:
+        queryset = queryset.filter(parent_id=parent_id)
+    return queryset
+
+
+def _is_effective_atomic_leaf(
+    area: AdminArea,
+    target_level: int,
+    city_merge_status_preference=None,
+) -> bool:
+    if area.level is None or area.level >= target_level:
+        return False
+    if int(area.city_merge_status or 0) not in _child_city_merge_statuses(city_merge_status_preference):
+        return False
+    return not AdminArea.objects.filter(
+        parent_id=area.id,
+        city_merge_status__in=_child_city_merge_statuses(city_merge_status_preference),
+    ).exists()
 
 
 # ---------------------------------------------------------------------------
@@ -599,6 +768,20 @@ def _descendants_at_level(
                 city_merge_status__in=_child_city_merge_statuses(city_merge_status_preference),
             )
         )
+        children_by_parent: dict[str, list[AdminArea]] = {}
+        for child in children:
+            children_by_parent.setdefault(child.parent_id or "", []).append(child)
+        for area in frontier:
+            if (
+                area.id != root.id
+                and area.level is not None
+                and area.level < target_level
+                and not children_by_parent.get(area.id)
+                and int(area.city_merge_status or 0) in _child_city_merge_statuses(city_merge_status_preference)
+                and area.id not in seen
+            ):
+                result.append(area)
+                seen.add(area.id)
         frontier = []
 
         for child in children:
@@ -653,7 +836,10 @@ def _to_atomic_ids(
                 atomic_level,
                 city_merge_status_preference,
             )
-            result |= {d.id for d in descendants}
+            if descendants:
+                result |= {d.id for d in descendants}
+            elif _is_effective_atomic_leaf(area, atomic_level, city_merge_status_preference):
+                result.add(area.id)
         else:
             raise ValueError(
                 f"No se puede convertir desde el nivel {area.level} a un nivel "
@@ -689,17 +875,37 @@ def _expand_to_municipal(
     items: Iterable[AdminArea],
     country_code: str,
     city_merge_status_preference=None,
+    municipal_level: int | None = None,
 ) -> set[str]:
     """
     Convierte una colección de AdminArea (de cualquier nivel) en ids de municipios
     (nivel ORIGINAL_MUNICIPAL_LEVEL[country_code]).
     """
-    atomic_level = ORIGINAL_MUNICIPAL_LEVEL.get(country_code)
+    atomic_level = effective_source_municipal_level(country_code, fallback=municipal_level)
     if atomic_level is None:
         raise ValueError(
             f"No se ha definido ORIGINAL_MUNICIPAL_LEVEL para el país origen '{country_code}'."
         )
     return _to_atomic_ids(items, atomic_level, city_merge_status_preference)
+
+
+def _area_matches_municipal_scope(
+    area: AdminArea,
+    atomic_level: int,
+    scoped_municipal_ids: set[str],
+    city_merge_status_preference=None,
+) -> bool:
+    if not scoped_municipal_ids:
+        return False
+    if area.level == atomic_level:
+        return area.id in scoped_municipal_ids
+    if area.level is not None and area.level < atomic_level:
+        return bool(
+            _to_atomic_ids([area], atomic_level, city_merge_status_preference)
+            & scoped_municipal_ids
+        )
+    ancestor = _ancestor_at_level(area, atomic_level)
+    return bool(ancestor and ancestor.id in scoped_municipal_ids)
 
 
 def _area_inside_sources(
@@ -1197,14 +1403,12 @@ def create_nuevo_area_from_spec(
     municipal_duplicates: dict[str, list[str]] = {}
 
     def _municipal_level_for(cc: str) -> int:
-        lvl = ORIGINAL_MUNICIPAL_LEVEL.get(cc)
+        lvl = effective_source_municipal_level(cc, fallback=default_atomic)
         if lvl is None:
-            if default_atomic is None:
-                raise ValueError(
-                    f"No se ha definido ORIGINAL_MUNICIPAL_LEVEL para '{cc}' "
-                    f"y el nodo padre '{parent.id}' tampoco tiene municipal_level."
-                )
-            return default_atomic
+            raise ValueError(
+                f"No se ha definido nivel municipal/legal para '{cc}' "
+                f"y el nodo padre '{parent.id}' tampoco tiene municipal_level."
+            )
         return lvl
 
     def _parse_include_group(value: dict, lvl: int, ctx: str):
@@ -1240,6 +1444,15 @@ def create_nuevo_area_from_spec(
                         origin,
                     )
                     ancestor = _ancestor_at_level(area, atomic_level)
+                    if atomic_level == 0 and ancestor is not None:
+                        mun_extra_incluidos.add(ancestor.id)
+                        _remember_duplicate(
+                            municipal_seen,
+                            municipal_duplicates,
+                            f"{ctx} nivel {lvl} municipio {ancestor.id}",
+                            origin,
+                        )
+                        continue
                     sub_extra_incluidos[area.id] = ancestor.id if ancestor else None
             elif lvl == atomic_level:
                 for area, preference in lookup_items:
@@ -1250,7 +1463,7 @@ def create_nuevo_area_from_spec(
                         f"{ctx} nivel {lvl} entidad {area.name} ({area.id})",
                         origin,
                     )
-                    expanded_ids = _expand_to_municipal([area], cc, preference)
+                    expanded_ids = _expand_to_municipal([area], cc, preference, atomic_level)
                     for municipal_id in expanded_ids:
                         _remember_duplicate(
                             municipal_seen,
@@ -1269,7 +1482,7 @@ def create_nuevo_area_from_spec(
                         f"{ctx} nivel {lvl} entidad {area.name} ({area.id})",
                         origin,
                     )
-                    expanded_ids = _expand_to_municipal([area], cc, preference)
+                    expanded_ids = _expand_to_municipal([area], cc, preference, atomic_level)
                     for municipal_id in expanded_ids:
                         _remember_duplicate(
                             municipal_seen,
@@ -1293,11 +1506,15 @@ def create_nuevo_area_from_spec(
             if not labels:
                 continue
 
+            atomic_level = _municipal_level_for(cc)
+            included_municipal_ids = mun_from_macros | mun_extra_incluidos
             lookup_items = _lookup_many_with_preferences(
                 cc,
                 lvl,
                 labels,
                 city_merge_status_preference,
+                scoped_municipal_ids=included_municipal_ids,
+                scoped_atomic_level=atomic_level,
             )
             for area, preference in lookup_items:
                 origin = _duplicate_origin(ctx, lvl, cc, area)
@@ -1307,13 +1524,21 @@ def create_nuevo_area_from_spec(
                     f"{ctx} nivel {lvl} entidad {area.name} ({area.id})",
                     origin,
                 )
-                atomic_level = _municipal_level_for(cc)
                 if lvl > atomic_level:
                     ancestor = _ancestor_at_level(area, atomic_level)
+                    if atomic_level == 0 and ancestor is not None:
+                        mun_restar.add(ancestor.id)
+                        _remember_duplicate(
+                            municipal_seen,
+                            municipal_duplicates,
+                            f"{ctx} nivel {lvl} municipio {ancestor.id}",
+                            origin,
+                        )
+                        continue
                     sub_restar[area.id] = ancestor.id if ancestor else None
                     continue
 
-                expanded_ids = _expand_to_municipal([area], cc, preference)
+                expanded_ids = _expand_to_municipal([area], cc, preference, atomic_level)
                 for municipal_id in expanded_ids:
                     _remember_duplicate(
                         municipal_seen,
@@ -1430,6 +1655,7 @@ def create_nuevo_area_from_spec(
         area_km2=total_area,
         density=density,
         pop_latest=total_pop,
+        municipal_level=default_atomic,
     )
 
     # ---------------------------------------------------------

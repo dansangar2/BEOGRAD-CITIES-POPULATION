@@ -11,9 +11,10 @@
     <p class="muted">{{ seed_count }} {% trans "semillas TOML disponibles" %}</p>
   </div>
   <div class="actions">
-    <form method="post" action="{% url 'ciudades_del_mundo:derived_subdivision_import_toml' %}" data-loading-submit>
+    <form method="post" action="{% url 'ciudades_del_mundo:derived_subdivision_import_toml' %}" data-config-task-form data-action-label="{% trans 'Importar TOML' %}">
       {% csrf_token %}
-      <button class="secondary" type="submit">{% trans "Importar TOML" %}</button>
+      <input type="hidden" name="queue_task" value="1">
+      <button class="secondary" type="submit" data-config-action="import-toml">{% trans "Importar TOML" %}</button>
     </form>
   </div>
 </section>
@@ -26,6 +27,7 @@
       type="button"
       data-group-country-card
       data-group-country-key="{{ country.key }}"
+      data-group-detail-url="{{ country.detail_url }}"
       data-group-detail-target="subdivisions-country-detail-{{ forloop.counter }}"
       aria-controls="subdivisions-country-detail-{{ forloop.counter }}"
       aria-expanded="false"
@@ -70,10 +72,11 @@
           </div>
           <div class="button-row">
             {% if country.code %}
-            <form method="post" action="{% url 'ciudades_del_mundo:derived_subdivision_import_toml' %}" data-loading-submit>
+            <form method="post" action="{% url 'ciudades_del_mundo:derived_subdivision_import_toml' %}" data-config-task-form data-action-label="{% trans 'Importar TOML' %}">
               {% csrf_token %}
               <input type="hidden" name="country_code" value="{{ country.code }}">
-              <button class="secondary" type="submit" {% if not country.seed_count %}disabled{% endif %}>{% trans "Importar TOML" %}</button>
+              <input type="hidden" name="queue_task" value="1">
+              <button class="secondary" type="submit" data-config-action="import-toml" {% if not country.seed_count %}disabled{% endif %}>{% trans "Importar TOML" %}</button>
             </form>
             <form
               method="post"
@@ -87,9 +90,9 @@
               {% csrf_token %}
               <button class="secondary" type="submit" {% if not country.subdivision_count %}disabled{% endif %}>{% trans "Exportar TOML" %}</button>
             </form>
-            <form method="post" action="{{ country.build_url }}" data-loading-submit>
+            <form method="post" action="{{ country.build_url }}" data-config-task-form data-action-label="{% trans 'Popular' %}">
               {% csrf_token %}
-              <button class="secondary" type="submit" {% if not country.subdivision_count %}disabled{% endif %}>{% trans "Popular" %}</button>
+              <button class="secondary" type="submit" data-config-action="popular" {% if not country.subdivision_count %}disabled{% endif %}>{% trans "Popular" %}</button>
             </form>
             <a class="button secondary" href="{{ country.new_url }}">{% trans "Nueva subdivisión" %}</a>
             {% endif %}
@@ -118,7 +121,13 @@
           </label>
         </form>
 
-        <div id="subdivisions-table-{{ forloop.counter }}" data-empty-label="{% trans 'No hay subdivisiones creadas.' %}">
+        <div
+          id="subdivisions-table-{{ forloop.counter }}"
+          data-empty-label="{% trans 'No hay subdivisiones creadas.' %}"
+          data-clone-label="{% trans 'Clonar' %}"
+          data-delete-label="{% trans 'Borrar' %}"
+          data-delete-confirm-label="{% trans 'Confirmo el borrado' %}"
+        >
           <div class="table-wrap subtle">
             <table class="group-aggregation-table">
               <thead>
@@ -126,23 +135,52 @@
                   <th>{% trans "Codigo" %}</th>
                   <th>{% trans "Nombre" %}</th>
                   <th>{% trans "Tipo" %}</th>
+                  <th>{% trans "Terreno" %}</th>
+                  <th>{% trans "Poblacion" %}</th>
                   <th>{% trans "Incluye" %}</th>
                   <th>{% trans "Resta" %}</th>
                   <th>{% trans "Grupos" %}</th>
+                  <th>{% trans "Acciones" %}</th>
                 </tr>
               </thead>
               <tbody data-client-page-rows>
                 {% for item in country.subdivisions %}
                 <tr class="clickable-row" tabindex="0" data-row-href="{{ item.href }}" data-client-row data-search="{{ item.search_text }}">
-                  <td><code>{{ item.internal_name }}</code></td>
+                  <td><code>{{ item.display_code }}</code></td>
                   <td>{{ item.record.name }}</td>
                   <td>{{ item.record.entity_type|default:"-" }}</td>
+                  <td class="numeric">{{ item.area_text }}</td>
+                  <td class="numeric">{{ item.population_text }}</td>
                   <td class="numeric">{{ item.include_count }}</td>
                   <td class="numeric">{{ item.subtract_count }}</td>
                   <td class="numeric">{{ item.group_count }}</td>
+                  <td class="group-division-action-cell">
+                    {% if item.clone_url %}
+                    <form
+                      class="group-division-clone-form"
+                      method="post"
+                      action="{{ item.clone_url }}"
+                    >
+                      {% csrf_token %}
+                      <button class="secondary group-division-clone-button" type="submit" aria-label="{% trans 'Clonar' %}" title="{% trans 'Clonar' %}">{% trans "Clonar" %}</button>
+                    </form>
+                    {% endif %}
+                    {% if item.delete_url %}
+                    <form
+                      class="group-division-delete-form"
+                      method="post"
+                      action="{{ item.delete_url }}"
+                      data-confirm-message="{% trans 'Confirmo el borrado' %}"
+                      onsubmit="return confirm(this.dataset.confirmMessage);"
+                    >
+                      {% csrf_token %}
+                      <button class="quiet danger-text group-division-delete-button" type="submit" aria-label="{% trans 'Borrar' %}" title="{% trans 'Borrar' %}">×</button>
+                    </form>
+                    {% endif %}
+                  </td>
                 </tr>
                 {% empty %}
-                <tr data-client-empty><td colspan="6">{% trans "No hay subdivisiones creadas." %}</td></tr>
+                <tr data-client-empty><td colspan="9">{% trans "No hay subdivisiones creadas." %}</td></tr>
                 {% endfor %}
               </tbody>
             </table>

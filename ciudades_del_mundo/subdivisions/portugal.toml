@@ -22,7 +22,8 @@ source = "cities"
 path = ["acores", "aveiro", "beja", "braga", "braganca", "castelobranco", "coimbra", "evora", "faro", "guarda", "leiria", "lisboa", "madeira", "portalegre", "porto", "santarem", "setubal", "vianadocastelo", "vilareal", "viseu"]
 force_highest_level = 4
 parent_level = 2
-include = { cities = true, infosection = false, major_subdivision = true }
+table_levels = { tl = 2, ts = 4 }
+include = { cities = true, infosection = false, major_subdivision = false }
 
 [visual_assets]
 bulk_country_wikidata = true

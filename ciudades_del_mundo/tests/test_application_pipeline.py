@@ -1194,6 +1194,43 @@ class CityPopulationLinkingTests(unittest.TestCase):
         self.assertEqual(city.parent_code, "101")
         self.assertEqual(city.level, 4)
 
+    def test_forced_parent_level_prefix_match_keeps_url_scope(self):
+        result = normalize_citypopulation_entities(
+            "portugal",
+            [
+                ScrapedAdminArea(code="portugal", name="Portugal", level=0, country_code="portugal"),
+                ScrapedAdminArea(
+                    code="01",
+                    name="Aveiro",
+                    level=0,
+                    country_code="portugal",
+                    annotations="CityPopulation section: major_subdivision; Forced parent level: 0",
+                    url="https://www.citypopulation.de/en/portugal/admin/01__aveiro/",
+                ),
+                ScrapedAdminArea(
+                    code="16",
+                    name="Viana do Castelo",
+                    level=0,
+                    country_code="portugal",
+                    annotations="CityPopulation section: major_subdivision; Forced parent level: 0",
+                    url="https://www.citypopulation.de/en/portugal/admin/16__viana_do_castelo/",
+                ),
+                ScrapedAdminArea(
+                    code="1610101",
+                    name="Agueda",
+                    level=1,
+                    country_code="portugal",
+                    parent_code="01",
+                    annotations="CityPopulation section: minor_subdivision; Forced parent level: 0",
+                    url="https://www.citypopulation.de/en/portugal/admin/aveiro/1610101__agueda/",
+                ),
+            ],
+        )
+
+        agueda = next(entity for entity in result if entity.code == "1610101")
+        self.assertEqual(agueda.parent_code, "01")
+        self.assertEqual(agueda.level, 2)
+
 
 class ScrapeAdminAreasTests(unittest.TestCase):
     def test_run_rewrites_same_page_root_parent_alias_before_block_validation(self):

@@ -79,6 +79,14 @@ Los TOML de `ciudades_del_mundo/cities_merge/<pais>.toml` son un puente
 separado para importar/exportar solo bloques `[[cities]]` de unificacion de
 ciudades. Importarlos reemplaza esos bloques en la fila SQL `ScrapingConfig`,
 pero no toca `[[pages]]`, assets ni el resto de la configuracion.
+Cuando el editor `/configs/<slug>/` guarda una configuracion con `[[cities]]`
+pendientes y el pais ya tiene datos `AdminArea`, el sistema materializa esas
+ciudades en BBDD sin repetir el scraping. Para aplicar ese paso de forma
+explicita sobre una config ya guardada:
+
+```powershell
+py manage.py materialize_city_merges <slug>
+```
 
 Cada configuracion CityPopulation describe:
 
@@ -97,6 +105,7 @@ Comandos utiles:
 py manage.py validate_subdivision_configs spain
 py manage.py scrape_subdivisions spain
 py manage.py scrape_subdivisions_with_assets spain
+py manage.py materialize_city_merges spain
 py manage.py prepare_ai_autoconfig spain
 ```
 
@@ -136,6 +145,11 @@ pagina exacta que produjo el error.
 El proyecto esta organizado por capas hexagonales. Para que una IA pueda leerlo
 sin mezclar responsabilidades, empieza por `AGENTS.md`, luego entra solo en la
 capa del cambio:
+
+Nota para agentes: cuando una peticion cambie una regla duradera de diseno,
+API, formularios, controladores o generacion de codigo, actualiza tambien la
+SKILL local correspondiente si esta disponible, ademas de `AGENTS.md` y la
+documentacion del repo.
 
 - `ciudades_del_mundo/domain`
   Modelos puros y logica de dominio: configuracion de scraping, DTOs, jerarquia y ciudad mas poblada. No importa Django ni adaptadores.
@@ -283,7 +297,12 @@ communes = []
   de la rama se agregan al padre ya enlazado, o al pais si no hay padre forzado.
 - `area_km2` permite indicar un tamano personalizado para la entidad raiz scrapeada en esa pagina.
 - `area_overrides` permite indicar tamanos personalizados por `id`, `code` o `name` de entidad scrapeada.
-- En `[[cities]]`, `keep_communes = false` agrega las comunas o distritos usados para calcular la ciudad pero no los conserva como filas hijas.
+- En `[[cities]]`, `keep_communes = false` agrega las comunas o distritos
+  usados para calcular la ciudad pero no los conserva como filas hijas. El `id`
+  de una ciudad configurada no debe reutilizar el codigo de la subdivision padre
+  cuando esa subdivision debe seguir siendo seleccionable en el editor. Si el
+  tipo del padre necesita conservarse para labels o reparaciones de BBDD, define
+  `parent_type = "Prefecture"` (u otro tipo visible) en el bloque.
   El editor Manual de `/configs/<slug>/` puede construir esos bloques desde la
   subseccion `Ciudades`: la tabla lista las ciudades unificadas configuradas y
   el boton `Añadir` abre una ventana modal de nuevo/editar. Esa ventana usa el
@@ -333,6 +352,10 @@ communes = []
   Cuando ya existe una raiz de pais, una fila ordinaria de nivel 1 sin padre se
   adjunta a esa raiz antes de validar el enlace final; esto evita que bloques
   sin `infosection` dejen provincias o regiones sueltas.
+- La resolucion de `parent_level` / `Forced parent level` usa indices por nivel
+  para codigo, prefijo, QID, nombre y ambito de URL. No debe recorrer todos los
+  candidatos del nivel objetivo por cada fila: Portugal genera mas de 21k filas
+  y muchas localidades con padre forzado a L2.
 - La deduplicacion por nombre no es global para anclas de bloque que ya tienen
   padre o ambito de URL. Entidades homonimas de paginas distintas, como
   `Saint-Pierre` o `Grande-Terre` en departamentos ultramarinos franceses, deben
@@ -785,12 +808,160 @@ Romano"` y define las prefecturas de Hispania y Macaronesia.
 
 La nueva base declarativa vive en SQL y TOML:
 
-- `/new-countries/` lista contenedores `DerivedCountry`.
-- Dentro de cada pais, `Nueva configuracion` crea una fila
-  `DerivedCountryConfig` con contenido TOML editable.
-- `Vista` abre una ficha base de la configuracion y enlaza a
-  `/derived/<root_id>/` cuando ya existen filas `NuevoAdminArea` para su
-  `derived_country_code`.
+- `/new-countries/` conserva dos pasos: primero muestra tarjetas de pais fuente
+  poblado con el mismo formato visual que `/countries/`; al seleccionar una se
+  abre un recuadro con los paises nuevos de ese origen. Esa lista interna debe
+  ocupar todo el ancho del recuadro, igual que la lista inicial de paises.
+  Dentro de ese recuadro, cada tarjeta representa un unico contenedor
+  `DerivedCountry`, no una config suelta. Muestra codigo, poblacion y terreno
+  desde el root `NuevoAdminArea` si
+  existe; si todavia no esta construido, usa la suma de las configs de primer
+  nivel. Clicar una tarjeta carga el detalle compartido mediante
+  `/api/new-country-containers/<pais_nuevo>/`: en escritorio, los datos del
+  pais quedan a la izquierda y la grafica con la tabla de subdivisiones a la
+  derecha, en la misma fila visual. Las cajas de `Nivel 1` deben usar el mismo
+  tamano/proporcion que las cajas abiertas para `Nivel 2` y niveles inferiores.
+  En paises no materializados, el
+  arbol navegable incluye configs hijas y subdivisiones fuente/asignadas; las
+  filas y registros con hijos exponen URL de detalle hasta que la entidad no
+  tenga hijos. La unica diferencia visual permitida frente a `/countries/` son
+  los enlaces compactos de editar configuracion y exportar Excel. No debe
+  volver a mostrar `Crear`, `Ver`, acciones de build por config ni una tarjeta
+  por cada `DerivedCountryConfig`.
+  Los cambios futuros en graficas, tablas, selector de niveles y paneles de
+  porcentajes deben hacerse en el renderer/contrato compartido por `/countries/`
+  y `/new-countries/`, salvo peticion explicita en contra.
+- En `/countries/` y en el navegador interno de `/new-countries/`, el selector
+  de nivel de subentidad actualiza a la vez la tabla, las graficas y las
+  tarjetas/resumen. Solo se ofrecen niveles cuyo resultado sea de 1000 filas o
+  menos: por ejemplo, en Espana se puede cambiar de CCAA a provincias para ver
+  las 52 provincias, y al abrir una provincia se muestran sus municipios.
+- La ficha del contenedor usa la ruta canonica
+  `/new-countries/<pais_fuente>/<pais_nuevo>/`; la ruta antigua
+  `/new-countries/<pais_nuevo>/` redirige a ella. En esa ficha, los campos
+  `Nombre` y `Descripcion` se editan directamente; el codigo queda fijo.
+  Crear y editar estos datos base comparten el mismo parcial de campos: codigo
+  y nombre comparten la primera fila, y descripcion ocupa todo el ancho.
+- Dentro de cada pais, `Nueva entidad` crea una fila `DerivedCountryConfig` en
+  la ruta canonica
+  `/new-countries/<pais_fuente>/<pais_nuevo>/configs/<division>/`. El codigo
+  derivado ya no se edita: se toma del contenedor `DerivedCountry.slug`. La
+  seleccion visual genera un bloque `[[entities]]` y bloques
+  `[[entities.include]]` / `[[entities.subtract]]` por nivel y pais.
+- Crear un pais nuevo desde una tarjeta fuente usa
+  `/new-countries/<pais_fuente>/new/`; el pais fuente queda oculto y fijado por
+  esa URL. Los campos visibles de codigo se muestran como `Codigo`, se
+  normalizan en el navegador a mayusculas sin espacios ni acentos, y se guardan
+  con la normalizacion interna compatible con las rutas. En
+  `/new-countries/<pais_fuente>/<pais_nuevo>/configs/new/`, los campos base
+  estan en un recuadro propio y la seleccion de entidades fuente en otro,
+  siguiendo el formato del editor `/groups/subdivisions/<pais>/<codigo>/`. El
+  campo `Nivel` no se muestra en el formulario de `Nueva entidad`; se calcula
+  automaticamente desde la jerarquia y solo se escribe en el TOML generado. El
+  interruptor `Usar subdivisiones` cambia el selector: apagado muestra
+  entidades ya creadas del mismo pais nuevo, cargadas desde
+  `/new-countries/<pais_fuente>/<pais_nuevo>/configs/<codigo-o-new>/created-entities/`,
+  para convertirlas en hijas de la entidad que se guarda; el nivel se deriva
+  automaticamente desde `parent_config_slug` y se reescribe en cascada en las
+  entidades reparentadas. Al guardar se calculan y persisten `area_km2`,
+  `pop_latest` y `density` en el primer `[[entities]]`; esa tabla muestra la
+  fila `NuevoAdminArea` materializada o, si todavia no existe, esos valores
+  guardados en TOML sin volver a sumar selecciones al listar. Encendido muestra
+  `DerivedSubdivision` creadas en
+  `/subdivisions/` de cualquier pais fuente para usarlas como hijos directos de
+  esa division. Ese listado se carga por el endpoint JSON
+  `/new-countries/<pais_fuente>/<pais_nuevo>/configs/new/created-subdivisions/`
+  y se presenta como tabla separada, buscable, filtrable por pais y paginada;
+  el filtro de pais usa Select2 con busqueda normalizada sin distinguir acentos
+  ni mayusculas/minusculas y se alimenta solo de paises con
+  `DerivedSubdivision` creadas. La barra de filtros ocupa una fila completa del
+  mismo ancho que la tabla: Buscar usa el espacio sobrante, Pais es ancho,
+  Filas queda compacto y la paginacion conserva el hueco derecho visible aunque
+  solo haya una pagina. No hay tabla de subdivisiones reales; sus columnas visibles son seleccion,
+  nombre, pais, tipo sin sufijos de nivel, terreno, poblacion y densidad
+  calculados desde la fila materializada o, si todavia no existe, desde la vista
+  previa del TOML. La seleccion visual conserva el pais de cada subdivision
+  creada y el TOML se guarda con un bloque `[[entities.include]]` por
+  `country_code` cuando se mezclan paises, incluyendo el `level` asignado a
+  esas subdivisiones dentro del arbol del pais nuevo. La columna visible
+  `Nombre` de esas filas omite sufijos entre parentesis aunque el texto
+  original siga disponible para buscar. `Capitales` usa el mismo selector
+  buscable con badges que `/subdivisions/`: guarda IDs en `capitals = [...]`,
+  busca por nombres mostrados/alias localizados y, cuando hay subdivisiones
+  creadas seleccionadas, limita las opciones a sus municipios/fuentes aunque
+  pertenezcan a otros paises. Con `Usar
+  subdivisiones` activo y sin subdivisiones marcadas, el selector no ofrece
+  capitales.
+- `/new-countries/<pais_fuente>/<pais_nuevo>/configs/<codigo>/` usa el mismo
+  formulario visual que la creacion. Al guardar, re-renderiza el TOML desde los
+  campos visuales; si cambia `Codigo`, tambien actualiza las referencias
+  `parent_config_slug` de las configs hijas del mismo pais nuevo. El `Codigo`
+  visible acepta letras/numeros ASCII en mayusculas, `_` y `-`; la ruta usa el
+  slug tecnico equivalente con `_`.
+- Las configuraciones de `new-countries` no tienen ruta propia `view/`: la URL
+  de config es siempre la de edicion. En la ficha
+  `/new-countries/<pais_fuente>/<pais_nuevo>/`, la tabla de entidades se
+  organiza como arbol plegable por niveles (`NV 1` con sus hijos `NV 2+`):
+  clicar la fila abre la edicion de la configuracion, no hay botones `Crear`,
+  `Ver`, `Excel` ni `Configuracion`, y la columna `Acciones` ofrece `Clonar`
+  y `Borrar` mediante POST. `Clonar` duplica la configuracion y cambia el
+  codigo local visible a `COD-COPIA`, usando un slug tecnico como `cod_copia`.
+  `Borrar` no elimina configs hijas: las hijas directas se reasignan al padre
+  de la config borrada y sus niveles y codigos jerarquicos, junto con los
+  descendientes, se recalculan en cascada.
+  Las subdivisiones fuente o creadas que estan
+  asignadas a una entidad salen como filas hijas de solo lectura con codigo
+  limpio y color diferenciado; no muestran el valor tecnico
+  `derived-subdivision::<pais>::<codigo>` ni padre; si forman parte de la
+  jerarquia muestran su `NV` asignado. La tabla debe
+  encajar en el ancho del panel sin scroll lateral; sus columnas visibles son
+  nivel para configs, codigo jerarquico o codigo asignado, nombre, tipo,
+  `Terreno`, poblacion y densidad, con `Acciones` suficientemente ancha para
+  que `Clonar` y `Borrar` quepan en una sola fila. Las metricas salen de la
+  fila `NuevoAdminArea` materializada o de los valores guardados en TOML y se
+  muestran sin separador de miles, con coma decimal. Las tarjetas de
+  `/new-countries/` ya no muestran `Crear`, `Ver` ni acciones por config; solo
+  controles compactos para exportar Excel del contenedor completo y abrir su
+  configuracion.
+- La ficha `/new-countries/<pais_fuente>/<pais_nuevo>/` tambien ofrece
+  `Exportar Excel` en la cabecera del contenedor. Si el pais nuevo ya esta
+  materializado, descarga todas sus filas `NuevoAdminArea`, no solo las configs
+  visibles. La hoja `Jerarquia` es una tabla ancha por rutas del arbol:
+  las primeras columnas son `Nombre`, `Poblacion`, `%`, `Ranking poblacion`,
+  `Terreno`, `%`, `Ranking terreno`, `Densidad`, `Capital`, `Poblacion capital`,
+  `% capital`, `Ranking capital`, `Ciudad mas poblada`, `Poblacion ciudad mas
+  poblada`, `% ciudad mas poblada`, `Ranking ciudad mas poblada` y `Num
+  municipios`; las siguientes repiten esos datos para `NV1`, luego para `NV2`
+  y asi sucesivamente. Cada fila representa una ruta jerarquica; cuando el pais
+  o un padre aparece en varias rutas consecutivas, sus celdas del bloque se
+  combinan verticalmente para no repetir el texto. Todos los hijos de un
+  elemento de nivel superior salen agrupados antes de pasar al siguiente
+  hermano. `Num municipios` se calcula desde `municipios_originales` acumulados,
+  incluyendo los municipios de hijos cuando el padre no los tiene directos, y la
+  ciudad mas poblada se resuelve desde esos municipios cuando no hay fila
+  materializada. El XLSX contiene solo esa hoja de datos, centra el contenido y
+  ajusta anchos de columna; no anade una hoja `Resumen` ni usa tabla
+  estructurada cuando hay celdas combinadas. Si todavia no hay build, cae al
+  resumen de configs como modo de reserva.
+  Cada descarga guarda una linea JSONL
+  de auditoria en
+  `.web_export_logs/new-countries/<pais_fuente>/<pais_nuevo>.jsonl` con conteo
+  de filas, niveles y subdivisiones legales, y una copia del XLSX en
+  `excels/new-countries/<pais_fuente>/`.
+- `Crear` encola `py manage.py build_new_subdivisions --country-id <codigo>`.
+  Si no existe receta legacy para ese codigo, el comando resuelve la fila SQL
+  `DerivedCountryConfig` y materializa el arbol con
+  `ciudades_del_mundo.services.derived_country_builder`. Los codigos de las
+  entidades creadas se derivan de la jerarquia de configs: una entidad de primer
+  nivel usa su codigo local (`ARA`) y sus hijas reciben el prefijo de ese padre
+  (`ARA-VAL`). El editor conserva siempre el codigo local (`VAL`), no el prefijo
+  calculado. Si al crear o editar un padre se selecciona como hijo una config que
+  ya usa el mismo codigo local, el sistema renombra solo su identificador tecnico
+  (`ara` -> `ara_ara`) para que el arbol resultante sea `ARA` > `ARA-ARA`, sin
+  obligar al usuario a cambiar el codigo local del hijo.
+- `Excel` encola `py manage.py export_nuevoadmin_excel --country-id <codigo>`
+  cuando el arbol ya existe. Ambas tareas se lanzan con la ventana emergente de
+  tareas y no sacan al usuario de la pagina.
 - `/groups/` lista `SubdivisionGroup`, grupos TOML reutilizables que podran
   referenciarse desde configuraciones de nuevos paises.
 
@@ -804,7 +975,9 @@ subdivisiones legacy estan separados en
 `/new-countries/`, `/groups/` y `/subdivisions/` tienen `Importar TOML`, que
 encola una tarea por fichero semilla y actualiza solo filas SQL de
 configuracion; si una semilla falla, las demas tareas siguen en la cola. Las
-copias `*_old/` son backups locales ignorados por Git.
+acciones de importacion de estos listados usan la misma ventana emergente de
+tarea que el scraping, por lo que no redirigen a `/tasks/` ni sacan al usuario
+de la pagina actual. Las copias `*_old/` son backups locales ignorados por Git.
 
 ### Exportar
 
@@ -814,9 +987,20 @@ py manage.py export_nuevoadmin_excel --country-id spanish_federal_republic
 ```
 
 Los Excel se guardan por defecto en la subcarpeta `excels/`. Puedes cambiarla con `--output-dir`.
-Cada bloque de nivel incluye `Lx_ranking_poblacion_pais`, que ordena las areas
-por poblacion dentro de todo el pais para ese mismo nivel. La hoja Excel genera
-una sola tabla principal de rutas raiz-hoja, sin tablas auxiliares a la derecha.
+El Excel principal usa una hoja `Jerarquia` con una tabla ancha por rutas del
+arbol. El primer bloque de columnas describe el pais con `Nombre`, `Poblacion`,
+`%`, `Ranking poblacion`, `Terreno`, `%`, `Ranking terreno`, `Densidad`,
+`Capital`, `Poblacion capital`, `% capital`, `Ranking capital`, `Ciudad mas
+poblada`, `Poblacion ciudad mas poblada`, `% ciudad mas poblada`, `Ranking
+ciudad mas poblada` y `Num municipios`; los bloques siguientes repiten esas
+columnas para `NV1`, `NV2` y niveles posteriores. Cada fila baja por una rama
+del arbol, por lo que todos los hijos de un elemento de nivel superior aparecen
+agrupados antes de pasar al siguiente hermano; los bloques repetidos de pais o
+padre se combinan verticalmente en Excel. `Num municipios` se calcula desde
+`municipios_originales` acumulados, incluyendo los hijos del padre. Las celdas
+se centran y las columnas se ensanchan automaticamente. No se exportan columnas
+tecnicas, hoja `Resumen`, tablas estructuradas con merges ni tablas auxiliares
+a la derecha.
 
 
 ### Reglas de preservacion UI
@@ -902,7 +1086,8 @@ El renderizado frontend esta centralizado en `window.CiudadesCharts` dentro de
 `ciudades_del_mundo/static/ciudades_del_mundo/app.js`; los contenedores
 reutilizables usan el atributo `data-chart-widget`. La base de API para datos
 web esta en `/api/countries/`, `/api/countries/<country_code>/`,
-`/api/admin-areas/<area_id>/` y `/api/derived/`.
+`/api/admin-areas/<area_id>/`, `/api/new-country-containers/`,
+`/api/new-country-containers/<country_slug>/` y `/api/derived/`.
 Secciones principales:
 
 - `/configs/`: lista filas SQL `ScrapingConfig` con tablas dinamicas cargadas
@@ -969,15 +1154,48 @@ Secciones principales:
   TOML` escribe la version SQL actual en
   `ciudades_del_mundo/subdivisions/<slug>.toml` sin convertir ese fichero en
   fuente runtime.
-- `/new-countries/`: base SQL para paises derivados. Lista `DerivedCountry`,
-  muestra sus configuraciones TOML `DerivedCountryConfig`, permite importar las
-  semillas de `new_country_configs/*.toml` con una tarea por fichero y crear
-  una `Nueva entidad` desde un arbol SQL de `AdminArea`. En ese arbol, marcar
-  una subdivision sin una superior marcada guarda una suma; marcarla dentro de
-  una superior marcada guarda una resta. La seleccion se persiste en
+- `/new-countries/`: base SQL para paises derivados. Lista primero tarjetas por
+  pais fuente poblado y, al seleccionar una, muestra en un segundo recuadro sus
+  contenedores `DerivedCountry` unicos; no muestra un boton general `Crear` ni
+  tarjetas por config. Permite importar las semillas de
+  `new_country_configs/*.toml` con una tarea por fichero, y la ficha del
+  contenedor permite crear una `Nueva entidad` desde un arbol SQL de
+  `AdminArea`. En ese arbol, marcar una subdivision sin una superior marcada
+  guarda una suma; marcarla dentro de una superior marcada guarda una resta. La
+  seleccion se persiste en
   `DerivedCountryConfig.content` como `include_ids`, `subtract_ids` y
-  `[[selection.items]]`. La vista base enlaza a `/derived/<id>/` cuando ya hay
-  datos construidos.
+  `[[selection.items]]`. La ficha del contenedor vive en
+  `/new-countries/<pais_fuente>/<pais_nuevo>/` y permite editar directamente
+  nombre y descripcion con el mismo parcial usado al crear el pais nuevo. Sus
+  configs viven en
+  `/new-countries/<pais_fuente>/<pais_nuevo>/configs/<division>/`; las rutas
+  antiguas sin `<pais_fuente>` redirigen. El recuadro interno comparte el
+  renderer de `/countries/`: la lista interna ocupa todo el ancho del recuadro
+  y, al abrir un contenedor, el detalle en escritorio coloca datos del pais a la
+  izquierda y grafica/tabla de subdivisiones a la derecha en una misma fila; la
+  caja de `Nivel 1` mantiene el mismo tamano que las cajas de niveles
+  navegados (`Nivel 2+`).
+  Usa detalle en `/api/new-country-containers/<pais_nuevo>/`, drill-down de
+  configs no materializadas en
+  `/api/new-country-containers/<pais_nuevo>/config-nodes/<tree_id>/`, filas de
+  subdivisiones fuente asignadas con hijos hacia `/api/admin-areas/<area_id>/`,
+  y `DerivedSubdivision` seleccionadas que se despliegan hasta las unidades
+  legales efectivas de cada pais fuente, proyectando `municipios_originales`
+  materializados antiguos cuando sea necesario y usando el TOML como fallback.
+  Mantiene enlaces compactos a la exportacion Excel completa del contenedor y a
+  su configuracion. El selector de nivel compartido con `/countries/` cambia a
+  la vez tabla, graficas y resumen de subentidades, lista todos los niveles
+  disponibles, incluidas comunas/municipios hoja, y pagina la tabla a 20 filas
+  por defecto con opciones de 50 y 100 como maximo.
+  En el detalle del pais
+  nuevo, `Borrar` elimina solo la config SQL seleccionada: sus hijas directas
+  se reasignan al padre de la config borrada y sus niveles y codigos visibles
+  se recalculan en cascada, por lo que borrar una entidad NV2 convierte sus
+  hijas NV3 en nuevas NV2 con el prefijo de codigo actualizado. Con `Usar
+  subdivisiones`, cada bloque `[[entities.include]]` guarda el `level` asignado
+  a esas subdivisiones dentro del pais nuevo, normalmente el nivel de la
+  entidad padre + 1, y la tabla hija muestra nombres limpios sin sufijos entre
+  parentesis.
 - `/groups/`: lista y edita `SubdivisionGroup`, grupos TOML reutilizables para
   futuras configuraciones de nuevos paises. La lista de paises usa el mismo
   formato de tarjetas que `/countries/`; al seleccionar una tarjeta se abre el
@@ -999,11 +1217,24 @@ Secciones principales:
   el mismo formato de tabla local: buscador, selector de filas, paginacion
   cliente y filtro por nivel. Sus filas
   salen de `NuevoAdminArea`, mapeadas al pais fuente seleccionado por
-  `DerivedCountry`/`DerivedCountryConfig` cuando exista esa relacion. Sus
-  columnas son `Nombre de la entidad`, `Tipo (Nivel)`, `Terreno` y `Población`;
-  ya no muestra el resumen por nivel ni la columna `Sumar nivel`. Cuando una
-  fila se puede resolver a su configuracion SQL, abre
-  `/groups/subdivisions/<pais>/<codigo>/`.
+  `DerivedCountry`/`DerivedCountryConfig` cuando exista esa relacion, y tambien
+  incluyen definiciones SQL `DerivedSubdivision` guardadas que aun no se han
+  materializado. Esas filas pendientes abren el editor y calculan una vista
+  previa de `Terreno` y `Poblacion` desde los `AdminArea` fuente seleccionados;
+  si ya existe una fila `NuevoAdminArea` materializada, la tabla usa primero sus
+  metricas guardadas. Sus columnas son `Nombre de la entidad`,
+  `Tipo`, `Terreno`, `Población` y `Acciones`. `Clonar`
+  duplica la definicion SQL con `COD-COPIA` como codigo visible y un slug
+  tecnico `cod_copia`; `Borrar` es una `X` con confirmacion del navegador y
+  borra por POST la definicion
+  SQL `DerivedSubdivision` y, si existian, las filas `NuevoAdminArea`
+  materializadas directamente desde ella y sus descendientes. Ya no muestra el
+  resumen por nivel ni la columna `Sumar nivel`. Cuando una fila se puede
+  resolver a su configuracion SQL, abre `/groups/subdivisions/<pais>/<codigo>/`.
+  Si esa definicion SQL es mas reciente que la fila `NuevoAdminArea`
+  materializada, la tabla pinta la previsualizacion de `Terreno` y `Poblacion`
+  calculada desde el TOML actualizado hasta que `Popular` reconstruya los datos
+  persistidos.
   El editor crea una agrupacion por pais: el encabezado muestra el codigo
   interno o `NUEVO GRUPO`, no muestra metadatos del pais ni campo `Nombre`, y el
   primer recuadro contiene el codigo interno obligatorio en mayusculas, un
@@ -1021,13 +1252,15 @@ Secciones principales:
   superiores y cada select inferior se filtra por el padre elegido en el nivel anterior.
   Cada nivel tiene su propio boton `Añadir`, las subdivisiones ya anadidas
   desaparecen de su select, y si se anade una entidad superior se eliminan del
-  bloque las secciones inferiores que dependan de ella. Las opciones y badges
-  muestran el tipo entre parentesis, como `Abla (Municipio)` o `Andalucia
-  (Comunidad Autonoma)`. Cada pais nuevo se agrega debajo de los bloques de pais
+  bloque las secciones inferiores que dependan de ella. Las opciones mientras se
+  gestiona la seleccion muestran el tipo entre parentesis, como `Abla
+  (Municipio)` o `Andalucia (Comunidad Autonoma)`; una vez seleccionadas, las
+  filas/badges visibles muestran solo el nombre/codigo limpio, sin parentesis ni
+  nivel visible. Cada pais nuevo se agrega debajo de los bloques de pais
   existentes. El input de busqueda vive dentro del desplegable, no junto al
   select, y el filtrado no distingue mayusculas/minusculas ni acentos.
   Cada subdivision agregada abre un modal de nuevo/editar, y el bloque de pais
-  muestra una tabla con entidad, nivel, elementos seleccionados y acciones. La X
+  muestra una tabla con entidad, elementos seleccionados y acciones. La X
   cierra sin aplicar cambios; solo `Guardar` confirma la seleccion en la tabla y
   en el JSON oculto. Dentro del modal hay dos listas de badges para hijos
   disponibles e hijos incluidos en el grupo; cada lista usa un unico recuadro
@@ -1059,30 +1292,80 @@ Secciones principales:
   a ese `Importar TOML` del panel y publica a `/groups/<pais>/export-toml/`.
   En el editor de un grupo concreto, `Exportar TOML` escribe ese mismo bundle de
   pais desde SQL e `Importar TOML` refresca todos los grupos contenidos en el
-  bundle y recarga la pagina editada tras importarlo por AJAX.
+  bundle y recarga la pagina editada tras importarlo por AJAX. Tras guardar o
+  importar, `Volver` conserva pais/tabla/fila y, si vuelve por historial del
+  navegador, recarga `/groups/` antes de posicionarse para mostrar los datos
+  actualizados. Los paneles de pais de `/groups/` cargan sus tablas solo al
+  pulsar la tarjeta del pais, mediante `/groups/countries/<pais>/data/`; el
+  HTML inicial no debe precargar filas de grupos ni de nuevas divisiones. La
+  tabla `Nuevas divisiones` de ese endpoint lista definiciones SQL
+  `DerivedSubdivision` del pais fuente, nunca municipios base `AdminArea` ni
+  filas materializadas `NuevoAdminArea` expandibles. Su filtro de nivel se
+  calcula desde esas definiciones.
+  El `name` SQL del grupo se guarda igual que el codigo interno en mayusculas
+  (`ALICANTE_A_MURCIA`), sin convertirlo a titulo. Si se cambia el codigo
+  interno desde el editor, se renombra la fila `SubdivisionGroup` existente y se
+  actualizan las referencias `groups = [...]` y `capital_groups.group` de las
+  `DerivedSubdivision` del mismo pais, junto con las referencias del mismo pais
+  dentro de otros `SubdivisionGroup.content` SQL, incluidos bundles legacy
+  `[legacy].python_source`; asi no queda el grupo antiguo como opcion
+  seleccionable.
 - `/subdivisions/`: base SQL/TOML para crear administraciones ficticias o
   historicas que despues se construiran como `NuevoAdminArea`. Reutiliza la
   navegacion por tarjetas de pais de `/groups/`: la caja izquierda lista las
   subdivisiones creadas y la derecha muestra los grupos reutilizables
-  disponibles para incluir o restar. `Importar TOML` lee el bundle de pais de
+  disponibles para incluir o restar. Esas tablas tambien se cargan al pulsar el
+  pais, mediante `/subdivisions/countries/<pais>/data/`; la pagina inicial solo
+  renderiza tarjetas y carcasas vacias. `Importar TOML` lee el bundle de pais de
   `subdivision_groups/subdivisions/<pais>.toml`, `Exportar TOML` escribe ese
   mismo bundle desde SQL y cada entrada crea o refresca una fila
   `DerivedSubdivision`. Cada fila guarda TOML con
   `kind = "derived_subdivision"`, metadatos raiz como `flag_url` y `coat_url`
   para URLs manuales de bandera y escudo, bloques `[[include]]` para sumar
-  subdivisiones o grupos, y bloques `[[subtract]]` para excluir niveles
-  inferiores o grupos como `ALBACETE_A_CUENCA`. El boton `Popular` encola
-  `py manage.py build_derived_subdivisions <pais> --force`, que reconstruye las
-  filas `NuevoAdminArea` de ese `country_code` desde SQL, calcula terreno,
-  poblacion y densidad, y asigna capitales simples o compuestas por grupo con
-  `[[capital_groups]]`. El editor `/groups/subdivisions/<pais>/<codigo>/` usa
+  subdivisiones, grupos o referencias `derived_subdivisions = [...]` a otras
+  `DerivedSubdivision` ya creadas del mismo pais fuente, y bloques
+  `[[subtract]]` para excluir niveles inferiores, grupos como
+  `ALBACETE_A_CUENCA` o esas mismas referencias derivadas. El boolean
+  `use_selected_entities_as_children` sigue en el TOML para que el builder
+  pueda decidir si genera hijos desde unidades municipales/comunales fuente o
+  desde los badges incluidos, pero el formulario principal ya no muestra ese
+  checkbox; conserva su valor como input oculto hasta que se edite desde otra
+  ubicacion. `Bandera` y `Escudo` se reparten el ancho disponible de esa fila.
+  El boton `Popular` encola
+  `py manage.py build_derived_subdivisions <pais> --force --continue-on-error`,
+  que reconstruye las filas `NuevoAdminArea` de ese `country_code` desde SQL,
+  calcula terreno, poblacion y densidad, y asigna capitales simples o
+  compuestas por grupo con `[[capital_groups]]`. El flag
+  `--continue-on-error` construye las recetas resolubles y registra como
+  omitidas las definiciones obsoletas que no puedan resolverse, en vez de
+  abortar todo el pais. Para un arreglo puntual, usa uno o varios
+  `--slug <slug-o-internal-name>`; combinado con `--force`, el comando reemplaza
+  solo esas filas materializadas y no borra todas las nuevas divisiones del pais.
+  Al resolver `[[subtract]]` por nombres o grupos, si
+  hay homonimos en el pais fuente, el builder prefiere la coincidencia que ya
+  pertenece al territorio municipal incluido; asi una resta como `FENOLLEDA`
+  bajo `Pyrénées-Orientales` no descuenta municipios del mismo nombre en otro
+  departamento. En fuentes con niveles mixtos como Francia, CityPopulation puede
+  dejar algunas comunas como hojas terminales en un nivel inferior al municipal
+  nominal; el builder las trata como unidades atomicas cuando no tienen hijos,
+  tanto al resolver nombres como al expandir macros. La semilla francesa de
+  `Berry` debe incluir `Cher` e `Indre` ademas de `CREUSE_A_BERRY`, porque ese
+  grupo solo no contiene Bourges como capital. Si una definicion importada trae
+  metadatos raiz y un `[[children]]` espejo con el mismo nombre/nivel para
+  contener los `[[children.include]]` / `[[children.subtract]]`, el builder
+  pliega ese hijo en la fila padre para no crear duplicados visuales como
+  `Artois` > `Artois`; si hay otros hijos reales, se conservan y los totales se
+  recalculan desde las unidades fuente unicas. El editor
+  `/groups/subdivisions/<pais>/<codigo>/` usa
   el mismo formato visual que el editor de grupos: encabezado compacto, guardar
   arriba y abajo, primera caja de campos base y dos paneles inferiores para
   seleccionar fuentes de BBDD que se van a `Sumar` o `Restar`. El pais fuente es
   siempre el segmento `<pais>` de la URL, no un campo visible del formulario. El
-  campo numerico `Nivel` ya no cambia el padre: el formulario no muestra
-  `Seccion padre` ni `Codigo propio`, guarda `parent_code` como el codigo raiz
-  del pais seleccionado y calcula el codigo jerarquico completo desde
+  bloque principal ya no muestra el campo numerico `Nivel`; por compatibilidad
+  el formulario mantiene su valor como input oculto hasta que el nivel se edite
+  desde su ubicacion definitiva. Tampoco muestra `Seccion padre` ni `Codigo
+  propio`: guarda `parent_code` como el codigo raiz del pais seleccionado y
+  calcula el codigo jerarquico completo desde
   `Codigo interno` (`ESP` + `CASTILLA_VIEJA` > `ESP-CASTILLA_VIEJA`), sin
   mostrar un campo visible de `Codigo calculado`. La caja base tambien permite
   editar las URLs manuales de bandera y escudo, que se guardan como `flag_url` y
@@ -1091,49 +1374,83 @@ Secciones principales:
   usa `ESP` aunque la raiz scrapeada de `AdminArea` tenga `code = "spain"`. El
   GET del editor carga solo la carcasa con una rueda; los datos reales se hidratan desde
   `/groups/subdivisions/<pais>/<codigo>/data/`, que ya no precarga todos los
-  `SubdivisionGroup` ni devuelve `group_countries`, salvo los grupos ya
-  referenciados en el TOML actual para pintar sus badges. La parte inferior
+  `SubdivisionGroup` ni devuelve `group_countries`, salvo los grupos y
+  subdivisiones derivadas ya referenciados en el TOML actual para pintar sus
+  badges. Al hidratar grupos ya guardados en `[[subtract]]`, los nombres planos del grupo se resuelven
+  dentro del ambito municipal ya incluido para ese pais fuente, de modo que los
+  badges muestran los mismos miembros y padre que luego restara el builder.
+  Guardar en este editor
+  usa AJAX cuando el navegador lo permite y no recarga la pagina; si el registro
+  se crea o cambia de codigo, la URL se actualiza en sitio. Al volver desde el
+  editor despues de guardar o importar, `/groups/` recarga una copia obsoleta
+  del historial antes de reabrir el panel del pais, calcula la pagina correcta
+  de la tabla cliente y desplaza la vista hasta la fila editada. Las filas ya
+  construidas de `/groups/` se enlazan a su definicion SQL por codigo actual y
+  por `internal_name` con prefijo raiz, para que entidades con el mismo nombre
+  visible como `CATALUNHA_A` y `CATALUNHA_B` sigan siendo clicables por separado
+  aunque el codigo haya cambiado. La parte inferior
   reutiliza `/groups/source-data/` para consultar los mismos niveles y secciones
   que `/groups/groups/`; cuando el editor pide `include_groups=1`, ese endpoint
   anade opciones `SubdivisionGroup` del mismo pais y ambito como badges
-  `source_kind = "group"`. Igual que el editor de grupos, incluye una fila raiz
+  `source_kind = "group"`; con `include_derived_subdivisions=1` tambien anade
+  `DerivedSubdivision` de niveles inferiores como `source_kind =
+  "derived_subdivision"`, filtradas por nivel actual, subdivision actual, pais
+  de esa subdivision actual y ambito municipal del padre seleccionado. La
+  exclusion de la entidad actual solo se aplica dentro de ese pais actual, para
+  no ocultar una entidad homonima de otro pais fuente. Igual que el editor de grupos, incluye una fila raiz
   del pais antes de `Nivel 1`. Ese modal permite anadir el pais como NV0 y sus
-  administraciones directas de nivel 1 como badges directos. El modal carga los
-  hijos de la seccion elegida y puede guardar tanto entidades directas de
+  administraciones directas de nivel 1 como badges directos. Cuando se guarda un
+  pais o territorio completo desde esa fila raiz, se conserva como bloque
+  `level = 0` con `ids = [...]` del `AdminArea` raiz y se rehidrata como badge
+  seleccionado al editar. El modal carga los hijos de la seccion elegida y puede guardar tanto entidades directas de
   `AdminArea` como grupos reutilizables. El TOML sigue guardandose en
   `DerivedSubdivision.content`, pero queda oculto en el formulario; cuando se
   modifica la seleccion visual inferior, el POST envia `include_ids_json` y
-  `subtract_ids_json` con entidades directas de BBDD o grupos, y la vista los
-  convierte en bloques `[[include]]` / `[[subtract]]` con `ids = [...]` o
-  `groups = [...]` segun corresponda. En esa parte
+  `subtract_ids_json` con entidades directas de BBDD, grupos o subdivisiones
+  derivadas, y la vista los convierte en bloques `[[include]]` / `[[subtract]]`
+  con `ids = [...]`, `groups = [...]` o `derived_subdivisions = [...]` segun
+  corresponda. En esa parte
   inferior hay un unico panel de fuentes: el selector de paises vive en una caja
   de control separada y su unico boton `Anadir` agrega el bloque del pais. No se
   renderizan dos paneles `Sumar` / `Restar`. Dentro del bloque, los botones de
   jerarquia `Anadir` abren el modal de transferencia con `Disponibles` y
   `Grupo`, como el editor `/groups/groups/`, y los badges seleccionados pueden
-  ser entidades `AdminArea` o grupos reutilizables. Los badges de grupo usan un
-  color distinto y un tooltip con sus miembros resueltos desde SQL. El modal
+  ser entidades `AdminArea`, grupos reutilizables o subdivisiones derivadas de
+  nivel inferior. Los badges de grupo usan un color distinto, los badges de
+  subdivisiones derivadas usan un tercer color y ambos muestran un tooltip con
+  sus miembros resueltos desde SQL. El modal
   tiene un filtro unico que normaliza mayusculas y acentos, por lo que `Le`,
-  `le` o `Lé` filtran igual, y un check `Grupos` para mostrar solo grupos. En
+  `le` o `Lé` filtran igual, y checks combinables para mostrar solo entidades
+  normales, grupos reutilizables y/o subdivisiones creadas. Mover badges dentro
+  del modal no debe reenfocar el buscador ni desplazar la pagina. En
+  `/groups/source-data/`, las opciones disponibles de grupos y subdivisiones
+  derivadas se calculan con caches por peticion y se envian en formato compacto:
+  conservan `member_ids` completos para que `Excluir` funcione, pero no mandan
+  `member_names` completos para evitar payloads enormes. El POST AJAX de
+  guardado devuelve un payload ligero y no recalcula `include_items` ni
+  `subtract_items`; la hidratacion completa queda en `/data/`.
   Al pulsar `Anadir` sobre una fila de jerarquia, los grupos disponibles se
   limitan al mismo nivel que los hijos directos de esa fila; al abrir
   `Excluir`, los grupos disponibles se resuelven para todos los niveles
-  descendientes bajo los incluidos. En el modal y en la tabla, los grupos no se
-  mezclan con entidades normales: se
-  separan por tipo y nivel, como `Nivel 3` y `Grupos - Nivel 3`. En el modal,
-  esas secciones se separan con titulo y linea gruesa neutra dentro de la caja
-  `Disponibles`/`Grupo`, no con cajas anidadas. Al cargar hijos directos, el
-  endpoint mantiene solo la capa inmediata mas alta si la BBDD tiene hijos
-  mezclados de varios niveles bajo el mismo padre. La tabla agrupa las fuentes seleccionadas por pais, tipo,
-  nivel y padre, de forma que los elementos del mismo ambito aparecen como
-  badges en una sola fila. La tabla se ordena como
+  descendientes bajo los incluidos. En el modal, los grupos no se mezclan con
+  entidades normales: se separan por tipo y nivel, como `Nivel 3` y
+  `Grupos - Nivel 3`; esas secciones se separan con titulo y linea gruesa
+  neutra dentro de la caja `Disponibles`/`Grupo`, no con cajas anidadas. Al
+  cargar hijos directos, el endpoint mantiene solo la capa inmediata mas alta si
+  la BBDD tiene hijos mezclados de varios niveles bajo el mismo padre, pero no
+  oculta ciudades unificadas directas (`city_merge_status = 1`) aunque esten en
+  un nivel mas profundo. La tabla
+  agrupa las fuentes seleccionadas por pais, nivel y padre, sin separar por
+  tipo, de forma que las entidades `AdminArea`, los grupos reutilizables y las
+  subdivisiones derivadas del mismo padre aparecen como badges en una sola fila;
+  los badges especiales mantienen su color distinto. La tabla se ordena como
   `Incluidos`, `Excluidos`, `Nivel`, `Acciones`; `Incluidos` y `Excluidos` son
   columnas de badges que reparten el ancho util al 50/50, `Nivel` queda
   estrecho y `Acciones` solo ocupa lo necesario para los botones. `Editar` abre
-  un selector del mismo ambito que la fila editada: mismo pais fuente, mismo
-  nivel y mismo padre; por ejemplo, una CCAA muestra todas las CCAA de Espana y
-  una provincia bajo Castilla y Leon muestra las demas provincias de Castilla y
-  Leon. Ese selector de edicion consulta `/groups/source-data/` con
+  un selector del mismo pais fuente, nivel y padre que la fila editada. Por
+  ejemplo, una CCAA muestra todas las CCAA de Espana y una provincia bajo
+  Castilla y Leon muestra las demas provincias de Castilla y Leon. Ese selector
+  de edicion consulta `/groups/source-data/` con
   `source_mode=items` para traer todas las filas del nivel, no solo secciones
   con hijos. `Excluir` abre un selector de descendientes de todos los incluidos
   en esa fila mediante `source_mode=descendants`, por lo que permite restar
@@ -1170,10 +1487,12 @@ Secciones principales:
   formulario no consulta capitales al cargar, al editar TOML ni al modificar
   fuentes; solo el AJAX del Select2 consulta
   `/groups/subdivisions/<pais>/<codigo>/capital-options/` cuando el usuario
-  escribe al menos dos letras. El endpoint filtra primero por prefijo
-  normalizado, como `Za`, y despues comprueba si cada candidata pertenece a las
-  regiones/municipios incluidos y queda fuera de las restas. El select muestra
-  solo el nombre. Tanto sus opciones como los hijos
+  escribe al menos dos letras. El endpoint filtra por prefijo normalizado,
+  como `Za`, y comprueba tambien nombres mostrados/alias localizados antes de
+  descartar una candidata; si el prefijo crudo no basta, revisa las candidatas
+  del ambito seleccionado sin abrir la busqueda al pais completo. Despues
+  valida que cada candidata pertenezca a las regiones/municipios incluidos y
+  quede fuera de las restas. El select muestra solo el nombre. Tanto sus opciones como los hijos
   mostrados en los badges de grupos/subdivisiones usan municipios base y
   ciudades unificadas (`city_merge_status` 0 y 1), excluyendo las entidades
   fuente consumidas por una ciudad unificada (`city_merge_status` 2) para no
@@ -1186,7 +1505,9 @@ Secciones principales:
   `/api/admin-areas/<area_id>/`. Si una subdivision tiene hijos directos en varios
   niveles porque CityPopulation enlaza una tabla inferior a un padre superior,
   la ficha muestra un recuadro por nivel hijo para no mezclar, por ejemplo,
-  comunas L3 y urban places L4.
+  comunas L3 y urban places L4. El selector de nivel puede saltar a cualquier
+  nivel importado, tambien comunas o municipios sin hijos; la tabla se sirve
+  paginada desde la API con 20 filas por defecto y tamanos de 50 o 100.
 - `/stats/`: redireccion de compatibilidad hacia `/countries/`.
 - `/delete/`: borrado confirmado de datos `AdminArea` por pais fuente o
   `NuevoAdminArea` por pais derivado.
@@ -1240,6 +1561,10 @@ Las tareas web se gestionan en `ciudades_del_mundo/web/tasks.py`. Cada accion
 lanza un subproceso `manage.py`, guarda estado/salida reciente en la tabla
 `WebTask`, escribe el log completo en `.web_task_logs/<pais-o-clave>/*.log` y
 usa `.web_task_progress/*.json` para progreso por tarea en la raiz del proyecto.
+Las acciones que crean una tarea desde la interfaz se lanzan por AJAX con la
+misma ventana emergente que usa el scraping: importaciones TOML de listados,
+construccion de subdivisiones derivadas y exportaciones desde recetas o
+`/derived/<id>/` se encolan sin abandonar la pagina actual.
 Las tareas de scraping pueden dejar checkpoints tecnicos en
 `.web_scrape_resume/` mientras no terminan correctamente, pero la UI de
 configuraciones ya no muestra una accion `Reanudar`: al parar una tarea la fila
@@ -1416,7 +1741,7 @@ py manage.py test ciudades_del_mundo.tests.test_scraping_country_data --verbosit
 
 ## Siguientes mejoras razonables
 
-- conectar el constructor de `NuevoAdminArea` al TOML de `DerivedCountryConfig`
-  y `SubdivisionGroup`
+- ampliar el editor visual de `/new-countries/` para crear arboles anidados de
+  entidades intermedias y definitivas sin editar TOML a mano
 - limpiar codificacion legacy en algunos datos historicos
 - anadir tests para configuraciones SQL y scrapers HTML

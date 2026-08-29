@@ -50,6 +50,15 @@ class HexagonalBoundaryTests(unittest.TestCase):
 
         self.assertEqual(violations, [])
 
+    def test_application_does_not_define_boundary_protocols(self):
+        violations: list[str] = []
+
+        for path in sorted((PROJECT_ROOT / "application").glob("*.py")):
+            for class_name in _protocol_class_names(path):
+                violations.append(f"{path.relative_to(PROJECT_ROOT)} declares Protocol {class_name}")
+
+        self.assertEqual(violations, [])
+
 
 def _absolute_imports(path: Path) -> list[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -60,6 +69,27 @@ def _absolute_imports(path: Path) -> list[str]:
         elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
             imports.append(node.module)
     return imports
+
+
+def _protocol_class_names(path: Path) -> list[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    names: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        if any(_base_name(base) == "Protocol" for base in node.bases):
+            names.append(node.name)
+    return names
+
+
+def _base_name(base) -> str:
+    if isinstance(base, ast.Name):
+        return base.id
+    if isinstance(base, ast.Attribute):
+        return base.attr
+    if isinstance(base, ast.Subscript):
+        return _base_name(base.value)
+    return ""
 
 
 def _matches_any(imported: str, prefixes: tuple[str, ...]) -> bool:

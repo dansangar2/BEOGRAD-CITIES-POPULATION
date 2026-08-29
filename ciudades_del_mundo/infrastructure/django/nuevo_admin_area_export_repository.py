@@ -17,7 +17,7 @@ class DjangoNuevoAdminAreaExportRepository:
         root = (
             NuevoAdminArea.objects
             .select_related("parent", "most_populate_city", "depends_on")
-            .prefetch_related("capitals")
+            .prefetch_related("capitals", "municipios_originales")
             .get(id=country_id)
         )
         root_level = root.level or 0
@@ -49,6 +49,7 @@ def _to_summary(area: NuevoAdminArea) -> NuevoAdminAreaSummary:
         entity_type=area.entity_type,
         parent_id=area.parent_id,
         area_km2=area.area_km2,
+        density=area.density,
         pop_latest=area.pop_latest,
         population_index=area.population_index,
         province_status=area.province_status,
@@ -73,6 +74,7 @@ def _to_summary(area: NuevoAdminArea) -> NuevoAdminAreaSummary:
             else None
         ),
         source_units_count=area.municipios_originales.count(),
+        source_unit_ids=tuple(str(source.id) for source in area.municipios_originales.all()),
     )
 
 

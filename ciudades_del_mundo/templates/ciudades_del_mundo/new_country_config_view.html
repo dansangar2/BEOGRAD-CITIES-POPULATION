@@ -10,16 +10,16 @@
     <h1>{{ config.name }}</h1>
   </div>
   <div class="actions">
-    <a class="button secondary" href="{% url 'ciudades_del_mundo:new_country_detail' country.slug %}">{% trans "Volver" %}</a>
-    <a class="button secondary" href="{% url 'ciudades_del_mundo:new_country_config_edit' country.slug config.slug %}">{% trans "Configuracion" %}</a>
+    <a class="button secondary" href="{{ country_detail_url }}">{% trans "Volver" %}</a>
+    <a class="button secondary" href="{{ config_edit_url }}">{% trans "Configuracion" %}</a>
   </div>
 </section>
 
 <section class="panel">
   <h2>{% trans "Datos construidos" %}</h2>
   <dl class="definition-list">
-    <dt>{% trans "Codigo derivado" %}</dt>
-    <dd><code>{{ built_code }}</code></dd>
+    <dt>{% trans "Codigo" %}</dt>
+    <dd><code>{{ built_code|upper }}</code></dd>
     <dt>{% trans "Filas" %}</dt>
     <dd>{{ stats.total|default:"0" }}</dd>
     <dt>{% trans "Poblacion agregada" %}</dt>
@@ -32,7 +32,7 @@
     <a class="button secondary" href="{% url 'ciudades_del_mundo:nuevo_area_detail' root.id %}">{% trans "Abrir vista de subdivisiones" %}</a>
   </p>
   {% else %}
-  <p class="muted">{% trans "Aun no hay datos NuevoAdminArea creados para este codigo derivado." %}</p>
+  <p class="muted">{% trans "Aun no hay datos NuevoAdminArea creados para este codigo." %}</p>
   {% endif %}
 </section>
 {% endblock %}

@@ -11,9 +11,9 @@
     <p class="muted">{{ seed_count }} {% trans "semillas TOML disponibles" %}</p>
   </div>
   <div class="actions">
-    <form method="post" action="{% url 'ciudades_del_mundo:group_import_toml' %}" data-loading-submit>
+    <form method="post" action="{% url 'ciudades_del_mundo:group_import_toml' %}" data-config-task-form data-action-label="{% trans 'Importar TOML' %}">
       {% csrf_token %}
-      <button class="secondary" type="submit">{% trans "Importar TOML" %}</button>
+      <button class="secondary" type="submit" data-config-action="import-toml">{% trans "Importar TOML" %}</button>
     </form>
     <a class="button secondary" href="{% url 'ciudades_del_mundo:new_country_new' %}">{% trans "Agregar pais" %}</a>
   </div>
@@ -27,6 +27,7 @@
       type="button"
       data-group-country-card
       data-group-country-key="{{ country.key }}"
+      data-group-detail-url="{{ country.detail_url }}"
       data-group-detail-target="groups-country-detail-{{ forloop.counter }}"
       aria-controls="groups-country-detail-{{ forloop.counter }}"
       aria-expanded="false"
@@ -71,10 +72,10 @@
           </div>
           <div class="button-row group-panel-actions group-icon-actions">
             {% if country.code %}
-            <form method="post" action="{% url 'ciudades_del_mundo:group_import_toml' %}" data-loading-submit>
+            <form method="post" action="{% url 'ciudades_del_mundo:group_import_toml' %}" data-config-task-form data-action-label="{% trans 'Importar TOML' %}">
               {% csrf_token %}
               <input type="hidden" name="country_code" value="{{ country.code }}">
-              <button class="secondary icon-action-button" type="submit" aria-label="{% trans 'Importar TOML' %}" title="{% trans 'Importar TOML' %}" {% if not country.seed_count %}disabled{% endif %}>
+              <button class="secondary icon-action-button" type="submit" data-config-action="import-toml" aria-label="{% trans 'Importar TOML' %}" title="{% trans 'Importar TOML' %}" {% if not country.seed_count %}disabled{% endif %}>
                 <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
                   <path d="M12 3v12"></path>
                   <path d="m7 10 5 5 5-5"></path>
@@ -145,20 +146,7 @@
                 </tr>
               </thead>
               <tbody data-client-page-rows>
-                {% for group in country.groups %}
-                <tr
-                  class="clickable-row"
-                  tabindex="0"
-                  data-row-href="{{ group.href }}"
-                  data-client-row
-                  data-search="{{ group.internal_name }} {{ group.municipality_count }}"
-                >
-                  <td><code>{{ group.internal_name }}</code></td>
-                  <td class="numeric group-municipality-count">{{ group.municipality_count_text }}</td>
-                </tr>
-                {% empty %}
                 <tr data-client-empty><td colspan="2">{% trans "No hay agrupaciones creadas." %}</td></tr>
-                {% endfor %}
               </tbody>
             </table>
           </div>
@@ -173,10 +161,11 @@
           </div>
           <div class="button-row">
             {% if country.code %}
-            <form method="post" action="{% url 'ciudades_del_mundo:derived_subdivision_import_toml' %}" data-loading-submit>
+            <form method="post" action="{% url 'ciudades_del_mundo:derived_subdivision_import_toml' %}" data-config-task-form data-action-label="{% trans 'Importar TOML' %}">
               {% csrf_token %}
               <input type="hidden" name="country_code" value="{{ country.code }}">
-              <button class="secondary" type="submit" {% if not country.subdivision_seed_count %}disabled{% endif %}>{% trans "Importar TOML" %}</button>
+              <input type="hidden" name="queue_task" value="1">
+              <button class="secondary" type="submit" data-config-action="import-toml" {% if not country.subdivision_seed_count %}disabled{% endif %}>{% trans "Importar TOML" %}</button>
             </form>
             <form
               method="post"
@@ -195,7 +184,13 @@
             </div>
         </div>
 
-        <div id="groups-divisions-table-{{ forloop.counter }}" data-empty-label="{% trans 'No hay subdivisiones creadas para este pais.' %}">
+        <div
+          id="groups-divisions-table-{{ forloop.counter }}"
+          data-empty-label="{% trans 'No hay subdivisiones creadas para este pais.' %}"
+          data-clone-label="{% trans 'Clonar' %}"
+          data-delete-label="{% trans 'Borrar' %}"
+          data-delete-confirm-label="{% trans 'Confirmo el borrado' %}"
+        >
           <div class="group-table-toolbar">
             <form
               class="group-table-controls group-division-table-controls async-table-form"
@@ -213,9 +208,6 @@
                 {% trans "Nivel" %}
                 <select name="level">
                   <option value="">{% trans "Todos" %}</option>
-                  {% for level in country.level_rows %}
-                  <option value="{{ level.level }}">{{ level.label }}{% if level.type_text and level.type_text != "-" %} - {{ level.type_text }}{% endif %}</option>
-                  {% endfor %}
                 </select>
               </label>
               <label>
@@ -234,9 +226,10 @@
               <thead>
                 <tr>
                   <th>{% trans "Nombre de la entidad" %}</th>
-                  <th>{% trans "Tipo (Nivel)" %}</th>
+                  <th>{% trans "Tipo" %}</th>
                   <th>{% trans "Terreno" %}</th>
                   <th>{% trans "Población" %}</th>
+                  <th>{% trans "Acciones" %}</th>
                 </tr>
               </thead>
               <tbody data-client-page-rows>
@@ -251,9 +244,33 @@
                   <td>{{ row.type_level_text }}</td>
                   <td class="numeric">{{ row.area_text }}</td>
                   <td class="numeric">{{ row.population_text }}</td>
+                  <td class="group-division-action-cell">
+                    {% if row.clone_url %}
+                    <form
+                      class="group-division-clone-form"
+                      method="post"
+                      action="{{ row.clone_url }}"
+                    >
+                      {% csrf_token %}
+                      <button class="secondary group-division-clone-button" type="submit" aria-label="{% trans 'Clonar' %}" title="{% trans 'Clonar' %}">{% trans "Clonar" %}</button>
+                    </form>
+                    {% endif %}
+                    {% if row.delete_url %}
+                    <form
+                      class="group-division-delete-form"
+                      method="post"
+                      action="{{ row.delete_url }}"
+                      data-confirm-message="{% trans 'Confirmo el borrado' %}"
+                      onsubmit="return confirm(this.dataset.confirmMessage);"
+                    >
+                      {% csrf_token %}
+                      <button class="quiet danger-text group-division-delete-button" type="submit" aria-label="{% trans 'Borrar' %}" title="{% trans 'Borrar' %}">×</button>
+                    </form>
+                    {% endif %}
+                  </td>
                 </tr>
                 {% empty %}
-                <tr data-client-empty><td colspan="4">{% trans "No hay subdivisiones creadas para este pais." %}</td></tr>
+                <tr data-client-empty><td colspan="5">{% trans "No hay subdivisiones creadas para este pais." %}</td></tr>
                 {% endfor %}
               </tbody>
             </table>

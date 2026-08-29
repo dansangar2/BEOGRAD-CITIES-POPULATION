@@ -494,6 +494,21 @@ msgstr "Radnje"
 msgid "Acción de configuración no soportada."
 msgstr "Acción de konfiguracija nije podržana."
 
+msgid "Clonar"
+msgstr "Kloniraj"
+
+msgid "Clonar entidad"
+msgstr "Kloniraj entitet"
+
+msgid "Entidad clonada."
+msgstr "Entitet je kloniran."
+
+msgid "Copia"
+msgstr "Kopija"
+
+msgid "El codigo debe empezar por una letra y usar mayusculas sin acentos, numeros, guion o guion bajo, sin espacios."
+msgstr "Kod mora početi slovom i koristiti velika latinična slova bez akcenata, brojeve, crticu ili donju crtu, bez razmaka."
+
 msgid "Actualizacion reciente"
 msgstr "Actualizacion reciente"
 
@@ -806,8 +821,23 @@ msgstr "El nivo de scrapeo debe ser numérico."
 msgid "El slug de configuracion solo puede usar letras, numeros, guion y guion bajo."
 msgstr "El slug de konfiguracija solo puede usar letras, numeros, guion y guion bajo."
 
-msgid "El slug de receta debe ser un identificador Python en minusculas."
-msgstr "El slug de recept debe ser un identificador Python en minusculas."
+msgid "El codigo debe empezar por una letra y usar letras sin acentos, numeros o guion bajo, sin espacios."
+msgstr "El codigo debe empezar por una letra y usar letras sin acentos, numeros o guion bajo, sin espacios."
+
+msgid "El codigo debe empezar por una letra y usar mayusculas sin acentos, numeros o guion bajo, sin espacios."
+msgstr "El codigo debe empezar por una letra y usar mayusculas sin acentos, numeros o guion bajo, sin espacios."
+
+msgid "Ya existe un pais nuevo con codigo '%(code)s'."
+msgstr "Ya existe un pais nuevo con codigo '%(code)s'."
+
+msgid "El pais nuevo no pertenece a '%(country)s'."
+msgstr "Nova zemlja ne pripada '%(country)s'."
+
+msgid "Datos guardados."
+msgstr "Podaci su sacuvani."
+
+msgid "Codigo derivado"
+msgstr "Codigo derivado"
 
 msgid "Elx"
 msgstr "Elx"
@@ -817,6 +847,15 @@ msgstr "Entidades a unificar"
 
 msgid "Entidades disponibles"
 msgstr "Entidades disponibles"
+
+msgid "Entidades creadas"
+msgstr "Kreirani entiteti"
+
+msgid "No hay entidades creadas."
+msgstr "Nema kreiranih entiteta."
+
+msgid "Buscar entidad"
+msgstr "Pretraži entitet"
 
 msgid "Error"
 msgstr "Greška"
@@ -892,6 +931,12 @@ msgstr "Pretraga grupe"
 
 msgid "Grupos"
 msgstr "Grupe"
+
+msgid "Entidades"
+msgstr "Entiteti"
+
+msgid "Filtrar tipos"
+msgstr "Filtriraj tipove"
 
 msgid "Selecciona un nivel"
 msgstr "Izaberite nivo"
@@ -1198,6 +1243,9 @@ msgstr "Panel - Gradovi sveta"
 
 msgid "Panel operativo"
 msgstr "Panel operativo"
+
+msgid "País"
+msgstr "Zemlja"
 
 msgid "Países"
 msgstr "Zemlje"
@@ -1795,3 +1843,98 @@ msgstr "Pretraga..."
 
 msgid "capitals debe ser una lista."
 msgstr "capitals mora biti lista."
+msgid "Usar subdivisiones"
+msgstr "Koristi podele"
+
+msgid "Subdivisiones reales"
+msgstr "Stvarne podele"
+
+msgid "Seleccionar"
+msgstr "Izaberi"
+
+msgid "No hay subdivisiones creadas."
+msgstr "Nema napravljenih podela."
+
+msgid "Aun no hay datos NuevoAdminArea creados para este codigo."
+msgstr "Za ovaj kod jos nema napravljenih NuevoAdminArea podataka."
+
+msgid "La seleccion visual debe contener una lista de subdivisiones creadas."
+msgstr "Vizuelni izbor mora da sadrzi listu napravljenih podela."
+
+msgid "El padre seleccionado no existe."
+msgstr "Izabrani roditelj ne postoji."
+
+msgid "El padre seleccionado crearia una referencia circular."
+msgstr "Izabrani roditelj bi napravio kruznu referencu."
+
+msgid "Selecciona al menos una subdivision creada."
+msgstr "Izaberite bar jednu napravljenu podelu."
+
+msgid "%(config)s: el padre '%(parent)s' no existe en este pais nuevo."
+msgstr "%(config)s: roditelj '%(parent)s' ne postoji u ovoj novoj zemlji."
+
+msgid "%(country)s tiene padres circulares entre sus divisiones."
+msgstr "%(country)s ima kruzne roditelje medju svojim podelama."
+
+msgid "%(name)s (Nivel 0)"
+msgstr "%(name)s (Nivo 0)"
+
+msgid "%(name)s (Nivel %(level)s)"
+msgstr "%(name)s (Nivo %(level)s)"
+
+msgid "Una division no puede ser padre de si misma."
+msgstr "Podela ne moze biti sopstveni roditelj."
+
+msgid "Usar entidades marcadas como hijos"
+msgstr "Koristi označene entitete kao decu"
+
+msgid "km^2"
+msgstr "km^2"
+
+msgid "Plegar"
+msgstr "Skupi"
+
+msgid "Eliminar esta entidad?"
+msgstr "Obrisati ovaj entitet?"
+
+msgid "Eliminar entidad"
+msgstr "Obriši entitet"
+
+msgid "Reasigna o elimina primero sus hijos"
+msgstr "Prvo preraspodeli ili obriši njegovu decu"
+
+msgid "No se puede eliminar una entidad con hijos. Reasigna o elimina primero sus hijos."
+msgstr "Nije moguće obrisati entitet sa decom. Prvo preraspodeli ili obriši njegovu decu."
+
+msgid "Entidad eliminada."
+msgstr "Entitet je obrisan."
+
+msgid "Num municipios"
+msgstr "Num municipios"
+
+msgid "Poblacion capital"
+msgstr "Poblacion capital"
+
+msgid "% capital"
+msgstr "% capital"
+
+msgid "Ciudad mas poblada"
+msgstr "Ciudad mas poblada"
+
+msgid "Poblacion ciudad mas poblada"
+msgstr "Poblacion ciudad mas poblada"
+
+msgid "% ciudad mas poblada"
+msgstr "% ciudad mas poblada"
+
+msgid "Ranking poblacion"
+msgstr "Ranking poblacion"
+
+msgid "Ranking terreno"
+msgstr "Ranking terreno"
+
+msgid "Ranking capital"
+msgstr "Ranking capital"
+
+msgid "Ranking ciudad mas poblada"
+msgstr "Ranking ciudad mas poblada"

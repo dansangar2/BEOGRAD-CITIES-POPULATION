@@ -494,6 +494,21 @@ msgstr "الإجراءات"
 msgid "Acción de configuración no soportada."
 msgstr "Acción de الإعداد غير مدعومة."
 
+msgid "Clonar"
+msgstr "استنساخ"
+
+msgid "Clonar entidad"
+msgstr "استنساخ الكيان"
+
+msgid "Entidad clonada."
+msgstr "تم استنساخ الكيان."
+
+msgid "Copia"
+msgstr "نسخة"
+
+msgid "El codigo debe empezar por una letra y usar mayusculas sin acentos, numeros, guion o guion bajo, sin espacios."
+msgstr "يجب أن يبدأ الرمز بحرف وأن يستخدم أحرفًا لاتينية كبيرة بلا لهجات، وأرقامًا، وشرطة أو شرطة سفلية، دون مسافات."
+
 msgid "Actualizacion reciente"
 msgstr "Actualizacion reciente"
 
@@ -806,8 +821,23 @@ msgstr "El المستوى de scrapeo debe ser numérico."
 msgid "El slug de configuracion solo puede usar letras, numeros, guion y guion bajo."
 msgstr "El slug de الإعداد solo puede usar letras, numeros, guion y guion bajo."
 
-msgid "El slug de receta debe ser un identificador Python en minusculas."
-msgstr "El slug de الوصفة debe ser un identificador Python en minusculas."
+msgid "El codigo debe empezar por una letra y usar letras sin acentos, numeros o guion bajo, sin espacios."
+msgstr "El codigo debe empezar por una letra y usar letras sin acentos, numeros o guion bajo, sin espacios."
+
+msgid "El codigo debe empezar por una letra y usar mayusculas sin acentos, numeros o guion bajo, sin espacios."
+msgstr "El codigo debe empezar por una letra y usar mayusculas sin acentos, numeros o guion bajo, sin espacios."
+
+msgid "Ya existe un pais nuevo con codigo '%(code)s'."
+msgstr "Ya existe un pais nuevo con codigo '%(code)s'."
+
+msgid "El pais nuevo no pertenece a '%(country)s'."
+msgstr "البلد الجديد لا يتبع '%(country)s'."
+
+msgid "Datos guardados."
+msgstr "تم حفظ البيانات."
+
+msgid "Codigo derivado"
+msgstr "Codigo derivado"
 
 msgid "Elx"
 msgstr "Elx"
@@ -817,6 +847,15 @@ msgstr "Entidades a unificar"
 
 msgid "Entidades disponibles"
 msgstr "Entidades disponibles"
+
+msgid "Entidades creadas"
+msgstr "الكيانات المنشأة"
+
+msgid "No hay entidades creadas."
+msgstr "لا توجد كيانات منشأة."
+
+msgid "Buscar entidad"
+msgstr "بحث عن كيان"
 
 msgid "Error"
 msgstr "خطأ"
@@ -892,6 +931,12 @@ msgstr "البحث عن مجموعة"
 
 msgid "Grupos"
 msgstr "المجموعات"
+
+msgid "Entidades"
+msgstr "الكيانات"
+
+msgid "Filtrar tipos"
+msgstr "تصفية الأنواع"
 
 msgid "Selecciona un nivel"
 msgstr "اختر مستوى"
@@ -1198,6 +1243,9 @@ msgstr "Panel - مدن العالم"
 
 msgid "Panel operativo"
 msgstr "Panel operativo"
+
+msgid "País"
+msgstr "البلد"
 
 msgid "Países"
 msgstr "البلدان"
@@ -1795,3 +1843,98 @@ msgstr "جارٍ البحث..."
 
 msgid "capitals debe ser una lista."
 msgstr "يجب أن يكون capitals قائمة."
+msgid "Usar subdivisiones"
+msgstr "استخدام التقسيمات"
+
+msgid "Subdivisiones reales"
+msgstr "التقسيمات الحقيقية"
+
+msgid "Seleccionar"
+msgstr "تحديد"
+
+msgid "No hay subdivisiones creadas."
+msgstr "لا توجد تقسيمات منشأة."
+
+msgid "Aun no hay datos NuevoAdminArea creados para este codigo."
+msgstr "لم يتم إنشاء بيانات NuevoAdminArea لهذا الرمز بعد."
+
+msgid "La seleccion visual debe contener una lista de subdivisiones creadas."
+msgstr "يجب أن يحتوي التحديد المرئي على قائمة بالتقسيمات المنشأة."
+
+msgid "El padre seleccionado no existe."
+msgstr "الأصل المحدد غير موجود."
+
+msgid "El padre seleccionado crearia una referencia circular."
+msgstr "الأصل المحدد سيؤدي إلى مرجع دائري."
+
+msgid "Selecciona al menos una subdivision creada."
+msgstr "حدد تقسيمًا منشأ واحدًا على الأقل."
+
+msgid "%(config)s: el padre '%(parent)s' no existe en este pais nuevo."
+msgstr "%(config)s: الأصل '%(parent)s' غير موجود في هذا البلد الجديد."
+
+msgid "%(country)s tiene padres circulares entre sus divisiones."
+msgstr "لدى %(country)s علاقات أصل دائرية بين تقسيماته."
+
+msgid "%(name)s (Nivel 0)"
+msgstr "%(name)s (المستوى 0)"
+
+msgid "%(name)s (Nivel %(level)s)"
+msgstr "%(name)s (المستوى %(level)s)"
+
+msgid "Una division no puede ser padre de si misma."
+msgstr "لا يمكن أن يكون التقسيم أصله نفسه."
+
+msgid "Usar entidades marcadas como hijos"
+msgstr "استخدام الكيانات المحددة كعناصر فرعية"
+
+msgid "km^2"
+msgstr "km^2"
+
+msgid "Plegar"
+msgstr "طي"
+
+msgid "Eliminar esta entidad?"
+msgstr "حذف هذا الكيان؟"
+
+msgid "Eliminar entidad"
+msgstr "حذف الكيان"
+
+msgid "Reasigna o elimina primero sus hijos"
+msgstr "أعد تعيين أبنائه أو احذفهم أولا"
+
+msgid "No se puede eliminar una entidad con hijos. Reasigna o elimina primero sus hijos."
+msgstr "لا يمكن حذف كيان له أبناء. أعد تعيين أبنائه أو احذفهم أولا."
+
+msgid "Entidad eliminada."
+msgstr "تم حذف الكيان."
+
+msgid "Num municipios"
+msgstr "Num municipios"
+
+msgid "Poblacion capital"
+msgstr "Poblacion capital"
+
+msgid "% capital"
+msgstr "% capital"
+
+msgid "Ciudad mas poblada"
+msgstr "Ciudad mas poblada"
+
+msgid "Poblacion ciudad mas poblada"
+msgstr "Poblacion ciudad mas poblada"
+
+msgid "% ciudad mas poblada"
+msgstr "% ciudad mas poblada"
+
+msgid "Ranking poblacion"
+msgstr "Ranking poblacion"
+
+msgid "Ranking terreno"
+msgstr "Ranking terreno"
+
+msgid "Ranking capital"
+msgstr "Ranking capital"
+
+msgid "Ranking ciudad mas poblada"
+msgstr "Ranking ciudad mas poblada"

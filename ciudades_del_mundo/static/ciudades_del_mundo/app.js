@@ -386,6 +386,11 @@
     });
   }
 
+  window.CiudadesSelect2 = {
+    init: initSelect2,
+    refresh: refreshSelect2Element
+  };
+
   function createStatusElement(className, message, loading) {
     var element = document.createElement("div");
     element.className = className;
@@ -778,6 +783,108 @@
     return typeof value === "function" ? value() : value;
   }
 
+  var GROUP_RETURN_STATE_KEY = "ciudades_del_mundo_group_return_state";
+
+  function writeGroupReturnState(state) {
+    if (!state || !state.rowHref || !window.sessionStorage) {
+      return;
+    }
+    try {
+      window.sessionStorage.setItem(GROUP_RETURN_STATE_KEY, JSON.stringify(state));
+    } catch (error) {}
+  }
+
+  function readGroupReturnState() {
+    var raw = "";
+    if (!window.sessionStorage) {
+      return null;
+    }
+    try {
+      raw = window.sessionStorage.getItem(GROUP_RETURN_STATE_KEY) || "";
+    } catch (error) {
+      return null;
+    }
+    if (!raw) {
+      return null;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function clearGroupReturnState() {
+    if (!window.sessionStorage) {
+      return;
+    }
+    try {
+      window.sessionStorage.removeItem(GROUP_RETURN_STATE_KEY);
+    } catch (error) {}
+  }
+
+  function reloadGroupListIfReturnNeedsFreshData(state) {
+    if (!state || state.refreshList !== true) {
+      return false;
+    }
+    state.refreshList = false;
+    writeGroupReturnState(state);
+    window.location.reload();
+    return true;
+  }
+
+  function rememberGroupReturnForRow(row) {
+    var detail = row ? row.closest("[data-group-country-detail]") : null;
+    var table = row ? row.closest("[id]") : null;
+    var href = row && row.dataset ? row.dataset.rowHref || "" : "";
+    if (!detail || !href) {
+      return;
+    }
+    writeGroupReturnState({
+      country: detail.dataset.groupCountryKey || "",
+      rowHref: href,
+      tableId: table ? table.id || "" : "",
+      table: table && table.id && table.id.indexOf("groups-divisions-table-") === 0 ? "divisions" : "groups",
+      createdAt: Date.now()
+    });
+  }
+
+  function markGroupReturnLinkNeedsFreshData(rowHref) {
+    var link = document.querySelector("[data-group-return-link]");
+    if (!link) {
+      return;
+    }
+    rowHref = rowHref || link.dataset.groupReturnRowHref || window.location.pathname;
+    if (!rowHref) {
+      return;
+    }
+    link.dataset.groupReturnRowHref = rowHref;
+    link.dataset.groupReturnRefresh = "1";
+    writeGroupReturnState({
+      country: link.dataset.groupReturnCountry || "",
+      rowHref: rowHref,
+      table: link.dataset.groupReturnTable || "divisions",
+      tableId: link.dataset.groupReturnTableId || "",
+      refreshList: true,
+      createdAt: Date.now()
+    });
+  }
+
+  function sameOriginPath(value) {
+    try {
+      var url = new URL(value, window.location.href);
+      return url.origin === window.location.origin ? url.pathname.replace(/\/+$/, "") : "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function groupRowHrefMatches(row, rowHref) {
+    var targetPath = sameOriginPath(rowHref);
+    var rowPath = sameOriginPath(row && row.dataset ? row.dataset.rowHref || "" : "");
+    return Boolean(targetPath && rowPath && targetPath === rowPath);
+  }
+
   function openNavigationUrl(url, newTab) {
     url = String(url || "");
     if (!url) {
@@ -843,6 +950,7 @@
 
   function openRowNavigation(row, newTab) {
     var href = row && row.dataset ? row.dataset.rowHref || "" : "";
+    rememberGroupReturnForRow(row);
     openNavigationUrl(href, newTab);
   }
 
@@ -1212,6 +1320,7 @@
         initConfigExportActions(target);
         refreshConfigActionButtons(target);
         initClientSorting(target, form);
+        initGroupDivisionDeleteForms(target);
         initClickableRows(target);
         if (!clientSortKey || !applyClientSort(target, form, clientSortKey, clientSortDirection, clientPage || 1)) {
           initClientPagination(target, form, clientPage || 1);
@@ -1766,9 +1875,22 @@
     return fetch(url).then(parseJsonResponse);
   }
 
+  function formatDecimalNoGrouping(value, decimals) {
+    var number = Number(value || 0);
+    var text;
+    if (!Number.isFinite(number)) {
+      return String(value || 0);
+    }
+    if (Number.isInteger(number)) {
+      return String(number);
+    }
+    text = number.toFixed(decimals);
+    return text.replace(/\.?0+$/, "").replace(".", ",");
+  }
+
   function formatNumber(value) {
     try {
-      return new Intl.NumberFormat(document.documentElement.lang || "es").format(value || 0);
+      return formatDecimalNoGrouping(value, 2);
     } catch (error) {
       return String(value || 0);
     }
@@ -1778,7 +1900,7 @@
     if (!total) {
       return "0%";
     }
-    return ((value / total) * 100).toFixed(1) + "%";
+    return formatDecimalNoGrouping((value / total) * 100, 1) + "%";
   }
 
   function formatPercentNumber(value) {
@@ -1786,7 +1908,7 @@
     if (!Number.isFinite(percent)) {
       percent = 0;
     }
-    return Math.max(0, Math.min(100, percent)).toFixed(2) + "%";
+    return formatDecimalNoGrouping(Math.max(0, Math.min(100, percent)), 2) + "%";
   }
 
   function chartColors() {
@@ -2732,6 +2854,16 @@
     return value === null || value === undefined || value === "" ? "-" : formatNumber(value);
   }
 
+  function textListOrDash(value) {
+    if (Array.isArray(value)) {
+      var values = value.filter(function (item) {
+        return String(item || "").trim() !== "";
+      });
+      return values.length ? values.join(", ") : "-";
+    }
+    return valueOrDash(value);
+  }
+
   function detailLabel(container, key, fallback) {
     return container.dataset[key] || fallback;
   }
@@ -2787,7 +2919,7 @@
     appendTextDefinition(list, labels.nameLabel, country.name);
     appendTextDefinition(list, labels.officialNameLabel, country.official_name, "data-country-official");
     appendTextDefinition(list, labels.officialLanguageLabel, "", "data-country-official-language");
-    appendTextDefinition(list, labels.capitalLabel, (country.capital || [])[0], "data-country-capital");
+    appendTextDefinition(list, labels.capitalLabel, textListOrDash(country.capital), "data-country-capital");
     appendTextDefinition(list, labels.populationLabel, formattedNumberOrDash(country.population));
     appendTextDefinition(list, labels.areaLabel, formattedNumberOrDash(country.area_km2));
     appendTextDefinition(list, labels.densityLabel, formattedNumberOrDash(country.density));
@@ -2833,6 +2965,8 @@
 
   function renderCountryTablePanel(panel, data, labels, baseUrl, target, areaStack) {
     var levels = data.levels || [];
+    var paginationData = (data.table && data.table.pagination) || countryBrowserPagination(data);
+    var initialPageSize = countryBrowserPageSize(paginationData);
     var levelLabel = null;
     if (levels.length > 1) {
       levelLabel = document.createElement("label");
@@ -2849,7 +2983,7 @@
         levelSelect.appendChild(option);
       });
       levelSelect.addEventListener("change", function () {
-        loadCountryTableOnly(panel, baseUrl, levelSelect.value, target);
+        loadCountryTableOnly(panel, baseUrl, levelSelect.value, target, 1, pageSizeSelect ? pageSizeSelect.value : initialPageSize);
       });
       levelLabel.appendChild(levelSelect);
     }
@@ -2877,13 +3011,7 @@
     var pageSizeLabel = document.createElement("label");
     pageSizeLabel.textContent = labels.pageSizeLabel;
     var pageSizeSelect = document.createElement("select");
-    [10, 25, 50, 100].forEach(function (size) {
-      var option = document.createElement("option");
-      option.value = size;
-      option.textContent = size;
-      option.selected = size === 25;
-      pageSizeSelect.appendChild(option);
-    });
+    populateCountryBrowserPageSizes(pageSizeSelect, initialPageSize);
     pageSizeLabel.appendChild(pageSizeSelect);
 
     controls.appendChild(filterLabel);
@@ -2948,8 +3076,12 @@
 
     var sortKey = "name";
     var sortDirection = 1;
-    var page = 1;
-    var pageSize = 25;
+    var page = paginationData ? Number(paginationData.page || 1) : 1;
+    var pageSize = initialPageSize;
+
+    function currentLevelValue() {
+      return levelSelect ? levelSelect.value : selectedCountryBrowserLevel(data);
+    }
 
     function comparable(row, key) {
       var value = row[key];
@@ -2999,9 +3131,12 @@
         }
         return 0;
       });
-      var totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+      var totalRows = paginationData ? Number(paginationData.total || 0) : filtered.length;
+      var totalPages = paginationData
+        ? Math.max(1, Number(paginationData.num_pages || 1))
+        : Math.max(1, Math.ceil(filtered.length / pageSize));
       page = Math.min(Math.max(1, page), totalPages);
-      var visible = filtered.slice((page - 1) * pageSize, page * pageSize);
+      var visible = paginationData ? filtered : filtered.slice((page - 1) * pageSize, page * pageSize);
 
       tbody.innerHTML = "";
       if (!visible.length) {
@@ -3068,9 +3203,9 @@
         });
         tbody.appendChild(tr);
       });
-      previousButton.disabled = page <= 1;
-      nextButton.disabled = page >= totalPages;
-      pageStatus.textContent = labels.sortedByLabel + " " + sortColumnLabel() + " - " + page + "/" + totalPages + " - " + formatNumber(filtered.length);
+      previousButton.disabled = paginationData ? !paginationData.has_previous : page <= 1;
+      nextButton.disabled = paginationData ? !paginationData.has_next : page >= totalPages;
+      pageStatus.textContent = labels.sortedByLabel + " " + sortColumnLabel() + " - " + page + "/" + totalPages + " - " + formatNumber(totalRows);
       updateSortButtons();
     }
 
@@ -3079,15 +3214,27 @@
       drawRows();
     });
     previousButton.addEventListener("click", function () {
+      if (paginationData) {
+        loadCountryTableOnly(panel, baseUrl, currentLevelValue(), target, Math.max(1, page - 1), pageSize);
+        return;
+      }
       page -= 1;
       drawRows();
     });
     nextButton.addEventListener("click", function () {
+      if (paginationData) {
+        loadCountryTableOnly(panel, baseUrl, currentLevelValue(), target, page + 1, pageSize);
+        return;
+      }
       page += 1;
       drawRows();
     });
     pageSizeSelect.addEventListener("change", function () {
-      pageSize = Number(pageSizeSelect.value || 25);
+      pageSize = Number(pageSizeSelect.value || 20);
+      if (paginationData) {
+        loadCountryTableOnly(panel, baseUrl, currentLevelValue(), target, 1, pageSize);
+        return;
+      }
       page = 1;
       drawRows();
     });
@@ -3112,6 +3259,52 @@
     return parsed.pathname + parsed.search + parsed.hash;
   }
 
+  function countryBrowserPagination(data) {
+    return (data && data.first_order && data.first_order.pagination)
+      || (data && data.table && data.table.pagination)
+      || null;
+  }
+
+  function countryBrowserPageSizeChoices() {
+    return [20, 50, 100];
+  }
+
+  function countryBrowserPageSize(pagination) {
+    var parsed = parseInt(pagination && pagination.page_size, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 100) : 20;
+  }
+
+  function populateCountryBrowserPageSizes(select, selectedSize) {
+    if (!select) {
+      return;
+    }
+    select.innerHTML = "";
+    countryBrowserPageSizeChoices().forEach(function (size) {
+      var option = document.createElement("option");
+      option.value = String(size);
+      option.textContent = String(size);
+      option.selected = size === selectedSize;
+      select.appendChild(option);
+    });
+  }
+
+  function selectedCountryBrowserLevel(data) {
+    var value = data ? (data.selected_filter || data.selected_level) : "";
+    return value === undefined || value === null ? "" : String(value);
+  }
+
+  function applyCountryBrowserParams(finalUrl, level, page, pageSize) {
+    if (level !== undefined && level !== null && level !== "") {
+      finalUrl.searchParams.set("level", level);
+    }
+    if (page !== undefined && page !== null && page !== "") {
+      finalUrl.searchParams.set("page", page);
+    }
+    if (pageSize !== undefined && pageSize !== null && pageSize !== "") {
+      finalUrl.searchParams.set("page_size", pageSize);
+    }
+  }
+
   function scrollToCountryTable(target) {
     if (!target) {
       return;
@@ -3120,14 +3313,18 @@
     (table || target).scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
-  function loadCountryTableOnly(panel, url, level, target) {
+  function loadCountryTableOnly(panel, url, level, target, page, pageSize) {
     if (!panel || !url) {
+      return;
+    }
+    if (target) {
+      loadCountryDetail(target, url, level, "target", page, pageSize);
       return;
     }
     var labels = countryDetailLabels(target);
     setLoading(panel, target.dataset.loading || "Cargando pais...");
     var finalUrl = new URL(url, window.location.origin);
-    finalUrl.searchParams.set("level", level);
+    applyCountryBrowserParams(finalUrl, level, page, pageSize);
     fetchJson(relativeUrlFrom(finalUrl.toString()))
       .then(function (data) {
         panel.innerHTML = "";
@@ -3328,7 +3525,7 @@
     parent.appendChild(wrap);
   }
 
-  function renderCountryChartsPanel(panel, data, labels) {
+  function renderCountryChartsPanel(panel, data, labels, target, areaStack) {
     var heading = document.createElement("h2");
     heading.textContent = labels.chartTitle;
     panel.appendChild(heading);
@@ -3452,6 +3649,29 @@
 
       visibleRows.forEach(function (card) {
         var row = document.createElement("tr");
+        if (card.detail_url && areaStack) {
+          row.classList.add("is-clickable");
+          row.tabIndex = 0;
+          row.addEventListener("click", function (event) {
+            if (isRowNavigationInteractiveTarget(event)) {
+              return;
+            }
+            openCountryTableRowDetail(card, labels, target, areaStack);
+          });
+          bindMiddleClickNavigation(row, function () {
+            return card.detail_url || "";
+          }, isRowNavigationInteractiveTarget);
+          row.addEventListener("keydown", function (event) {
+            if (isRowNavigationInteractiveTarget(event)) {
+              return;
+            }
+            if (event.key !== "Enter" && event.key !== " ") {
+              return;
+            }
+            event.preventDefault();
+            openCountryTableRowDetail(card, labels, target, areaStack);
+          });
+        }
         var colorCell = document.createElement("td");
         var marker = document.createElement("span");
         marker.className = "table-color-dot";
@@ -3635,7 +3855,7 @@
 
     renderCountryGeneralPanel(general, data, labels);
     renderCountryTablePanel(table, data, labels, baseUrl, target, areaStack);
-    renderCountryChartsPanel(charts, data, labels);
+    renderCountryChartsPanel(charts, data, labels, target, areaStack);
 
     grid.appendChild(general);
     grid.appendChild(table);
@@ -3645,20 +3865,22 @@
     renderCountryShareCards(target, data, labels);
   }
 
-  function loadCountryDetail(target, url, level) {
+  function loadCountryDetail(target, url, level, scrollMode, page, pageSize) {
     if (!target || !url) {
       return;
     }
     target.hidden = false;
     setLoading(target, target.dataset.loading || "Cargando pais...");
     var finalUrl = new URL(url, window.location.origin);
-    if (level !== undefined && level !== null && level !== "") {
-      finalUrl.searchParams.set("level", level);
-    }
+    applyCountryBrowserParams(finalUrl, level, page, pageSize);
     fetchJson(relativeUrlFrom(finalUrl.toString()))
       .then(function (data) {
         renderCountryDetail(target, data, url);
-        scrollToCountryTable(target);
+        if (scrollMode === "target") {
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else {
+          scrollToCountryTable(target);
+        }
       })
       .catch(function () {
         setError(target, target.dataset.error || "No se pudo cargar el pais.");
@@ -3800,6 +4022,19 @@
     ensureVisualPlaceholder(slot, "flag");
   }
 
+  function appendStatsCountryCardAction(actions, url, label, text) {
+    if (!actions || !url) {
+      return;
+    }
+    var link = document.createElement("a");
+    link.className = "stats-country-card-action";
+    link.href = url;
+    link.title = label;
+    link.setAttribute("aria-label", label);
+    link.textContent = text;
+    actions.appendChild(link);
+  }
+
   function renderStatsCountryGrid(container, payload) {
     var countries = (payload && payload.countries) || [];
     container.innerHTML = "";
@@ -3810,10 +4045,19 @@
     var grid = document.createElement("div");
     grid.className = "stats-country-grid";
     countries.forEach(function (country) {
-      var card = document.createElement("button");
-      card.type = "button";
+      var hasActions = Boolean(country.edit_url || country.export_excel_url);
+      var card = document.createElement(hasActions ? "article" : "button");
+      var main = card;
       card.className = "stats-country-card";
-      card.dataset.detailUrl = country.detail_url || "";
+      if (hasActions) {
+        card.classList.add("stats-country-card-editable");
+        main = document.createElement("button");
+        main.className = "stats-country-card-main";
+        main.type = "button";
+      } else {
+        card.type = "button";
+      }
+      main.dataset.detailUrl = country.detail_url || "";
 
       var flag = document.createElement("span");
       flag.className = "stats-country-flag";
@@ -3835,18 +4079,26 @@
       area.textContent = (container.dataset.areaLabel || "Terreno") + ": " + formattedNumberOrDash(country.area_km2);
       metrics.appendChild(population);
       metrics.appendChild(area);
-      card.appendChild(flag);
-      card.appendChild(name);
-      card.appendChild(metrics);
-      card.addEventListener("click", function () {
+      main.appendChild(flag);
+      main.appendChild(name);
+      main.appendChild(metrics);
+      main.addEventListener("click", function () {
         var target = document.querySelector("[data-stats-country-detail]");
-        if (target && card.dataset.detailUrl) {
-          loadStatsCountryDetail(target, card.dataset.detailUrl, container);
+        if (target && main.dataset.detailUrl) {
+          loadStatsCountryDetail(target, main.dataset.detailUrl, container);
         }
       });
-      bindMiddleClickNavigation(card, function () {
-        return card.dataset.detailUrl || "";
+      bindMiddleClickNavigation(main, function () {
+        return main.dataset.detailUrl || "";
       });
+      if (hasActions) {
+        var actions = document.createElement("div");
+        actions.className = "stats-country-card-actions";
+        appendStatsCountryCardAction(actions, country.export_excel_url, container.dataset.exportLabel || "Excel", "XLS");
+        appendStatsCountryCardAction(actions, country.edit_url, container.dataset.editLabel || "Configuracion", "CFG");
+        card.appendChild(actions);
+        card.appendChild(main);
+      }
       grid.appendChild(card);
     });
     container.appendChild(grid);
@@ -4032,7 +4284,49 @@
     });
   }
 
-  function renderStatsChildrenPanel(panel, title, rows, labels, openHandler) {
+  function renderCountryBrowserPaginationNav(parent, pagination, labels, onPageChange) {
+    if (!parent || !pagination) {
+      return;
+    }
+    var totalPages = Math.max(1, Number(pagination.num_pages || 1));
+    var totalRows = Number(pagination.total || 0);
+    if (totalPages <= 1) {
+      return;
+    }
+    var page = Math.max(1, Number(pagination.page || 1));
+    var pageSize = countryBrowserPageSize(pagination);
+    var nav = document.createElement("div");
+    nav.className = "country-table-pagination stats-country-table-pagination";
+    var previousButton = document.createElement("button");
+    previousButton.type = "button";
+    previousButton.className = "secondary";
+    previousButton.textContent = labels.previousLabel;
+    previousButton.disabled = !pagination.has_previous;
+    var status = document.createElement("span");
+    status.textContent = page + "/" + totalPages + " - " + formatNumber(totalRows);
+    var nextButton = document.createElement("button");
+    nextButton.type = "button";
+    nextButton.className = "secondary";
+    nextButton.textContent = labels.nextLabel;
+    nextButton.disabled = !pagination.has_next;
+    previousButton.addEventListener("click", function () {
+      if (onPageChange) {
+        onPageChange(Math.max(1, page - 1), pageSize);
+      }
+    });
+    nextButton.addEventListener("click", function () {
+      if (onPageChange) {
+        onPageChange(page + 1, pageSize);
+      }
+    });
+    nav.appendChild(previousButton);
+    nav.appendChild(status);
+    nav.appendChild(nextButton);
+    parent.appendChild(nav);
+  }
+
+  function renderStatsChildrenPanel(panel, title, rows, labels, openHandler, options) {
+    options = options || {};
     var preparedRows = assignRowColors((rows || []).slice());
     panel.innerHTML = "";
 
@@ -4231,6 +4525,7 @@
     drawStatsRows();
     wrap.appendChild(table);
     panel.appendChild(wrap);
+    renderCountryBrowserPaginationNav(panel, options.pagination, labels, options.onPageChange);
   }
 
   function trimStatsAreaStack(stack, depth) {
@@ -4311,15 +4606,70 @@
       });
   }
 
-  function loadStatsCountryDetail(target, url, source) {
+  function renderStatsLevelControls(panel, data, labels, target, url, source) {
+    var levels = data.levels || [];
+    var pagination = countryBrowserPagination(data);
+    if (levels.length <= 1 && !pagination) {
+      return;
+    }
+    var controls = document.createElement("div");
+    controls.className = "country-level-controls stats-country-level-controls";
+    var select = null;
+    var pageSizeSelect = null;
+    if (levels.length > 1) {
+      var label = document.createElement("label");
+      label.textContent = labels.levelLabel;
+      select = document.createElement("select");
+      levels.forEach(function (level) {
+        var option = document.createElement("option");
+        option.value = level.filter_value || level.value;
+        option.textContent = level.label;
+        if (level.count) {
+          option.title = level.label + " (" + level.count + ")";
+        }
+        option.selected = String(option.value) === String(data.selected_filter || data.selected_level);
+        select.appendChild(option);
+      });
+      label.appendChild(select);
+      controls.appendChild(label);
+    }
+    var pageSizeLabel = document.createElement("label");
+    pageSizeLabel.textContent = labels.pageSizeLabel;
+    pageSizeSelect = document.createElement("select");
+    populateCountryBrowserPageSizes(pageSizeSelect, countryBrowserPageSize(pagination));
+    pageSizeLabel.appendChild(pageSizeSelect);
+    controls.appendChild(pageSizeLabel);
+    function currentLevel() {
+      return select ? select.value : selectedCountryBrowserLevel(data);
+    }
+    if (select) {
+      select.addEventListener("change", function () {
+        loadStatsCountryDetail(target, url, source, currentLevel(), 1, pageSizeSelect.value);
+      });
+    }
+    pageSizeSelect.addEventListener("change", function () {
+      loadStatsCountryDetail(target, url, source, currentLevel(), 1, pageSizeSelect.value);
+    });
+    panel.appendChild(controls);
+  }
+
+  function loadStatsCountryDetail(target, url, source, level, page, pageSize) {
     setLoading(target, target.dataset.loading || "Cargando pais...");
     target.hidden = false;
-    fetchJson(url)
+    var finalUrl = new URL(url, window.location.origin);
+    applyCountryBrowserParams(finalUrl, level, page, pageSize);
+    fetchJson(relativeUrlFrom(finalUrl.toString()))
       .then(function (data) {
         var labels = countryDetailLabels(source || target);
+        var useNewCountryContainerLayout = Boolean(
+          target && target.classList && target.classList.contains("new-country-container-detail")
+        );
         target.innerHTML = "";
         var grid = document.createElement("div");
         grid.className = "stats-country-detail-grid";
+        if (useNewCountryContainerLayout) {
+          grid.classList.add("stats-country-detail-grid--new-country-container");
+        }
 
         var basicPanel = document.createElement("article");
         basicPanel.className = "panel stats-country-basic-panel";
@@ -4332,6 +4682,14 @@
         var childGroups = statsChildGroupsFromCountry(data);
         var splitChildren = childGroups.length > 1;
         grid.appendChild(basicPanel);
+        renderStatsLevelControls(
+          useNewCountryContainerLayout ? target : grid,
+          data,
+          labels,
+          target,
+          url,
+          source || target
+        );
         if (splitChildren) {
           grid.classList.add("stats-area-detail-grid", "has-split-children");
           basicPanel.classList.add("stats-area-basic-panel", "stats-area-basic-panel--span-split");
@@ -4347,11 +4705,25 @@
           });
           grid.appendChild(childrenStack);
         } else {
+          var pagination = countryBrowserPagination(data);
+          var childPanelOptions = pagination ? {
+            pagination: pagination,
+            onPageChange: function (nextPage, nextPageSize) {
+              loadStatsCountryDetail(
+                target,
+                url,
+                source || target,
+                selectedCountryBrowserLevel(data),
+                nextPage,
+                nextPageSize
+              );
+            }
+          } : {};
           var firstLevelPanel = document.createElement("article");
           firstLevelPanel.className = "panel stats-country-first-level-panel";
           renderStatsChildrenPanel(firstLevelPanel, null, childGroups[0] ? childGroups[0].children : [], labels, function (item) {
             loadStatsAreaDetail(stack, item.detail_url, labels, target, 0);
-          });
+          }, childPanelOptions);
           grid.appendChild(firstLevelPanel);
         }
 
@@ -5461,7 +5833,19 @@
   function isConfigTaskUrl(url) {
     try {
       var parsed = new URL(url, window.location.href);
-      return /\/configs\/[^/]+\/task\/[^/]+\/?$/.test(parsed.pathname);
+      return [
+        /\/configs\/import-toml\/?$/,
+        /\/configs\/all\/task\/[^/]+\/?$/,
+        /\/configs\/[^/]+\/task\/[^/]+\/?$/,
+        /\/recipes\/[^/]+\/task\/[^/]+\/?$/,
+        /\/new-countries\/[^/]+\/[^/]+\/configs\/[^/]+\/task\/[^/]+\/?$/,
+        /\/new-countries\/import-toml\/?$/,
+        /\/groups\/import-toml\/?$/,
+        /\/subdivisions\/import-toml\/?$/,
+        /\/subdivisions\/[^/]+\/build\/?$/
+      ].some(function (pattern) {
+        return pattern.test(parsed.pathname);
+      });
     } catch (error) {
       return false;
     }
@@ -5912,6 +6296,7 @@
           setConfigToastStatus(toast, "succeeded", data.message || form.dataset.exportSuccessLabel || "TOML exportado correctamente.");
           toast.element.classList.add("is-success");
           if (form.dataset.refreshOnSuccess === "1" || data.refresh) {
+            markGroupReturnLinkNeedsFreshData(data.redirect_url || "");
             window.setTimeout(function () {
               if (data.redirect_url) {
                 window.location.href = data.redirect_url;
@@ -7431,6 +7816,7 @@
       parent_level: section.parent_level === undefined || section.parent_level === null || section.parent_level === ""
         ? builder.parent_level
         : String(section.parent_level),
+      parent_type: String(section.parent_type || parent.type_text || ""),
       city: String(section.city || parent.name || ""),
       code: String(section.code || parent.code || parent.id || ""),
       level: section.level === undefined || section.level === null || section.level === ""
@@ -7531,6 +7917,7 @@
         parent_label: section.parent_label,
         parent_code: section.parent_code,
         parent_level: section.parent_level,
+        parent_type: section.parent_type,
         city: section.city,
         code: section.code,
         level: section.level,
@@ -7706,6 +8093,7 @@
       parent_label: String(section.parent_label || ""),
       parent_code: String(section.parent_code || ""),
       parent_level: section.parent_level === undefined || section.parent_level === null ? "" : String(section.parent_level),
+      parent_type: String(section.parent_type || ""),
       city: String(section.city || ""),
       code: String(section.code || ""),
       level: section.level === undefined || section.level === null ? "" : String(section.level),
@@ -7932,6 +8320,7 @@
       parent_label: parent.label,
       parent_code: parent.code,
       parent_level: state.data.parent_level,
+      parent_type: parent.type_text,
       city: keepSelection ? previousDraft.city : parent.name,
       code: keepSelection ? previousDraft.code : (parent.code || parent.id),
       level: keepSelection ? previousDraft.level : state.data.legal_level,
@@ -9007,6 +9396,242 @@
     });
   }
 
+  function groupPanelCell(text, className) {
+    var cell = document.createElement("td");
+    if (className) {
+      cell.className = className;
+    }
+    cell.textContent = String(text === null || text === undefined ? "" : text);
+    return cell;
+  }
+
+  function groupPanelCodeCell(text) {
+    var cell = document.createElement("td");
+    var code = document.createElement("code");
+    code.textContent = String(text || "");
+    cell.appendChild(code);
+    return cell;
+  }
+
+  function groupPanelCsrfInput() {
+    var token = csrfFromDocument();
+    var input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "csrfmiddlewaretoken";
+    input.value = token;
+    return input;
+  }
+
+  function groupPanelActionForm(url, className, buttonClass, label, title, danger) {
+    if (!url) {
+      return null;
+    }
+    var form = document.createElement("form");
+    var button = document.createElement("button");
+    form.className = className;
+    form.method = "post";
+    form.action = url;
+    form.appendChild(groupPanelCsrfInput());
+    button.type = "submit";
+    button.className = buttonClass;
+    button.textContent = label;
+    button.setAttribute("aria-label", title || label);
+    button.title = title || label;
+    if (danger) {
+      form.dataset.confirmMessage = danger;
+    }
+    form.appendChild(button);
+    return form;
+  }
+
+  function replaceGroupPanelRows(table, rows, renderRow, requestedPage) {
+    var tbody = table ? table.querySelector("[data-client-page-rows]") : null;
+    var emptyRow;
+    if (!tbody) {
+      return;
+    }
+    Array.prototype.slice.call(tbody.querySelectorAll("[data-client-row]")).forEach(function (row) {
+      row.parentNode.removeChild(row);
+    });
+    emptyRow = tbody.querySelector("[data-client-empty]");
+    rows.forEach(function (item) {
+      tbody.insertBefore(renderRow(item), emptyRow || null);
+    });
+    table.dataset.clientPage = String(requestedPage || 1);
+    initClickableRows(table);
+    initGroupDivisionDeleteForms(table);
+    rerenderClientTable(table, requestedPage || 1);
+  }
+
+  function renderGroupPanelGroupRow(item) {
+    var row = document.createElement("tr");
+    row.className = "clickable-row";
+    row.tabIndex = 0;
+    row.dataset.rowHref = item.href || "";
+    row.dataset.clientRow = "";
+    row.dataset.search = item.search_text || [item.internal_name, item.municipality_count].join(" ");
+    row.appendChild(groupPanelCodeCell(item.internal_name));
+    row.appendChild(groupPanelCell(item.municipality_count_text || "0", "numeric group-municipality-count"));
+    return row;
+  }
+
+  function renderGroupPanelDivisionActions(item, table) {
+    var cell = document.createElement("td");
+    var cloneLabel = table.dataset.cloneLabel || "Clonar";
+    var deleteLabel = table.dataset.deleteLabel || "Borrar";
+    var confirmLabel = table.dataset.deleteConfirmLabel || "";
+    var cloneForm = groupPanelActionForm(
+      item.clone_url || "",
+      "group-division-clone-form",
+      "secondary group-division-clone-button",
+      cloneLabel,
+      cloneLabel,
+      ""
+    );
+    var deleteForm = groupPanelActionForm(
+      item.delete_url || "",
+      "group-division-delete-form",
+      "quiet danger-text group-division-delete-button",
+      "\u00d7",
+      deleteLabel,
+      confirmLabel
+    );
+    cell.className = "group-division-action-cell";
+    if (cloneForm) {
+      cell.appendChild(cloneForm);
+    }
+    if (deleteForm) {
+      cell.appendChild(deleteForm);
+    }
+    return cell;
+  }
+
+  function renderGroupPanelDivisionRow(item, table) {
+    var row = document.createElement("tr");
+    if (item.href) {
+      row.className = "clickable-row";
+      row.tabIndex = 0;
+      row.dataset.rowHref = item.href;
+    }
+    row.dataset.clientRow = "";
+    row.dataset.level = String(item.level || 0);
+    row.dataset.search = item.search_text || "";
+    row.appendChild(groupPanelCell(item.name || ""));
+    row.appendChild(groupPanelCell(item.type_level_text || item.type_text || "-"));
+    row.appendChild(groupPanelCell(item.area_text || "-", "numeric"));
+    row.appendChild(groupPanelCell(item.population_text || "-", "numeric"));
+    row.appendChild(renderGroupPanelDivisionActions(item, table));
+    return row;
+  }
+
+  function renderDerivedSubdivisionListRow(item, table) {
+    var row = document.createElement("tr");
+    row.className = "clickable-row";
+    row.tabIndex = 0;
+    row.dataset.rowHref = item.href || "";
+    row.dataset.clientRow = "";
+    row.dataset.search = item.search_text || "";
+    row.appendChild(groupPanelCodeCell(item.display_code || ""));
+    row.appendChild(groupPanelCell(item.name || ""));
+    row.appendChild(groupPanelCell(item.entity_type || "-"));
+    row.appendChild(groupPanelCell(item.area_text || "-", "numeric"));
+    row.appendChild(groupPanelCell(item.population_text || "-", "numeric"));
+    row.appendChild(groupPanelCell(item.include_count || 0, "numeric"));
+    row.appendChild(groupPanelCell(item.subtract_count || 0, "numeric"));
+    row.appendChild(groupPanelCell(item.group_count || 0, "numeric"));
+    row.appendChild(renderGroupPanelDivisionActions(item, table));
+    return row;
+  }
+
+  function refreshGroupLevelFilter(panel, rows) {
+    var select = panel ? panel.querySelector('select[name="level"]') : null;
+    var current;
+    if (!select) {
+      return;
+    }
+    current = select.value || "";
+    Array.prototype.slice.call(select.querySelectorAll("option:not(:first-child)")).forEach(function (option) {
+      option.parentNode.removeChild(option);
+    });
+    (rows || []).forEach(function (level) {
+      var option = document.createElement("option");
+      option.value = String(level.level || "");
+      option.textContent = level.label + (level.type_text && level.type_text !== "-" ? " - " + level.type_text : "");
+      select.appendChild(option);
+    });
+    select.value = Array.prototype.slice.call(select.options).some(function (option) {
+      return option.value === current;
+    }) ? current : "";
+  }
+
+  function renderGroupCountryDetailPayload(panel, data) {
+    var groupsTable = panel.querySelector('[id^="groups-table-"], [id^="subdivision-groups-table-"]');
+    var divisionsTable = panel.querySelector('[id^="groups-divisions-table-"]');
+    var subdivisionsTable = panel.querySelector('[id^="subdivisions-table-"]');
+    if (Array.isArray(data.level_rows)) {
+      refreshGroupLevelFilter(panel, data.level_rows);
+    }
+    if (groupsTable && Array.isArray(data.groups)) {
+      replaceGroupPanelRows(groupsTable, data.groups, renderGroupPanelGroupRow, 1);
+    }
+    if (divisionsTable && Array.isArray(data.division_rows)) {
+      replaceGroupPanelRows(divisionsTable, data.division_rows, function (item) {
+        return renderGroupPanelDivisionRow(item, divisionsTable);
+      }, 1);
+    }
+    if (subdivisionsTable && Array.isArray(data.subdivisions)) {
+      replaceGroupPanelRows(subdivisionsTable, data.subdivisions, function (item) {
+        return renderDerivedSubdivisionListRow(item, subdivisionsTable);
+      }, 1);
+    }
+  }
+
+  function showGroupPanelLoadError(panel, error) {
+    var loading = panel ? panel.querySelector("[data-group-panel-loading]") : null;
+    var panelBox = panel ? panel.querySelector("[data-group-country-panel]") : null;
+    if (panelBox) {
+      panelBox.classList.remove("is-loading");
+    }
+    if (loading) {
+      loading.classList.add("table-error");
+      loading.textContent = (error && error.message) || (document.body && document.body.dataset.failedLabel) || "Error";
+      loading.hidden = false;
+    }
+  }
+
+  function loadGroupCountryDetailPanel(card, panel, activation) {
+    var url = card && card.dataset ? card.dataset.groupDetailUrl || "" : "";
+    if (!url) {
+      resetGroupCountryDetailLoading(panel);
+      return Promise.resolve(null);
+    }
+    if (panel.dataset.groupDetailLoaded === "1") {
+      resetGroupCountryDetailLoading(panel);
+      initGroupDivisionDeleteForms(panel);
+      initClickableRows(panel);
+      return Promise.resolve(null);
+    }
+    if (panel._groupDetailPromise) {
+      return panel._groupDetailPromise;
+    }
+    panel._groupDetailPromise = fetchJson(url)
+      .then(function (data) {
+        renderGroupCountryDetailPayload(panel, data || {});
+        panel.dataset.groupDetailLoaded = "1";
+        if (!activation || card.dataset.groupCountryActivation === activation) {
+          resetGroupCountryDetailLoading(panel);
+        }
+        return data;
+      })
+      .catch(function (error) {
+        showGroupPanelLoadError(panel, error);
+      })
+      .finally(function () {
+        delete panel._groupDetailPromise;
+      });
+    return panel._groupDetailPromise;
+  }
+
   function resetGroupCountryDetailLoading(panel) {
     var loading;
     var panelBox;
@@ -9016,11 +9641,48 @@
     loading = panel.querySelector("[data-group-panel-loading]");
     panelBox = panel.querySelector("[data-group-country-panel]");
     if (loading) {
+      loading.classList.remove("table-error");
       loading.hidden = true;
     }
     if (panelBox) {
       panelBox.classList.remove("is-loading");
     }
+  }
+
+  function activateGroupCountryCard(card, cards, details) {
+    var targetId = card && card.dataset ? card.dataset.groupDetailTarget || "" : "";
+    var target = targetId ? document.getElementById(targetId) : null;
+    if (!card || !target) {
+      return null;
+    }
+    cards = cards || Array.prototype.slice.call(document.querySelectorAll("[data-group-country-card]"));
+    details = details || Array.prototype.slice.call(document.querySelectorAll("[data-group-country-detail]"));
+    cards.forEach(function (item) {
+      if (item !== card) {
+        item.classList.remove("is-selected");
+        item.setAttribute("aria-expanded", "false");
+        delete item.dataset.groupCountryActivation;
+      }
+    });
+    details.forEach(function (panel) {
+      if (panel !== target) {
+        resetGroupCountryDetailLoading(panel);
+        panel.hidden = true;
+      }
+    });
+    var activation = String(Date.now()) + String(Math.random());
+    var loading = target.querySelector("[data-group-panel-loading]");
+    var panelBox = target.querySelector("[data-group-country-panel]");
+    card.dataset.groupCountryActivation = activation;
+    card.classList.add("is-selected");
+    card.setAttribute("aria-expanded", "true");
+    target.hidden = false;
+    if (loading && panelBox) {
+      panelBox.classList.add("is-loading");
+      loading.hidden = false;
+    }
+    loadGroupCountryDetailPanel(card, target, activation);
+    return target;
   }
 
   function initGroupCountryCards(root) {
@@ -9036,42 +9698,718 @@
       }
       card.dataset.groupCountryReady = "true";
       card.addEventListener("click", function () {
-        var targetId = card.dataset.groupDetailTarget || "";
+        activateGroupCountryCard(card, cards, details);
+      });
+    });
+  }
+
+  function normalizedUppercaseCodeInputValue(value, finalPass) {
+    var text = String(value || "");
+    if (text.normalize) {
+      text = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    }
+    text = text.toUpperCase().replace(/[^A-Z0-9_-]+/g, "_").replace(/_+/g, "_").replace(/-+/g, "-");
+    return finalPass ? text.replace(/^_+|_+$/g, "") : text;
+  }
+
+  function initUppercaseCodeInputs(root) {
+    var scope = root || document;
+    Array.prototype.slice.call(scope.querySelectorAll("[data-uppercase-code-input]")).forEach(function (input) {
+      if (input.dataset.uppercaseCodeReady === "1") {
+        return;
+      }
+      input.dataset.uppercaseCodeReady = "1";
+      var applyValue = function (finalPass) {
+        var next = normalizedUppercaseCodeInputValue(input.value, finalPass);
+        if (input.value !== next) {
+          input.value = next;
+        }
+      };
+      input.addEventListener("input", function () { applyValue(false); });
+      input.addEventListener("change", function () { applyValue(true); });
+      if (input.form && input.form.dataset.uppercaseCodeSubmitBound !== "1") {
+        input.form.dataset.uppercaseCodeSubmitBound = "1";
+        input.form.addEventListener("submit", function () {
+          Array.prototype.slice.call(input.form.querySelectorAll("[data-uppercase-code-input]")).forEach(function (field) {
+            field.value = normalizedUppercaseCodeInputValue(field.value, true);
+          });
+        });
+      }
+      applyValue(true);
+    });
+  }
+
+  function initNewCountryResultCards(root) {
+    var scope = root || document;
+    var cards = Array.prototype.slice.call(scope.querySelectorAll("[data-new-country-detail-card]"));
+    if (!cards.length) {
+      return;
+    }
+    cards.forEach(function (button) {
+      if (button.dataset.newCountryDetailReady === "1") {
+        return;
+      }
+      button.dataset.newCountryDetailReady = "1";
+      button.addEventListener("click", function () {
+        var url = button.dataset.detailUrl || "";
+        var targetId = button.dataset.newCountryDetailTarget || "";
         var target = targetId ? document.getElementById(targetId) : null;
-        if (!target) {
+        var panel = button.closest("[data-group-country-detail]") || document;
+        if (!url || !target || button.disabled) {
           return;
         }
-        cards.forEach(function (item) {
-          if (item !== card) {
-            item.classList.remove("is-selected");
-            item.setAttribute("aria-expanded", "false");
-            delete item.dataset.groupCountryActivation;
-          }
+        Array.prototype.slice.call(panel.querySelectorAll(".new-country-result-card")).forEach(function (card) {
+          card.classList.remove("is-selected");
         });
-        details.forEach(function (panel) {
-          if (panel !== target) {
-            resetGroupCountryDetailLoading(panel);
-            panel.hidden = true;
-          }
-        });
-        var activation = String(Date.now()) + String(Math.random());
-        var loading = target.querySelector("[data-group-panel-loading]");
-        var panelBox = target.querySelector("[data-group-country-panel]");
-        card.dataset.groupCountryActivation = activation;
-        card.classList.add("is-selected");
-        card.setAttribute("aria-expanded", "true");
-        target.hidden = false;
-        if (loading && panelBox) {
-          panelBox.classList.add("is-loading");
-          loading.hidden = false;
+        var currentCard = button.closest(".new-country-result-card");
+        if (currentCard) {
+          currentCard.classList.add("is-selected");
         }
-        window.setTimeout(function () {
-          if (card.dataset.groupCountryActivation !== activation) {
-            return;
+        loadStatsCountryDetail(target, url, target);
+      });
+    });
+  }
+
+  function initGroupDivisionDeleteForms(root) {
+    (root || document).querySelectorAll("form.group-division-delete-form").forEach(function (form) {
+      if (form.dataset.groupDivisionDeleteBound === "1") {
+        return;
+      }
+      form.dataset.groupDivisionDeleteBound = "1";
+      form.addEventListener("submit", function (event) {
+        var button;
+        var confirmMessage;
+        var row;
+        var target;
+        if (event.defaultPrevented) {
+          return;
+        }
+        if (!window.fetch || !window.FormData) {
+          return;
+        }
+        if (form.dataset.groupDivisionDeleting === "1") {
+          event.preventDefault();
+          if (event.stopImmediatePropagation) {
+            event.stopImmediatePropagation();
           }
-          resetGroupCountryDetailLoading(target);
-          initClickableRows(target);
-        }, 120);
+          return;
+        }
+        confirmMessage = form.dataset.confirmMessage || "";
+        if (confirmMessage && !window.confirm(confirmMessage)) {
+          event.preventDefault();
+          if (event.stopImmediatePropagation) {
+            event.stopImmediatePropagation();
+          }
+          return;
+        }
+        event.preventDefault();
+        if (event.stopImmediatePropagation) {
+          event.stopImmediatePropagation();
+        }
+        button = event.submitter || form.querySelector("button[type='submit']");
+        row = form.closest("[data-client-row]");
+        target = row ? row.closest("[id]") : form.closest("[id]");
+        form.dataset.groupDivisionDeleting = "1";
+        if (button) {
+          button.disabled = true;
+          button.setAttribute("aria-busy", "true");
+        }
+        fetch(form.action || window.location.href, {
+          method: "POST",
+          body: new FormData(form),
+          credentials: "same-origin",
+          headers: {
+            "Accept": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRFToken": csrfFromForm(form)
+          }
+        }).then(parseJsonResponse).then(function () {
+          if (row && row.parentNode) {
+            row.parentNode.removeChild(row);
+          }
+          if (target) {
+            rerenderClientTable(target);
+          }
+        }).catch(function (error) {
+          delete form.dataset.groupDivisionDeleting;
+          if (button) {
+            button.disabled = false;
+            button.removeAttribute("aria-busy");
+          }
+          window.alert((error && error.message) || (document.body && document.body.dataset.failedLabel) || "Error");
+        });
+      }, true);
+    });
+  }
+
+  function initNewCountryConfigTree(root) {
+    (root || document).querySelectorAll("[data-new-country-config-tree]").forEach(function (tree) {
+      if (tree.dataset.newCountryConfigTreeReady === "1") {
+        return;
+      }
+      tree.dataset.newCountryConfigTreeReady = "1";
+      var tbody = tree.querySelector("[data-new-country-config-tree-body]") || tree.querySelector("tbody");
+      var levelSelect = tree.querySelector("[data-new-country-config-tree-level]");
+      var treeUrl = tree.dataset.treeUrl || "";
+      var csrfToken = tree.dataset.csrfToken || "";
+      var loadingLabel = tree.dataset.loadingLabel || "Cargando entidades...";
+      var emptyLabel = tree.dataset.emptyLabel || "Sin datos.";
+      var errorLabel = tree.dataset.errorLabel || "No se pudieron cargar las entidades.";
+      var parentLabel = tree.dataset.parentLabel || "Padre";
+      var cloneLabel = tree.dataset.cloneLabel || "Clonar";
+      var cloneTitle = tree.dataset.cloneTitle || "Clonar entidad";
+      var deleteLabel = tree.dataset.deleteLabel || "X";
+      var deleteTitle = tree.dataset.deleteTitle || "Eliminar entidad";
+      var deleteConfirm = tree.dataset.deleteConfirm || "";
+      var pageSizeSelect = tree.querySelector("[data-new-country-config-tree-page-size]");
+      var pagination = tree.querySelector("[data-new-country-config-tree-pagination]");
+      var previousPageButton = tree.querySelector("[data-new-country-config-tree-page='previous']");
+      var nextPageButton = tree.querySelector("[data-new-country-config-tree-page='next']");
+      var pageStatus = tree.querySelector("[data-new-country-config-tree-page-status]");
+      var treePage = 1;
+      var treePagination = null;
+      populateCountryBrowserPageSizes(pageSizeSelect, 20);
+
+      function rows() {
+        return Array.prototype.slice.call(tree.querySelectorAll("[data-tree-id]"));
+      }
+
+      function rowById(treeId) {
+        return rows().filter(function (row) {
+          return row.dataset.treeId === treeId;
+        })[0] || null;
+      }
+
+      function isVisibleInTree(row) {
+        var parentId = row.dataset.treeParent || "";
+        var parent;
+        if (!parentId) {
+          return true;
+        }
+        parent = rowById(parentId);
+        if (!parent) {
+          return true;
+        }
+        if (parent.hidden || parent.dataset.treeExpanded !== "1") {
+          return false;
+        }
+        return isVisibleInTree(parent);
+      }
+
+      function render() {
+        var expandLabel = tree.dataset.expandLabel || "";
+        var collapseLabel = tree.dataset.collapseLabel || "";
+        var levelMode = tree.dataset.treeLevelMode === "1";
+        rows().forEach(function (row) {
+          var depth = parseInt(row.dataset.treeDepth || "0", 10) || 0;
+          var toggle = row.querySelector("[data-new-country-config-tree-toggle]");
+          var canExpand = row.dataset.treeHasChildren === "1" && !levelMode;
+          if (levelMode || depth === 0) {
+            row.hidden = false;
+          } else {
+            row.hidden = !isVisibleInTree(row);
+          }
+          if (toggle) {
+            var expanded = row.dataset.treeExpanded === "1";
+            toggle.hidden = !canExpand;
+            if (canExpand) {
+              toggle.removeAttribute("aria-hidden");
+            } else {
+              toggle.setAttribute("aria-hidden", "true");
+            }
+            toggle.textContent = expanded ? "-" : "+";
+            toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+            toggle.setAttribute("aria-label", expanded ? collapseLabel : expandLabel);
+          }
+        });
+      }
+
+      function setBodyStatus(message, className, loading) {
+        if (!tbody) {
+          return;
+        }
+        tbody.innerHTML = "";
+        var tr = document.createElement("tr");
+        tr.setAttribute("data-new-country-config-tree-status", "");
+        var td = document.createElement("td");
+        td.colSpan = 9;
+        if (className) {
+          td.className = className;
+        }
+        if (loading) {
+          var spinner = document.createElement("span");
+          spinner.className = "loading-spinner";
+          spinner.setAttribute("aria-hidden", "true");
+          td.appendChild(spinner);
+          td.appendChild(document.createTextNode(" "));
+        }
+        td.appendChild(document.createTextNode(message || ""));
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+      }
+
+      function currentPageSize() {
+        var parsed = parseInt(pageSizeSelect ? pageSizeSelect.value : "20", 10);
+        return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 100) : 20;
+      }
+
+      function updateTreePagination(paginationData) {
+        treePagination = paginationData || null;
+        if (!pagination) {
+          return;
+        }
+        if (!treePagination || Number(treePagination.num_pages || 1) <= 1) {
+          pagination.hidden = true;
+          return;
+        }
+        pagination.hidden = false;
+        if (previousPageButton) {
+          previousPageButton.disabled = !treePagination.has_previous;
+        }
+        if (nextPageButton) {
+          nextPageButton.disabled = !treePagination.has_next;
+        }
+        if (pageStatus) {
+          pageStatus.textContent = String(treePagination.page || 1) + "/" + String(treePagination.num_pages || 1) + " - " + formatNumber(treePagination.total || 0);
+        }
+      }
+
+      function fetchTreeRows(parentId, level, page, pageSize) {
+        var url = new URL(treeUrl, window.location.origin);
+        if (parentId) {
+          url.searchParams.set("parent", parentId);
+        }
+        if (level) {
+          url.searchParams.set("level", level);
+        }
+        if (page) {
+          url.searchParams.set("page", page);
+        }
+        if (pageSize) {
+          url.searchParams.set("page_size", pageSize);
+        }
+        return fetchJson(relativeUrlFrom(url.toString())).then(function (payload) {
+          return payload || { rows: [], pagination: null };
+        });
+      }
+
+      function hiddenInput(name, value) {
+        var input = document.createElement("input");
+        input.type = "hidden";
+        input.name = name;
+        input.value = value || "";
+        return input;
+      }
+
+      function textCell(className, value) {
+        var td = document.createElement("td");
+        if (className) {
+          td.className = className;
+        }
+        td.textContent = value || "";
+        return td;
+      }
+
+      function appendActionForm(cell, url, className, buttonClass, label, title, confirmMessage) {
+        var form = document.createElement("form");
+        form.className = className;
+        form.method = "post";
+        form.action = url;
+        if (confirmMessage) {
+          form.dataset.confirmMessage = confirmMessage;
+        }
+        form.appendChild(hiddenInput("csrfmiddlewaretoken", csrfToken));
+        var button = document.createElement("button");
+        button.className = "secondary " + buttonClass;
+        button.type = "submit";
+        button.setAttribute("aria-label", title);
+        button.title = title;
+        button.textContent = label;
+        form.appendChild(button);
+        cell.appendChild(form);
+      }
+
+      function createTreeRow(rowData) {
+        var tr = document.createElement("tr");
+        var depth = parseInt(rowData.depth || "0", 10) || 0;
+        tr.className = "new-country-config-tree-row" + (depth ? " is-child" : "") + (rowData.is_assigned_subdivision ? " is-assigned-subdivision" : "");
+        tr.dataset.clientRow = "1";
+        tr.dataset.treeId = rowData.tree_id || "";
+        tr.dataset.treeParent = rowData.tree_parent || "";
+        tr.dataset.treeDepth = String(depth);
+        tr.dataset.treeHasChildren = rowData.has_children ? "1" : "0";
+        if (rowData.edit_url) {
+          tr.dataset.rowHref = rowData.edit_url;
+          tr.tabIndex = 0;
+        }
+
+        var toggleCell = document.createElement("td");
+        toggleCell.className = "new-country-tree-toggle-cell";
+        var toggle = document.createElement("button");
+        toggle.className = "new-country-tree-toggle";
+        toggle.type = "button";
+        toggle.setAttribute("data-new-country-config-tree-toggle", "");
+        toggle.setAttribute("aria-expanded", "false");
+        toggle.setAttribute("aria-label", tree.dataset.expandLabel || "");
+        toggle.textContent = "+";
+        if (!rowData.has_children) {
+          toggle.hidden = true;
+          toggle.setAttribute("aria-hidden", "true");
+        }
+        toggleCell.appendChild(toggle);
+        tr.appendChild(toggleCell);
+
+        tr.appendChild(textCell("new-country-tree-level", "NV " + (rowData.level || "")));
+
+        var codeCell = document.createElement("td");
+        codeCell.className = "new-country-tree-code-cell";
+        var code = document.createElement("code");
+        if (rowData.is_assigned_subdivision) {
+          code.className = "new-country-assigned-code";
+        }
+        code.textContent = rowData.display_code || "";
+        codeCell.appendChild(code);
+        if (rowData.parent_display_code && !rowData.is_assigned_subdivision) {
+          var parent = document.createElement("small");
+          parent.textContent = parentLabel + ": " + rowData.parent_display_code;
+          codeCell.appendChild(parent);
+        }
+        tr.appendChild(codeCell);
+
+        tr.appendChild(textCell(
+          "new-country-tree-name-cell " + (rowData.tree_depth_class || ("new-country-tree-depth-" + Math.min(depth, 5))),
+          rowData.entity_display_name || ""
+        ));
+
+        var typeCell = document.createElement("td");
+        typeCell.className = "new-country-tree-type-cell";
+        typeCell.appendChild(document.createTextNode(rowData.entity_type || "-"));
+        if (rowData.source_level !== "" && rowData.source_level !== null && rowData.source_level !== undefined && !rowData.is_assigned_subdivision) {
+          var sourceLevel = document.createElement("small");
+          sourceLevel.textContent = "L" + rowData.source_level;
+          typeCell.appendChild(sourceLevel);
+        }
+        tr.appendChild(typeCell);
+
+        tr.appendChild(textCell("numeric", rowData.entity_area_text || "-"));
+        tr.appendChild(textCell("numeric", rowData.entity_population_text || "-"));
+        tr.appendChild(textCell("numeric", rowData.entity_density_text || "-"));
+
+        var actionCell = document.createElement("td");
+        actionCell.className = "new-country-tree-action-cell";
+        if (rowData.clone_url) {
+          appendActionForm(actionCell, rowData.clone_url, "group-division-clone-form", "group-division-clone-button", cloneLabel, cloneTitle, "");
+        }
+        if (rowData.delete_url) {
+          appendActionForm(actionCell, rowData.delete_url, "group-division-delete-form", "group-division-delete-button", deleteLabel, deleteTitle, deleteConfirm);
+        }
+        if (!rowData.clone_url && !rowData.delete_url) {
+          var empty = document.createElement("span");
+          empty.className = "new-country-tree-empty-action";
+          empty.setAttribute("aria-hidden", "true");
+          empty.textContent = "-";
+          actionCell.appendChild(empty);
+        }
+        tr.appendChild(actionCell);
+        return tr;
+      }
+
+      function isDescendantRow(row, parentId) {
+        var currentParent = row.dataset.treeParent || "";
+        while (currentParent) {
+          if (currentParent === parentId) {
+            return true;
+          }
+          var parentRow = rowById(currentParent);
+          currentParent = parentRow ? (parentRow.dataset.treeParent || "") : "";
+        }
+        return false;
+      }
+
+      function insertionReference(parentRow) {
+        var parentId = parentRow.dataset.treeId || "";
+        var allRows = rows();
+        var index = allRows.indexOf(parentRow);
+        var reference = parentRow;
+        for (var i = index + 1; i < allRows.length; i += 1) {
+          if (!isDescendantRow(allRows[i], parentId)) {
+            break;
+          }
+          reference = allRows[i];
+        }
+        return reference;
+      }
+
+      function insertRows(rowData, parentRow) {
+        var fragment = document.createDocumentFragment();
+        rowData.forEach(function (item) {
+          fragment.appendChild(createTreeRow(item));
+        });
+        if (parentRow && parentRow.parentNode) {
+          var reference = insertionReference(parentRow);
+          reference.parentNode.insertBefore(fragment, reference.nextSibling);
+        } else if (tbody) {
+          tbody.appendChild(fragment);
+        }
+        initGroupDivisionDeleteForms(tbody);
+        initClickableRows(tbody);
+      }
+
+      function loadRootRows(requestedPage) {
+        if (!treeUrl || !tbody) {
+          render();
+          return;
+        }
+        var level = levelSelect ? levelSelect.value : "";
+        treePage = requestedPage || 1;
+        tree.dataset.treeLevelMode = level ? "1" : "0";
+        setBodyStatus(loadingLabel, "table-loading", true);
+        fetchTreeRows("", level, treePage, currentPageSize())
+          .then(function (payload) {
+            var rowData = (payload && payload.rows) || [];
+            tbody.innerHTML = "";
+            if (!rowData.length) {
+              setBodyStatus(emptyLabel, "table-empty-cell", false);
+              updateTreePagination(payload ? payload.pagination : null);
+              return;
+            }
+            insertRows(rowData, null);
+            updateTreePagination(payload ? payload.pagination : null);
+            render();
+          })
+          .catch(function () {
+            updateTreePagination(null);
+            setBodyStatus(errorLabel, "table-error", false);
+          });
+      }
+
+      function loadChildRows(row, button) {
+        var parentId = row.dataset.treeId || "";
+        if (tree.dataset.treeLevelMode === "1") {
+          render();
+          return;
+        }
+        if (!parentId || !treeUrl) {
+          row.dataset.treeExpanded = row.dataset.treeExpanded === "1" ? "0" : "1";
+          render();
+          return;
+        }
+        if (row.dataset.treeChildrenLoaded === "1") {
+          row.dataset.treeExpanded = row.dataset.treeExpanded === "1" ? "0" : "1";
+          render();
+          return;
+        }
+        row.dataset.treeLoading = "1";
+        if (button) {
+          button.disabled = true;
+          button.textContent = "...";
+        }
+        fetchTreeRows(parentId, "", 1, 100)
+          .then(function (payload) {
+            var rowData = (payload && payload.rows) || [];
+            row.dataset.treeChildrenLoaded = "1";
+            row.dataset.treeExpanded = "1";
+            if (rowData.length) {
+              insertRows(rowData, row);
+            }
+            render();
+          })
+          .catch(function () {
+            window.alert(errorLabel);
+          })
+          .finally(function () {
+            delete row.dataset.treeLoading;
+            if (button) {
+              button.disabled = false;
+            }
+            render();
+          });
+      }
+
+      tree.addEventListener("click", function (event) {
+        var button = event.target && event.target.closest
+          ? event.target.closest("[data-new-country-config-tree-toggle]")
+          : null;
+        var row;
+        if (!button || !tree.contains(button)) {
+          return;
+        }
+        row = button.closest("[data-tree-id]");
+        if (!row) {
+          return;
+        }
+        event.preventDefault();
+        loadChildRows(row, button);
+      });
+      if (levelSelect) {
+        levelSelect.addEventListener("change", function () {
+          loadRootRows(1);
+        });
+      }
+      if (pageSizeSelect) {
+        pageSizeSelect.addEventListener("change", function () {
+          loadRootRows(1);
+        });
+      }
+      if (previousPageButton) {
+        previousPageButton.addEventListener("click", function () {
+          if (treePagination && treePagination.has_previous) {
+            loadRootRows(Math.max(1, Number(treePagination.page || treePage) - 1));
+          }
+        });
+      }
+      if (nextPageButton) {
+        nextPageButton.addEventListener("click", function () {
+          if (treePagination && treePagination.has_next) {
+            loadRootRows(Number(treePagination.page || treePage) + 1);
+          }
+        });
+      }
+      loadRootRows();
+    });
+  }
+
+  function clearGroupTableFilters(form) {
+    if (!form) {
+      return;
+    }
+    var query = form.querySelector("input[type='search'][name='q']");
+    var level = form.querySelector("select[name='level']");
+    if (query) {
+      query.value = "";
+    }
+    if (level) {
+      level.value = "";
+    }
+  }
+
+  function clientPageForRow(target, form, row) {
+    var nav = target ? target.querySelector("[data-client-pagination]") : null;
+    var initialSize = parseInt(nav ? nav.dataset.initialPageSize || "25" : "25", 10);
+    var pageSize = pageSizeForForm(form, Number.isFinite(initialSize) && initialSize > 0 ? initialSize : 25);
+    var rows = Array.prototype.slice.call(target.querySelectorAll("[data-client-row]"));
+    var visibleRows = rows.filter(function (candidate) {
+      return candidate.dataset.clientFilterHidden !== "1";
+    });
+    var index = visibleRows.indexOf(row);
+    return index >= 0 ? Math.floor(index / pageSize) + 1 : 1;
+  }
+
+  function findGroupReturnRow(state) {
+    var searchRoot = document;
+    if (state && state.tableId) {
+      searchRoot = document.getElementById(state.tableId) || document;
+    }
+    var rows = Array.prototype.slice.call(searchRoot.querySelectorAll("[data-row-href]"));
+    var row = rows.find(function (candidate) {
+      return groupRowHrefMatches(candidate, state.rowHref);
+    });
+    if (row || searchRoot === document) {
+      return row || null;
+    }
+    return Array.prototype.slice.call(document.querySelectorAll("[data-row-href]")).find(function (candidate) {
+      return groupRowHrefMatches(candidate, state.rowHref);
+    }) || null;
+  }
+
+  function focusGroupReturnRow(row) {
+    if (!row) {
+      return;
+    }
+    row.hidden = false;
+    row.classList.add("is-return-target");
+    try {
+      row.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch (error) {
+      row.scrollIntoView();
+    }
+    if (typeof row.focus === "function") {
+      try {
+        row.focus({ preventScroll: true });
+      } catch (error) {
+        row.focus();
+      }
+    }
+    window.setTimeout(function () {
+      row.classList.remove("is-return-target");
+    }, 4500);
+  }
+
+  function restoreGroupReturnRow(state) {
+    var row = findGroupReturnRow(state);
+    if (!row) {
+      return false;
+    }
+    var target = row.closest("[id]");
+    var form = formForTableTarget(target);
+    if (target && form) {
+      updateClientFilterState(target, form);
+      if (row.dataset.clientFilterHidden === "1") {
+        clearGroupTableFilters(form);
+        updateClientFilterState(target, form);
+      }
+      renderClientPagination(target, form, clientPageForRow(target, form, row));
+    }
+    focusGroupReturnRow(row);
+    return true;
+  }
+
+  function restoreGroupReturnState(root) {
+    var scope = root || document;
+    var cards = Array.prototype.slice.call(scope.querySelectorAll("[data-group-country-card]"));
+    var target = null;
+    if (!cards.length) {
+      return;
+    }
+    var state = readGroupReturnState();
+    if (!state || !state.rowHref) {
+      return;
+    }
+    if (reloadGroupListIfReturnNeedsFreshData(state)) {
+      return;
+    }
+    var card = cards.find(function (candidate) {
+      return candidate.dataset.groupCountryKey === state.country;
+    });
+    if (card) {
+      target = activateGroupCountryCard(card, cards, Array.prototype.slice.call(scope.querySelectorAll("[data-group-country-detail]")));
+    }
+    function restoreRow() {
+      if (restoreGroupReturnRow(state)) {
+        clearGroupReturnState();
+      }
+    }
+    if (target && target._groupDetailPromise) {
+      target._groupDetailPromise.then(function () {
+        window.setTimeout(restoreRow, 0);
+      });
+      return;
+    }
+    window.setTimeout(restoreRow, 180);
+  }
+
+  function initGroupReturnLinks(root) {
+    (root || document).querySelectorAll("[data-group-return-link]").forEach(function (link) {
+      if (link.dataset.groupReturnBound === "1") {
+        return;
+      }
+      link.dataset.groupReturnBound = "1";
+      link.addEventListener("click", function (event) {
+        var rowHref = link.dataset.groupReturnRowHref || window.location.pathname;
+        var shouldUseHistoryBack = sameOriginPath(document.referrer) === sameOriginPath(link.href) && window.history.length > 1;
+        var previousState = readGroupReturnState() || {};
+        writeGroupReturnState({
+          country: link.dataset.groupReturnCountry || "",
+          rowHref: rowHref,
+          table: link.dataset.groupReturnTable || previousState.table || "divisions",
+          tableId: link.dataset.groupReturnTableId || previousState.tableId || "",
+          refreshList: (link.dataset.groupReturnRefresh === "1" || previousState.refreshList === true) && shouldUseHistoryBack,
+          createdAt: Date.now()
+        });
+        if (shouldUseHistoryBack) {
+          event.preventDefault();
+          window.history.back();
+        }
       });
     });
   }
@@ -9083,8 +10421,12 @@
     runPageInitializer("estado de idioma", function () { initLanguageStatePreservation(document); });
     runPageInitializer("formularios con carga", function () { initLoadingSubmitForms(document); });
     runPageInitializer("enlaces con carga", function () { initLoadingLinks(document); });
+    runPageInitializer("borrado de divisiones en grupos", function () { initGroupDivisionDeleteForms(document); });
+    runPageInitializer("arbol de entidades de pais nuevo", function () { initNewCountryConfigTree(document); });
     runPageInitializer("filas clicables", function () { initClickableRows(document); });
     runPageInitializer("tarjetas de grupos", function () { initGroupCountryCards(document); });
+    runPageInitializer("campos de codigo", function () { initUppercaseCodeInputs(document); });
+    runPageInitializer("tarjetas de paises nuevos", function () { initNewCountryResultCards(document); });
     runPageInitializer("pesta\u00f1as de configuraci\u00f3n", function () { initConfigTabs(document); });
     runPageInitializer("restauraci\u00f3n de idioma", function () {
       restorePageStateAfterLanguageChange();
@@ -9099,10 +10441,17 @@
     runPageInitializer("acciones de tareas", function () { initConfigTaskActions(document); });
     runPageInitializer("acciones de exportaci\u00f3n", function () { initConfigExportActions(document); });
     runPageInitializer("botones de configuraci\u00f3n", function () { refreshConfigActionButtons(document); });
+    runPageInitializer("enlaces de retorno de grupos", function () { initGroupReturnLinks(document); });
     runPageInitializer("gr\u00e1ficos", function () { initDataCharts(document); });
     runPageInitializer("detalle de pa\u00eds en dashboard", function () { initDashboardCountryDetail(document); });
     runPageInitializer("estad\u00edsticas por pa\u00eds", function () { initStatsCountries(document); });
+    runPageInitializer("restauraci\u00f3n de grupos", function () { restoreGroupReturnState(document); });
     runPageInitializer("mapa", initMap);
     runPageInitializer("identidad visual", initVisualIdentity);
+  });
+  window.addEventListener("pageshow", function (event) {
+    if (event.persisted) {
+      restoreGroupReturnState(document);
+    }
   });
 })();

@@ -44,7 +44,7 @@ DIVISIONS = [
                     "code": "AND",
                     "entity_type": "Reinos Andaluces",
                     "capitals": ["Sevilla"],
-                    "childs": [SEVILLA_B, CORDOBA_B, JAEN_B, NUEVAS_POBLACIONES]
+                    "childs": [SEVILLA_B_C_GB, CORDOBA_B, JAEN_B, NUEVAS_POBLACIONES]
                 },
                 {
                     "name": "Asturias",

@@ -1,6 +1,5 @@
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
 
 from django.conf import settings
 from django.db import connection
@@ -370,7 +369,7 @@ class DashboardViewTests(TestCase):
         self.assertEqual(data["first_order"]["cards"][0]["detail_url"], "/api/admin-areas/aa_one/")
         self.assertEqual(data["first_order"]["cards"][0]["child_count"], 0)
 
-    def test_dashboard_country_detail_exposes_only_levels_with_configured_row_limit(self):
+    def test_dashboard_country_detail_exposes_large_levels_with_pagination(self):
         root = AdminArea.objects.create(
             id="aa_root",
             country_code="aa",
@@ -391,12 +390,12 @@ class DashboardViewTests(TestCase):
             area_km2=100,
             pop_latest=1000,
         )
-        for index in range(3):
+        for index in range(105):
             AdminArea.objects.create(
                 id=f"aa_commune_{index}",
                 country_code="aa",
                 code=f"commune_{index}",
-                name=f"Commune {index}",
+                name=f"Commune {index:03d}",
                 level=2,
                 entity_type="Commune",
                 parent=region,
@@ -404,16 +403,20 @@ class DashboardViewTests(TestCase):
                 pop_latest=100,
             )
 
-        with patch("ciudades_del_mundo.web.views.COUNTRY_LEVEL_OPTION_MAX_ROWS", 2):
-            response = self.client.get("/api/countries/aa/?level=2")
+        response = self.client.get("/api/countries/aa/?level=2&page_size=500")
 
         data = response.json()
-        self.assertEqual([level["value"] for level in data["levels"]], [1])
-        self.assertEqual(data["levels"][0]["label"], "Region")
-        self.assertEqual(data["selected_level"], 1)
-        self.assertEqual([row["name"] for row in data["table"]["rows"]], ["Region"])
+        self.assertEqual([level["value"] for level in data["levels"]], [1, 2])
+        self.assertEqual(data["levels"][1]["label"], "Commune")
+        self.assertEqual(data["levels"][1]["count"], 105)
+        self.assertEqual(data["selected_level"], 2)
+        self.assertEqual(len(data["table"]["rows"]), 100)
+        self.assertEqual(data["table"]["rows"][0]["name"], "Commune 000")
+        self.assertEqual(data["table"]["pagination"]["page_size"], 100)
+        self.assertEqual(data["table"]["pagination"]["total"], 105)
+        self.assertEqual(data["table"]["pagination"]["num_pages"], 2)
 
-    def test_dashboard_country_detail_filters_mixed_large_level_by_eligible_types(self):
+    def test_dashboard_country_detail_keeps_all_types_in_large_level(self):
         root = AdminArea.objects.create(
             id="aa_root",
             country_code="aa",
@@ -461,14 +464,19 @@ class DashboardViewTests(TestCase):
                 parent=region,
             )
 
-        with patch("ciudades_del_mundo.web.views.COUNTRY_LEVEL_OPTION_MAX_ROWS", 2):
-            response = self.client.get("/api/countries/aa/?level=2")
+        response = self.client.get("/api/countries/aa/?level=2")
 
         data = response.json()
-        self.assertEqual([(level["value"], level["label"], level["count"]) for level in data["levels"]], [(1, "Region", 1), (2, "Province", 1)])
+        self.assertEqual(
+            [(level["value"], level["label"], level["count"]) for level in data["levels"]],
+            [(1, "Region", 1), (2, "Municipality / Province", 4), (3, "District", 1)],
+        )
         self.assertEqual(data["selected_level"], 2)
-        self.assertEqual(data["selected_filter"], "2|Province")
-        self.assertEqual([row["name"] for row in data["table"]["rows"]], ["Province"])
+        self.assertEqual(data["selected_filter"], "2")
+        self.assertEqual(
+            [row["name"] for row in data["table"]["rows"]],
+            ["Municipality 0", "Municipality 1", "Municipality 2", "Province"],
+        )
 
     def test_api_admin_area_detail_returns_direct_children_for_recursive_browser(self):
         root = AdminArea.objects.create(

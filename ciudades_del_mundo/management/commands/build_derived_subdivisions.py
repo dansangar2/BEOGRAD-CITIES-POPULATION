@@ -28,6 +28,21 @@ class Command(BaseCommand):
             default=None,
             help="Anio base para source_population_indices.toml.",
         )
+        parser.add_argument(
+            "--continue-on-error",
+            action="store_true",
+            help="Construye las recetas resolubles y registra las que fallen.",
+        )
+        parser.add_argument(
+            "--slug",
+            action="append",
+            dest="slugs",
+            default=[],
+            help=(
+                "Slug o internal_name de DerivedSubdivision a reconstruir. "
+                "Puede repetirse; con --force solo reemplaza esas filas."
+            ),
+        )
 
     def handle(self, *args, **options):
         try:
@@ -35,18 +50,25 @@ class Command(BaseCommand):
                 options["country_code"],
                 force=options["force"],
                 source_population_year=options.get("population_year"),
+                continue_on_error=bool(options.get("continue_on_error")),
+                slugs=options.get("slugs") or None,
             )
         except ValueError as exc:
             raise CommandError(str(exc)) from exc
 
+        for error in result.errors:
+            self.stderr.write(self.style.WARNING(f"[omitida] {error}"))
+
         self.stdout.write(
             self.style.SUCCESS(
                 "Construidas %(built)s nuevas divisiones para %(country)s "
-                "desde %(records)s receta(s). Ciudad mayor actualizada en %(updated)s fila(s)."
+                "desde %(records)s receta(s). Omitidas=%(errors)s. "
+                "Ciudad mayor actualizada en %(updated)s fila(s)."
                 % {
                     "built": result.built,
                     "country": result.country_code,
                     "records": result.records,
+                    "errors": len(result.errors),
                     "updated": result.most_populated_updated,
                 }
             )

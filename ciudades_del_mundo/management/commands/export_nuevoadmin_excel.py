@@ -19,7 +19,7 @@ from ciudades_del_mundo.services.nuevo_admin_builder import refresh_nuevo_admin_
 class Command(BaseCommand):
     help = (
         "Exporta NuevoAdminArea a un archivo Excel .xlsx jerarquico. "
-        "Mantiene una fila por ruta del pais a la hoja y bloques de columnas por nivel."
+        "La hoja Jerarquia usa bloques de columnas por pais, NV1, NV2 y niveles siguientes."
     )
 
     def add_arguments(self, parser):

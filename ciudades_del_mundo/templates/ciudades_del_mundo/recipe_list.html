@@ -45,19 +45,19 @@
           {% endif %}
         </td>
         <td>
-          <form class="inline-form" method="post" action="{% url 'ciudades_del_mundo:start_recipe_task' recipe.slug 'build' %}">
+          <form class="inline-form" method="post" action="{% url 'ciudades_del_mundo:start_recipe_task' recipe.slug 'build' %}" data-config-task-form data-action-label="{% trans 'Crear' %}">
             {% csrf_token %}
             <input class="small-input" name="population_year" placeholder="{% trans 'ano' %}">
-            <button type="submit">{% trans "Crear" %}</button>
+            <button type="submit" data-config-action="build">{% trans "Crear" %}</button>
           </form>
           <div class="button-row">
-            <form method="post" action="{% url 'ciudades_del_mundo:start_recipe_task' recipe.slug 'export-csv' %}">
+            <form method="post" action="{% url 'ciudades_del_mundo:start_recipe_task' recipe.slug 'export-csv' %}" data-config-task-form data-action-label="CSV">
               {% csrf_token %}
-              <button type="submit" class="quiet">CSV</button>
+              <button type="submit" class="quiet" data-config-action="export-csv">CSV</button>
             </form>
-            <form method="post" action="{% url 'ciudades_del_mundo:start_recipe_task' recipe.slug 'export-excel' %}">
+            <form method="post" action="{% url 'ciudades_del_mundo:start_recipe_task' recipe.slug 'export-excel' %}" data-config-task-form data-action-label="Excel">
               {% csrf_token %}
-              <button type="submit" class="quiet">Excel</button>
+              <button type="submit" class="quiet" data-config-action="export-excel">Excel</button>
             </form>
           </div>
         </td>

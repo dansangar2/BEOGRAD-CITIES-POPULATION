@@ -7,30 +7,17 @@ from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
-from typing import Protocol
 
 from ciudades_del_mundo.domain.nuevo_admin_export import (
+    CellMerge,
     CellValue,
-    NuevoAdminAreaSummary,
     NuevoAdminExportData,
+    NuevoAdminAreaSummary,
     Sheet,
     Table,
     Workbook,
 )
-
-
-class NuevoAdminAreaExportRepository(Protocol):
-    def get_export_data(
-        self,
-        country_id: str,
-        max_level: int | None = None,
-    ) -> NuevoAdminExportData:
-        ...
-
-
-class WorkbookWriter(Protocol):
-    def write(self, workbook: Workbook, path: Path) -> None:
-        ...
+from ciudades_del_mundo.ports import NuevoAdminAreaExportRepository, WorkbookWriter
 
 
 @dataclass(frozen=True)
@@ -68,230 +55,435 @@ def build_nuevo_admin_workbook(
     max_level: int | None = None,
 ) -> tuple[Workbook, int, tuple[int, ...]]:
     root = data.root
-    areas = sorted(data.areas, key=_alphabetical_area_key)
+    areas = sorted(
+        (area for area in data.areas if max_level is None or area.level <= max_level),
+        key=_alphabetical_area_key,
+    )
     root_level = root.level or 0
 
     children_by_parent: dict[str | None, list[NuevoAdminAreaSummary]] = defaultdict(list)
     for area in areas:
         children_by_parent[area.parent_id].append(area)
 
-    seats_direct = {
-        area.id: area.representatives
-        for area in areas
-        if area.representatives is not None
-    }
-    first_rep = next((area for area in areas if area.representatives is not None), None)
-    rep_level = first_rep.level if first_rep else None
+    legal_subdivision_counts = _legal_subdivision_counts(root, areas, children_by_parent)
 
-    seats_total: dict[str, int] = {}
-    for area in sorted(areas, key=lambda item: item.level or 0, reverse=True):
-        total = seats_direct.get(area.id, 0) or 0
-        for child in children_by_parent.get(area.id, []):
-            total += seats_total.get(child.id, 0)
-        seats_total[area.id] = total
-
-    areas_by_level: dict[int, list[NuevoAdminAreaSummary]] = defaultdict(list)
-    for area in areas:
-        areas_by_level[area.level].append(area)
-
-    total_area_by_level: dict[int, Decimal] = {}
-    total_pop_by_level: dict[int, int] = {}
-
-    for level, level_areas in areas_by_level.items():
-        total_area_by_level[level] = sum(
-            (area.area_km2 for area in level_areas if area.area_km2 is not None),
-            Decimal("0"),
-        )
-        total_pop_by_level[level] = sum(
-            int(area.pop_latest) for area in level_areas if area.pop_latest is not None
-        )
-
-    levels_sorted = tuple(sorted({area.level for area in areas}))
-    header, columns_by_level = _build_header(levels_sorted, root_level)
-    paths = _build_paths(root, children_by_parent, max_level=max_level)
-    all_for_population = [root] + areas
-    effective_population_indexes = _effective_population_indexes(all_for_population)
-    weighted_populations = {
-        area.id: _scaled_population(
-            area.pop_latest,
-            effective_population_indexes.get(area.id, Decimal("1")),
-        )
-        for area in all_for_population
-    }
-    territory_flags = _territory_flags(all_for_population)
-    representation_groups = _build_representation_groups(
-        areas=areas,
-        rep_level=rep_level,
-        weighted_populations=weighted_populations,
-        territory_flags=territory_flags,
+    root_children = children_by_parent.get(root.id, [])
+    country_area_total = _country_area_total(root, root_children)
+    country_pop_total = _country_population_total(root, root_children)
+    all_for_ranking = [root, *areas]
+    population_rank_by_level = _rank_by_metric_by_level(
+        all_for_ranking,
+        lambda area: area.pop_latest,
     )
-    population_rank_by_level = _rank_by_population_by_level(areas_by_level)
-
-    first_level = root_level + 1
-    root_children = [area for area in areas if area.level == first_level]
-    country_area_total = sum(
-        (area.area_km2 for area in root_children if area.area_km2 is not None),
-        Decimal("0"),
+    area_rank_by_level = _rank_by_metric_by_level(
+        all_for_ranking,
+        lambda area: area.area_km2,
     )
-    country_pop_total = sum(
-        int(area.pop_latest) for area in root_children if area.pop_latest is not None
+    capital_rank_by_level = _rank_by_metric_by_level(
+        all_for_ranking,
+        lambda area: _city_population_total(area.capitals),
     )
-    country_representation_pop_total = representation_groups["country_population"]
+    most_populated_rank_by_level = _rank_by_metric_by_level(
+        all_for_ranking,
+        lambda area: area.most_populated_city.pop_latest if area.most_populated_city else None,
+    )
 
-    rows: list[tuple[CellValue, ...]] = [tuple(header)]
-    previous_country_written = False
-    previous_area_by_level: dict[int, NuevoAdminAreaSummary] = {}
-
-    for path in paths:
-        path_by_level = {area.level: area for area in path}
-        if not previous_country_written:
-            row: list[CellValue] = [
-                root.name,
-                _decimal_to_float(country_area_total) if country_area_total else None,
-                country_pop_total or None,
-                country_representation_pop_total,
-            ]
-            previous_country_written = True
-        else:
-            row = [None, None, None, None]
-
-        for level in levels_sorted:
-            cols_for_level = columns_by_level[level]
-            area = path_by_level.get(level)
-            if not area:
-                row.extend([None] * len(cols_for_level))
-                continue
-
-            previous_area = previous_area_by_level.get(level)
-            if previous_area is not None and previous_area.id == area.id:
-                row.extend([None] * len(cols_for_level))
-                continue
-            previous_area_by_level[level] = area
-
+    hierarchy_paths = _hierarchy_leaf_paths(root, areas, children_by_parent)
+    max_depth = max((len(path) - 1 for path in hierarchy_paths), default=0)
+    block_count = max_depth + 1
+    rows: list[list[CellValue]] = [list(_build_path_header(max_depth))]
+    for path in hierarchy_paths:
+        row: list[CellValue] = []
+        for area in path:
             row.extend(
-                _build_level_block(
+                _build_path_block(
                     area=area,
-                    total_area_by_level=total_area_by_level,
-                    total_pop_by_level=total_pop_by_level,
-                    children_by_parent=children_by_parent,
-                    seats_direct=seats_direct,
-                    seats_total=seats_total,
-                    rep_level=rep_level,
-                    effective_population_indexes=effective_population_indexes,
-                    weighted_populations=weighted_populations,
-                    representation_groups=representation_groups,
+                    country_area_total=country_area_total,
+                    country_pop_total=country_pop_total,
+                    legal_subdivision_counts=legal_subdivision_counts,
                     population_rank_by_level=population_rank_by_level,
+                    area_rank_by_level=area_rank_by_level,
+                    capital_rank_by_level=capital_rank_by_level,
+                    most_populated_rank_by_level=most_populated_rank_by_level,
                 )
             )
-
-        rows.append(tuple(row))
+        row.extend([None] * (_EXPORT_BLOCK_SIZE * (block_count - len(path))))
+        rows.append(row)
+    merged_cells = _merge_repeated_path_blocks(rows, hierarchy_paths, block_count)
 
     main_rows_count = len(rows)
-    main_columns_count = len(header)
-    main_table_ref = f"A1:{_column_name(main_columns_count)}{main_rows_count}"
-    tables = (
-        Table(
-            name="TablaPrincipal",
-            ref=main_table_ref,
-            columns=tuple(header),
-        ),
-    )
+    main_columns_count = len(rows[0])
 
     workbook = Workbook(
         sheets=(
             Sheet(
-                name="NuevoAdminArea",
-                rows=tuple(rows),
+                name="Jerarquia",
+                rows=tuple(tuple(row) for row in rows),
                 freeze_panes="A2",
                 auto_filter=False,
-                tables=tables,
+                tables=(),
+                merged_cells=tuple(merged_cells),
+                center_cells=True,
+                auto_column_widths=True,
             ),
         ),
         properties={"title": f"NuevoAdminArea {root.name}"},
     )
-    return workbook, max(len(rows) - 1, 0), levels_sorted
+    levels_sorted = tuple(sorted({area.level for area in (root, *areas)}))
+    return workbook, max(len(rows) - 1, 0), tuple(level for level in levels_sorted if level > root_level)
 
 
-def _build_header(
-    levels_sorted: tuple[int, ...],
-    root_level: int,
-) -> tuple[list[str], dict[int, list[str]]]:
-    header = [
-        "pais_nombre",
-        "pais_area_total_km2",
-        "pais_poblacion_total",
-        "pais_poblacion_computo_escanos",
-    ]
-    columns_by_level: dict[int, list[str]] = {}
-
-    for level in levels_sorted:
-        rel = level - root_level
-        prefix = f"L{rel}"
-        columns = [
-            f"{prefix}_tipo",
-            f"{prefix}_nombre",
-            f"{prefix}_estado_provincia",
-            f"{prefix}_depende_de",
-            f"{prefix}_indice_poblacion",
-            f"{prefix}_indice_poblacion_efectivo",
-            f"{prefix}_area_km2",
-            f"{prefix}_pct_area_pais",
-        ]
-        columns.extend(
-            [
-                f"{prefix}_poblacion",
-                f"{prefix}_ranking_poblacion_pais",
-                f"{prefix}_poblacion_ponderada",
-                f"{prefix}_pct_poblacion_pais",
-            ]
-        )
-        columns.extend(
-            [
-                f"{prefix}_num_subdivisiones_hijas",
-                f"{prefix}_capitales_nombres",
-                f"{prefix}_capitales_poblacion",
-                f"{prefix}_ciudad_mas_poblada_nombre",
-                f"{prefix}_ciudad_mas_poblada_poblacion",
-                f"{prefix}_grupo_representacion",
-                f"{prefix}_poblacion_computo_escanos",
-                f"{prefix}_representantes_grupo",
-                f"{prefix}_representantes",
-            ]
-        )
-        columns_by_level[level] = columns
-        header.extend(columns)
-
-    return header, columns_by_level
+_EXPORT_BLOCK_HEADERS = (
+    "Nombre",
+    "Población",
+    "%",
+    "Ranking población",
+    "Terreno",
+    "%",
+    "Ranking terreno",
+    "Densidad",
+    "Capital",
+    "Población capital",
+    "% capital",
+    "Ranking capital",
+    "Ciudad más poblada",
+    "Población ciudad más poblada",
+    "% ciudad más poblada",
+    "Ranking ciudad más poblada",
+    "Num municipios",
+)
+_EXPORT_BLOCK_SIZE = len(_EXPORT_BLOCK_HEADERS)
 
 
-def _build_paths(
+def _build_path_header(max_depth: int) -> list[str]:
+    headers = list(_EXPORT_BLOCK_HEADERS)
+    for depth in range(1, max_depth + 1):
+        headers.extend(f"NV{depth} {header}" for header in _EXPORT_BLOCK_HEADERS)
+    return headers
+
+
+def _hierarchy_leaf_paths(
     root: NuevoAdminAreaSummary,
+    areas: list[NuevoAdminAreaSummary],
     children_by_parent: dict[str | None, list[NuevoAdminAreaSummary]],
-    max_level: int | None = None,
-) -> list[list[NuevoAdminAreaSummary]]:
-    paths: list[list[NuevoAdminAreaSummary]] = []
+) -> list[tuple[NuevoAdminAreaSummary, ...]]:
+    paths: list[tuple[NuevoAdminAreaSummary, ...]] = []
+    seen: set[str] = set()
 
-    def dfs(node: NuevoAdminAreaSummary, path: list[NuevoAdminAreaSummary]) -> None:
-        new_path = path + [node]
-        children = children_by_parent.get(node.id, [])
-        if max_level is not None:
-            children = [child for child in children if child.level <= max_level]
-
+    def visit(area: NuevoAdminAreaSummary, path: tuple[NuevoAdminAreaSummary, ...]) -> None:
+        seen.add(area.id)
+        children = [
+            child
+            for child in sorted(children_by_parent.get(area.id, []), key=_alphabetical_area_key)
+            if child.id not in seen
+        ]
         if not children:
-            paths.append(new_path)
+            paths.append(path)
             return
+        for child in children:
+            visit(child, (*path, child))
 
-        for child in sorted(children, key=_alphabetical_area_key):
-            dfs(child, new_path)
-
-    root_children = children_by_parent.get(root.id, [])
-    if max_level is not None:
-        root_children = [child for child in root_children if child.level <= max_level]
-
-    for child in sorted(root_children, key=_alphabetical_area_key):
-        dfs(child, [])
-
+    visit(root, (root,))
+    for area in sorted(areas, key=_alphabetical_area_key):
+        if area.id in seen:
+            continue
+        visit(area, (root, area))
     return paths
+
+
+def _build_path_block(
+    *,
+    area: NuevoAdminAreaSummary,
+    country_area_total: Decimal | None,
+    country_pop_total: int | None,
+    legal_subdivision_counts: dict[str, int],
+    population_rank_by_level: dict[int, dict[str, int]],
+    area_rank_by_level: dict[int, dict[str, int]],
+    capital_rank_by_level: dict[int, dict[str, int]],
+    most_populated_rank_by_level: dict[int, dict[str, int]],
+) -> list[CellValue]:
+    area_value = area.area_km2
+    pop_value = area.pop_latest
+    density_value = area.density
+    if density_value is None:
+        density_value = _density(pop_value, area_value)
+    capitals = tuple(sorted(area.capitals, key=lambda city: _normalized_sort_text(city.name)))
+    capital_population = _city_population_total(capitals)
+    most_populated_city = area.most_populated_city
+    most_populated_population = most_populated_city.pop_latest if most_populated_city else None
+    return [
+        area.name,
+        pop_value,
+        _percentage(pop_value, country_pop_total),
+        population_rank_by_level.get(area.level, {}).get(area.id),
+        _decimal_to_float(area_value),
+        _percentage(area_value, country_area_total),
+        area_rank_by_level.get(area.level, {}).get(area.id),
+        _decimal_to_float(density_value, digits=4),
+        " | ".join(city.name for city in capitals) or None,
+        capital_population,
+        _percentage(capital_population, pop_value),
+        capital_rank_by_level.get(area.level, {}).get(area.id),
+        most_populated_city.name if most_populated_city else None,
+        most_populated_population,
+        _percentage(most_populated_population, pop_value),
+        most_populated_rank_by_level.get(area.level, {}).get(area.id),
+        legal_subdivision_counts.get(area.id) or None,
+    ]
+
+
+def _city_population_total(cities) -> int | None:
+    populations = [city.pop_latest for city in cities if city.pop_latest is not None]
+    return sum(populations) if populations else None
+
+
+def _rank_by_metric_by_level(
+    areas: list[NuevoAdminAreaSummary],
+    value_for,
+) -> dict[int, dict[str, int]]:
+    ranks_by_level: dict[int, dict[str, int]] = {}
+    areas_by_level: dict[int, list[NuevoAdminAreaSummary]] = defaultdict(list)
+    for area in areas:
+        areas_by_level[area.level].append(area)
+    for level, level_areas in areas_by_level.items():
+        ranked = sorted(
+            (area for area in level_areas if value_for(area) is not None),
+            key=lambda area: (-float(value_for(area) or 0), _alphabetical_area_key(area)),
+        )
+        ranks_by_level[level] = {
+            area.id: index
+            for index, area in enumerate(ranked, start=1)
+        }
+    return ranks_by_level
+
+
+def _merge_repeated_path_blocks(
+    rows: list[list[CellValue]],
+    paths: list[tuple[NuevoAdminAreaSummary, ...]],
+    block_count: int,
+) -> list[CellMerge]:
+    merged_cells: list[CellMerge] = []
+    if len(paths) <= 1:
+        return merged_cells
+    for depth in range(block_count):
+        start = 0
+        while start < len(paths):
+            if depth >= len(paths[start]):
+                start += 1
+                continue
+            area_id = paths[start][depth].id
+            end = start + 1
+            while end < len(paths) and depth < len(paths[end]) and paths[end][depth].id == area_id:
+                end += 1
+            if end - start > 1:
+                first_row = start + 2
+                last_row = end + 1
+                first_column = depth * _EXPORT_BLOCK_SIZE + 1
+                for offset in range(_EXPORT_BLOCK_SIZE):
+                    column = first_column + offset
+                    merged_cells.append(
+                        CellMerge(
+                            start_row=first_row,
+                            start_column=column,
+                            end_row=last_row,
+                            end_column=column,
+                        )
+                    )
+                    for row_index in range(start + 1, end):
+                        rows[row_index + 1][column - 1] = None
+            start = end
+    return merged_cells
+
+
+def _build_header() -> list[str]:
+    return [
+        "nivel",
+        "profundidad",
+        "codigo",
+        "nombre",
+        "tipo",
+        "estado_provincia",
+        "depende_de",
+        "padre_codigo",
+        "padre_nombre",
+        "area_km2",
+        "pct_area_pais",
+        "poblacion",
+        "ranking_poblacion_nivel",
+        "poblacion_ponderada",
+        "pct_poblacion_pais",
+        "densidad",
+        "subdivisiones_legales",
+        "subdivisiones_hijas",
+        "capitales_nombres",
+        "capitales_poblacion",
+        "ciudad_mas_poblada_nombre",
+        "ciudad_mas_poblada_poblacion",
+        "indice_poblacion",
+        "indice_poblacion_efectivo",
+        "grupo_representacion",
+        "poblacion_computo_escanos",
+        "representantes_grupo",
+        "representantes",
+    ]
+
+
+def _hierarchy_ordered_rows(
+    root: NuevoAdminAreaSummary,
+    areas: list[NuevoAdminAreaSummary],
+    children_by_parent: dict[str | None, list[NuevoAdminAreaSummary]],
+) -> list[tuple[NuevoAdminAreaSummary, int]]:
+    ordered: list[tuple[NuevoAdminAreaSummary, int]] = [(root, 0)]
+    seen = {root.id}
+    parent_layer: list[tuple[NuevoAdminAreaSummary, int]] = [(root, 0)]
+
+    while parent_layer:
+        next_layer: list[tuple[NuevoAdminAreaSummary, int]] = []
+        for parent, depth in parent_layer:
+            for child in sorted(children_by_parent.get(parent.id, []), key=_alphabetical_area_key):
+                if child.id in seen:
+                    continue
+                seen.add(child.id)
+                item = (child, depth + 1)
+                ordered.append(item)
+                next_layer.append(item)
+        parent_layer = next_layer
+
+    for area in sorted(areas, key=_alphabetical_area_key):
+        if area.id in seen:
+            continue
+        seen.add(area.id)
+        ordered.append((area, 0))
+
+    return ordered
+
+
+def _country_area_total(
+    root: NuevoAdminAreaSummary,
+    root_children: list[NuevoAdminAreaSummary],
+) -> Decimal | None:
+    if root.area_km2 is not None:
+        return root.area_km2
+    total = sum(
+        (area.area_km2 for area in root_children if area.area_km2 is not None),
+        Decimal("0"),
+    )
+    return total if total else None
+
+
+def _country_population_total(
+    root: NuevoAdminAreaSummary,
+    root_children: list[NuevoAdminAreaSummary],
+) -> int | None:
+    if root.pop_latest is not None:
+        return int(root.pop_latest)
+    total = sum(int(area.pop_latest) for area in root_children if area.pop_latest is not None)
+    return total or None
+
+
+def _legal_subdivision_counts(
+    root: NuevoAdminAreaSummary,
+    areas: list[NuevoAdminAreaSummary],
+    children_by_parent: dict[str | None, list[NuevoAdminAreaSummary]],
+) -> dict[str, int]:
+    by_id = {root.id: root, **{area.id: area for area in areas}}
+    cache: dict[str, set[str]] = {}
+
+    def resolve(area: NuevoAdminAreaSummary) -> set[str]:
+        if area.id in cache:
+            return cache[area.id]
+        units = {str(unit_id) for unit_id in area.source_unit_ids if str(unit_id)}
+        if not units and area.source_units_count:
+            units = {f"{area.id}#source-unit-{index}" for index in range(area.source_units_count)}
+        for child in children_by_parent.get(area.id, []):
+            if child.id in by_id:
+                units.update(resolve(child))
+        cache[area.id] = units
+        return units
+
+    for area in by_id.values():
+        resolve(area)
+    return {area_id: len(unit_ids) for area_id, unit_ids in cache.items()}
+
+
+def _build_area_row(
+    *,
+    area: NuevoAdminAreaSummary,
+    depth: int,
+    root_level: int,
+    parent: NuevoAdminAreaSummary | None,
+    country_area_total: Decimal | None,
+    country_pop_total: int | None,
+    country_representation_pop_total: int | None,
+    children_by_parent: dict[str | None, list[NuevoAdminAreaSummary]],
+    legal_subdivision_counts: dict[str, int],
+    seats_direct: dict[str, int | None],
+    seats_total: dict[str, int],
+    rep_level: int | None,
+    effective_population_indexes: dict[str, Decimal],
+    weighted_populations: dict[str, int | None],
+    representation_groups: dict[str, dict],
+    population_rank_by_level: dict[int, dict[str, int]],
+) -> list[CellValue]:
+    area_value = area.area_km2
+    pop_value = area.pop_latest
+    density_value = area.density
+    if density_value is None:
+        density_value = _density(pop_value, area_value)
+
+    direct_children = children_by_parent.get(area.id, [])
+    capitals_pop = sum(city.pop_latest or 0 for city in area.capitals)
+    most_city_pop = area.most_populated_city.pop_latest if area.most_populated_city else None
+
+    if rep_level is not None and area.level == rep_level:
+        seats = seats_direct.get(area.id) or 0
+    else:
+        seats = seats_total.get(area.id, 0)
+    display_seats = seats if rep_level is not None and area.level == rep_level else seats or None
+
+    group_owner_names = representation_groups["owner_names"]
+    group_populations = representation_groups["populations"]
+    group_seats = representation_groups["seats"]
+    if rep_level is not None and area.level == rep_level:
+        group_population = group_populations.get(area.id)
+        group_seats_value = group_seats.get(area.id)
+    elif area.level == root_level:
+        group_population = country_representation_pop_total
+        group_seats_value = None
+    else:
+        group_population = None
+        group_seats_value = None
+
+    return [
+        area.level,
+        depth,
+        area.code,
+        area.name,
+        area.entity_type,
+        _province_status_label(area.province_status),
+        area.depends_on_name,
+        parent.code if parent else None,
+        parent.name if parent else None,
+        _decimal_to_float(area_value),
+        _percentage(area_value, country_area_total),
+        pop_value,
+        population_rank_by_level.get(area.level, {}).get(area.id),
+        weighted_populations.get(area.id),
+        _percentage(pop_value, country_pop_total),
+        _decimal_to_float(density_value, digits=4),
+        legal_subdivision_counts.get(area.id) or None,
+        len(direct_children) or None,
+        " | ".join(sorted(city.name for city in area.capitals)) or None,
+        capitals_pop or None,
+        area.most_populated_city.name if area.most_populated_city else None,
+        most_city_pop,
+        _decimal_to_float(area.population_index, digits=4),
+        _decimal_to_float(effective_population_indexes.get(area.id), digits=4),
+        group_owner_names.get(area.id),
+        group_population,
+        group_seats_value,
+        display_seats,
+    ]
 
 
 def _build_secondary_tables(
@@ -661,6 +853,15 @@ def _percentage(value, total) -> float | None:
     if value is None or total in (None, 0):
         return None
     return round(float(value) / float(total) * 100.0, 2)
+
+
+def _density(population, area) -> Decimal | None:
+    if population is None or area in (None, 0):
+        return None
+    try:
+        return Decimal(population) / Decimal(area)
+    except (ArithmeticError, ValueError):
+        return None
 
 
 def _decimal_to_float(value: Decimal | None, *, digits: int = 2) -> float | None:

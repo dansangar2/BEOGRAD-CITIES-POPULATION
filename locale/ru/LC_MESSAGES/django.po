@@ -128,6 +128,21 @@ msgstr "Действия"
 msgid "Validar"
 msgstr "Проверить"
 
+msgid "Clonar"
+msgstr "Клонировать"
+
+msgid "Clonar entidad"
+msgstr "Клонировать сущность"
+
+msgid "Entidad clonada."
+msgstr "Сущность клонирована."
+
+msgid "Copia"
+msgstr "Копия"
+
+msgid "El codigo debe empezar por una letra y usar mayusculas sin acentos, numeros, guion o guion bajo, sin espacios."
+msgstr "Код должен начинаться с буквы и использовать заглавные латинские буквы без акцентов, цифры, дефис или подчеркивание, без пробелов."
+
 msgid "Ver todas"
 msgstr "Показать все"
 
@@ -154,6 +169,12 @@ msgstr "Поиск группы"
 
 msgid "Grupos"
 msgstr "Группы"
+
+msgid "Entidades"
+msgstr "Сущности"
+
+msgid "Filtrar tipos"
+msgstr "Фильтровать типы"
 
 msgid "Selecciona un nivel"
 msgstr "Выберите уровень"
@@ -1004,8 +1025,23 @@ msgstr "El уровень de scrapeo debe ser numérico."
 msgid "El slug de configuracion solo puede usar letras, numeros, guion y guion bajo."
 msgstr "El slug de конфигурация solo puede usar letras, numeros, guion y guion bajo."
 
-msgid "El slug de receta debe ser un identificador Python en minusculas."
-msgstr "El slug de рецепт debe ser un identificador Python en minusculas."
+msgid "El codigo debe empezar por una letra y usar letras sin acentos, numeros o guion bajo, sin espacios."
+msgstr "El codigo debe empezar por una letra y usar letras sin acentos, numeros o guion bajo, sin espacios."
+
+msgid "El codigo debe empezar por una letra y usar mayusculas sin acentos, numeros o guion bajo, sin espacios."
+msgstr "El codigo debe empezar por una letra y usar mayusculas sin acentos, numeros o guion bajo, sin espacios."
+
+msgid "Ya existe un pais nuevo con codigo '%(code)s'."
+msgstr "Ya existe un pais nuevo con codigo '%(code)s'."
+
+msgid "El pais nuevo no pertenece a '%(country)s'."
+msgstr "Новая страна не относится к '%(country)s'."
+
+msgid "Datos guardados."
+msgstr "Данные сохранены."
+
+msgid "Codigo derivado"
+msgstr "Codigo derivado"
 
 msgid "Elx"
 msgstr "Elx"
@@ -1015,6 +1051,15 @@ msgstr "Entidades a unificar"
 
 msgid "Entidades disponibles"
 msgstr "Entidades disponibles"
+
+msgid "Entidades creadas"
+msgstr "Созданные сущности"
+
+msgid "No hay entidades creadas."
+msgstr "Нет созданных сущностей."
+
+msgid "Buscar entidad"
+msgstr "Найти сущность"
 
 msgid "Error"
 msgstr "Ошибка"
@@ -1294,6 +1339,9 @@ msgstr "Страны por население fuente"
 
 msgid "Pakistan"
 msgstr "Pakistan"
+
+msgid "País"
+msgstr "Страна"
 
 msgid "Países"
 msgstr "Страны"
@@ -1807,3 +1855,98 @@ msgstr "Поиск..."
 
 msgid "capitals debe ser una lista."
 msgstr "capitals должен быть списком."
+msgid "Usar subdivisiones"
+msgstr "Использовать подразделения"
+
+msgid "Subdivisiones reales"
+msgstr "Реальные подразделения"
+
+msgid "Seleccionar"
+msgstr "Выбрать"
+
+msgid "No hay subdivisiones creadas."
+msgstr "Нет созданных подразделений."
+
+msgid "Aun no hay datos NuevoAdminArea creados para este codigo."
+msgstr "Для этого кода еще не созданы данные NuevoAdminArea."
+
+msgid "La seleccion visual debe contener una lista de subdivisiones creadas."
+msgstr "Визуальный выбор должен содержать список созданных подразделений."
+
+msgid "El padre seleccionado no existe."
+msgstr "Выбранный родитель не существует."
+
+msgid "El padre seleccionado crearia una referencia circular."
+msgstr "Выбранный родитель создаст циклическую ссылку."
+
+msgid "Selecciona al menos una subdivision creada."
+msgstr "Выберите хотя бы одно созданное подразделение."
+
+msgid "%(config)s: el padre '%(parent)s' no existe en este pais nuevo."
+msgstr "%(config)s: родитель '%(parent)s' не существует в этой новой стране."
+
+msgid "%(country)s tiene padres circulares entre sus divisiones."
+msgstr "У %(country)s есть циклические родители между подразделениями."
+
+msgid "%(name)s (Nivel 0)"
+msgstr "%(name)s (Уровень 0)"
+
+msgid "%(name)s (Nivel %(level)s)"
+msgstr "%(name)s (Уровень %(level)s)"
+
+msgid "Una division no puede ser padre de si misma."
+msgstr "Подразделение не может быть собственным родителем."
+
+msgid "Usar entidades marcadas como hijos"
+msgstr "Использовать отмеченные сущности как дочерние"
+
+msgid "km^2"
+msgstr "km^2"
+
+msgid "Plegar"
+msgstr "Свернуть"
+
+msgid "Eliminar esta entidad?"
+msgstr "Удалить эту сущность?"
+
+msgid "Eliminar entidad"
+msgstr "Удалить сущность"
+
+msgid "Reasigna o elimina primero sus hijos"
+msgstr "Сначала переназначьте или удалите дочерние элементы"
+
+msgid "No se puede eliminar una entidad con hijos. Reasigna o elimina primero sus hijos."
+msgstr "Нельзя удалить сущность с дочерними элементами. Сначала переназначьте или удалите дочерние элементы."
+
+msgid "Entidad eliminada."
+msgstr "Сущность удалена."
+
+msgid "Num municipios"
+msgstr "Num municipios"
+
+msgid "Poblacion capital"
+msgstr "Poblacion capital"
+
+msgid "% capital"
+msgstr "% capital"
+
+msgid "Ciudad mas poblada"
+msgstr "Ciudad mas poblada"
+
+msgid "Poblacion ciudad mas poblada"
+msgstr "Poblacion ciudad mas poblada"
+
+msgid "% ciudad mas poblada"
+msgstr "% ciudad mas poblada"
+
+msgid "Ranking poblacion"
+msgstr "Ranking poblacion"
+
+msgid "Ranking terreno"
+msgstr "Ranking terreno"
+
+msgid "Ranking capital"
+msgstr "Ranking capital"
+
+msgid "Ranking ciudad mas poblada"
+msgstr "Ranking ciudad mas poblada"

@@ -32,6 +32,10 @@ from ciudades_del_mundo.services.source_population_indices import (
     SourcePopulationIndexConfigError,
     load_source_population_index_registry,
 )
+from ciudades_del_mundo.services.derived_country_builder import (
+    build_derived_country_config_for_country_id,
+    resolve_derived_country_config_for_country_id,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -485,6 +489,31 @@ class Command(BaseCommand):
 
         recipes = CONFIGS.get(country_id)
         if not recipes:
+            sql_config = resolve_derived_country_config_for_country_id(country_id)
+            if sql_config is not None:
+                try:
+                    result = build_derived_country_config_for_country_id(
+                        country_id,
+                        force=True,
+                        source_population_year=source_population_year,
+                    )
+                except ValueError as exc:
+                    raise CommandError(str(exc)) from exc
+                self.stdout.write(self.style.SUCCESS(
+                    "Construido pais nuevo SQL %(country)s desde %(config)s: "
+                    "%(entities)s entidad(es), %(built)s fila(s)."
+                    % {
+                        "country": result.country_code,
+                        "config": result.config.full_slug,
+                        "entities": result.entities,
+                        "built": result.built,
+                    }
+                ))
+                self.stdout.write(self.style.SUCCESS(
+                    "Ciudad mas poblada actualizada en %(updated)s area(s)."
+                    % {"updated": result.most_populated_updated}
+                ))
+                return
             if country_id in CONFIG_LOAD_ERRORS:
                 exc = CONFIG_LOAD_ERRORS[country_id]
                 raise CommandError(
