@@ -84,6 +84,9 @@ def apply_runtime_config_extensions(config, entities: Iterable[ScrapedAdminArea]
     scoped = list(entities)
     scoped = _apply_runtime_synthetic_entities(config, scoped)
     scoped = _apply_runtime_parent_overrides(config, scoped)
+    excluded_codes = set(getattr(config, "runtime_excluded_entity_codes", ()) or ())
+    if excluded_codes:
+        scoped = [entity for entity in scoped if str(entity.code) not in excluded_codes]
     scoped = _apply_runtime_root_metric_sources(config, scoped)
     return scoped
 
@@ -179,7 +182,9 @@ def _disambiguate_conflicting_codes(entities: list[ScrapedAdminArea]) -> list[Sc
 
     for entity in entities:
         raw_code = str(entity.code)
-        parent_code = _resolve_replacement(entity.parent_code, active_parent_alias)
+        parent_owners = owners_by_raw_code.get(str(entity.parent_code), []) if entity.preserve_source_code else []
+        level_parent = next((owner for owner in parent_owners if int(owner.level) == int(entity.level) - 1), None)
+        parent_code = str(level_parent.code) if level_parent else _resolve_replacement(entity.parent_code, active_parent_alias)
         entity = replace(entity, parent_code=parent_code) if parent_code != entity.parent_code else entity
 
         owners = owners_by_raw_code.get(raw_code, [])
@@ -279,6 +284,10 @@ def _disambiguated_code_parent(
 
 
 def _same_scraped_identity(first: ScrapedAdminArea, second: ScrapedAdminArea) -> bool:
+    if first.preserve_source_code or second.preserve_source_code:
+        # The caller already groups by raw source code; an earlier occurrence
+        # may now have a parent-scoped alias after a cross-level collision.
+        return int(first.level) == int(second.level)
     first_qid = _qid(first.data_wd)
     second_qid = _qid(second.data_wd)
     if first_qid and second_qid:
@@ -370,7 +379,9 @@ def _apply_runtime_synthetic_entities(config, entities: list[ScrapedAdminArea]) 
                 density=density,
                 pop_latest=population,
                 pop_latest_date=pop_date,
+                last_census_year=spec.get("last_census_year"),
                 url=spec.get("url"),
+                data_wd=spec.get("data_wd") or "",
             )
         )
         by_code[code] = updated[-1]
@@ -396,6 +407,10 @@ def _apply_parent_override(entity: ScrapedAdminArea, override: dict) -> ScrapedA
     values = {}
     if "parent_code" in override:
         values["parent_code"] = override.get("parent_code")
+    if override.get("parent_code_template"):
+        match = re.fullmatch(override["code_pattern"], str(entity.code))
+        if match:
+            values["parent_code"] = match.expand(override["parent_code_template"])
     if "level" in override:
         values["level"] = int(override["level"])
     return replace(entity, **values) if values else entity
@@ -403,6 +418,8 @@ def _apply_parent_override(entity: ScrapedAdminArea, override: dict) -> ScrapedA
 
 def _matches_parent_override(entity: ScrapedAdminArea, override: dict) -> bool:
     if str(entity.code) in {str(code) for code in override.get("exclude_codes", ())}:
+        return False
+    if override.get("code_pattern") and not re.fullmatch(override["code_pattern"], str(entity.code)):
         return False
     codes = {str(code) for code in override.get("codes", ())}
     names = {_norm_name(name) for name in override.get("names", ())}
@@ -1093,6 +1110,12 @@ def _merge_duplicate_parent(
     entities: list[ScrapedAdminArea] | dict[str, ScrapedAdminArea],
 ) -> ScrapedAdminArea:
     """Preserve the best valid parent when equivalent rows are collapsed."""
+    if (preferred.preserve_source_code and discarded.preserve_source_code
+            and preferred.code == discarded.code and discarded.pop_latest is not None
+            and str(discarded.pop_latest_date or "") > str(preferred.pop_latest_date or "")):
+        preferred = replace(preferred, pop_latest=discarded.pop_latest, pop_latest_date=discarded.pop_latest_date,
+                            last_census_year=discarded.last_census_year, area_km2=discarded.area_km2,
+                            density=discarded.density)
     discarded_parent = str(discarded.parent_code or "").strip()
     if not discarded_parent:
         return preferred
@@ -1138,12 +1161,12 @@ def _drop_cross_level_shortcuts(entities: list[ScrapedAdminArea]) -> list[Scrape
             continue
         ordered = sorted(rows, key=lambda item: int(item.level))
         for shallow in ordered:
-            if _is_explicit_repeat(shallow) or str(shallow.code) in dropped:
+            if shallow.preserve_source_code or _is_explicit_repeat(shallow) or str(shallow.code) in dropped:
                 continue
             for deep in reversed(ordered):
                 if deep is shallow or int(deep.level) <= int(shallow.level):
                     continue
-                if _is_explicit_repeat(deep):
+                if deep.preserve_source_code or _is_explicit_repeat(deep):
                     continue
                 if _same_identity_parent_chain(shallow, deep, by_code):
                     continue
@@ -1229,6 +1252,12 @@ def _register_duplicate_keys(
 def _duplicate_keys(entity: ScrapedAdminArea) -> tuple[tuple[str, object], ...]:
     level = int(entity.level)
     keys: list[tuple[str, object]] = [(("code", str(entity.code), level))]
+    if entity.preserve_source_code:
+        return tuple(keys)
+    # Parts in different municipalities can share the QID/name of the whole
+    # settlement. Their source codes identify separate population-bearing rows.
+    if any("(part)" in str(value or "").casefold() for value in (entity.entity_type, entity.raw_entity_type)):
+        return tuple(keys)
     wd = _qid(entity.data_wd)
     if wd:
         keys.append(("wd", wd, level))

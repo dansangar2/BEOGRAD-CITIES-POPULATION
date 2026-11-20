@@ -1,0 +1,54 @@
+Pais/config slug y country_code: cuba.
+Fuente operativa: ScrapingConfig.content en SQL.
+Receta versionada para importacion explicita: subdivisions/cuba.toml.
+
+Funciones territoriales:
+L0: Cuba, codigo cuba, ID cuba_cuba, QID Q241.
+L1: provincias y division territorial especial de Isla de la Juventud.
+L2: municipios de las provincias ordinarias; ciudad completa de La Habana.
+L3: localidades de los municipios ordinarios; municipios de la ciudad de
+La Habana. Conservar los tipos originales, identidades y poblaciones.
+LEGAL_SUBDIVISION = 2. No crear una capa final donde la fuente no la publica.
+
+Rama ordinaria:
+Cuba L0 > Pinar del Rio provincia L1 (1882) > Pinar del Rio municipio L2
+(2108) > Pinar del Rio localidad L3 (2108001, tipo original City).
+
+La Habana:
+La cadena solicitada es La Habana (Prov) L1 > La Habana (Cd) L2 > La Habana
+(Municipios) L3. Conservar la provincia (1874, ID cuba_1874), la ciudad completa
+(2300001, ID cuba_2300001) y los 15 municipios originales (2301 a 2315).
+La provincia tiene una sola ciudad hija; esa ciudad tiene los 15 municipios
+como hijos directos. La pagina ciudaddelahabana contiene solo
+la tabla de la ciudad La Habana (2300001, ID cuba_2300001), sin una seccion
+major_subdivision ni un municipio unico que sea padre de toda la ciudad.
+Conservar esa ciudad en L2 bajo la provincia L1 y reubicar sus 15 municipios
+en L3 bajo la ciudad, sin inventar otra entidad intermedia ni localidades.
+Provincia y ciudad comparten QID Q1563,
+pero mantienen IDs, funciones y poblaciones distintos.
+Configurar ese bloque con cities=true, infosection=false,
+major_subdivision=false, force_highest_level=2 y parent_level=1.
+Declarar [[parent_overrides]] con los codigos 2301 a 2315, parent_code=2300001
+y level=3. Son strings TOML; la regla queda en configuracion, no en el parser.
+
+Isla de la Juventud:
+Conservar Isla de la Juventud division L1 (1878, ID cuba_1878) > Isla de la
+Juventud municipio L2 (4001, ID cuba_4001) > localidades L3 disponibles.
+Las dos funciones territoriales comparten QID Q115027; no colapsar sus filas.
+
+Comprobaciones de referencia:
+Las 18 paginas guardadas del scraping ea92ed5e308f de 2026-10-15 producen
+1 raiz L0, 16 divisiones L1, 154 filas L2 (153 municipios ordinarios y la ciudad
+de La Habana) y 985 filas L3 (970 localidades y 15 municipios de La Habana):
+1156 filas. La provincia de La Habana tiene 1 hija ciudad L2; esa ciudad tiene
+15 hijos municipales L3. Las provincias ordinarias conservan la cadena
+Prov L1 > Municipios L2 > Localidades L3.
+Verificar padres existentes, niveles superiores, ausencia de ciclos y
+conservacion de IDs/poblaciones; los conteos corresponden a esas instantaneas
+y deben revisarse si cambia la fuente.
+Los assets nacionales y de la raiz usan Q241; los de La Habana, Q1563.
+
+La correccion permanente debe quedar en el TOML e importarse a SQL mediante
+los servicios existentes. Los scripts bajo .web_ai_autoconfig/cuba/ fueron
+artefactos temporales para una reparacion de datos ya aplicada; no forman
+parte del parser, del arranque ni de la importacion de configuraciones.

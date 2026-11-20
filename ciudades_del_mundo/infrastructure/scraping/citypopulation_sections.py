@@ -15,6 +15,7 @@ pushes deeper sections down accordingly.
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, replace
 import re
 from typing import Any, Iterable
@@ -231,8 +232,21 @@ class CityPopulationSectionParser:
             )
 
         parsed_entities = [entity for entity in entities if entity is not None]
+        wikidata_overrides = getattr(page, "wikidata_overrides", {}) or {}
+        parsed_entities = [
+            replace(entity, data_wd=wikidata_overrides[entity.code])
+            if entity.code in wikidata_overrides else entity
+            for entity in parsed_entities
+        ]
         parsed_entities = _mark_forced_highest_level_entities(parsed_entities, page=page)
         parsed_entities = _mark_forced_parent_level_entities(parsed_entities, page=page)
+        if getattr(page, "preserve_source_codes", False):
+            parsed_entities = [replace(entity, preserve_source_code=True) for entity in parsed_entities]
+        code_overrides = getattr(page, "code_overrides", {}) or {}
+        if code_overrides:
+            parsed_entities = [replace(entity, code=code_overrides.get(entity.code, entity.code),
+                                       parent_code=code_overrides.get(entity.parent_code, entity.parent_code))
+                               for entity in parsed_entities]
         return _mark_sum_to_root_entities(parsed_entities, page=page)
 
     def _parse_tl_sections(
@@ -276,6 +290,8 @@ class CityPopulationSectionParser:
         current_major: ScrapedAdminArea | None = parent_context.latest_for_section(SECTION_MAJOR)
 
         for tbody in table.find_all("tbody", recursive=False):
+            if "admin0" in _tl_tbody_classes(tbody):
+                continue
             section = _section_for_tl_tbody(system, tbody, current_major is not None)
             persist_section = section in include
             entity_level = _level_for_section(
@@ -431,6 +447,8 @@ class CityPopulationSectionParser:
     ) -> list[_TlBlock]:
         blocks: list[_TlBlock] = []
         for index, tbody in enumerate(table.find_all("tbody", recursive=False)):
+            if "admin0" in _tl_tbody_classes(tbody):
+                continue
             section = _section_for_grouped_tl_tbody(tbody)
             entity_level = _level_for_section(
                 section=section,
@@ -659,11 +677,11 @@ class CityPopulationSectionParser:
         return parent_context.deepest_before_section(section)
 
     def _parent_for_ts_row(self, tr: Tag, parent_context: "_ParentContext") -> ScrapedAdminArea | None:
-        explicit_parent = parent_context.lookup(_row_parent_key(tr))
+        explicit_parent = parent_context.lookup(_row_parent_key(tr), before_section=SECTION_CITIES)
         if explicit_parent:
             return explicit_parent
         for name in _row_parent_names(tr):
-            parent = parent_context.lookup(name)
+            parent = parent_context.lookup(name, before_section=SECTION_CITIES)
             if parent:
                 return parent
         return None
@@ -680,7 +698,7 @@ class CityPopulationSectionParser:
         if not isinstance(section, Tag):
             section = soup.find(class_=lambda value: value and "infosection" in value)
         if not isinstance(section, Tag):
-            return self._parse_tfoot_root(soup=soup, country_code=country_code, level=level, url=url)
+            return self._parse_table_root(soup=soup, country_code=country_code, level=level, url=url)
 
         name_node = section.find(class_="infoname")
         raw_name = name_node.get_text(" ", strip=True) if name_node else country_code
@@ -710,12 +728,12 @@ class CityPopulationSectionParser:
             data_wd=_root_data_wd(section, name=name, country_code=country_code),
             annotations=_section_annotation(SECTION_INFOSECTION),
         )
-        tfoot_root = self._parse_tfoot_root(soup=soup, country_code=country_code, level=level, url=url)
-        if _same_visible_root(root, tfoot_root):
-            return tfoot_root
+        table_root = self._parse_table_root(soup=soup, country_code=country_code, level=level, url=url)
+        if _same_visible_root(root, table_root):
+            return table_root
         return root
 
-    def _parse_tfoot_root(
+    def _parse_table_root(
         self,
         *,
         soup: BeautifulSoup,
@@ -726,6 +744,16 @@ class CityPopulationSectionParser:
         table = soup.find("table", id="tl")
         tfoot = table.find("tfoot") if isinstance(table, Tag) else None
         tr = tfoot.find("tr") if isinstance(tfoot, Tag) else None
+        if not isinstance(tr, Tag) and isinstance(table, Tag) and int(level) == 0:
+            # Some national admin tables expose their total as tbody.admin0,
+            # without an infosection, footer or row identifier.
+            admin0 = table.find("tbody", class_="admin0", recursive=False)
+            tr = admin0.find("tr", recursive=False) if isinstance(admin0, Tag) else None
+            if isinstance(tr, Tag):
+                tr = deepcopy(tr)
+                name_cell = self.client._main_name_cell(tr)
+                if isinstance(name_cell, Tag) and not self.client._entity_id(name_cell, tr, allow_sym_area=True):
+                    name_cell["id"] = f"i{country_code}"
         if not isinstance(table, Tag) or not isinstance(tr, Tag):
             return None
         last_pop_idx, last_pop_date = self.client.detect_last_visible_pop_column(table)
@@ -738,6 +766,7 @@ class CityPopulationSectionParser:
             default_last_census_year=self.client.year_from_date(last_pop_date),
             country_code=country_code,
             base_url=self.client.base_for_urljoin(url),
+            area_divisor=self.client.area_divisor_for_table(table),
             visible_pop_columns=visible_pop_columns,
         )
         if not parsed:
@@ -761,6 +790,7 @@ class _ParentContext:
         self._latest_by_section: dict[str, ScrapedAdminArea] = {}
         self._latest_by_level: dict[int, ScrapedAdminArea] = {}
         self._lookup: dict[str, ScrapedAdminArea] = {}
+        self._lookup_by_section: dict[str, dict[str, ScrapedAdminArea]] = {}
 
     def register(self, entity: ScrapedAdminArea, row: Tag | None = None) -> None:
         section = _annotation_section(entity.annotations)
@@ -771,12 +801,29 @@ class _ParentContext:
             normalized = _lookup_key(key)
             if normalized:
                 self._lookup.setdefault(normalized, entity)
+                if section:
+                    section_lookup = self._lookup_by_section.setdefault(section, {})
+                    previous = section_lookup.get(normalized)
+                    if previous is None or int(entity.level) > int(previous.level):
+                        section_lookup[normalized] = entity
 
     def latest_for_section(self, section: str) -> ScrapedAdminArea | None:
         return self._latest_by_section.get(section)
 
-    def lookup(self, key: str | None) -> ScrapedAdminArea | None:
-        return self._lookup.get(_lookup_key(key)) if key else None
+    def lookup(self, key: str | None, *, before_section: str | None = None) -> ScrapedAdminArea | None:
+        if not key:
+            return None
+        normalized = _lookup_key(key)
+        if before_section is not None:
+            # Homonymous county, municipality and locality rows are distinct
+            # roles. Prefer the closest earlier section, never a locality peer.
+            order = (SECTION_INFOSECTION, SECTION_MAJOR, SECTION_MINOR, SECTION_CITIES)
+            for section in reversed(order[:order.index(before_section)]):
+                entity = self._lookup_by_section.get(section, {}).get(normalized)
+                if entity is not None:
+                    return entity
+            return None
+        return self._lookup.get(normalized)
 
     def deepest(self) -> ScrapedAdminArea | None:
         if not self._latest_by_level:
@@ -1250,7 +1297,7 @@ def _metric_from_infosection(section: Tag, label: str, client: CityPopulationCli
         value_node = item.find(class_="val")
         value = client.safe_float_text(value_node.get_text(" ", strip=True) if value_node else text)
         if value is not None:
-            return value
+            return value / client.area_divisor_for_unit(text) if label == "area" else value
     return None
 
 

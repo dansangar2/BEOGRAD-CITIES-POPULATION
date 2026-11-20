@@ -1,0 +1,40 @@
+Polonia: ampliar la cobertura de localidades a todas las comunas del pais,
+segun la peticion del usuario, conservando la jerarquia administrativa existente.
+
+- L0: Poland, con su identidad, poblacion y recursos nacionales.
+- L1: los 16 voivodatos publicados en la division administrativa nacional.
+- L2: los condados y ciudades con rango de condado (powiat).
+- L3: las comunas (gmina), urbanas, rurales o urbano-rurales.
+- L4: todas las localidades que publica CityPopulation bajo cada comuna:
+  Village, Settlement, Urban Place, Estate y los demas tipos originales.
+
+Fuentes: https://www.citypopulation.de/en/poland/ y las paginas de
+localities enlazadas desde su indice nacional. Cubrir todos los voivodatos
+y subregiones de ese indice, no solo Jeleniogorski. Las subregiones y los
+totales regionales de las tablas son contexto y no ocupan un nivel nuevo.
+
+Cadena ordinaria: voivodato > condado > comuna > localidad.
+Las ciudades con rango de condado conservan su funcion L2 y su comuna L3.
+Si una comuna urbana y su localidad comparten nombre o Wikidata, conservar
+ambas filas y sus IDs distintos en L3 y L4. No fusionar esas funciones ni
+sumar sus poblaciones entre niveles. Conservar los tipos de la fuente.
+
+Las tablas de comunas de las paginas de localidades son contexto L3 para
+vincular las localidades L4. Reutilizar las comunas administrativas ya
+publicadas y sus datos mas recientes, sin sustituirlos por censos antiguos
+de las tablas de localidades. Conservar IDs, relaciones, traducciones y
+assets existentes. Las diferencias temporales entre el inventario censal
+y la administracion actual deben verificarse por identidad y por rama.
+
+Comprobar la cobertura por comuna contra todas las tablas fuente. No crear
+localidades ficticias para comunas que la fuente no desglosa; registrar las
+ausencias reales y conservar el ultimo nivel publicado para esas ramas.
+
+Respetar los codigos de origen en esta configuracion: comunas o localidades
+homonimas con codigos distintos no se fusionan por nombre ni por Wikidata.
+Los codigos numericos TERYT de comunas y SIMC de localidades pueden coincidir;
+desambiguar sus IDs por el padre, manteniendo la comuna y sus hijos en L3/L4.
+Las adscripciones de localidades a comunas homonimas se contrastan con P131
+y los QID publicados por la fuente, y se expresan con parent_overrides.
+Conservar el ID existente 2814024 para la localidad Biskupiec (SIMC 0964590),
+en L4 bajo la comuna 2814023; conservar su estimacion mas reciente de 2025.

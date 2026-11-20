@@ -1,0 +1,19 @@
+Argentina: incorporar todas las localidades publicadas por CityPopulation,
+incluidas sus partes, sin sustituirlas por aglomeraciones urbanas.
+
+Jerarquia ordinaria: pais L0 > provincia L1 > departamento o partido L2 >
+localidad L3. La pagina nacional admin conserva las entidades administrativas
+y sus cifras; las tablas provinciales de departamentos son solo contexto para
+enlazar las localidades. Mantener por separado filas con distintos codigos,
+aunque compartan nombre o QID.
+
+Buenos Aires: pais L0 > distrito federal L1 (02) > ciudad administrativa L2
+(02000) > Buenos Aires localidad L3 (02000_locality) > comunas L4 > barrios L5.
+Los distritos de Buenos Aires deben quedar por debajo de la ciudad localidad.
+Preservar las funciones repetidas con sus propios IDs y no sumar su poblacion
+entre niveles. La fuente publica 15 comunas y 47 filas de barrios, que incluyen
+la agrupacion Agronomia con Parque Chas tal como figura en CityPopulation.
+
+Conservar las 540 entidades originales, sus IDs, cifras, tipos y relaciones.
+Incorporar las localidades de las 23 provincias y la rama interna de CABA.
+No crear localidades inexistentes para departamentos sin capa publicada.

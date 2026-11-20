@@ -3,13 +3,27 @@
 Fecha: 2026-06-07  
 Proyecto: BEOGRAD-CITIES-POPULATION
 
+## Consolidación documental del 2026-11-19
+
+Se revisan README, AGENTS, documentación temática y skills de proyecto para
+recoger los cambios acumulados. El [estado actual](estado-actual.md) enlaza
+backends mantenidos, refactor por capas, configuración SQL, identidad y niveles,
+unidades de área, ciudades parciales, reconciliación territorial local/proveedor,
+frontend y pruebas. La migración Java y el flujo HTTP territorial siguen pendientes.
+La documentación antigua de retirada HTTP se identifica como histórica.
+Esta entrega documental no acredita nuevas reparaciones SQL ni repite suites
+de implementación; conserva separados sus resultados históricos.
+
 ## Regla principal indicada por Daniel
 
 No se debe cambiar nada que no se haya pedido explícitamente.
 
 ## Regla de documentación acumulativa
 
-Cada vez que se pida un cambio, se debe entregar este documento actualizado con lo hablado y cambiado. Esta documentación queda como registro vivo: debe añadirse lo tratado en conversaciones anteriores, la petición actual y las decisiones técnicas nuevas que deban mantenerse para conversaciones futuras.
+La regla vigente está en [AGENTS.md](../AGENTS.md): en tareas ordinarias se
+identifican los pendientes de documentación y se editan al pedir `documentacion`
+o documentación explícita. Este registro conserva las entregas históricas;
+la referencia transversal actual está en [estado acumulado](estado-actual.md).
 
 ## Contexto previo documentado de /configs/
 

@@ -2,9 +2,9 @@
 
 <div class="form-grid compact-form-grid new-country-data-form-grid">
   <label class="new-country-data-row">
-    {% trans "Codigo" %}
+    {% trans "ID" %}:
     {% if new_country_data_edit %}
-    <input class="code-input" value="{{ form.slug|upper }}" readonly>
+    <input class="code-input" value="{{ root_display_code|default:form.slug|upper }}" readonly>
     {% else %}
     <input class="code-input" name="slug" value="{{ form.slug }}" autocomplete="off" autocapitalize="characters" spellcheck="false" data-uppercase-code-input required>
     {% endif %}

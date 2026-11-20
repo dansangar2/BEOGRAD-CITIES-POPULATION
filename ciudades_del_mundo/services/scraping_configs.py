@@ -170,25 +170,39 @@ def upsert_scraping_config(slug: str, content: str, *, source_path: str = "") ->
     content = strip_config_base_url(content)
     metadata = parse_config_metadata(slug, content)
     digest = sha256(content.encode("utf-8")).hexdigest()
-    obj, _ = ScrapingConfig.objects.update_or_create(
-        slug=slug,
-        defaults={
-            "country_code": metadata.country_code,
-            "name": metadata.name,
-            "content": content,
-            "content_hash": digest,
-            "source_path": source_path,
-            "pages_count": metadata.pages_count,
-            "cities_count": metadata.cities_count,
-            "has_representation": metadata.has_representation,
-            "schema_version": metadata.schema_version,
-            "scrape_types": metadata.scrape_types,
-            "pages_config": list(metadata.pages_config),
-            "is_valid": metadata.is_valid,
-            "validation_error": metadata.validation_error,
-            "imported_at": timezone.now() if source_path else None,
-        },
-    )
+    defaults = {
+        "country_code": metadata.country_code,
+        "name": metadata.name,
+        "content": content,
+        "content_hash": digest,
+        "source_path": source_path,
+        "pages_count": metadata.pages_count,
+        "cities_count": metadata.cities_count,
+        "has_representation": metadata.has_representation,
+        "schema_version": metadata.schema_version,
+        "scrape_types": metadata.scrape_types,
+        "pages_config": list(metadata.pages_config),
+        "is_valid": metadata.is_valid,
+        "validation_error": metadata.validation_error,
+        "imported_at": timezone.now() if source_path else None,
+    }
+    with transaction.atomic():
+        obj, created = ScrapingConfig.objects.select_for_update().get_or_create(slug=slug, defaults=defaults)
+        if not created:
+            try:
+                previous_inputs = tomllib.loads(obj.content)
+                next_inputs = tomllib.loads(content)
+                # This SQL setting is consumed when selecting legal source units,
+                # independently of scraping. updated_at is the workflow's revision
+                # boundary: legal-only edits must preserve completed task results.
+                previous_inputs.pop("LEGAL_SUBDIVISION", None)
+                next_inputs.pop("LEGAL_SUBDIVISION", None)
+                scraping_changed = previous_inputs != next_inputs
+            except tomllib.TOMLDecodeError:
+                scraping_changed = True
+            for field, value in defaults.items():
+                setattr(obj, field, value)
+            obj.save(update_fields=[*defaults, *(["updated_at"] if scraping_changed else [])])
     return obj
 
 

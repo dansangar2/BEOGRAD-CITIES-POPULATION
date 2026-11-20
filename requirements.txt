@@ -1,0 +1,6 @@
+# Runtime versions verified for this repository (Python 3.13+).
+Django==5.2.8
+requests==2.32.5
+beautifulsoup4==4.14.2
+# lxml is optional: scraping falls back to html.parser.
+# XLSX generation uses the standard-library writer; openpyxl is not required.

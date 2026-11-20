@@ -1,0 +1,37 @@
+schema_version = 1
+kind = "derived_country_config"
+country = "imperio_austriaco"
+country_name = "Imperio Austriaco"
+municipal_level = 4
+slug = "imperio_austriaco_state_salzburgo"
+name = "Salzburgo"
+source_country_code = "austria"
+derived_country_code = "imperio_austriaco"
+parent_config_slug = "imperio_austriaco_prov_salzburgo"
+groups = []
+
+[selection]
+source_country_code = "austria"
+include_ids = ["austria_50101", "austria_50201", "austria_50202", "austria_50203", "austria_50204", "austria_50205", "austria_50206", "austria_50207", "austria_50208", "austria_50209", "austria_50210", "austria_50211", "austria_50212", "austria_50213", "austria_50301", "austria_50302", "austria_50303", "austria_50304", "austria_50305", "austria_50306", "austria_50307", "austria_50308", "austria_50309", "austria_50310", "austria_50311", "austria_50312", "austria_50313", "austria_50314", "austria_50315", "austria_50316", "austria_50317", "austria_50318", "austria_50319", "austria_50320", "austria_50321", "austria_50322", "austria_50323", "austria_50324", "austria_50325", "austria_50326", "austria_50327", "austria_50328", "austria_50329", "austria_50330", "austria_50331", "austria_50332", "austria_50335", "austria_50336", "austria_50337", "austria_50338", "austria_50339", "austria_50401", "austria_50402", "austria_50403", "austria_50404", "austria_50405", "austria_50406", "austria_50407", "austria_50408", "austria_50409", "austria_50410", "austria_50411", "austria_50412", "austria_50413", "austria_50414", "austria_50415", "austria_50416", "austria_50417", "austria_50418", "austria_50419", "austria_50420", "austria_50421", "austria_50422", "austria_50423", "austria_50424", "austria_50425", "austria_50501", "austria_50502", "austria_50503", "austria_50504", "austria_50505", "austria_50506", "austria_50507", "austria_50508", "austria_50509", "austria_50510", "austria_50511", "austria_50512", "austria_50513", "austria_50514", "austria_50515", "austria_50601", "austria_50603", "austria_50604", "austria_50605", "austria_50606", "austria_50607", "austria_50608", "austria_50609", "austria_50610", "austria_50611", "austria_50612", "austria_50613", "austria_50615", "austria_50616", "austria_50617", "austria_50618", "austria_50620", "austria_50621", "austria_50622", "austria_50623", "austria_50624", "austria_50625", "austria_50626", "austria_50627", "austria_50628"]
+subtract_ids = []
+include_codes = []
+subtract_codes = []
+group_slugs = []
+
+[[entities]]
+mode = "final"
+name = "Salzburgo"
+code = "SAL"
+entity_type = "Estado"
+level = 3
+parent_config_slug = "imperio_austriaco_prov_salzburgo"
+capitals = ["Salzburg"]
+use_selected_entities_as_children = false
+
+area_km2 = 6825.9
+pop_latest = 548568
+density = 80.37
+[[entities.include]]
+country_code = "austria"
+level = 3
+ids = ["austria_50101", "austria_50201", "austria_50202", "austria_50203", "austria_50204", "austria_50205", "austria_50206", "austria_50207", "austria_50208", "austria_50209", "austria_50210", "austria_50211", "austria_50212", "austria_50213", "austria_50301", "austria_50302", "austria_50303", "austria_50304", "austria_50305", "austria_50306", "austria_50307", "austria_50308", "austria_50309", "austria_50310", "austria_50311", "austria_50312", "austria_50313", "austria_50314", "austria_50315", "austria_50316", "austria_50317", "austria_50318", "austria_50319", "austria_50320", "austria_50321", "austria_50322", "austria_50323", "austria_50324", "austria_50325", "austria_50326", "austria_50327", "austria_50328", "austria_50329", "austria_50330", "austria_50331", "austria_50332", "austria_50335", "austria_50336", "austria_50337", "austria_50338", "austria_50339", "austria_50401", "austria_50402", "austria_50403", "austria_50404", "austria_50405", "austria_50406", "austria_50407", "austria_50408", "austria_50409", "austria_50410", "austria_50411", "austria_50412", "austria_50413", "austria_50414", "austria_50415", "austria_50416", "austria_50417", "austria_50418", "austria_50419", "austria_50420", "austria_50421", "austria_50422", "austria_50423", "austria_50424", "austria_50425", "austria_50501", "austria_50502", "austria_50503", "austria_50504", "austria_50505", "austria_50506", "austria_50507", "austria_50508", "austria_50509", "austria_50510", "austria_50511", "austria_50512", "austria_50513", "austria_50514", "austria_50515", "austria_50601", "austria_50603", "austria_50604", "austria_50605", "austria_50606", "austria_50607", "austria_50608", "austria_50609", "austria_50610", "austria_50611", "austria_50612", "austria_50613", "austria_50615", "austria_50616", "austria_50617", "austria_50618", "austria_50620", "austria_50621", "austria_50622", "austria_50623", "austria_50624", "austria_50625", "austria_50626", "austria_50627", "austria_50628"]

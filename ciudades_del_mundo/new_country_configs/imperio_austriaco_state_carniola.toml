@@ -1,0 +1,37 @@
+schema_version = 1
+kind = "derived_country_config"
+country = "imperio_austriaco"
+country_name = "Imperio Austriaco"
+municipal_level = 4
+slug = "imperio_austriaco_state_carniola"
+name = "Carniola"
+source_country_code = "slovenia"
+derived_country_code = "imperio_austriaco"
+parent_config_slug = "imperio_austriaco_prov_carniola"
+groups = []
+
+[selection]
+source_country_code = "slovenia"
+include_ids = ["slovenia_003", "slovenia_004", "slovenia_005", "slovenia_008", "slovenia_012", "slovenia_013", "slovenia_017", "slovenia_020", "slovenia_021", "slovenia_022", "slovenia_023", "slovenia_027", "slovenia_032", "slovenia_034", "slovenia_036", "slovenia_037", "slovenia_038", "slovenia_039", "slovenia_041", "slovenia_043", "slovenia_048", "slovenia_052", "slovenia_053", "slovenia_060", "slovenia_061", "slovenia_064", "slovenia_065", "slovenia_066", "slovenia_068", "slovenia_071", "slovenia_072", "slovenia_073", "slovenia_077", "slovenia_082", "slovenia_085", "slovenia_088", "slovenia_094", "slovenia_095", "slovenia_099", "slovenia_102", "slovenia_104", "slovenia_109", "slovenia_110", "slovenia_117", "slovenia_119", "slovenia_121", "slovenia_122", "slovenia_123", "slovenia_129", "slovenia_130", "slovenia_131", "slovenia_134", "slovenia_136", "slovenia_138", "slovenia_140", "slovenia_142", "slovenia_146", "slovenia_147", "slovenia_149", "slovenia_150", "slovenia_157", "slovenia_162", "slovenia_164", "slovenia_165", "slovenia_170", "slovenia_179", "slovenia_186", "slovenia_192", "slovenia_193", "slovenia_194", "slovenia_197", "slovenia_199", "slovenia_203", "slovenia_206", "slovenia_207", "slovenia_208", "slovenia_211", "slovenia_212"]
+subtract_ids = []
+include_codes = []
+subtract_codes = []
+group_slugs = []
+
+[[entities]]
+mode = "final"
+name = "Carniola"
+code = "CAI"
+entity_type = "Estado"
+level = 3
+parent_config_slug = "imperio_austriaco_prov_carniola"
+capitals = ["Ljubljana"]
+use_selected_entities_as_children = false
+
+area_km2 = 9608.8
+pop_latest = 1078343
+density = 112.22
+[[entities.include]]
+country_code = "slovenia"
+level = 2
+ids = ["slovenia_003", "slovenia_004", "slovenia_005", "slovenia_008", "slovenia_012", "slovenia_013", "slovenia_017", "slovenia_020", "slovenia_021", "slovenia_022", "slovenia_023", "slovenia_027", "slovenia_032", "slovenia_034", "slovenia_036", "slovenia_037", "slovenia_038", "slovenia_039", "slovenia_041", "slovenia_043", "slovenia_048", "slovenia_052", "slovenia_053", "slovenia_060", "slovenia_061", "slovenia_064", "slovenia_065", "slovenia_066", "slovenia_068", "slovenia_071", "slovenia_072", "slovenia_073", "slovenia_077", "slovenia_082", "slovenia_085", "slovenia_088", "slovenia_094", "slovenia_095", "slovenia_099", "slovenia_102", "slovenia_104", "slovenia_109", "slovenia_110", "slovenia_117", "slovenia_119", "slovenia_121", "slovenia_122", "slovenia_123", "slovenia_129", "slovenia_130", "slovenia_131", "slovenia_134", "slovenia_136", "slovenia_138", "slovenia_140", "slovenia_142", "slovenia_146", "slovenia_147", "slovenia_149", "slovenia_150", "slovenia_157", "slovenia_162", "slovenia_164", "slovenia_165", "slovenia_170", "slovenia_179", "slovenia_186", "slovenia_192", "slovenia_193", "slovenia_194", "slovenia_197", "slovenia_199", "slovenia_203", "slovenia_206", "slovenia_207", "slovenia_208", "slovenia_211", "slovenia_212"]

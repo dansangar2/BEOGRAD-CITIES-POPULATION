@@ -6,3 +6,9 @@ scrape_schema_version = 2
 source = "cities"
 path = ["cities"]
 include = { infosection = true, major_subdivision = true, cities = true }
+
+# The separate districts table belongs to the main island, not the last island row.
+[[parent_overrides]]
+codes = ["19631", "19643", "19634", "19644", "19633", "19638", "19632", "19642", "19630", "19640", "19641", "19639", "19636", "19629"]
+match_level = 2
+parent_code = "8956"

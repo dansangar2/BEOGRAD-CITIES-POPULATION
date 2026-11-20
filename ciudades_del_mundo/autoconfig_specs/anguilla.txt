@@ -1,0 +1,17 @@
+Objetivo territorial: conservar los niveles e identificadores de CityPopulation
+y corregir la pertenencia de los distritos a la isla principal.
+
+L0: territorio de Anguilla (codigo anguilla, Q25228).
+L1: isla principal Anguilla (8956) y Other Islands (8957).
+L2: los 14 distritos de la tabla ts, todos hijos de 8956.
+LEGAL_SUBDIVISION sigue siendo 2. Conservar los tipos originales, poblaciones,
+fechas, traducciones y codigos; no crear localidades ni subdivisiones ficticias.
+
+Conteos directos: territorio=2, isla principal=14, Other Islands=0.
+La tabla tl contiene las islas; la tabla ts independiente contiene distritos.
+No interpretar su posicion despues de Other Islands como pertenencia a esa fila.
+Los parent_overrides se limitan a los 14 codigos de distrito publicados.
+No sumar poblaciones entre niveles ni mezclar censos y estimaciones.
+Conservar el QID nacional y los assets del territorio y de su raiz.
+
+Fuente: https://www.citypopulation.de/en/anguilla/cities/

@@ -1,0 +1,236 @@
+/* Tablas de estadísticas: búsqueda, ordenación y anchos ajustados para datos numéricos completos. */
+.table-search-control {
+  margin: 10px 0 8px;
+}
+
+.table-search-control input {
+  width: 100%;
+}
+
+.table-empty-cell {
+  padding: 18px 12px;
+  text-align: center;
+  font-weight: 800;
+}
+
+.stats-empty-state {
+  display: grid;
+  min-height: 220px;
+  margin: 0;
+  padding: 24px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 850;
+  text-align: center;
+}
+
+.country-data-table {
+  min-width: 1100px;
+  table-layout: auto;
+}
+
+.country-data-table th,
+.country-data-table td,
+.first-order-legend-table th,
+.first-order-legend-table td,
+.first-order-summary-table th,
+.first-order-summary-table td,
+.stats-children-table th,
+.stats-children-table td {
+  white-space: nowrap;
+}
+
+.country-data-table th,
+.country-data-table td {
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.country-data-table th:nth-child(1),
+.country-data-table td:nth-child(1) {
+  width: 170px;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.country-data-table th:nth-child(2),
+.country-data-table td:nth-child(2) {
+  width: 160px;
+  min-width: 160px;
+}
+
+.country-data-table th:nth-child(3),
+.country-data-table td:nth-child(3),
+.country-data-table th:nth-child(5),
+.country-data-table td:nth-child(5),
+.country-data-table th:nth-child(7),
+.country-data-table td:nth-child(7) {
+  width: 118px;
+  min-width: 118px;
+}
+
+.country-data-table th:nth-child(4),
+.country-data-table td:nth-child(4),
+.country-data-table th:nth-child(6),
+.country-data-table td:nth-child(6) {
+  width: 72px;
+  min-width: 72px;
+}
+
+.country-data-table th:nth-child(8),
+.country-data-table td:nth-child(8) {
+  width: 160px;
+}
+
+.first-order-legend-table {
+  min-width: 760px;
+}
+
+.first-order-legend-table th:nth-child(2),
+.first-order-legend-table td:nth-child(2) {
+  width: 150px;
+}
+
+.first-order-legend-table th:nth-child(3),
+.first-order-legend-table td:nth-child(3) {
+  width: 140px;
+}
+
+.first-order-legend-table th:nth-child(4),
+.first-order-legend-table td:nth-child(4),
+.first-order-legend-table th:nth-child(6),
+.first-order-legend-table td:nth-child(6) {
+  width: 100px;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.first-order-legend-table th:nth-child(5),
+.first-order-legend-table td:nth-child(5),
+.first-order-legend-table th:nth-child(7),
+.first-order-legend-table td:nth-child(7) {
+  width: 66px;
+}
+
+.first-order-summary-table th:nth-child(2),
+.first-order-summary-table td:nth-child(2) {
+  width: 170px;
+}
+
+.first-order-summary-table th:nth-child(3),
+.first-order-summary-table td:nth-child(3) {
+  width: 150px;
+}
+
+.first-order-summary-table th:nth-child(4),
+.first-order-summary-table td:nth-child(4),
+.first-order-summary-table th:nth-child(6),
+.first-order-summary-table td:nth-child(6) {
+  width: 112px;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.first-order-summary-table th:nth-child(5),
+.first-order-summary-table td:nth-child(5),
+.first-order-summary-table th:nth-child(7),
+.first-order-summary-table td:nth-child(7) {
+  width: 70px;
+}
+
+.subdivision-share-wrap .first-order-summary-table {
+  min-width: 620px;
+}
+
+.subdivision-share-wrap .first-order-summary-table th:nth-child(2),
+.subdivision-share-wrap .first-order-summary-table td:nth-child(2) {
+  width: 120px;
+  max-width: 120px;
+}
+
+.subdivision-share-wrap .first-order-summary-table th:nth-child(3),
+.subdivision-share-wrap .first-order-summary-table td:nth-child(3) {
+  width: 120px;
+}
+
+.subdivision-share-wrap .first-order-summary-table th:nth-child(4),
+.subdivision-share-wrap .first-order-summary-table td:nth-child(4),
+.subdivision-share-wrap .first-order-summary-table th:nth-child(6),
+.subdivision-share-wrap .first-order-summary-table td:nth-child(6) {
+  width: 82px;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.subdivision-share-wrap .first-order-summary-table th:nth-child(5),
+.subdivision-share-wrap .first-order-summary-table td:nth-child(5),
+.subdivision-share-wrap .first-order-summary-table th:nth-child(7),
+.subdivision-share-wrap .first-order-summary-table td:nth-child(7) {
+  width: 58px;
+}
+
+.stats-children-wrap {
+  overflow-x: auto;
+}
+
+.stats-children-table {
+  min-width: 900px;
+  table-layout: fixed;
+}
+
+.stats-children-table th,
+.stats-children-table td {
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.stats-children-table th:nth-child(1),
+.stats-children-table td:nth-child(1) {
+  width: 26px;
+  text-align: center;
+}
+
+.stats-children-table th:nth-child(2),
+.stats-children-table td:nth-child(2) {
+  width: 138px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stats-children-table th:nth-child(3),
+.stats-children-table td:nth-child(3) {
+  width: 150px;
+}
+
+.stats-children-table th:nth-child(4),
+.stats-children-table td:nth-child(4),
+.stats-children-table th:nth-child(6),
+.stats-children-table td:nth-child(6),
+.stats-children-table th:nth-child(8),
+.stats-children-table td:nth-child(8) {
+  width: 102px;
+}
+
+.stats-children-table th:nth-child(5),
+.stats-children-table td:nth-child(5),
+.stats-children-table th:nth-child(7),
+.stats-children-table td:nth-child(7) {
+  width: 66px;
+}
+
+.stats-children-table th:nth-child(9),
+.stats-children-table td:nth-child(9) {
+  width: 62px;
+}
+
+.stats-child-name-cell strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+

@@ -11,6 +11,9 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import json
+import os
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,12 +23,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-#2**sshfws2y0!$d0n&xg@%g+e6p3x7t+6^%^yvzu&04*j$k(='
+_secret_file = BASE_DIR / '.web_django_secret'
+SECRET_KEY = os.environ.get('BEOGRAD_DJANGO_SECRET_KEY') or (
+    _secret_file.read_text(encoding='utf-8').strip() if _secret_file.is_file() else ''
+)
+if not SECRET_KEY:
+    raise ImproperlyConfigured('Set BEOGRAD_DJANGO_SECRET_KEY or start levantar_app.bat with backend=python to create a local key.')
+SECRET_KEY_FALLBACKS = json.loads(os.environ.get('BEOGRAD_DJANGO_SECRET_KEY_FALLBACKS', '[]'))
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('BEOGRAD_DJANGO_DEBUG', '1') == '1'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get('BEOGRAD_ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
 
 
 # Application definition
@@ -45,11 +54,11 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'ciudades_del_mundo.web.middleware.DatabaseBusyMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'ciudades_del_mundo.web.middleware.DatabaseBusyMiddleware',
 ]
 
 ROOT_URLCONF = 'ciudades_del_mundo.urls'

@@ -11,3 +11,51 @@ include = { infosection = true, major_subdivision = false, cities = false }
 source = "admin"
 path = ["admin"]
 include = { infosection = true, admin1 = true, admin2 = true }
+
+# Localities have island references from the cities table, not supervisory codes.
+[[pages]]
+source = "cities"
+path = ["cities"]
+force_highest_level = 2
+parent_level = 1
+preserve_source_codes = true
+include = { infosection = false, major_subdivision = false, cities = true }
+
+[[cities]]
+city = "Nassau"
+id = "17217"
+level = 2
+type = "City"
+parent_type = "Island"
+district_types = ["Supervisory District"]
+from = { 1 = ["01"] }
+communes = ["0101", "0102", "0103", "0104", "0105", "0106", "0107", "0108", "0109", "0110", "0111", "0112", "0113", "0114", "0115", "0116", "0117", "0118", "0119", "0120", "0121", "0122", "0123", "0124"]
+keep_communes = false
+
+[[parent_overrides]]
+codes = ["17217"]
+parent_code = "01"
+
+[[parent_overrides]]
+codes = ["17215"]
+parent_code = "02"
+
+[[parent_overrides]]
+codes = ["32935", "17216", "32936"]
+parent_code = "03"
+
+[[parent_overrides]]
+codes = ["19473"]
+parent_code = "07"
+
+[[parent_overrides]]
+codes = ["32937"]
+parent_code = "11"
+
+[[parent_overrides]]
+codes = ["17214"]
+parent_code = "12"
+
+[[parent_overrides]]
+codes = ["17219"]
+parent_code = "19"

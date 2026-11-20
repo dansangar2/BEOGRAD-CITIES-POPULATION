@@ -1,0 +1,10 @@
+schema_version = 1
+kind = "derived_subdivision_bundle"
+source_country_code = "serbia"
+
+[[subdivisions]]
+internal_name = "SERBIA_Y_BANATO_DE_TAMIS"
+name = "Serbia y Banato de Tamis"
+code = "SYT"
+entity_type = "Voivodato"
+content = "slug = \"austria_serbia_y_banato_de_tamis\"\nschema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"SERBIA_Y_BANATO_DE_TAMIS\"\nsource_country_code = \"serbia\"\nname = \"Serbia y Banato de Tamis\"\ncode = \"SYT\"\nentity_type = \"Voivodato\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Timiș\"]\n\n[[include]]\ncountry_code = \"serbia\"\nlevel = 1\nnames = []\nids = []\ncodes = []\ngroups = [\"SERBIA_A_BANATO_DISTRITOS\"]\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"serbia\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"SERBIA_A_BANATO_MUNICIPIOS\", \"SERBIA_HUNGARA_A_BANATO\"]\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"romania\"\nlevel = 2\nnames = [\"Timiș\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"hungary\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"HUNGRIA_A_BANATO\"]\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"romania\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"ARAD_A_BANATO\", \"MEHEDINITI_A_BANATO\"]\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"serbia\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"SERBIA_BANATO_A_HUNGRIA\"]\nderived_subdivisions = []\nexpressions = []\n"

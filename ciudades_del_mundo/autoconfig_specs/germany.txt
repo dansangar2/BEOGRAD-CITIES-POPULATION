@@ -1,0 +1,45 @@
+Objetivo territorial de Alemania
+
+L0: Alemania.
+L1: los 16 estados federados.
+L2: distritos y ciudades con rango de distrito; conservar los 400 IDs existentes.
+L3: todos los municipios/ciudades de las paginas completas de cada estado.
+L4: asentamientos censales publicados por CityPopulation y subdivisiones
+municipales de las ciudades que disponen de una pagina administrativa.
+L5: barrios y zonas estadisticas dependientes de las subdivisiones municipales.
+
+Cadena ordinaria:
+Bayern (09, L1) > Roth (09576, L2) > Abenberg (09576111, L3)
+> Abenberg asentamiento (09576111x0, L4).
+
+Una ciudad con rango de distrito ocupa dos funciones distintas:
+Bayern (L1) > Munchen distrito (09162, L2)
+> Munchen municipio (09162000, L3) > distrito municipal (L4) > barrio (L5).
+Conservar estas filas aunque compartan nombre, QID y poblacion.
+
+Berlin y Hamburg conservan igualmente las tres funciones territoriales:
+Berlin estado (11, L1) > Berlin distrito (11000, L2)
+> Berlin municipio (11000000, L3) > 12 distritos municipales (L4) > barrios (L5).
+Hamburg estado (02, L1) > Hamburg distrito (02000, L2)
+> Hamburg municipio (02000000, L3) > 7 distritos municipales (L4) > barrios (L5).
+Bremen estado mantiene las dos ciudades-distrito y sus respectivos municipios.
+
+Las tablas municipales usan codigos oficiales de ocho cifras. No sustituirlas
+por listados de ciudades grandes o por los IDs internos de cities/<estado>.
+Los asentamientos usan codigos propios con prefijo municipal y sufijo x;
+deben enlazarse al municipio, no al distrito mostrado en la columna County.
+Comprobar cambios municipales entre el censo de 2022 y los datos mas recientes.
+Los asentamientos publicados superan los 300 habitantes y son unidades
+morfologicas calculadas por CityPopulation: no representan todos los nucleos
+habitables ni deben completar artificialmente la poblacion municipal.
+
+Las subdivisiones urbanas son una rama administrativa distinta de la de los
+asentamientos; conservar sus tipos originales y su dependencia real.
+Los 23 Stadtteile de Bremen ocupan L4; cuatro figuran como Quarter en la
+fuente y tienen esa funcion municipal aunque carezcan de una capa inferior.
+Munchen tiene 25 distritos municipales: la fila M15 (Trudering-Riem) queda
+fuera de tbody en la pagina general y se obtiene de su propia ficha fuente.
+No duplicar ni inventar barrios cuando la fuente omita una capa.
+No importar agregados de areas urbanas como municipios o localidades.
+Mantener LEGAL_SUBDIVISION = 2, IDs anteriores y las cifras de cada fuente.
+La bandera y el escudo nacionales corresponden a Wikidata Q183.

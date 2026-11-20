@@ -1938,3 +1938,52 @@ msgstr "Ranking capital"
 
 msgid "Ranking ciudad mas poblada"
 msgstr "Ranking ciudad mas poblada"
+
+#, python-format
+msgid "El grupo %(group)s de %(country)s ya esta asignado en este pais nuevo a %(owners)s. Quita esa asignacion antes de usarlo en otra entidad."
+msgstr "Група %(group)s из %(country)s је већ додељена ентитету %(owners)s у овој новој држави. Уклоните ту доделу пре употребе групе у другом ентитету."
+
+#, python-format
+msgid "%(config)s: no se pudo sincronizar la resta automatica: %(error)s"
+msgstr "%(config)s: аутоматско одузимање није могло да се синхронизује: %(error)s"
+
+msgid "Nuevo"
+msgstr "Ново"
+
+msgid "Sin popular"
+msgstr "Непопулисано"
+
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/new_country_detail.html
+msgid "ID"
+msgstr "ID"
+
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/new_country_detail.html
+msgid "Sin selección, se suman los datos de los hijos."
+msgstr "Без избора сабирају се подаци свих подређених јединица."
+
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/new_country_detail.html
+msgid "La entidad padre no pertenece a este país."
+msgstr "Надређена јединица не припада овој земљи."
+
+
+msgid "Subdivisiones originales"
+msgstr "Изворне јединице"
+
+
+msgid "Plantilla"
+msgstr "Шаблон"
+
+
+msgid "Registro"
+msgstr "Запис"
+
+
+msgid "Introduce población y terreno a mano. Si dejas un campo vacío, se suman los valores de los hijos."
+msgstr "Унесите становништво и површину. Празно поље користи збир подређених јединица."
+
+
+msgid "Selecciona grupos o subdivisiones para calcular la población y el terreno."
+msgstr "Изаберите групе или поделе да бисте израчунали становништво и површину."

@@ -1,5 +1,72 @@
 # BEOGRAD-CITIES-POPULATION
 
+Los backends HTTP **Java y Python** están mantenidos. **Java tiene prioridad y es
+el valor predeterminado del selector**. En la revisión del 2026-11-19, el fichero
+[`backend.toml`](backend.toml) selecciona Python. Para activar Java usa:
+
+```toml
+backend = "java"
+```
+
+Para utilizar Python cambia la línea a `backend = "python"`, guarda y reinicia:
+
+```powershell
+.\levantar_app.bat
+# Puerto alternativo:
+.\levantar_app.bat 8080
+# Desde otra terminal:
+.\levantar_app.bat stop
+```
+
+La variable `$env:BEOGRAD_BACKEND = 'python'` (o `'java'`) tiene prioridad sobre
+el fichero. `Remove-Item Env:BEOGRAD_BACKEND` vuelve a usar el fichero.
+
+Ambos usan la base existente indicada en `backend-java/config/local.json` o
+`BEOGRAD_DATABASE` (ruta absoluta). El arranque no crea tablas ni migra/importa.
+Ambos modos requieren las dependencias de `requirements.txt` en `BEOGRAD_PYTHON`
+o el intérprete `py`. Java requiere además JDK 25 y se construye cuando cambian
+las fuentes. El lanzador crea una clave Django local si falta.
+
+En modo Java, Django sirve la UI en el puerto público y reenvía solo cinco rutas
+migradas a la JVM del puerto siguiente. Las páginas, detalles, editores, tareas,
+`/admin/` e `/i18n/` siguen en Django. En modo Python no se arranca la JVM.
+Un fallo Java devuelve error sin fallback. La cobertura de rutas aún difiere.
+Las futuras mejoras deben aplicarse y verificarse en ambas versiones, con
+prioridad a Java. Consulta [operación y límites](docs/architecture/python-http-retirement.md).
+
+## Reconciliación territorial asistida por IA (CLI)
+
+La CLI permite importar una referencia territorial revisada y evidencia congelada,
+proponer un plan, revisarlo y aplicarlo explícitamente sin modificar el TOML
+tradicional. `scrape_subdivisions <slug> --strategy ai --evidence-id <id>` usa
+el motor simbólico local por defecto, sin modelo remoto ni credenciales.
+`--ai-engine provider` selecciona el proveedor externo opcional. El scraping
+tradicional sigue por defecto. La integración HTTP territorial sigue pendiente
+en ambos modos. Consulta [datos requeridos, comandos, validación y
+prueba optativa del proveedor](docs/architecture/territorial-reconciliation.md).
+
+## Documentación del estado acumulado
+
+El [estado acumulado](docs/estado-actual.md) reúne backends, capas, scraping,
+reconciliación, jerarquías derivadas, frontend y límites de verificación.
+[AGENTS.md](AGENTS.md) contiene el índice de reglas. Las skills versionadas de
+[código](.agents/skills/beograd-code-generation/SKILL.md),
+[scraping](.agents/skills/beograd-scraping-configs/SKILL.md) y
+[derivados](.agents/skills/beograd-derived-data/SKILL.md) recogen instrucciones
+reutilizables. Las fechas y resultados antiguos no acreditan pruebas de hoy.
+
+## Edición de países derivados
+
+El panel de configuración de países derivados permite crear, editar y eliminar
+entidades guardadas, seleccionar orígenes por país y elegir capitales. Las
+rutas de este editor siguen en Django en ambos modos. Consulta
+[entidades guardadas](docs/architecture/derived.md#entidades-guardadas).
+
+## Backend Python
+
+Selecciona Python en `backend.toml` antes de usar `manage.py runserver`.
+El lanzador común configura el perfil local y la base existente.
+
 Proyecto Django para:
 
 - obtener divisiones administrativas y poblacion desde `citypopulation.de`
@@ -9,7 +76,14 @@ Proyecto Django para:
 
 ## Ejecutar en local
 
+Para instalar Python y las dependencias del proyecto, consulta
+[Desarrollo local](#desarrollo-local). Las versiones estan en `requirements.txt`.
+
 Desde la raiz del proyecto:
+
+La clave Django debe estar en `BEOGRAD_DJANGO_SECRET_KEY` o en el archivo local
+ignorado `.web_django_secret`. `levantar_app.bat` crea una clave cuando falta;
+no copies secretos a archivos versionados.
 
 ```powershell
 py manage.py runserver 127.0.0.1:8000
@@ -19,6 +93,16 @@ Abre `http://127.0.0.1:8000/` para el panel principal o
 `http://127.0.0.1:8000/countries/` para el navegador de paises. Usa
 `127.0.0.1` para que Django escuche solo en tu propia maquina; no uses
 `0.0.0.0` salvo que quieras exponerlo en tu red local.
+
+### API Java en migración
+
+La cobertura Java sigue incompleta. La JVM implementa sus casos de uso sin llamar
+a Python. `BEOGRAD_JAVA_ENABLED` es una variable interna que el supervisor
+configura en Django; selecciona el modo con `backend.toml` o `BEOGRAD_BACKEND`.
+Consulta el [inventario](docs/architecture/java-api-inventory.md).
+
+`levantar_app.bat prepare`, `build` y `rollback` son acciones de Java,
+independientes de la selección. `rollback` restaura el JAR, nunca datos.
 
 ### Primer arranque: cargar las configuraciones SQL iniciales
 
@@ -80,13 +164,25 @@ separado para importar/exportar solo bloques `[[cities]]` de unificacion de
 ciudades. Importarlos reemplaza esos bloques en la fila SQL `ScrapingConfig`,
 pero no toca `[[pages]]`, assets ni el resto de la configuracion.
 Cuando el editor `/configs/<slug>/` guarda una configuracion con `[[cities]]`
-pendientes y el pais ya tiene datos `AdminArea`, el sistema materializa esas
+y el pais ya tiene datos `AdminArea`, el sistema materializa esas
 ciudades en BBDD sin repetir el scraping. Para aplicar ese paso de forma
 explicita sobre una config ya guardada:
 
 ```powershell
 py manage.py materialize_city_merges <slug>
 ```
+
+El comando reaplica todos los bloques `[[cities]]` del pais, incluso las ciudades
+ya materializadas, sobre los datos SQL existentes. Actualiza sus padres y niveles,
+aplica las extensiones runtime y recalcula los enlaces de ciudad mas poblada sin
+scraping. Modifica `AdminArea`; no descarga nuevas poblaciones ni aplica los
+controles de identidad del parser a HTML antiguo. Sin slugs procesa todas las
+configuraciones SQL con ciudades configuradas.
+
+Las opciones de [identidad de origen](docs/architecture/scraping.md#source-identity-controls)
+permiten conservar filas distintas aunque compartan nombre o QID. Las selecciones
+de distritos en jerarquias derivadas conservan solo la parte elegida de la ciudad;
+consulta [ciudades parciales](docs/architecture/derived.md#partial-configured-city-selections).
 
 Cada configuracion CityPopulation describe:
 
@@ -120,6 +216,29 @@ territorial esperado, crea un fichero
 jerarquia persistida esperada por niveles, por ejemplo
 `Region > Departamento > Distrito > Comuna > Localidad`.
 
+Cada funcion territorial debe ocupar el mismo nivel en todas las ramas del pais,
+aunque CityPopulation omita capas o presente una ciudad con otra estructura.
+Si una entidad cumple varias funciones, se conserva repetida en niveles
+consecutivos, con IDs distintos. Por ejemplo, Austria debe mantener
+`Estado (L1) > Distrito (L2) > Ciudad/Comuna (L3) > Localidad (L4, si existe)`:
+Viena queda `Wien > Wien (Distrito/Ciudad Capital) > Wien (Ciudad)`, sin inventar
+localidades debajo. Los nombres o QID iguales entre niveles no justifican
+eliminar estas capas. Consulta la
+[regla de alineacion territorial](docs/architecture/scraping.md#country-wide-level-alignment).
+
+El [procedimiento general para futuros scrapings](docs/architecture/scraping-workflow.md)
+recoge el diagnostico de errores, el alcance de las claves TOML, los niveles de
+cada bloque, los QID y recursos nacionales, la validacion offline completa y la
+comprobacion final en SQL y en la API. Se aplica a cualquier pais; los niveles
+concretos se definen en su objetivo territorial. En Viena, los 23 distritos
+municipales se conservan bajo la ciudad de L3, en L4, con su tipo original.
+
+Guardar instrucciones o un TOML no reconstruye los datos existentes. Cuando
+se solicita reparar un pais ya importado, hay que aplicar tambien la correccion
+autorizada a esos datos y verificar los hijos directos que entrega la interfaz.
+Una tarea completada sin huerfanos no demuestra por si sola que la jerarquia
+sea correcta.
+
 Antes de pedir la correccion, genera el expediente offline:
 
 ```powershell
@@ -135,21 +254,51 @@ py manage.py prepare_ai_autoconfig --limit 5
 El expediente se guarda en `.web_ai_autoconfig/<slug>/` e incluye el `.txt`
 territorial, el TOML activo de `ScrapingConfig.content`, el ultimo log de
 validacion, el ultimo log de tarea y el indice de paginas scrapeadas mas
-reciente. No scrapea red ni modifica configuraciones. Los scrapes normales
+reciente. No scrapea red ni modifica configuraciones; genera archivos locales
+y ejecuta la retencion de logs antiguos. Revisa `toml_source`: si SQL no esta
+disponible o no existe la fila, el expediente puede mostrar la semilla local
+como referencia, sin convertirla en configuracion runtime. Los scrapes normales
 guardan snapshots de pagina en `.web_scrape_pages/<slug>/<task>/` con
 `index.jsonl`, HTML y entidades parseadas para que el agente pueda revisar la
 pagina exacta que produjo el error.
 
 ## Arquitectura
 
+La implementación web se organiza en `web/handlers/`, `web/forms/` y
+`web/queries/`. Las rutas importan sus handlers directamente; `web/views.py`
+conserva solo los imports públicos HTTP anteriores, sin reenviar patches.
+Las fuentes JavaScript/CSS están en `static/ciudades_del_mundo/src/` y se
+ensamblan con `py -B tools/build_web_assets.py` (verificación: `--check`).
+La [guía del refactor](docs/refactorizacion.md) describe estructura, convenciones,
+compatibilidad y límites; `AGENTS.md` enlaza las referencias temáticas.
+
+Para localizar la documentacion operativa:
+
+| Necesidad | Referencia |
+| --- | --- |
+| Configurar o reparar un pais de principio a fin | [Procedimiento general](docs/architecture/scraping-workflow.md) |
+| Distinguir consultas, validacion y escrituras | [Efectos de los comandos](docs/architecture/operations.md#command-effects) |
+| Revisar bloques, identidad y niveles | [Scraping y enlazado](docs/architecture/scraping.md) |
+| Entender los bloques separados de Viena | [Configuracion de Austria](docs/architecture/scraping.md#austria-vienna-blocks) |
+| Construir jerarquias y seleccionar ciudades parciales | [Jerarquias derivadas](docs/architecture/derived.md) |
+| Comprobar hijos visibles y carga por ramas | [Contratos del navegador de paises](docs/architecture/web.md#country-ui-hierarchy-detail) |
+| Consultar fallos previos de la suite | [Registro de validacion](docs/architecture/refactor-validation.md) |
+
+Para comprobar cambios sin abrir la base local ni realizar conexiones externas:
+
+```powershell
+$env:PYTHONDONTWRITEBYTECODE='1'
+py -B manage.py check --settings=ciudades_del_mundo.tests.isolated_settings
+py -B manage.py test ciudades_del_mundo.tests --settings=ciudades_del_mundo.tests.isolated_settings --noinput
+```
+
 El proyecto esta organizado por capas hexagonales. Para que una IA pueda leerlo
 sin mezclar responsabilidades, empieza por `AGENTS.md`, luego entra solo en la
 capa del cambio:
 
-Nota para agentes: cuando una peticion cambie una regla duradera de diseno,
-API, formularios, controladores o generacion de codigo, actualiza tambien la
-SKILL local correspondiente si esta disponible, ademas de `AGENTS.md` y la
-documentacion del repo.
+Nota para agentes: en tareas ordinarias identifica los pendientes de memoria,
+documentacion o SKILL local. Actualizalos con `documentacion` o cuando se pida
+documentacion expresamente; las reglas de trabajo estan en `AGENTS.md`.
 
 - `ciudades_del_mundo/domain`
   Modelos puros y logica de dominio: configuracion de scraping, DTOs, jerarquia y ciudad mas poblada. No importa Django ni adaptadores.
@@ -493,6 +642,32 @@ Ceuta/Melilla con `lowest_level = 2`. Esto evita que las localidades de Ceuta
 y Melilla se importen un nivel demasiado profundo o dependan de una raíz
 sintética `spain_spain`.
 
+Para aplicar la correccion de Cuba desde
+`ciudades_del_mundo/subdivisions/cuba.toml`:
+
+```powershell
+py manage.py sync_scraping_configs cuba --from-toml --force
+py manage.py validate_subdivision_configs cuba
+py manage.py scrape_subdivisions cuba --list-pages
+```
+
+`--force` reemplaza la configuracion SQL completa de Cuba por ese TOML;
+conserva o exporta previamente cualquier ajuste SQL que quieras mantener.
+La importacion actualiza la receta y sus metadatos, sin reconstruir los
+`AdminArea`. La validacion comprueba la configuracion y `--list-pages` muestra
+el plan sin descargar paginas; ninguno demuestra por si solo que el HTML
+produzca una jerarquia correcta.
+
+El bloque de La Habana incluye solo `cities`, con `force_highest_level = 2`
+y `parent_level = 1`. Un `[[parent_overrides]]` coloca los municipios `2301`
+a `2315` en L3 bajo la ciudad `2300001`. La cadena resultante es
+`La Habana (Prov) L1 > La Habana (Cd) L2 > La Habana (Municipios) L3`.
+Las demas provincias mantienen `Prov L1 > Municipios L2 > Localidades L3`.
+Consulta el
+[detalle de la configuracion y de la reparacion local](docs/architecture/scraping.md#cuba-havana-city).
+Los scripts temporales de esa reparacion no forman parte de la importacion
+TOML ni del flujo normal de scraping.
+
 Para reinstanciar las configs tocadas en la configuracion de Francia, Marruecos
 y Sahara Occidental desde sus TOML de `subdivisions/`:
 
@@ -651,7 +826,10 @@ queda persistido.
 `--resume` reutiliza checkpoints locales de paginas completadas para una
 recuperacion manual por CLI y solo descarga las paginas pendientes. Los
 checkpoints viven en `.web_scrape_resume/`, estan ignorados por Git, se invalidan cuando cambia el
-contenido SQL de la configuracion y se eliminan al terminar correctamente.
+contenido SQL de la configuracion o la version compatible de los datos parseados,
+y se eliminan al terminar correctamente. La version 2 descarta checkpoints
+anteriores a la correccion de hectareas, aunque no haya cambiado la configuracion;
+esas paginas se descargan y parsean de nuevo. Esto no modifica filas SQL ya guardadas.
 
 El fallback generico de Commons para assets solo se ejecuta automaticamente
 cuando un QID ya devolvio algun recurso en Wikidata y falta otro tipo solicitado
@@ -659,6 +837,26 @@ por la configuracion. Para forzar busqueda por nombre incluso en QIDs sin
 ningun recurso Wikidata, usa `visual_assets.commons_fallback_for_empty_qids =
 true` en la configuracion TOML SQL; puede ser lento en paises con muchos
 registros de primer nivel.
+
+### Superficies y unidades
+
+Las superficies se guardan en km2. El scraping convierte automaticamente las
+celdas expresadas en hectareas antes de sumar territorios y guardar datos:
+por ejemplo, 37424 hectareas de Mayotte equivalen a 374,24 km2. Los valores
+que la fuente ya entrega en km2 conservan su unidad; no hace falta introducir
+un override TOML para compensar las hectareas.
+
+La conversion mantiene el criterio de la fuente: superficie terrestre y
+superficie total con aguas no son intercambiables. Tambien respeta los
+territorios incluidos por la configuracion, como los departamentos franceses
+de ultramar o Kosovo. No se cambia ese ambito para ajustar un ranking.
+
+La correccion del parser se aplica a futuros scrapings. Los datos existentes
+requieren una reparacion SQL comprobada o un nuevo scraping; importar o validar
+el TOML no recalcula sus superficies. No dividas un pais entero entre 100:
+puede mezclar niveles que ya estan convertidos con otros afectados. Ver
+[reglas tecnicas](docs/architecture/scraping.md#area-units-and-territorial-scope)
+y [registro de la reparacion aplicada](docs/architecture/operations.md#hectare-repair-record-2026-10-22).
 
 ### Enriquecer textos dinamicos con IA
 
@@ -737,14 +935,16 @@ La ficha selecciona la traduccion del idioma activo
 y solo muestra texto heraldico/vexilologico curado. `media/visual_assets/` queda solo como fallback
 legacy o para reparaciones locales explicitas.
 `scrape_subdivisions_with_assets` reutiliza el HTML ya descargado por el
-scraping para registrar assets de CityPopulation del pais y de subdivisiones
-`AdminArea` de todos los niveles scrapeados por defecto. Si falta bandera,
-escudo o sello, los resuelve en ese momento contra Wikidata/Commons en servidor,
-guardando URL remota y traducciones, sin descargar los ficheros ni hacer que el
-navegador busque nada. Primero usa los QID `data-wd` que vengan en la
-pagina de CityPopulation; despues crea un indice SPARQL por QID de pais con
-`P17`, `P31`, `P131`, `P41`, `P94` y `P158`, y vincula los resultados a cada
-`AdminArea.id` persistiendo el QID en `ciudades_del_mundo_visual_asset`.
+scraping cuando necesita identificar el pais y resuelve los recursos despues
+de persistir sus filas. El flujo normal usa los QID `data_wd` de las
+subdivisiones, consulta los recursos Wikidata por lotes de QID concretos y
+guarda URLs y metadatos asociados a cada `AdminArea.id`. La busqueda masiva
+por pais es un camino legado que requiere configuracion expresa.
+Comprobar el QID nacional y los assets tanto de `country` como del `AdminArea`
+raiz: un QID guardado o encontrado por nombre puede corresponder a otra entidad.
+Las filas repetidas con el mismo QID pueden compartir bandera, escudo y
+traducciones. No se descargan imagenes por defecto ni se delega su busqueda en
+el navegador; verificar la URL final en el payload de la ficha.
 Usa `--skip-subdivision-assets` o `--subdivision-asset-levels` para ajustar ese
 coste. Si algunos recursos quedan sin asignar, se reportan como aviso
 `SCR-ASSET-W001` y el proceso continua. La seleccion de imagenes Wikidata
@@ -1057,7 +1257,11 @@ nueva la ficha interna legible
 `/identity/flag/entity/country/spain/`. Las rutas antiguas con
 `visual_assets/...` siguen resolviendo el asset guardado cuando existe.
 En `/countries/`, al seleccionar un pais se muestran dos recuadros: la ficha
-basica y las subdivisiones directas de primer nivel. La bandera y el
+basica y las subdivisiones del primer nivel disponible. En escritorio aparecen
+en paralelo y en pantallas de hasta 920px se apilan. Los controles de nivel y
+paginacion quedan antes de ambos recuadros, tambien en las vistas que comparten
+este navegador; su posicion no depende de que el pais sea NV0, NV1 o NV2.
+La bandera y el
 escudo/sello del pais salen solo del payload SQL de `/api/countries/`; si falta
 la fila `ciudades_del_mundo_visual_asset`, el navegador muestra el placeholder
 de bandera o escudo sin buscar en Wikidata, Wikimedia, TOML ni carpetas locales.
@@ -1066,15 +1270,48 @@ dibujan por CSS con colores del tema activo, no con emoji. Al abrir una
 subdivision, el navegador agrega otra ficha con su bandera/escudo y sus hijos
 directos; se puede seguir bajando con `/api/admin-areas/<area_id>/` hasta llegar
 a entidades sin hijos.
-La tabla general del pais puede cambiar de nivel con un selector situado en la
-zona de graficas/tabla, justo encima del titulo `Tabla de datos`, solo cuando
-hay mas de una opcion util. Si no se pide ningun nivel, se usa NV1. Las opciones
-del selector son los nombres de tipo del nivel y solo se ofrecen niveles con mas
-de 0 y hasta 500 registros en el pais. Si un nivel completo supera 500 registros
-pero contiene tipos navegables con 500 o menos filas, el selector ofrece esos
-tipos dentro del mismo nivel y deja de ofrecer niveles mas profundos; por
-ejemplo, Espana ofrece comunidades autonomas/ciudades autonomas y provincias,
-mientras Francia ofrece regiones, departamentos y distritos.
+El selector permite abrir cualquier nivel con datos visibles, incluidos los
+niveles grandes de municipios o localidades. La API pagina las filas: 20 por
+defecto, con opciones de 50 o 100; no se ocultan niveles por superar 500 filas.
+Sin un nivel solicitado se usa el primero disponible fuera de la raiz.
+
+La carga inicial pide solo el resumen de paises. Abrir Austria pide sus
+subdivisiones; abrir Tirol pide sus hijos directos segun la jerarquia guardada,
+y los niveles siguientes se solicitan al pulsarlos. El navegador envia
+`include_children=0` para no adelantar descendientes en las tarjetas del pais.
+El contrato predeterminado de la API conserva los detalles opcionales que usa
+el dashboard.
+
+Si ya hay un resumen guardado en la sesion de esta pestana, las tarjetas aparecen
+inmediatamente y se actualizan en segundo plano desde SQL. Mientras esa peticion
+no termine pueden mostrar el resumen anterior; si falla, se conserva la ultima
+respuesta disponible. Sin cache se muestra el indicador de carga habitual.
+Una respuesta identica no reconstruye las tarjetas ni reinicia sus imagenes.
+El resumen agrupa las consultas de raices, nombres revisados, assets y
+traducciones en lugar de repetirlas por pais. Esta pagina tampoco espera a
+jQuery, Select2 o Leaflet, que no necesita.
+
+Los fondos de los temas ocupan una capa fija y cubren toda la ventana aunque el
+contenido sea corto. Los efectos complejos mueven esa capa sin redibujar fondos
+y sombras de todas las tarjetas; la cabecera fija no aplica desenfoque continuo.
+Se respeta la preferencia del sistema de reducir movimiento. Tras cambiar los
+activos, las versiones de CSS y JS se actualizan juntas; si el navegador muestra
+una version anterior, usa `Ctrl+F5`.
+
+Para comprobar estos contratos sin abrir la base de datos local ni permitir
+conexiones externas en las pruebas Django:
+
+```powershell
+$env:PYTHONDONTWRITEBYTECODE='1'
+py manage.py test ciudades_del_mundo.tests.test_country_browser_loading ciudades_del_mundo.tests.test_web_modularity ciudades_del_mundo.tests.test_http_queries ciudades_del_mundo.tests.test_architecture_boundaries --settings=ciudades_del_mundo.tests.isolated_settings
+node --test tests/frontend/behavior.test.cjs
+py -B tools/build_web_assets.py --check
+```
+
+Los [contratos del navegador](docs/architecture/web.md#country-ui-hierarchy-detail)
+y las [comprobaciones de rendimiento](docs/architecture/operations.md#country-browser-performance-checks)
+detallan la cache, la carga por ramas y los limites de las mediciones locales.
+
 Las traducciones de nombres administrativos de Espana que no son simples cadenas
 de interfaz viven en `ciudades_del_mundo/web/spain_translations.py` para mantener
 juntas las equivalencias de CCAA, provincias, ciudades y tipos de entidad por
@@ -1285,6 +1522,11 @@ Secciones principales:
   fila SQL `SubdivisionGroup` e hidrata en el contexto inicial las listas planas
   antiguas de nombres o codigos; la plantilla no debe lanzar un POST inicial a
   `/groups/source-data/` solo para resolver badges seleccionados.
+  Las operaciones de sumar o restar de cada seleccion se conservan aunque no
+  abras su seccion, tambien al cargar sus hijos bajo demanda. Cancelar el modal
+  restaura tanto los elementos seleccionados como sus operaciones. Los IDs
+  explicitos permiten seleccionar solo algunos distritos de una ciudad unificada;
+  consulta [ciudades parciales](docs/architecture/derived.md#partial-configured-city-selections).
   `Importar TOML`
   en la cabecera importa todas las semillas; `Importar TOML` dentro del panel de
   un pais encola solo la semilla `subdivision_groups/groups/<pais>.toml` cuyo
@@ -1497,7 +1739,7 @@ Secciones principales:
   ciudades unificadas (`city_merge_status` 0 y 1), excluyendo las entidades
   fuente consumidas por una ciudad unificada (`city_merge_status` 2) para no
   duplicar terreno, poblacion ni `municipios_originales`.
-- `/countries/`: navegador de paises en tarjetas de 10 columnas, con slot
+- `/countries/`: navegador de paises en una rejilla adaptable de tarjetas, con slot
   cuadrado fijo para bandera registrada en SQL o placeholder local cuando no hay
   asset registrado, terreno y poblacion desde `/api/countries/`;
   al hacer clic carga la ficha basica del pais y sus subdivisiones directas desde
@@ -1673,23 +1915,34 @@ db.sqlite3
 Requisitos minimos:
 
 - Python 3.13+ o compatible con `tomllib`
-- Dependencias de Django, BeautifulSoup, requests y lxml
+- Django, BeautifulSoup y requests: versiones verificadas en `requirements.txt`
+- Node.js 20+ para pruebas de comportamiento del frontend, sin paquetes npm
+- `lxml` es opcional; el parser funciona con `html.parser`. XLSX usa el escritor
+  de biblioteca estandar incluido; no requiere `openpyxl`.
 
 Arranque tipico:
 
 ```powershell
 py -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 py manage.py migrate
 py manage.py runserver 127.0.0.1:8000
 ```
 
-Si no existe `requirements.txt`, instala al menos:
+Reconstruir y verificar los bundles:
 
 ```powershell
-pip install django requests beautifulsoup4 lxml openpyxl
+python -B -m tools.build_web_assets
+python -B -m tools.build_web_assets --check
+node --test tests/frontend/behavior.test.cjs
+node --test tests/frontend/group_selection.test.cjs
 ```
+
+La segunda prueba ejecuta el script del editor de grupos incluido en su plantilla.
+No necesita navegador ni paquetes npm. Para conocer que comprueba la copia limpia
+y como distinguir resultados historicos de una ejecucion nueva, consulta el
+[alcance de la verificacion offline](docs/architecture/operations.md#offline-verification-scope).
 
 ## Tests rapidos
 
@@ -1699,20 +1952,47 @@ de scraping, contenido TOML almacenado en SQL y logica de dominio antes de
 ejecutar operaciones caras.
 
 ```powershell
-py manage.py test ciudades_del_mundo.tests --verbosity 2
+$env:PYTHONDONTWRITEBYTECODE='1'
+python -B manage.py check --settings=ciudades_del_mundo.tests.isolated_settings
+python -B manage.py test ciudades_del_mundo.tests --settings=ciudades_del_mundo.tests.isolated_settings --noinput
 ```
+
+Para comprobar solo la conversion de superficies, las sumas de ultramar y la
+compatibilidad de checkpoints, con HTML simulado y SQL aislado:
+
+```powershell
+$env:PYTHONDONTWRITEBYTECODE='1'
+py -B manage.py test ciudades_del_mundo.tests.test_scraping_area_units --settings=ciudades_del_mundo.tests.isolated_settings --noinput
+```
+
+Este comando no descarga paginas ni modifica la base local. El
+[registro historico de hectareas](docs/architecture/operations.md#hectare-repair-record-2026-10-22)
+describe los resultados obtenidos durante la correccion; no garantiza el
+resultado de una ejecucion nueva.
 
 La suite incluye `test_architecture_boundaries.py`, que falla si `domain`,
 `ports` o `application` empiezan a importar capas externas y rompe la direccion
 hexagonal.
 
-Tambien puede ejecutarse con `unittest` directo:
+El bloque de correcciones de tareas y helpers HTTP puede validarse por separado:
 
 ```powershell
-py -m unittest discover ciudades_del_mundo\tests -v
+python -B manage.py test ciudades_del_mundo.tests.test_task_lifecycle ciudades_del_mundo.tests.test_architecture_boundaries --settings=ciudades_del_mundo.tests.isolated_settings --noinput
 ```
 
-Para comprobar las configuraciones reales almacenadas en SQL:
+Verificar una copia temporal limpia de las fuentes, sin la base local ni semillas:
+
+```powershell
+python -B -m tools.verify_clean_copy
+```
+
+Este comando usa el interprete activo, ejecuta `pip check`, comprueba los bundles,
+`check`, regresiones aisladas y el frontend. Puede elegirse otro interprete con
+`--python .venv\Scripts\python.exe`. La suite completa mantiene fallos previos
+documentados en [el registro de validacion](docs/architecture/refactor-validation.md).
+
+Para comprobar las configuraciones reales almacenadas en SQL (operacion distinta
+de la validacion aislada anterior):
 
 ```powershell
 py manage.py validate_subdivision_configs

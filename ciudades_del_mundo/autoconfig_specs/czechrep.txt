@@ -1,0 +1,22 @@
+Objetivo territorial de Chequia para los datos originales y las selecciones
+del Imperio Austriaco.
+
+L0: pais, obtenido del total nacional de /cities/.
+L1: regiones, las 14 filas admin1 de /admin/.
+L2: distritos, las 77 filas admin2 de /admin/.
+L3: municipios y ciudades, obtenidos de las 13 paginas regionales.
+
+La pagina /admin/ no contiene infosection. Sus dos tablas empiezan en L1.
+Las paginas regionales se usan sin su raiz: la tabla principal contiene
+distritos L2 y la tabla cities contiene municipios L3. No subir los distritos
+a L1 al omitir la cabecera regional.
+
+Praga ocupa explicitamente tres funciones consecutivas: region CZ010 en L1,
+distrito/ciudad CZ0100 en L2 y ciudad municipal CZ0100_city en L3. La ciudad
+municipal conserva la identidad Q1085 y los datos de CZ0100, sin inventar una
+localidad adicional. Debe existir una cadena de hijos directos 1 > 1 entre
+esas tres funciones.
+
+Conservar nombres, codigos y selecciones de las provincias historicas.
+No habilitar ciudades de todo el pais desde /cities/, pues esa tabla solo
+contiene una seleccion de ciudades y los municipios vienen de sus regiones.

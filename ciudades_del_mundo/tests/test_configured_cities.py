@@ -67,6 +67,48 @@ class ConfiguredCitiesTests(unittest.TestCase):
         self.assertEqual(by_code["south"].parent_code, "metro")
         self.assertEqual(by_code["south"].city_merge_status, CITY_MERGE_SOURCE)
 
+    def test_configured_city_shifts_sources_below_city_when_communes_are_hidden(self):
+        entities = [
+            ScrapedAdminArea(code="country", name="Country", level=0, country_code="x"),
+            ScrapedAdminArea(code="province", name="Province", level=1, country_code="x", parent_code="country"),
+            ScrapedAdminArea(
+                code="north",
+                name="North",
+                level=2,
+                country_code="x",
+                entity_type="District",
+                parent_code="province",
+            ),
+            ScrapedAdminArea(
+                code="block",
+                name="North Block",
+                level=3,
+                country_code="x",
+                entity_type="Block",
+                parent_code="north",
+            ),
+        ]
+        config = CityConfig(
+            name="Metro",
+            code="metro",
+            level=2,
+            entity_type="City",
+            district_types=("District",),
+            parent_from={1: ("Province",)},
+            communes=("North",),
+            keep_communes=False,
+        )
+
+        result = apply_configured_cities("x", entities, [config])
+
+        by_code = {entity.code: entity for entity in result}
+        self.assertEqual(by_code["north"].level, 3)
+        self.assertEqual(by_code["north"].parent_code, "metro")
+        self.assertEqual(by_code["north"].city_merge_status, CITY_MERGE_SOURCE)
+        self.assertEqual(by_code["block"].level, 4)
+        self.assertEqual(by_code["block"].parent_code, "north")
+        self.assertEqual(by_code["block"].city_merge_status, CITY_MERGE_SOURCE)
+
     def test_missing_configured_commune_reports_city_name(self):
         entities = [
             ScrapedAdminArea(code="country", name="Country", level=0, country_code="x"),

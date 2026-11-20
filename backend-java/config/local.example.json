@@ -1,0 +1,6 @@
+{
+  "java_home": "C:\\absolute path to JDK 25",
+  "database": "D:\\absolute path\\db.sqlite3",
+  "media_root": "D:\\absolute path\\media",
+  "startup_timeout": 45
+}

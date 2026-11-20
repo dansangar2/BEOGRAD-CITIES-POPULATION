@@ -1,9 +1,9 @@
 schema_version = 1
-kind = "subdivision_group"
+kind = "derived_subdivision_bundle"
 slug = "spanish_cuba"
 name = "Spanish Cuba"
 source_python = "ciudades_del_mundo/historical_divisions/spanish_cuba.py"
-source_country_code = ""
+source_country_code = "cuba"
 
 [selection]
 source_country_code = ""
@@ -17,3 +17,159 @@ include_names = []
 [legacy]
 # Mantiene la receta Python original hasta que el builder TOML cubra toda la l?gica.
 python_source = "A_CUBA_CENTRAL = [\"Villa Clara\", \"Cienfuegos\", \"Sancti Spíritus\"]\nSANCTI_SPIRITUS_A_ORIENTAL = LAS_VILLAS_A_PUERTO_PRINCIPE = [\"Jatibonico\"]\n\nA_CUBA_ORIENTAL = [\"Guantánamo\", \"Santiago de Cuba\", \"Holguín\", \"Granma\", \"Las Tunas\"]\nLAS_TUNAS_A_OCCIDENTAL = LAS_TUNAS_A_CENTRO = LAS_TUNAS_A_PUERTO_PRINCIPE = [\"Colombia\", \"Amancio\"]\n\nA_CUBA_OCCIDENTAL = [\"Pinar del Río\", \"Artemisa\", \"Ciudad de la Habana\", \"Mayabeque\", \"Isla de la Juventud\", \"Matanzas\"]\nMATANZAS_A_CENTRAL = MATANZAS_A_SANTA_CLARA = [\"Ciénaga de Zapata\"]\n\n\nA_PINAR_DEL_RIO = [\"Pinar del Río\", \"Artemisa\"]\nA_LA_HABANA = [\"Ciudad de la Habana\", \"Mayabeque\", \"Isla de la Juventud\"]\nA_MATANZAS = [\"Matanzas\"]\nA_SANTA_CLARA = [\"Villa Clara\", \"Cienfuegos\", \"Sancti Spíritus\"]\nA_PUERTO_PRINCIPE = [\"Ciego de Ávila\", \"Camagüey\"]\nA_SANTIAGO_DE_CUBA = [\"Las Tunas\", \"Holguín\", \"Granma\", \"Santiago de Cuba\", \"Guantánamo\"]\nARTEMISA_A_LA_HABANA = [\"Caimito\", \"Alquízar\", \"Bauta\", \"an Antonio de los Baños\", \"Güira de Melena\"]\n\n\n#=====EEUU===================\n\ndef _in_parent(parent: str, names: list[str]) -> list[str]:\n    return [f\"{parent}|{name}\" for name in names]\n\nFLORIDA_A_FLORIDA_OCCIDENTAL = _in_parent(\"Florida\", [\n    \"Franklin\", \"Liberty\", \"Jackson\", \"Calhoun\", \"Gulf\", \"Bay\",\n    \"Washington\", \"Holmes\", \"Walton\", \"Okaloosa\", \"Santa Rosa\", \"Escambia\",\n])\nALABAMA_A_FLORIDA_OCCIDENTAL = _in_parent(\"Alabama\", [\n    \"Russell\", \"Bullock\", \"Montgomery\", \"Lowndes\", \"Wilcox\", \"Marengo\", \"Choctaw\",\n    \"Washington\", \"Clarke\", \"Monroe\", \"Conecuh\", \"Butler\", \"Crenshaw\", \"Pike\",\n    \"Barbour\", \"Henry\", \"Houston\", \"Dale\", \"Geneva\", \"Coffee\", \"Covington\",\n    \"Escambia\", \"Baldwin\", \"Mobile\",\n])\nMISSISSIPI_A_FLORIDA_OCCIDENTAL = _in_parent(\"Mississippi\", [\n    \"Lauderdale\", \"Clarke\", \"Jasper\", \"Smith\", \"Scott\", \"Rankin\", \"Simpson\",\n    \"Copiah\", \"Hinds\", \"Warren\", \"Claiborne\", \"Jefferson\", \"Adams\", \"Franklin\",\n    \"Lincoln\", \"Lawrence\", \"Jefferson Davis\", \"Covington\", \"Jones\", \"Wayne\",\n    \"Greene\", \"Perry\", \"Forrest\", \"Lamar\", \"Marion\", \"Walthall\", \"Pike\",\n    \"Amite\", \"Wilkinson\", \"George\", \"Stone\", \"Pearl River\", \"Hancock\",\n    \"Harrison\", \"Jackson\",\n])\nLUISIANA_A_FLORIDA_OCCIDENTAL = _in_parent(\"Louisiana\", [\n    \"West Feliciana\", \"East Feliciana\", \"St. Helena\", \"Tangipahoa\", \"Washington\",\n    \"St. Tammany\", \"Livingston\", \"East Baton Rouge\",\n])\n\nALABAMA_A_FLORIDA_OCCIDENTAL_2 = _in_parent(\"Alabama\", [\n    \"Baldwin\", \"Mobile\",\n])\nMISSISSIPI_A_FLORIDA_OCCIDENTAL_2 = _in_parent(\"Mississippi\", [\n    \"George\", \"Stone\", \"Pearl River\", \"Hancock\", \"Harrison\", \"Jackson\",\n])\n\nNUEVO_MEXICO_A_LUISIANA = _in_parent(\"New Mexico\", [\n    \"Union\", \"Quay\", \"San Miguel\", \"Harding\", \"Mora\", \"Colfax\"\n])\n\nTEXAS_A_LUISIANA = _in_parent(\"Texas\", [\n    \"Dallam\", \"Sherman\", \"Hansford\", \"Ochiltree\", \"Lipscomb\", \"Hemphill\", \"Roberts\", \"Hutchinson\",\n    \"Moore\", \"Hartley\", \"Oldham\", \"Potter\", \"Carson\", \"Gray\", \"Wheeler\", \"Collingsworth\", \"Donley\",\n    \"Armstrong\", \"Randall\", \"Deaf Smith\", \"Castro\", \"Swisher\", \"Briscoe\", \"Hall\", \"Childress\",\n    \"Floyd\", \"Motley\", \"Dickens\", \"Cottle\", \"King\", \"Knox\", \"Foard\", \"Hardeman\", \"Wilbarger\", \"Baylor\",\n    \"Wichita\", \"Archer\", \"Clay\", \"Montague\", \"Grayson\", \"Fannin\", \"Lamar\", \"Delta\", \"Hopkins\", \"Red River\",\n    \"Franklin\", \"Titus\", \"Morris\", \"Camp\", \"Upshur\", \"Bowie\", \"Cass\", \"Marion\"\n])\n\nFLORIDA_ORIENTAL = {\n    \"name\": \"Florida Oriental\",\n    \"code\": \"FLR\",\n    \"entity_type\": \"Provincia\",\n    \"capitals\": [\"St. Augustine\"],\n    \"spec\": {\n        1:{\"usa\": [\"Florida\"]},\n        \"restar\": {2: {\"usa\": FLORIDA_A_FLORIDA_OCCIDENTAL}},\n    }\n}\n\nFLORIDA_OCCIDENTAL = {\n    \"name\": \"Florida Occidental\",\n    \"code\": \"FLC\",\n    \"entity_type\": \"Provincia\",\n    \"capitals\": [\"Pensacola\"],\n    \"spec\": {\n        2: {\"usa\": FLORIDA_A_FLORIDA_OCCIDENTAL + MISSISSIPI_A_FLORIDA_OCCIDENTAL + ALABAMA_A_FLORIDA_OCCIDENTAL + LUISIANA_A_FLORIDA_OCCIDENTAL},\n    }\n}\n\nFLORIDA_OCCIDENTAL_2 = {\n    \"name\": \"Florida Occidental\",\n    \"code\": \"FLC\",\n    \"entity_type\": \"Provincia\",\n    \"capitals\": [\"Pensacola\"],\n    \"spec\": {\n        2: {\"usa\": FLORIDA_A_FLORIDA_OCCIDENTAL + MISSISSIPI_A_FLORIDA_OCCIDENTAL_2 + ALABAMA_A_FLORIDA_OCCIDENTAL_2 + LUISIANA_A_FLORIDA_OCCIDENTAL},\n    }\n}\n\nLUISIANA = {\n    \"name\": \"Luisiana\",\n    \"code\": \"LUI\",\n    \"entity_type\": \"Provincia\",\n    \"capitals\": [\"New Orleans\"],\n    \"spec\": {\n        1:{\"usa\": [\n            \"Louisiana\", \"Oklahoma\", \"Arkansas\", \"Missouri\", \"Iowa\", \"Kansas\", \"Nebraska\",\n            \"Minnesota\", \"South Dakota\", \"North Dakota\", \"Montana\", \"Wyoming\", \"Colorado\"\n        ]},\n        2: {\"usa\": TEXAS_A_LUISIANA},\n        \"restar\": {\n            2: {\n                \"usa\": LUISIANA_A_FLORIDA_OCCIDENTAL + LUISIANA_A_TEXAS + COLORADO_A_CALIFORNIA +\n                       COLORADO_A_NUEVO_MEXICO + MINNESOTA_A_CANADA + WYOMING_A_CALIFORNIA +\n                       WYOMING_A_NUTKA + NUEVO_MEXICO_A_LUISIANA\n                }\n        },\n    }\n}\n\nDIVISIONS_XV = [\n    {\n        \"name\": \"Cuba\",\n        \"code\": \"CUB\",\n        \"capitals\": [\"Santiago de Cuba\"],\n        \"year_start\": 1510,\n        \"year_end\": 1606,\n        \"entity_type\": \"Provincia\",\n        \"spec\": {0: {\"cuba\": \"Cuba\"}}\n    },\n]\n\nDIVISIONS_XVII = [\n    {\n        \"name\": \"Occidente\",\n        \"code\": \"OCC\",\n        \"capitals\": [\"La Habana\"],\n        \"year_start\": 1607,\n        \"year_end\": 1773,\n        \"entity_type\": \"Provincia\",\n        \"spec\": {\n            1: {\"cuba\": A_CUBA_OCCIDENTAL + A_CUBA_CENTRAL},\n            \"restar\": {2: {\"cuba\": SANCTI_SPIRITUS_A_ORIENTAL}}\n        }\n    },\n    {\n        \"name\": \"Oriente\",\n        \"code\": \"ORI\",\n        \"capitals\": [\"Santiago de Cuba\"],\n        \"year_start\": 1607,\n        \"year_end\": 1773,\n        \"entity_type\": \"Provincia\",\n        \"spec\": {\n            1: {\"cuba\": A_CUBA_ORIENTAL},\n            2: {\"cuba\": SANCTI_SPIRITUS_A_ORIENTAL},\n        }\n    },\n]\n\nDIVISIONS_XVIII = [\n    {\n        \"name\": \"Occidente\",\n        \"code\": \"OCC\",\n        \"capitals\": [\"La Habana\"],\n        \"year_start\": [1774, 1853],\n        \"year_end\": [1826, 1877],\n        \"entity_type\": \"Provincia\",\n        \"spec\": {\n            0: {\"cuba\": \"Cuba\"},\n            2: {\"cuba\": LAS_TUNAS_A_OCCIDENTAL},\n            \"restar\": {1: {\"cuba\": A_CUBA_ORIENTAL}}\n        }\n    },\n    {\n        \"name\": \"Oriente\",\n        \"code\": \"ORI\",\n        \"capitals\": [\"Santiago de Cuba\"],\n        \"year_start\": [1774, 1853],\n        \"year_end\": [1826, 1877],\n        \"entity_type\": \"Provincia\",\n        \"spec\": {\n            1: {\"cuba\": A_CUBA_ORIENTAL},\n            \"restar\": {2: {\"cuba\": LAS_TUNAS_A_OCCIDENTAL}}\n        }\n    },\n]\nDIVISIONS_XVIII_2 = [\n    {\n        \"name\": \"Occidente\",\n        \"code\": \"OCC\",\n        \"capitals\": [\"La Habana\"],\n        \"year_start\": 1850,\n        \"year_end\": 1852,\n        \"entity_type\": \"Provincia\",\n        \"spec\": {\n            1: {\"cuba\": A_CUBA_OCCIDENTAL},\n            \"restar\": {1: {\"cuba\": MATANZAS_A_CENTRAL}}\n        }\n    },\n    {\n        \"name\": \"Central\",\n        \"code\": \"CEN\",\n        \"capitals\": [\"Camagüey\"],\n        \"year_start\": 1850,\n        \"year_end\": 1852,\n        \"entity_type\": \"Provincia\",\n        \"spec\": {\n            0: {\"cuba\": \"Cuba\"},\n            2: {\"cuba\": MATANZAS_A_CENTRAL + LAS_TUNAS_A_CENTRO},\n            \"restar\": {2: {\"cuba\": A_CUBA_OCCIDENTAL + A_CUBA_ORIENTAL}}\n        }\n    },\n    {\n        \"name\": \"Oriente\",\n        \"code\": \"ORI\",\n        \"capitals\": [\"Santiago de Cuba\"],\n        \"year_start\": 1850,\n        \"year_end\": 1852,\n        \"entity_type\": \"Provincia\",\n        \"spec\": {\n            1: {\"cuba\": A_CUBA_ORIENTAL},\n            \"restar\": {2: {\"cuba\": LAS_TUNAS_A_CENTRO}}\n        }\n    },\n]\nDIVISIONS_XIX = [\n    {\n        \"name\": \"Pinar del Río\",\n        \"code\": \"PIR\",\n        \"capitals\": [\"Pinar del Río\"],\n        \"year_start\": 1878,\n        \"entity_type\": \"Provincia\",\n        \"spec\": {\n            1: {\"cuba\": A_PINAR_DEL_RIO},\n            \"restar\": {2: {\"cuba\": ARTEMISA_A_LA_HABANA}}\n        }\n    },\n    {\n        \"name\": \"La Habana\",\n        \"code\": \"HAB\",\n        \"capitals\": [\"La Habana\"],\n        \"year_start\": 1878,\n        \"entity_type\": \"Provincia\",\n        \"spec\": {\n            1: {\"cuba\": A_LA_HABANA},\n            2: {\"cuba\": ARTEMISA_A_LA_HABANA},\n        }\n    },\n    {\n        \"name\": \"Matanzas\",\n        \"code\": \"MAT\",\n        \"capitals\": [\"Matanzas\"],\n        \"year_start\": 1878,\n        \"entity_type\": \"Provincia\",\n        \"spec\": {\n            1: {\"cuba\": A_MATANZAS},\n            \"restar\": {2: {\"cuba\": MATANZAS_A_SANTA_CLARA}}\n        }\n    },\n    {\n        \"name\": \"Santa Clara\",\n        \"code\": \"SCL\",\n        \"capitals\": [\"Santa Clara\"],\n        \"year_start\": 1878,\n        \"entity_type\": \"Provincia\",\n        \"spec\": {\n            1: {\"cuba\": A_SANTA_CLARA},\n            2: {\"cuba\": MATANZAS_A_SANTA_CLARA},\n            \"restar\": {2: {\"cuba\": LAS_VILLAS_A_PUERTO_PRINCIPE}}\n        }\n    },\n    {\n        \"name\": \"Puerto Príncipe\",\n        \"code\": \"PPR\",\n        \"capitals\": [\"Camagüey\"],\n        \"year_start\": 1878,\n        \"entity_type\": \"Provincia\",\n        \"spec\": {\n            1: {\"cuba\": A_PUERTO_PRINCIPE},\n            2: {\"cuba\": LAS_TUNAS_A_PUERTO_PRINCIPE + LAS_VILLAS_A_PUERTO_PRINCIPE},\n        }\n    },\n    {\n        \"name\": \"Santiago de Cuba\",\n        \"code\": \"SCU\",\n        \"capitals\": [\"Santiago de Cuba\"],\n        \"year_start\": 1878,\n        \"entity_type\": \"Provincia\",\n        \"spec\": {\n            1: {\"cuba\": A_SANTIAGO_DE_CUBA},\n            \"restar\": {2: {\"cuba\": LAS_TUNAS_A_PUERTO_PRINCIPE}}\n        }\n    },\n]\n"
+
+[[subdivisions]]
+internal_name = "FLORIDA_ORIENTAL"
+slug = "usa_florida_oriental"
+source_country_code = "usa"
+name = "Florida Oriental"
+code = "FLR"
+entity_type = "Provincia"
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"FLORIDA_ORIENTAL\"\nsource_country_code = \"usa\"\nname = \"Florida Oriental\"\ncode = \"FLR\"\nentity_type = \"Provincia\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"St. Augustine\"]\n\n[[include]]\ncountry_code = \"usa\"\nlevel = 1\nnames = [\"Florida\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"usa\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"FLORIDA_A_FLORIDA_OCCIDENTAL\"]\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "FLORIDA_OCCIDENTAL"
+slug = "usa_florida_occidental"
+source_country_code = "usa"
+name = "Florida Occidental"
+code = "FLC"
+entity_type = "Provincia"
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"FLORIDA_OCCIDENTAL\"\nsource_country_code = \"usa\"\nname = \"Florida Occidental\"\ncode = \"FLC\"\nentity_type = \"Provincia\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Pensacola\"]\n\n[[include]]\ncountry_code = \"usa\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"FLORIDA_A_FLORIDA_OCCIDENTAL\", \"MISSISSIPI_A_FLORIDA_OCCIDENTAL\", \"ALABAMA_A_FLORIDA_OCCIDENTAL\", \"LUISIANA_A_FLORIDA_OCCIDENTAL\"]\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "FLORIDA_OCCIDENTAL_2"
+slug = "usa_florida_occidental_2"
+source_country_code = "usa"
+name = "Florida Occidental"
+code = "FLC"
+entity_type = "Provincia"
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"FLORIDA_OCCIDENTAL_2\"\nsource_country_code = \"usa\"\nname = \"Florida Occidental\"\ncode = \"FLC\"\nentity_type = \"Provincia\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Pensacola\"]\n\n[[include]]\ncountry_code = \"usa\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"FLORIDA_A_FLORIDA_OCCIDENTAL\", \"MISSISSIPI_A_FLORIDA_OCCIDENTAL_2\", \"ALABAMA_A_FLORIDA_OCCIDENTAL_2\", \"LUISIANA_A_FLORIDA_OCCIDENTAL\"]\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "LUISIANA"
+slug = "usa_luisiana"
+source_country_code = "usa"
+name = "Luisiana"
+code = "LUI"
+entity_type = "Provincia"
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"LUISIANA\"\nsource_country_code = \"usa\"\nname = \"Luisiana\"\ncode = \"LUI\"\nentity_type = \"Provincia\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"New Orleans\"]\n\n[[include]]\ncountry_code = \"usa\"\nlevel = 1\nnames = [\"Louisiana\", \"Oklahoma\", \"Arkansas\", \"Missouri\", \"Iowa\", \"Kansas\", \"Nebraska\", \"Minnesota\", \"South Dakota\", \"North Dakota\", \"Montana\", \"Wyoming\", \"Colorado\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"usa\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"TEXAS_A_LUISIANA\"]\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"usa\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"LUISIANA_A_FLORIDA_OCCIDENTAL\", \"LUISIANA_A_TEXAS\", \"COLORADO_A_CALIFORNIA\", \"COLORADO_A_NUEVO_MEXICO\", \"MINNESOTA_A_CANADA\", \"WYOMING_A_CALIFORNIA\", \"WYOMING_A_NUTKA\", \"NUEVO_MEXICO_A_LUISIANA\"]\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "CENTRAL_XVIII_2"
+slug = "cuba_central_xviii_2"
+source_country_code = "cuba"
+name = "Central (1850-1852)"
+code = "CEN"
+entity_type = "Provincia"
+description = "Division historica: 1850-1852."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"CENTRAL_XVIII_2\"\nsource_country_code = \"cuba\"\nname = \"Central (1850-1852)\"\ncode = \"CEN\"\nentity_type = \"Provincia\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Camagüey\"]\n\nsource_groups = [\"A_CUBA_CENTRAL\", \"A_PUERTO_PRINCIPE\", \"MATANZAS_A_CENTRAL\", \"LAS_TUNAS_A_CENTRO\"]\n\nyear_start = 1850\nyear_end = 1852\n\n[[include]]\ncountry_code = \"cuba\"\nlevel = 1\nnames = [\"Villa Clara\", \"Cienfuegos\", \"Sancti Spíritus\", \"Ciego de Ávila\", \"Camagüey\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"cuba\"\nlevel = 2\nnames = [\"Ciénaga de Zapata\", \"Colombia\", \"Amancio\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "CUBA_XV"
+slug = "cuba_cuba_xv"
+source_country_code = "cuba"
+name = "Cuba (1510-1606)"
+code = "CUB"
+entity_type = "Provincia"
+description = "Division historica: 1510-1606."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"CUBA_XV\"\nsource_country_code = \"cuba\"\nname = \"Cuba (1510-1606)\"\ncode = \"CUB\"\nentity_type = \"Provincia\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Santiago de Cuba\"]\n\nsource_groups = []\n\nyear_start = 1510\nyear_end = 1606\n\n[[include]]\ncountry_code = \"cuba\"\nlevel = 0\nnames = [\"Cuba\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "LA_HABANA_XIX"
+slug = "cuba_la_habana_xix"
+source_country_code = "cuba"
+name = "La Habana (1878)"
+code = "HAB"
+entity_type = "Provincia"
+description = "Division historica: 1878."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"LA_HABANA_XIX\"\nsource_country_code = \"cuba\"\nname = \"La Habana (1878)\"\ncode = \"HAB\"\nentity_type = \"Provincia\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"La Habana\"]\n\nsource_groups = [\"A_LA_HABANA\", \"ARTEMISA_A_LA_HABANA\"]\n\nyear_start = 1878\n\n[[include]]\ncountry_code = \"cuba\"\nlevel = 1\nnames = [\"Ciudad de la Habana\", \"Mayabeque\", \"Isla de la Juventud\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"cuba\"\nlevel = 2\nnames = [\"Caimito\", \"Alquízar\", \"Bauta\", \"San Antonio de los Baños\", \"Güira de Melena\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "MATANZAS_XIX"
+slug = "cuba_matanzas_xix"
+source_country_code = "cuba"
+name = "Matanzas (1878)"
+code = "MAT"
+entity_type = "Provincia"
+description = "Division historica: 1878."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"MATANZAS_XIX\"\nsource_country_code = \"cuba\"\nname = \"Matanzas (1878)\"\ncode = \"MAT\"\nentity_type = \"Provincia\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Matanzas\"]\n\nsource_groups = [\"A_MATANZAS\", \"MATANZAS_A_CENTRAL\"]\n\nyear_start = 1878\n\n[[include]]\ncountry_code = \"cuba\"\nlevel = 1\nnames = [\"Matanzas\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"cuba\"\nlevel = 2\nnames = [\"Ciénaga de Zapata\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "OCCIDENTE_XVII"
+slug = "cuba_occidente_xvii"
+source_country_code = "cuba"
+name = "Occidente (1607-1773)"
+code = "OCC"
+entity_type = "Provincia"
+description = "Division historica: 1607-1773."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"OCCIDENTE_XVII\"\nsource_country_code = \"cuba\"\nname = \"Occidente (1607-1773)\"\ncode = \"OCC\"\nentity_type = \"Provincia\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"La Habana\"]\n\nsource_groups = [\"A_CUBA_ORIENTAL\", \"LAS_VILLAS_A_PUERTO_PRINCIPE\"]\n\nyear_start = 1607\nyear_end = 1773\n\n[[include]]\ncountry_code = \"cuba\"\nlevel = 0\nnames = [\"Cuba\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"cuba\"\nlevel = 1\nnames = [\"Guantánamo\", \"Santiago de Cuba\", \"Holguín\", \"Granma\", \"Las Tunas\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"cuba\"\nlevel = 2\nnames = [\"Jatibonico\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "OCCIDENTE_XVIII"
+slug = "cuba_occidente_xviii"
+source_country_code = "cuba"
+name = "Occidente (1774-1826 y 1853-1877)"
+code = "OCC"
+entity_type = "Provincia"
+description = "Division historica: 1774-1826 y 1853-1877."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"OCCIDENTE_XVIII\"\nsource_country_code = \"cuba\"\nname = \"Occidente (1774-1826 y 1853-1877)\"\ncode = \"OCC\"\nentity_type = \"Provincia\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"La Habana\"]\n\nsource_groups = [\"A_CUBA_OCCIDENTAL\", \"A_CUBA_CENTRAL\", \"A_PUERTO_PRINCIPE\", \"LAS_TUNAS_A_CENTRO\"]\n\nyear_start = [1774, 1853]\nyear_end = [1826, 1877]\n\n[[include]]\ncountry_code = \"cuba\"\nlevel = 1\nnames = [\"Pinar del Río\", \"Artemisa\", \"Ciudad de la Habana\", \"Mayabeque\", \"Isla de la Juventud\", \"Matanzas\", \"Villa Clara\", \"Cienfuegos\", \"Sancti Spíritus\", \"Ciego de Ávila\", \"Camagüey\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"cuba\"\nlevel = 2\nnames = [\"Colombia\", \"Amancio\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "OCCIDENTE_XVIII_2"
+slug = "cuba_occidente_xviii_2"
+source_country_code = "cuba"
+name = "Occidente (1850-1852)"
+code = "OCC"
+entity_type = "Provincia"
+description = "Division historica: 1850-1852."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"OCCIDENTE_XVIII_2\"\nsource_country_code = \"cuba\"\nname = \"Occidente (1850-1852)\"\ncode = \"OCC\"\nentity_type = \"Provincia\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"La Habana\"]\n\nsource_groups = [\"A_CUBA_OCCIDENTAL\", \"MATANZAS_A_CENTRAL\"]\n\nyear_start = 1850\nyear_end = 1852\n\n[[include]]\ncountry_code = \"cuba\"\nlevel = 1\nnames = [\"Pinar del Río\", \"Artemisa\", \"Ciudad de la Habana\", \"Mayabeque\", \"Isla de la Juventud\", \"Matanzas\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"cuba\"\nlevel = 2\nnames = [\"Ciénaga de Zapata\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "ORIENTE_XVII"
+slug = "cuba_oriente_xvii"
+source_country_code = "cuba"
+name = "Oriente (1607-1773)"
+code = "ORI"
+entity_type = "Provincia"
+description = "Division historica: 1607-1773."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"ORIENTE_XVII\"\nsource_country_code = \"cuba\"\nname = \"Oriente (1607-1773)\"\ncode = \"ORI\"\nentity_type = \"Provincia\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Santiago de Cuba\"]\n\nsource_groups = [\"A_CUBA_ORIENTAL\", \"LAS_VILLAS_A_PUERTO_PRINCIPE\"]\n\nyear_start = 1607\nyear_end = 1773\n\n[[include]]\ncountry_code = \"cuba\"\nlevel = 1\nnames = [\"Guantánamo\", \"Santiago de Cuba\", \"Holguín\", \"Granma\", \"Las Tunas\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"cuba\"\nlevel = 2\nnames = [\"Jatibonico\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "ORIENTE_XVIII"
+slug = "cuba_oriente_xviii"
+source_country_code = "cuba"
+name = "Oriente (1774-1826 y 1853-1877)"
+code = "ORI"
+entity_type = "Provincia"
+description = "Division historica: 1774-1826 y 1853-1877. Equivalente a Oriente (1850-1852) y Santiago de Cuba (1878)."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"ORIENTE_XVIII\"\nsource_country_code = \"cuba\"\nname = \"Oriente (1774-1826 y 1853-1877)\"\ncode = \"ORI\"\nentity_type = \"Provincia\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Santiago de Cuba\"]\n\nsource_groups = [\"A_CUBA_ORIENTAL\", \"LAS_TUNAS_A_CENTRO\"]\n\nyear_start = [1774, 1853]\nyear_end = [1826, 1877]\n\n[[include]]\ncountry_code = \"cuba\"\nlevel = 1\nnames = [\"Guantánamo\", \"Santiago de Cuba\", \"Holguín\", \"Granma\", \"Las Tunas\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"cuba\"\nlevel = 2\nnames = [\"Colombia\", \"Amancio\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[historical_variants]]\noriginal_slug = \"cuba_oriente_xviii_2\"\ninternal_name = \"ORIENTE_XVIII_2\"\nname = \"Oriente (1850-1852)\"\nyear_start = 1850\nyear_end = 1852\n\n[[historical_variants]]\noriginal_slug = \"cuba_santiago_de_cuba_xix\"\ninternal_name = \"SANTIAGO_DE_CUBA_XIX\"\nname = \"Santiago de Cuba (1878)\"\nyear_start = 1878\n"
+
+[[subdivisions]]
+internal_name = "PINAR_DEL_RIO_XIX"
+slug = "cuba_pinar_del_rio_xix"
+source_country_code = "cuba"
+name = "Pinar del Río (1878)"
+code = "PIR"
+entity_type = "Provincia"
+description = "Division historica: 1878."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"PINAR_DEL_RIO_XIX\"\nsource_country_code = \"cuba\"\nname = \"Pinar del Río (1878)\"\ncode = \"PIR\"\nentity_type = \"Provincia\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Pinar del Río\"]\n\nsource_groups = [\"A_PINAR_DEL_RIO\", \"ARTEMISA_A_LA_HABANA\"]\n\nyear_start = 1878\n\n[[include]]\ncountry_code = \"cuba\"\nlevel = 1\nnames = [\"Pinar del Río\", \"Artemisa\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"cuba\"\nlevel = 2\nnames = [\"Caimito\", \"Alquízar\", \"Bauta\", \"San Antonio de los Baños\", \"Güira de Melena\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "PUERTO_PRINCIPE_XIX"
+slug = "cuba_puerto_principe_xix"
+source_country_code = "cuba"
+name = "Puerto Príncipe (1878)"
+code = "PPR"
+entity_type = "Provincia"
+description = "Division historica: 1878."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"PUERTO_PRINCIPE_XIX\"\nsource_country_code = \"cuba\"\nname = \"Puerto Príncipe (1878)\"\ncode = \"PPR\"\nentity_type = \"Provincia\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Camagüey\"]\n\nsource_groups = [\"A_PUERTO_PRINCIPE\", \"LAS_TUNAS_A_CENTRO\", \"LAS_VILLAS_A_PUERTO_PRINCIPE\"]\n\nyear_start = 1878\n\n[[include]]\ncountry_code = \"cuba\"\nlevel = 1\nnames = [\"Ciego de Ávila\", \"Camagüey\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"cuba\"\nlevel = 2\nnames = [\"Colombia\", \"Amancio\", \"Jatibonico\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "SANTA_CLARA_XIX"
+slug = "cuba_santa_clara_xix"
+source_country_code = "cuba"
+name = "Santa Clara (1878)"
+code = "SCL"
+entity_type = "Provincia"
+description = "Division historica: 1878."
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"SANTA_CLARA_XIX\"\nsource_country_code = \"cuba\"\nname = \"Santa Clara (1878)\"\ncode = \"SCL\"\nentity_type = \"Provincia\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Santa Clara\"]\n\nsource_groups = [\"A_CUBA_CENTRAL\", \"MATANZAS_A_CENTRAL\", \"LAS_VILLAS_A_PUERTO_PRINCIPE\"]\n\nyear_start = 1878\n\n[[include]]\ncountry_code = \"cuba\"\nlevel = 1\nnames = [\"Villa Clara\", \"Cienfuegos\", \"Sancti Spíritus\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"cuba\"\nlevel = 2\nnames = [\"Ciénaga de Zapata\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"cuba\"\nlevel = 2\nnames = [\"Jatibonico\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n"

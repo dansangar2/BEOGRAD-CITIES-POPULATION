@@ -1,0 +1,37 @@
+schema_version = 1
+kind = "derived_country_config"
+country = "imperio_austriaco"
+country_name = "Imperio Austriaco"
+municipal_level = 4
+slug = "imperio_austriaco_state_bucovina"
+name = "Bucovina"
+source_country_code = "romania"
+derived_country_code = "imperio_austriaco"
+parent_config_slug = "imperio_austriaco_prov_bucovina"
+groups = []
+
+[selection]
+source_country_code = "romania"
+include_ids = ["romania_038161", "romania_039967", "romania_066526", "romania_085074", "romania_122061", "romania_145042", "romania_146263", "romania_146281", "romania_146325", "romania_146432", "romania_146502", "romania_146584", "romania_146628", "romania_146655", "romania_146708", "romania_146744", "romania_146860", "romania_146931", "romania_146995", "romania_147036", "romania_147134", "romania_147161", "romania_147205", "romania_147241", "romania_147526", "romania_147580", "romania_147633", "romania_147660", "romania_147713", "romania_147937", "romania_148131", "romania_148202", "romania_148293", "romania_148328", "romania_148612", "romania_148667", "romania_148694", "romania_148729", "romania_148765", "romania_148872", "romania_148970", "romania_149101", "romania_149138", "romania_149183", "romania_149290", "romania_149370", "romania_149414", "romania_149502", "romania_149539", "romania_149584", "romania_149655", "romania_149682", "romania_149753", "romania_149780", "romania_149833", "romania_149931", "romania_150043", "romania_150178", "romania_150196", "romania_150294", "romania_150310", "romania_150356", "romania_150418", "romania_150524", "romania_150588", "romania_150702", "romania_150891", "romania_150935", "romania_150980", "romania_151077", "romania_151095", "romania_151120", "romania_151433", "romania_151442", "romania_151451", "romania_151460", "romania_151479", "romania_151497", "romania_151503", "romania_151521", "romania_151530", "romania_151558", "romania_151567", "romania_151576", "romania_151585"]
+subtract_ids = []
+include_codes = []
+subtract_codes = []
+group_slugs = []
+
+[[entities]]
+mode = "final"
+name = "Bucovina"
+code = "BUC"
+entity_type = "Estado"
+level = 3
+parent_config_slug = "imperio_austriaco_prov_bucovina"
+capitals = []
+use_selected_entities_as_children = false
+
+area_km2 = 6090.99
+pop_latest = 473470
+density = 77.73
+[[entities.include]]
+country_code = "romania"
+level = 3
+ids = ["romania_038161", "romania_039967", "romania_066526", "romania_085074", "romania_122061", "romania_145042", "romania_146263", "romania_146281", "romania_146325", "romania_146432", "romania_146502", "romania_146584", "romania_146628", "romania_146655", "romania_146708", "romania_146744", "romania_146860", "romania_146931", "romania_146995", "romania_147036", "romania_147134", "romania_147161", "romania_147205", "romania_147241", "romania_147526", "romania_147580", "romania_147633", "romania_147660", "romania_147713", "romania_147937", "romania_148131", "romania_148202", "romania_148293", "romania_148328", "romania_148612", "romania_148667", "romania_148694", "romania_148729", "romania_148765", "romania_148872", "romania_148970", "romania_149101", "romania_149138", "romania_149183", "romania_149290", "romania_149370", "romania_149414", "romania_149502", "romania_149539", "romania_149584", "romania_149655", "romania_149682", "romania_149753", "romania_149780", "romania_149833", "romania_149931", "romania_150043", "romania_150178", "romania_150196", "romania_150294", "romania_150310", "romania_150356", "romania_150418", "romania_150524", "romania_150588", "romania_150702", "romania_150891", "romania_150935", "romania_150980", "romania_151077", "romania_151095", "romania_151120", "romania_151433", "romania_151442", "romania_151451", "romania_151460", "romania_151479", "romania_151497", "romania_151503", "romania_151521", "romania_151530", "romania_151558", "romania_151567", "romania_151576", "romania_151585"]

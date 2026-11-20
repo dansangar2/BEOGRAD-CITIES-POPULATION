@@ -1,6 +1,7 @@
 LEGAL_SUBDIVISION = 2
 
 scrape_schema_version = 2
+wikidata_id = "Q408"
 
 [[pages]]
 source = "cities"
@@ -11,3 +12,45 @@ include = { infosection = true, major_subdivision = false, cities = false }
 source = "admin"
 path = ["admin"]
 include = { infosection = true, admin1 = true, admin2 = true }
+preserve_source_codes = true
+
+# UCLs are statistical settlements, grouped by state rather than by LGA.
+[[pages]]
+source = "cities"
+path = ["newsouthwales", "victoria", "queensland", "southaustralia", "westernaustralia", "tasmania", "northernterritory", "australiancapitalterritory"]
+include = { infosection = false, major_subdivision = false, cities = true }
+force_highest_level = 3
+preserve_source_codes = true
+
+[[pages]]
+source = "cities"
+path = ["cities/christmasisland", "cities/cocosislands", "cities/jervisbay", "cities/norfolkisland"]
+include = { infosection = false, major_subdivision = false, cities = true }
+force_highest_level = 3
+preserve_source_codes = true
+
+# The first digit of a UCL code identifies its state. LGA codes are distinct.
+[[parent_overrides]]
+code_pattern = '([1-8])[0-9]{5}x?'
+parent_code_template = '\1'
+level = 3
+
+[[parent_overrides]]
+codes = ["19428"]
+parent_code = "99200"
+level = 3
+
+[[parent_overrides]]
+codes = ["19429", "19430"]
+parent_code = "99300"
+level = 3
+
+[[parent_overrides]]
+codes = ["38449"]
+parent_code = "99100"
+level = 3
+
+[[parent_overrides]]
+codes = ["32948"]
+parent_code = "99400"
+level = 3

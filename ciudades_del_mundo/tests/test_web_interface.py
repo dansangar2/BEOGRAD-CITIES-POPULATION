@@ -38,6 +38,7 @@ from ciudades_del_mundo.services.derived_config_seeds import (
     import_subdivision_group_path_records,
     render_derived_country_selection_toml,
 )
+from ciudades_del_mundo.services.derived_country_group_sync import sync_automatic_group_subtractions
 from ciudades_del_mundo.services.derived_subdivision_builder import (
     build_derived_subdivisions_for_country,
 )
@@ -49,24 +50,13 @@ from ciudades_del_mundo.services.scraping_configs import (
 from ciudades_del_mundo.web.log_retention import cleanup_old_logs
 from ciudades_del_mundo.web.task_progress import task_progress_path
 from ciudades_del_mundo.web.tasks import ManagedTask, TaskManager, task_manager
-from ciudades_del_mundo.web.views import (
-    _admin_area_detail_payload,
-    _area_capital_display_names,
-    _area_related_places,
-    _eligible_config_slugs_for_bulk,
-    _latest_bulk_config_progress,
-    _inferred_generated_page_level,
-    _group_metric_text,
-    _new_country_detail_export_rows,
-    _new_country_detail_export_sheet_rows,
-    _render_config_from_manual_post,
-    _render_recipe_from_form,
-    _subdivision_groups_for_country,
-    _can_clear_config_row,
-    _can_scrape_config_status,
-    _validate_config_text,
-    _validate_recipe_text,
-)
+from ciudades_del_mundo.web.queries.browser import _admin_area_detail_payload, _area_capital_display_names, _area_related_places
+from ciudades_del_mundo.web.queries.configs import _eligible_config_slugs_for_bulk, _latest_bulk_config_progress, _can_clear_config_row, _can_scrape_config_status, _validate_config_text
+from ciudades_del_mundo.web.queries.discovery import _inferred_generated_page_level
+from ciudades_del_mundo.web.queries.groups import _group_metric_text, _subdivision_groups_for_country
+from ciudades_del_mundo.web.queries.exports import _new_country_detail_export_rows, _new_country_detail_export_sheet_rows
+from ciudades_del_mundo.web.forms.scraping import _render_config_from_manual_post
+from ciudades_del_mundo.web.forms.recipes import _render_recipe_from_form, _validate_recipe_text
 
 
 def _config_action_form_tag(html: str, action: str) -> str:
@@ -800,7 +790,8 @@ class DerivedSectionWebTests(TestCase):
 
         detail_response = self.client.get("/new-countries/aa/testland/")
         detail_html = detail_response.content.decode("utf-8")
-        self.assertIn('action="/new-countries/aa/testland/configs/middle/delete/"', detail_html)
+        middle_rows = self.client.get("/api/new-country-containers/testland/config-tree/?level=2").json()["rows"]
+        self.assertIn("/new-countries/aa/testland/configs/middle/delete/", [row["delete_url"] for row in middle_rows])
         self.assertNotIn("Reasigna o elimina primero sus hijos", detail_html)
 
         delete_response = self.client.post(
@@ -821,8 +812,10 @@ class DerivedSectionWebTests(TestCase):
         self.assertNotIn('code = "PARENT-MIDDLE-CHILD"', child.content)
         detail_response = self.client.get("/new-countries/aa/testland/")
         detail_html = detail_response.content.decode("utf-8")
-        self.assertIn("PARENT-CHILD", detail_html)
-        self.assertNotIn("PARENT-MIDDLE-CHILD", detail_html)
+        tree_rows = self.client.get("/api/new-country-containers/testland/config-tree/?level=2").json()["rows"]
+        codes = [row["full_display_code"] for row in tree_rows]
+        self.assertIn("TESTLAND-PARENT-CHILD", codes)
+        self.assertNotIn("TESTLAND-PARENT-MIDDLE-CHILD", codes)
 
     def test_new_country_create_uses_contextual_source_country(self):
         AdminArea.objects.create(id="aa", country_code="aa", code="aa", name="Aaland", level=0)
@@ -832,7 +825,7 @@ class DerivedSectionWebTests(TestCase):
         self.assertEqual(response.status_code, 200)
         html = response.content.decode("utf-8")
         self.assertIn("Aaland", html)
-        self.assertIn("Codigo", html)
+        self.assertIn("ID:", html)
         self.assertNotIn("Pais fuente", html)
         self.assertNotIn(">Slug<", html)
         self.assertIn('class="code-input"', html)
@@ -983,6 +976,384 @@ class DerivedSectionWebTests(TestCase):
         self.assertNotIn("Codigo derivado", html)
         self.assertNotIn("Activa", html)
         self.assertNotIn(">Slug<", html)
+
+    def test_new_country_group_include_auto_subtracts_from_source_owner(self):
+        country, soria, _guadalajara = self._new_country_group_sync_fixture()
+
+        changed = sync_automatic_group_subtractions(country)
+
+        self.assertEqual(changed, ["soria"])
+        soria.refresh_from_db()
+        self.assertIn("[[entities.subtract]]", soria.content)
+        self.assertIn('country_code = "spain"', soria.content)
+        self.assertIn("level = 3", soria.content)
+        self.assertIn('groups = ["SORIA_A_GUADALAJARA"]', soria.content)
+        self.assertIn("auto_generated = true", soria.content)
+        self.assertEqual(sync_automatic_group_subtractions(country), [])
+
+    def test_new_country_auto_group_subtract_is_removed_when_move_is_removed(self):
+        country, soria, guadalajara = self._new_country_group_sync_fixture()
+        sync_automatic_group_subtractions(country)
+        guadalajara.content = self._new_country_entity_content(
+            "Guadalajara",
+            "GUA",
+            include_blocks=[
+                {
+                    "country_code": "spain",
+                    "level": 2,
+                    "ids": ["spain_guadalajara"],
+                }
+            ],
+        )
+        guadalajara.save(update_fields=["content"])
+
+        changed = sync_automatic_group_subtractions(country)
+
+        self.assertEqual(changed, ["soria"])
+        soria.refresh_from_db()
+        self.assertNotIn('groups = ["SORIA_A_GUADALAJARA"]', soria.content)
+        self.assertNotIn("auto_generated = true", soria.content)
+
+    def test_new_country_manual_group_subtract_survives_move_removal(self):
+        country, soria, guadalajara = self._new_country_group_sync_fixture(
+            soria_manual_subtract=True,
+        )
+        self.assertEqual(sync_automatic_group_subtractions(country), [])
+        soria.refresh_from_db()
+        self.assertIn('groups = ["SORIA_A_GUADALAJARA"]', soria.content)
+        self.assertNotIn("auto_generated = true", soria.content)
+
+        guadalajara.content = self._new_country_entity_content(
+            "Guadalajara",
+            "GUA",
+            include_blocks=[
+                {
+                    "country_code": "spain",
+                    "level": 2,
+                    "ids": ["spain_guadalajara"],
+                }
+            ],
+        )
+        guadalajara.save(update_fields=["content"])
+
+        self.assertEqual(sync_automatic_group_subtractions(country), [])
+        soria.refresh_from_db()
+        self.assertIn('groups = ["SORIA_A_GUADALAJARA"]', soria.content)
+        self.assertNotIn("auto_generated = true", soria.content)
+
+    def test_new_country_group_include_can_only_be_used_once_per_country(self):
+        country, _soria, _guadalajara = self._new_country_group_sync_fixture()
+        DerivedCountryConfig.objects.create(
+            country=country,
+            slug="toledo",
+            name="Toledo",
+            source_country_code="spain",
+            derived_country_code=country.slug,
+            content=self._new_country_entity_content(
+                "Toledo",
+                "TOL",
+                include_blocks=[
+                    {
+                        "country_code": "spain",
+                        "level": 3,
+                        "groups": ["SORIA_A_GUADALAJARA"],
+                    }
+                ],
+            ),
+        )
+
+        with self.assertRaisesMessage(ValueError, "SORIA_A_GUADALAJARA"):
+            sync_automatic_group_subtractions(country)
+
+    def test_new_country_group_sync_resolves_selected_derived_subdivisions(self):
+        country, soria, guadalajara = self._new_country_group_sync_fixture()
+        DerivedSubdivision.objects.create(
+            slug="spain_guadalajara_move",
+            internal_name="GUADALAJARA_MOVE",
+            name="Guadalajara Move",
+            source_country_code="spain",
+            content="\n".join(
+                [
+                    'schema_version = 1',
+                    'kind = "derived_subdivision"',
+                    'internal_name = "GUADALAJARA_MOVE"',
+                    'source_country_code = "spain"',
+                    'name = "Guadalajara Move"',
+                    'code = "GUA-MOVE"',
+                    'entity_type = "Provincia"',
+                    "level = 1",
+                    "",
+                    "[[include]]",
+                    'country_code = "spain"',
+                    "level = 3",
+                    'groups = ["SORIA_A_GUADALAJARA"]',
+                    "",
+                ]
+            ),
+        )
+        guadalajara.content = guadalajara.content.replace(
+            'groups = ["SORIA_A_GUADALAJARA"]',
+            'derived_subdivisions = ["GUADALAJARA_MOVE"]',
+        )
+        guadalajara.save(update_fields=["content"])
+
+        changed = sync_automatic_group_subtractions(country)
+
+        self.assertEqual(changed, ["soria"])
+        soria.refresh_from_db()
+        self.assertIn('groups = ["SORIA_A_GUADALAJARA"]', soria.content)
+        self.assertIn('auto_source_config_slug = "guadalajara"', soria.content)
+
+    def test_new_country_locked_manual_group_subtract_keeps_manual_provenance(self):
+        country, soria, guadalajara = self._new_country_group_sync_fixture(
+            soria_manual_subtract=True,
+        )
+        previous_content = soria.content
+        soria.content = self._new_country_entity_content(
+            "Soria",
+            "SOR",
+            include_blocks=[
+                {
+                    "country_code": "spain",
+                    "level": 2,
+                    "ids": ["spain_soria"],
+                }
+            ],
+        )
+        soria.save(update_fields=["content"])
+
+        changed = sync_automatic_group_subtractions(
+            country,
+            previous_contents={soria.slug: previous_content},
+        )
+
+        self.assertEqual(changed, ["soria"])
+        soria.refresh_from_db()
+        self.assertIn('groups = ["SORIA_A_GUADALAJARA"]', soria.content)
+        self.assertNotIn("auto_generated = true", soria.content)
+
+        guadalajara.content = self._new_country_entity_content(
+            "Guadalajara",
+            "GUA",
+            include_blocks=[
+                {
+                    "country_code": "spain",
+                    "level": 2,
+                    "ids": ["spain_guadalajara"],
+                }
+            ],
+        )
+        guadalajara.save(update_fields=["content"])
+        self.assertEqual(sync_automatic_group_subtractions(country), [])
+        soria.refresh_from_db()
+        self.assertIn('groups = ["SORIA_A_GUADALAJARA"]', soria.content)
+        self.assertNotIn("auto_generated = true", soria.content)
+
+    def test_new_country_visual_edit_cannot_clear_locked_manual_group_subtract(self):
+        _country, soria, _guadalajara = self._new_country_group_sync_fixture(
+            soria_manual_subtract=True,
+        )
+
+        response = self.client.post(
+            "/new-countries/spain/imperio/configs/soria/",
+            {
+                "slug": "SOR",
+                "name": "Soria",
+                "source_country_code": "spain",
+                "parent_config_slug": "",
+                "entity_type": "Provincia",
+                "selection_json": json.dumps(
+                    {
+                        "selected_ids": ["spain_soria"],
+                        "use_subdivisions": False,
+                        "selected_subdivision_keys": [],
+                    }
+                ),
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        soria.refresh_from_db()
+        self.assertIn('groups = ["SORIA_A_GUADALAJARA"]', soria.content)
+        self.assertNotIn("auto_generated = true", soria.content)
+
+    def test_new_country_config_delete_removes_automatic_group_subtract(self):
+        country, soria, _guadalajara = self._new_country_group_sync_fixture()
+        sync_automatic_group_subtractions(country)
+
+        response = self.client.post(
+            "/new-countries/spain/imperio/configs/guadalajara/delete/",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        soria.refresh_from_db()
+        self.assertNotIn('groups = ["SORIA_A_GUADALAJARA"]', soria.content)
+        self.assertNotIn("auto_generated = true", soria.content)
+
+    def test_new_country_group_include_cannot_be_repeated_inside_one_config(self):
+        country, _soria, guadalajara = self._new_country_group_sync_fixture()
+        guadalajara.content = guadalajara.content.rstrip() + "\n\n" + "\n".join(
+            [
+                "[[entities.include]]",
+                'country_code = "spain"',
+                "level = 3",
+                'groups = ["SORIA_A_GUADALAJARA"]',
+                "",
+            ]
+        )
+        guadalajara.save(update_fields=["content"])
+
+        with self.assertRaisesMessage(ValueError, "SORIA_A_GUADALAJARA"):
+            sync_automatic_group_subtractions(country)
+
+    def _new_country_group_sync_fixture(self, *, soria_manual_subtract=False):
+        country = DerivedCountry.objects.create(
+            slug="imperio",
+            name="Imperio Espanol",
+            source_country_code="spain",
+        )
+        root = AdminArea.objects.create(id="spain", country_code="spain", code="ESP", name="Spain", level=0)
+        castilla = AdminArea.objects.create(
+            id="spain_castilla",
+            country_code="spain",
+            code="CL",
+            name="Castilla",
+            level=1,
+            parent=root,
+        )
+        soria_area = AdminArea.objects.create(
+            id="spain_soria",
+            country_code="spain",
+            code="42",
+            name="Soria",
+            level=2,
+            parent=castilla,
+        )
+        AdminArea.objects.create(
+            id="spain_guadalajara",
+            country_code="spain",
+            code="19",
+            name="Guadalajara",
+            level=2,
+            parent=castilla,
+        )
+        AdminArea.objects.create(
+            id="spain_barcones",
+            country_code="spain",
+            code="42034",
+            name="Barcones",
+            level=3,
+            parent=soria_area,
+        )
+        AdminArea.objects.create(
+            id="spain_retortillo",
+            country_code="spain",
+            code="42154",
+            name="Retortillo de Soria",
+            level=3,
+            parent=soria_area,
+        )
+        SubdivisionGroup.objects.create(
+            slug="spain_soria_a_guadalajara",
+            name="SORIA_A_GUADALAJARA",
+            source_country_code="spain",
+            content='\n'.join(
+                [
+                    'source_country_code = "spain"',
+                    'SORIA_A_GUADALAJARA = ["Barcones", "Retortillo de Soria"]',
+                    "",
+                ]
+            ),
+        )
+        soria_subtract_blocks = []
+        if soria_manual_subtract:
+            soria_subtract_blocks.append(
+                {
+                    "country_code": "spain",
+                    "level": 3,
+                    "groups": ["SORIA_A_GUADALAJARA"],
+                }
+            )
+        soria = DerivedCountryConfig.objects.create(
+            country=country,
+            slug="soria",
+            name="Soria",
+            source_country_code="spain",
+            derived_country_code=country.slug,
+            content=self._new_country_entity_content(
+                "Soria",
+                "SOR",
+                include_blocks=[
+                    {
+                        "country_code": "spain",
+                        "level": 2,
+                        "ids": ["spain_soria"],
+                    }
+                ],
+                subtract_blocks=soria_subtract_blocks,
+            ),
+        )
+        guadalajara = DerivedCountryConfig.objects.create(
+            country=country,
+            slug="guadalajara",
+            name="Guadalajara",
+            source_country_code="spain",
+            derived_country_code=country.slug,
+            content=self._new_country_entity_content(
+                "Guadalajara",
+                "GUA",
+                include_blocks=[
+                    {
+                        "country_code": "spain",
+                        "level": 2,
+                        "ids": ["spain_guadalajara"],
+                    },
+                    {
+                        "country_code": "spain",
+                        "level": 3,
+                        "groups": ["SORIA_A_GUADALAJARA"],
+                    },
+                ],
+            ),
+        )
+        return country, soria, guadalajara
+
+    def _new_country_entity_content(self, name, code, *, include_blocks=None, subtract_blocks=None):
+        lines = [
+            'schema_version = 1',
+            'kind = "derived_country_config"',
+            'country = "imperio"',
+            f'slug = "{name.lower()}"',
+            f'name = "{name}"',
+            'source_country_code = "spain"',
+            'derived_country_code = "imperio"',
+            "",
+            "[[entities]]",
+            f'name = "{name}"',
+            f'code = "{code}"',
+            'entity_type = "Provincia"',
+            "level = 1",
+        ]
+        for section, blocks in (("include", include_blocks or []), ("subtract", subtract_blocks or [])):
+            for block in blocks:
+                lines.extend(
+                    [
+                        "",
+                        f"[[entities.{section}]]",
+                        f'country_code = "{block["country_code"]}"',
+                        f"level = {block['level']}",
+                    ]
+                )
+                if block.get("ids"):
+                    rendered = ", ".join(f'"{value}"' for value in block["ids"])
+                    lines.append(f"ids = [{rendered}]")
+                if block.get("groups"):
+                    rendered = ", ".join(f'"{value}"' for value in block["groups"])
+                    lines.append(f"groups = [{rendered}]")
+        lines.append("")
+        return "\n".join(lines)
 
     def test_new_country_detail_shows_assigned_source_subdivision_rows(self):
         country = DerivedCountry.objects.create(slug="testland", name="Testland", source_country_code="aa")
@@ -1167,7 +1538,7 @@ class DerivedSectionWebTests(TestCase):
         self.assertIn("density = 40", config.content)
 
         with patch(
-            "ciudades_del_mundo.web.views._new_country_config_preview_metric_values",
+            "ciudades_del_mundo.web.queries.new_countries._new_country_config_preview_metric_values",
             side_effect=AssertionError("created-entities must use stored metrics"),
         ):
             entities_response = self.client.get(
@@ -1211,7 +1582,7 @@ class DerivedSectionWebTests(TestCase):
         self.assertIn("level = 2", config.content)
 
         with patch(
-            "ciudades_del_mundo.web.views._new_country_config_preview_metric_values",
+            "ciudades_del_mundo.web.queries.new_countries._new_country_config_preview_metric_values",
             side_effect=AssertionError("created-entities must use stored metrics"),
         ):
             parent_entities_response = self.client.get(
@@ -1227,16 +1598,18 @@ class DerivedSectionWebTests(TestCase):
         detail_response = self.client.get("/new-countries/aa/testland/")
         self.assertEqual(detail_response.status_code, 200)
         detail_html = detail_response.content.decode("utf-8")
-        self.assertIn("<code>CORONA</code>", detail_html)
-        self.assertIn("<code>CORONA-FROM_SUBDIVISION</code>", detail_html)
-        self.assertNotIn("<code>TESTLAND-CORONA-FROM_SUBDIVISION</code>", detail_html)
-        self.assertIn('data-tree-id="config:testland:corona"', detail_html)
-        self.assertIn('data-tree-parent="config:testland:corona"', detail_html)
-        self.assertIn('data-tree-depth="1"', detail_html)
-        self.assertIn('<code class="new-country-assigned-code">CHILD</code>', detail_html)
-        self.assertNotIn("derived-subdivision::aa::CHILD", detail_html)
-        self.assertIn('data-tree-parent="config:testland:from_subdivision"', detail_html)
-        self.assertIn('data-tree-depth="2"', detail_html)
+        tree_url = "/api/new-country-containers/testland/config-tree/"
+        root_rows = self.client.get(tree_url).json()["rows"]
+        self.assertEqual(root_rows[0]["tree_id"], "config:testland:corona")
+        self.assertEqual(root_rows[0]["full_display_code"], "TESTLAND-CORONA")
+        children = self.client.get(tree_url, {"parent": "config:testland:corona"}).json()["rows"]
+        self.assertEqual(children[0]["full_display_code"], "TESTLAND-CORONA-FROM_SUBDIVISION")
+        self.assertEqual(children[0]["depth"], 1)
+        assigned = self.client.get(tree_url, {"parent": "config:testland:from_subdivision"}).json()["rows"]
+        self.assertEqual(assigned[0]["display_code"], "CHILD")
+        self.assertTrue(assigned[0]["is_assigned_subdivision"])
+        self.assertEqual(assigned[0]["tree_parent"], "config:testland:from_subdivision")
+        self.assertEqual(assigned[0]["depth"], 2)
 
         edit_child_response = self.client.get("/new-countries/aa/testland/configs/from_subdivision/")
         self.assertEqual(edit_child_response.status_code, 200)
@@ -1309,8 +1682,11 @@ class DerivedSectionWebTests(TestCase):
         detail_response = self.client.get("/new-countries/aa/testland/")
         self.assertEqual(detail_response.status_code, 200)
         detail_html = detail_response.content.decode("utf-8")
-        self.assertIn("<code>ARA</code>", detail_html)
-        self.assertIn("<code>ARA-ARA</code>", detail_html)
+        tree_url = "/api/new-country-containers/testland/config-tree/"
+        roots = self.client.get(tree_url).json()["rows"]
+        self.assertEqual(roots[0]["full_display_code"], "TESTLAND-ARA")
+        children = self.client.get(tree_url, {"parent": "config:testland:ara"}).json()["rows"]
+        self.assertEqual(children[0]["full_display_code"], "TESTLAND-ARA-ARA")
 
         edit_child_response = self.client.get("/new-countries/aa/testland/configs/ara_ara/")
         self.assertEqual(edit_child_response.status_code, 200)
@@ -2543,9 +2919,9 @@ class DerivedSectionWebTests(TestCase):
         self.assertEqual(child_ids, [normal.id, unified.id])
 
     def test_new_country_import_toml_queues_one_task_per_seed(self):
-        with patch("ciudades_del_mundo.web.views.bundled_new_country_config_paths") as paths:
+        with patch('ciudades_del_mundo.web.handlers.new_countries.bundled_new_country_config_paths') as paths:
             paths.return_value = [Path("one.toml"), Path("two.toml")]
-            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+            with patch("ciudades_del_mundo.web.tasks.task_manager.start") as start:
                 start.return_value = _Object(id="queued", status=ManagedTask.Status.QUEUED, is_active=True)
                 response = self.client.post("/new-countries/import-toml/")
 
@@ -2555,9 +2931,9 @@ class DerivedSectionWebTests(TestCase):
         self.assertEqual(start.call_args_list[1].kwargs["args"], ["sync_derived_configs", "new-countries", "two", "--force"])
 
     def test_new_country_import_toml_ajax_returns_task_popup_payload(self):
-        with patch("ciudades_del_mundo.web.views.bundled_new_country_config_paths") as paths:
+        with patch('ciudades_del_mundo.web.handlers.new_countries.bundled_new_country_config_paths') as paths:
             paths.return_value = [Path("one.toml")]
-            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+            with patch("ciudades_del_mundo.web.tasks.task_manager.start") as start:
                 start.return_value = _Object(id="queued-new-country", status=ManagedTask.Status.QUEUED, is_active=True)
                 response = self.client.post(
                     "/new-countries/import-toml/",
@@ -3290,8 +3666,8 @@ class DerivedSectionWebTests(TestCase):
         with TemporaryDirectory() as tmpdir:
             recipe_root = Path(tmpdir)
             (recipe_root / "demo.py").write_text("ROOT_NAME = 'Demo'\nDIVISIONES = []\n", encoding="utf-8")
-            with patch("ciudades_del_mundo.web.views.NEW_RECIPES_ROOT", recipe_root):
-                with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+            with patch("ciudades_del_mundo.web.view_support.NEW_RECIPES_ROOT", recipe_root):
+                with patch("ciudades_del_mundo.web.tasks.task_manager.start") as start:
                     start.return_value = _Object(id="queued-recipe", status=ManagedTask.Status.QUEUED, is_active=True)
                     response = self.client.post(
                         "/recipes/demo/task/build/",
@@ -3450,9 +3826,9 @@ class DerivedSectionWebTests(TestCase):
                 encoding="utf-8",
             )
             with (
-                patch("ciudades_del_mundo.web.views.bundled_subdivision_group_paths", return_value=[seed]),
+                patch('ciudades_del_mundo.web.queries.groups.bundled_subdivision_group_paths', return_value=[seed]),
                 patch(
-                    "ciudades_del_mundo.web.views.bundled_derived_subdivision_paths",
+                    'ciudades_del_mundo.web.handlers.groups.bundled_derived_subdivision_paths',
                     return_value=[Path("subdivisions/aa.toml")],
                 ),
             ):
@@ -3590,8 +3966,8 @@ class DerivedSectionWebTests(TestCase):
         )
 
         with (
-            patch("ciudades_del_mundo.web.views.bundled_subdivision_group_paths", return_value=[]),
-            patch("ciudades_del_mundo.web.views.bundled_derived_subdivision_paths", return_value=[]),
+            patch('ciudades_del_mundo.web.queries.groups.bundled_subdivision_group_paths', return_value=[]),
+            patch('ciudades_del_mundo.web.handlers.groups.bundled_derived_subdivision_paths', return_value=[]),
         ):
             response = self.client.get("/groups/")
 
@@ -3657,8 +4033,8 @@ class DerivedSectionWebTests(TestCase):
         )
 
         with (
-            patch("ciudades_del_mundo.web.views.bundled_subdivision_group_paths", return_value=[]),
-            patch("ciudades_del_mundo.web.views.bundled_derived_subdivision_paths", return_value=[]),
+            patch('ciudades_del_mundo.web.queries.groups.bundled_subdivision_group_paths', return_value=[]),
+            patch('ciudades_del_mundo.web.handlers.groups.bundled_derived_subdivision_paths', return_value=[]),
         ):
             response = self.client.get("/groups/")
 
@@ -3746,8 +4122,8 @@ class DerivedSectionWebTests(TestCase):
         DerivedSubdivision.objects.filter(pk=record.pk).update(updated_at=timezone.now())
 
         with (
-            patch("ciudades_del_mundo.web.views.bundled_subdivision_group_paths", return_value=[]),
-            patch("ciudades_del_mundo.web.views.bundled_derived_subdivision_paths", return_value=[]),
+            patch('ciudades_del_mundo.web.queries.groups.bundled_subdivision_group_paths', return_value=[]),
+            patch('ciudades_del_mundo.web.handlers.groups.bundled_derived_subdivision_paths', return_value=[]),
         ):
             response = self.client.get("/groups/")
 
@@ -3932,8 +4308,8 @@ class DerivedSectionWebTests(TestCase):
         )
 
         with (
-            patch("ciudades_del_mundo.web.views.bundled_subdivision_group_paths", return_value=[]),
-            patch("ciudades_del_mundo.web.views.bundled_derived_subdivision_paths", return_value=[]),
+            patch('ciudades_del_mundo.web.queries.groups.bundled_subdivision_group_paths', return_value=[]),
+            patch('ciudades_del_mundo.web.handlers.groups.bundled_derived_subdivision_paths', return_value=[]),
         ):
             response = self.client.get("/groups/")
 
@@ -4074,7 +4450,7 @@ class DerivedSectionWebTests(TestCase):
             ),
         )
 
-        with patch("ciudades_del_mundo.web.views.bundled_derived_subdivision_paths", return_value=[]):
+        with patch('ciudades_del_mundo.web.handlers.subdivisions.bundled_derived_subdivision_paths', return_value=[]):
             response = self.client.get("/subdivisions/")
 
         self.assertEqual(response.status_code, 200)
@@ -4319,7 +4695,7 @@ class DerivedSectionWebTests(TestCase):
         )
 
         with patch(
-            "ciudades_del_mundo.web.views.bundled_derived_subdivision_paths",
+            'ciudades_del_mundo.web.handlers.subdivisions.bundled_derived_subdivision_paths',
             return_value=[Path("subdivision_groups/subdivisions/bb.toml")],
         ):
             response = self.client.get("/subdivisions/")
@@ -6497,9 +6873,9 @@ class DerivedSectionWebTests(TestCase):
         self.assertEqual(imported.content, 'source_country_code = "france"\n\nALTA_CERDANA = ["One", "Two"]\n')
 
     def test_group_import_toml_queues_one_task_per_seed(self):
-        with patch("ciudades_del_mundo.web.views.bundled_subdivision_group_paths") as paths:
+        with patch('ciudades_del_mundo.web.handlers.groups.bundled_subdivision_group_paths') as paths:
             paths.return_value = [Path("group_one.toml"), Path("group_two.toml")]
-            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+            with patch("ciudades_del_mundo.web.tasks.task_manager.start") as start:
                 start.return_value = _Object(id="queued", status=ManagedTask.Status.QUEUED, is_active=True)
                 response = self.client.post("/groups/import-toml/")
 
@@ -6509,9 +6885,9 @@ class DerivedSectionWebTests(TestCase):
         self.assertEqual(start.call_args_list[1].kwargs["args"], ["sync_derived_configs", "groups", "group_two", "--force"])
 
     def test_group_import_toml_ajax_returns_task_popup_payload(self):
-        with patch("ciudades_del_mundo.web.views.bundled_subdivision_group_paths") as paths:
+        with patch('ciudades_del_mundo.web.handlers.groups.bundled_subdivision_group_paths') as paths:
             paths.return_value = [Path("group_one.toml")]
-            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+            with patch("ciudades_del_mundo.web.tasks.task_manager.start") as start:
                 start.return_value = _Object(id="queued", status=ManagedTask.Status.QUEUED, is_active=True)
                 response = self.client.post(
                     "/groups/import-toml/",
@@ -6535,9 +6911,9 @@ class DerivedSectionWebTests(TestCase):
             content='source_country_code = "aa"\n\nALPHA = ["One"]\n',
         )
         with (
-            patch("ciudades_del_mundo.web.views.bundled_subdivision_group_paths", return_value=[Path("groups/aa.toml")]),
-            patch("ciudades_del_mundo.web.views.sqlite_write_lock_if_needed", return_value=None),
-            patch("ciudades_del_mundo.web.views.import_subdivision_group_path_records", return_value=[group]) as importer,
+            patch('ciudades_del_mundo.web.handlers.groups.bundled_subdivision_group_paths', return_value=[Path("groups/aa.toml")]),
+            patch('ciudades_del_mundo.web.handlers.groups.sqlite_write_lock_if_needed', return_value=None),
+            patch('ciudades_del_mundo.web.handlers.groups.import_subdivision_group_path_records', return_value=[group]) as importer,
         ):
             response = self.client.post(
                 "/groups/aa_alpha/import-toml/",
@@ -6661,12 +7037,12 @@ class DerivedSectionWebTests(TestCase):
         self.assertIn('content = "kind = \\"derived_subdivision\\"', content)
 
     def test_derived_subdivision_import_toml_queues_country_seed_tasks(self):
-        with patch("ciudades_del_mundo.web.views.bundled_derived_subdivision_paths") as paths:
+        with patch('ciudades_del_mundo.web.handlers.subdivisions.bundled_derived_subdivision_paths') as paths:
             paths.return_value = [
                 Path("subdivisions/spain.toml"),
                 Path("subdivisions/france.toml"),
             ]
-            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+            with patch("ciudades_del_mundo.web.tasks.task_manager.start") as start:
                 start.return_value = _Object(id="queued", status=ManagedTask.Status.QUEUED, is_active=True)
                 response = self.client.post("/subdivisions/import-toml/", {"country_code": "spain"})
 
@@ -6680,11 +7056,11 @@ class DerivedSectionWebTests(TestCase):
     def test_derived_subdivision_import_toml_ajax_imports_and_refreshes(self):
         with (
             patch(
-                "ciudades_del_mundo.web.views.bundled_derived_subdivision_paths",
+                'ciudades_del_mundo.web.handlers.subdivisions.bundled_derived_subdivision_paths',
                 return_value=[Path("subdivisions/spain.toml"), Path("subdivisions/france.toml")],
             ),
-            patch("ciudades_del_mundo.web.views.sqlite_write_lock_if_needed", return_value=None),
-            patch("ciudades_del_mundo.web.views.import_derived_subdivision_path_records") as importer,
+            patch('ciudades_del_mundo.web.handlers.subdivisions.sqlite_write_lock_if_needed', return_value=None),
+            patch('ciudades_del_mundo.web.handlers.subdivisions.import_derived_subdivision_path_records') as importer,
         ):
             importer.return_value = [_Object(slug="spain_murcia")]
             response = self.client.post(
@@ -6703,10 +7079,10 @@ class DerivedSectionWebTests(TestCase):
 
     def test_derived_subdivision_import_toml_ajax_queue_task_returns_task_payload(self):
         with patch(
-            "ciudades_del_mundo.web.views.bundled_derived_subdivision_paths",
+            'ciudades_del_mundo.web.handlers.subdivisions.bundled_derived_subdivision_paths',
             return_value=[Path("subdivisions/spain.toml"), Path("subdivisions/france.toml")],
         ):
-            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+            with patch("ciudades_del_mundo.web.tasks.task_manager.start") as start:
                 start.return_value = _Object(id="queued", status=ManagedTask.Status.QUEUED, is_active=True)
                 response = self.client.post(
                     "/subdivisions/import-toml/",
@@ -6735,7 +7111,7 @@ class DerivedSectionWebTests(TestCase):
             content='kind = "derived_subdivision"\ninternal_name = "MURCIA"\nsource_country_code = "spain"\n',
         )
 
-        with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+        with patch("ciudades_del_mundo.web.tasks.task_manager.start") as start:
             start.return_value = _Object(id="queued", status=ManagedTask.Status.QUEUED, is_active=True)
             response = self.client.post("/subdivisions/spain/build/")
 
@@ -6754,7 +7130,7 @@ class DerivedSectionWebTests(TestCase):
             content='kind = "derived_subdivision"\ninternal_name = "MURCIA"\nsource_country_code = "spain"\n',
         )
 
-        with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+        with patch("ciudades_del_mundo.web.tasks.task_manager.start") as start:
             start.return_value = _Object(id="queued-build", status=ManagedTask.Status.QUEUED, is_active=True)
             response = self.client.post(
                 "/subdivisions/spain/build/",
@@ -7292,10 +7668,10 @@ class DerivedSectionWebTests(TestCase):
                 encoding="utf-8",
             )
             with patch(
-                "ciudades_del_mundo.web.views.bundled_subdivision_group_paths",
+                'ciudades_del_mundo.web.handlers.groups.bundled_subdivision_group_paths',
                 return_value=[aa_seed, inferred_seed, bb_seed],
             ):
-                with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+                with patch("ciudades_del_mundo.web.tasks.task_manager.start") as start:
                     start.return_value = _Object(id="queued", status=ManagedTask.Status.QUEUED, is_active=True)
                     response = self.client.post("/groups/import-toml/", {"country_code": "aa"})
 
@@ -8668,7 +9044,7 @@ force_highest_level = 0
         )
         try:
             task_manager._recovery_done = True
-            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+            with patch("ciudades_del_mundo.web.tasks.task_manager.start") as start:
                 start.return_value = _Object(
                     id="pending-popular-started",
                     status=ManagedTask.Status.RUNNING,
@@ -8710,12 +9086,12 @@ force_highest_level = 0
             task_manager._recovery_done = True
             with (
                 patch(
-                    "ciudades_del_mundo.web.views.bundled_toml_config_paths",
+                    'ciudades_del_mundo.services.scraping_config_tasks.bundled_toml_config_paths',
                     return_value=[Path(f"ciudades_del_mundo/subdivisions/{slug}.toml")],
                 ) as paths,
-                patch("ciudades_del_mundo.web.views.sqlite_write_lock_if_needed", return_value=None),
-                patch("ciudades_del_mundo.web.views.sync_scraping_configs_from_toml", side_effect=sync_seed) as sync,
-                patch("ciudades_del_mundo.web.views.task_manager.start") as start,
+                patch('ciudades_del_mundo.services.scraping_config_tasks.sqlite_write_lock_if_needed', return_value=None),
+                patch('ciudades_del_mundo.services.scraping_config_tasks.sync_scraping_configs_from_toml', side_effect=sync_seed) as sync,
+                patch("ciudades_del_mundo.web.tasks.task_manager.start") as start,
             ):
                 start.return_value = _Object(
                     id="missing-popular-started",
@@ -8740,7 +9116,7 @@ force_highest_level = 0
         original_recovery_done = task_manager._recovery_done
         try:
             task_manager._recovery_done = True
-            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+            with patch("ciudades_del_mundo.web.tasks.task_manager.start") as start:
                 start.return_value = _Object(
                     id="import-toml-started",
                     status=ManagedTask.Status.RUNNING,
@@ -8761,9 +9137,9 @@ force_highest_level = 0
     def test_single_config_import_toml_reads_only_matching_seed(self):
         slug = "zzimportone"
         with (
-            patch("ciudades_del_mundo.web.views.bundled_toml_config_paths", return_value=[Path(f"subdivisions/{slug}.toml")]) as paths,
-            patch("ciudades_del_mundo.web.views.sqlite_write_lock_if_needed", return_value=None),
-            patch("ciudades_del_mundo.web.views.sync_scraping_configs_from_toml", return_value=1) as sync,
+            patch('ciudades_del_mundo.web.handlers.configs.bundled_toml_config_paths', return_value=[Path(f"subdivisions/{slug}.toml")]) as paths,
+            patch('ciudades_del_mundo.web.handlers.configs.sqlite_write_lock_if_needed', return_value=None),
+            patch('ciudades_del_mundo.web.handlers.configs.sync_scraping_configs_from_toml', return_value=1) as sync,
         ):
             response = self.client.post(
                 f"/configs/{slug}/import-toml/",
@@ -8793,7 +9169,7 @@ force_highest_level = 0
             )
         try:
             task_manager._recovery_done = True
-            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+            with patch("ciudades_del_mundo.web.tasks.task_manager.start") as start:
                 start.return_value = _Object(
                     id="bulk-workers-started",
                     status=ManagedTask.Status.RUNNING,
@@ -8836,9 +9212,9 @@ force_highest_level = 0
         try:
             task_manager._recovery_done = True
             with (
-                patch("ciudades_del_mundo.web.views.sqlite_write_lock_if_needed", return_value=None),
-                patch("ciudades_del_mundo.web.views.ensure_initial_scraping_configs", side_effect=bootstrap_seed) as bootstrap,
-                patch("ciudades_del_mundo.web.views.task_manager.start") as start,
+                patch('ciudades_del_mundo.services.scraping_config_tasks.sqlite_write_lock_if_needed', return_value=None),
+                patch('ciudades_del_mundo.services.scraping_config_tasks.ensure_initial_scraping_configs', side_effect=bootstrap_seed) as bootstrap,
+                patch("ciudades_del_mundo.web.tasks.task_manager.start") as start,
             ):
                 start.return_value = _Object(
                     id="bulk-bootstrap-started",
@@ -8889,7 +9265,7 @@ force_highest_level = 0
                 finished_at=now,
                 updated_at=now,
             )
-            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+            with patch("ciudades_del_mundo.web.tasks.task_manager.start") as start:
                 start.return_value = _Object(
                     id="validated-popular-started",
                     status=ManagedTask.Status.RUNNING,
@@ -9118,7 +9494,7 @@ force_highest_level = 0
                 finished_at=now,
                 updated_at=now,
             )
-            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+            with patch("ciudades_del_mundo.web.tasks.task_manager.start") as start:
                 start.return_value = _Object(
                     id="clear-started",
                     status=ManagedTask.Status.RUNNING,
@@ -9172,7 +9548,7 @@ force_highest_level = 0
                 started_at=now,
                 updated_at=now,
             )
-            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+            with patch("ciudades_del_mundo.web.tasks.task_manager.start") as start:
                 response = self.client.post(
                     f"/configs/{slug}/task/clear/",
                     HTTP_ACCEPT="application/json",
@@ -9223,7 +9599,7 @@ force_highest_level = 0
                 finished_at=now,
                 updated_at=now,
             )
-            with patch("ciudades_del_mundo.web.views.task_manager.start") as start:
+            with patch("ciudades_del_mundo.web.tasks.task_manager.start") as start:
                 start.return_value = _Object(
                     id="clear-country-started",
                     status=ManagedTask.Status.RUNNING,

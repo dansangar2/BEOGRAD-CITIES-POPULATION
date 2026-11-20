@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import re
 import unicodedata
 
@@ -11,10 +11,13 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from ciudades_del_mundo.application.configured_cities import apply_configured_cities
+from ciudades_del_mundo.application.citypopulation_linking import apply_runtime_config_extensions
+from ciudades_del_mundo.application.scrape_admin_areas import _assign_most_populated_to_entities
 from ciudades_del_mundo.domain import CITY_MERGE_UNIFIED, CityConfig, ScrapedAdminArea
 from ciudades_del_mundo.infrastructure.django.admin_area_repository import DjangoAdminAreaRepository
 from ciudades_del_mundo.models import AdminArea, ScrapingConfig
 from ciudades_del_mundo.services.scraping_configs import parse_scraping_job_config
+from ciudades_del_mundo.services.scraping_config_extensions import parse_runtime_config_extensions
 
 
 @dataclass(frozen=True)
@@ -46,6 +49,8 @@ def materialize_configured_cities_for_record(record: ScrapingConfig) -> Configur
     the source selector can immediately see the unified city rows.
     """
     config = parse_scraping_job_config(record.slug, record.content)
+    for name, value in parse_runtime_config_extensions(record.content).items():
+        object.__setattr__(config, name, value)
     configs = list(config.cities or [])
     if not configs:
         return ConfiguredCityMaterializationResult(
@@ -57,20 +62,6 @@ def materialize_configured_cities_for_record(record: ScrapingConfig) -> Configur
     parents_refreshed = _refresh_configured_source_parent_metadata(config.country_code, configs)
     materialized_by_code = _materialized_city_rows(config.country_code, configs)
     refreshed = _refresh_materialized_city_metadata(materialized_by_code, configs)
-    pending_configs = [
-        city_config
-        for city_config in configs
-        if not _is_config_already_materialized(materialized_by_code.get(city_config.code), city_config)
-    ]
-    if not pending_configs:
-        return ConfiguredCityMaterializationResult(
-            country_code=config.country_code,
-            configs_total=len(configs),
-            rows_loaded=AdminArea.objects.filter(country_code=config.country_code).count(),
-            updated=restored + parents_refreshed + refreshed,
-            skipped_reason="already_materialized",
-        )
-
     rows = list(
         AdminArea.objects.filter(country_code=config.country_code)
         .select_related("parent", "most_populate_city")
@@ -80,18 +71,23 @@ def materialize_configured_cities_for_record(record: ScrapingConfig) -> Configur
         return ConfiguredCityMaterializationResult(
             country_code=config.country_code,
             configs_total=len(configs),
-            configs_applied=len(pending_configs),
+            configs_applied=len(configs),
             skipped_reason="no_admin_areas",
         )
 
     entities = [_admin_area_to_scraped(row) for row in rows]
-    transformed = apply_configured_cities(config.country_code, entities, pending_configs)
+    transformed = apply_configured_cities(config.country_code, entities, configs)
+    transformed = apply_runtime_config_extensions(config, transformed)
     transformed = _deduplicate_entities_by_id(transformed)
+    # Recompute links from the transformed hierarchy, as for freshly scraped rows.
+    transformed, _ = _assign_most_populated_to_entities([
+        replace(entity, most_populated_city_code=None) for entity in transformed
+    ])
     created, updated = DjangoAdminAreaRepository().save_many(config.country_code, transformed)
     return ConfiguredCityMaterializationResult(
         country_code=config.country_code,
         configs_total=len(configs),
-        configs_applied=len(pending_configs),
+        configs_applied=len(configs),
         rows_loaded=len(rows),
         created=created,
         updated=updated + restored + parents_refreshed + refreshed,
@@ -258,12 +254,6 @@ def _refresh_materialized_city_metadata(materialized_by_code: dict[str, AdminAre
             ["name", "level", "entity_type", "raw_entity_type", "updated_at"],
         )
     return len(changed)
-
-
-def _is_config_already_materialized(area: AdminArea | None, city_config: CityConfig) -> bool:
-    if area is None:
-        return False
-    return int(area.city_merge_status) == CITY_MERGE_UNIFIED and int(area.level) == int(city_config.level)
 
 
 def _admin_area_to_scraped(area: AdminArea) -> ScrapedAdminArea:

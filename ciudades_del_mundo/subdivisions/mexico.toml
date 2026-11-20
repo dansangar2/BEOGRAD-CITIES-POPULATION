@@ -1,6 +1,7 @@
 LEGAL_SUBDIVISION = 2
 
 scrape_schema_version = 2
+wikidata_id = "Q96"
 
 [[pages]]
 source = "admin"
@@ -54,3 +55,18 @@ level = 2
 type = "City"
 from = { 1 = ["Ciudad de México"] }
 keep_communes = false
+
+[visual_assets.flag]
+commons_filename = "Flag of Mexico.svg"
+
+[visual_assets.coat]
+commons_filename = "Coat of arms of Mexico.svg"
+
+[[visual_assets.admin_areas]]
+code = "15"
+level = 1
+kind = "flag"
+wikidata_id = "Q82112"
+# Government flag of the state; distinct from the national flag.
+commons_filename = "Flag of the State of Mexico.svg"
+source_url = "https://commons.wikimedia.org/wiki/File:Flag_of_the_State_of_Mexico.svg"

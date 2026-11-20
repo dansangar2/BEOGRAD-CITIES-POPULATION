@@ -1,0 +1,40 @@
+{
+  "app.js": [
+    "js/scope.js",
+    "js/theme.js",
+    "js/selectors.js",
+    "js/tables_and_navigation.js",
+    "js/task_detail_and_async_tables.js",
+    "js/asset_previews.js",
+    "js/format_and_http.js",
+    "js/charts.js",
+    "js/country_browser.js",
+    "js/statistics_browser.js",
+    "js/visual_identity.js",
+    "js/config_tables.js",
+    "js/task_feedback.js",
+    "js/task_actions.js",
+    "js/config_editor.js",
+    "js/city_merges.js",
+    "js/config_hydration_and_generation.js",
+    "js/language_and_loading.js",
+    "js/derived_panels.js",
+    "js/derived_tree.js",
+    "js/new_country_entity_modal.js",
+    "js/group_return_navigation.js",
+    "js/bootstrap.js"
+  ],
+  "app.css": [
+    "css/shell_and_controls.css",
+    "css/dashboard_and_tasks.css",
+    "css/derived_tree_and_selectors.css",
+    "css/charts_and_country_detail.css",
+    "css/statistics_and_identity.css",
+    "css/statistics_tables.css",
+    "css/scraping_editor.css",
+    "css/dashboard_responsive.css",
+    "css/editor_and_task_layout.css",
+    "css/editor_refinements.css",
+    "css/derived_picker.css"
+  ]
+}

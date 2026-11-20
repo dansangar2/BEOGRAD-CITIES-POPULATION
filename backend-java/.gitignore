@@ -1,0 +1,7 @@
+/target/
+/.bootstrap/
+/.runtime/
+/.maven/
+/.tools/
+/config/local.properties
+/config/local.json

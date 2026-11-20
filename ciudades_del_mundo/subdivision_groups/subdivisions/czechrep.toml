@@ -1,0 +1,24 @@
+schema_version = 1
+kind = "derived_subdivision_bundle"
+source_country_code = "czechrep"
+
+[[subdivisions]]
+internal_name = "ALTA_Y_BAJA_SILESIA"
+name = "Alta y Baja Silesia"
+code = "SIL"
+entity_type = "Ducado"
+content = "slug = \"austria_alta_y_baja_silesia\"\nschema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"ALTA_Y_BAJA_SILESIA\"\nsource_country_code = \"czechrep\"\nname = \"Alta y Baja Silesia\"\ncode = \"SIL\"\nentity_type = \"Ducado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Opava\"]\n\n[[include]]\ncountry_code = \"czechrep\"\nlevel = 1\nnames = [\"Moravskoslezský kraj\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"czechrep\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"OLOMOUCKYKRAJ_A_SILESIA\"]\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"czechrep\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"MORAVSKOSLEZSKY_A_MORAVIA\", \"MORAVSKOSLEZSKY_A_SILESIA_ALEMANA\"]\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "BOHEMIA"
+name = "Bohemia"
+code = "BOH"
+entity_type = "Reino"
+content = "slug = \"austria_bohemia\"\nschema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"BOHEMIA\"\nsource_country_code = \"czechrep\"\nname = \"Bohemia\"\ncode = \"BOH\"\nentity_type = \"Reino\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Praha\"]\n\n[[include]]\ncountry_code = \"czechrep\"\nlevel = 1\nnames = [\"Praha\", \"Středočeský kraj\", \"Karlovarský kraj\", \"Ústecký kraj\", \"Liberecký kraj\", \"Královéhradecký kraj\", \"Plzeňský kraj\", \"Jihočeský kraj\", \"Pardubický kraj\", \"Vysočina\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"czechrep\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"VYSOCINA_A_MORAVIA_DISTRITOS\"]\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"czechrep\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"MORAVSKOSLEZSKY_A_MORAVIA\", \"MORAVSKOSLEZSKY_A_SILESIA_ALEMANA\", \"JIHOCESKY_A_MORAVIA\", \"PARDUBICKY_A_MORAVIA\", \"VYSOCINA_A_MORAVIA_MUNICIPIOS\", \"VYSOCINA_DISTRITOS_A_BOHEMIA_MUNICIPIOS\"]\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "MORAVIA"
+name = "Moravia"
+code = "MOR"
+entity_type = "Margraviato"
+content = "slug = \"austria_moravia\"\nschema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"MORAVIA\"\nsource_country_code = \"czechrep\"\nname = \"Moravia\"\ncode = \"MOR\"\nentity_type = \"Margraviato\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Brno\"]\n\n[[include]]\ncountry_code = \"czechrep\"\nlevel = 1\nnames = [\"Jihomoravský kraj\", \"Zlínský kraj\", \"Olomoucký kraj\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"czechrep\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"VYSOCINA_A_MORAVIA_DISTRITOS\"]\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"czechrep\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"MORAVSKOSLEZSKY_A_MORAVIA\", \"JIHOCESKY_A_MORAVIA\", \"PARDUBICKY_A_MORAVIA\", \"VYSOCINA_A_MORAVIA_MUNICIPIOS\", \"VYSOCINA_DISTRITOS_A_BOHEMIA_MUNICIPIOS\"]\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"czechrep\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"OLOMOUCKYKRAJ_A_SILESIA\"]\nderived_subdivisions = []\nexpressions = []\n"

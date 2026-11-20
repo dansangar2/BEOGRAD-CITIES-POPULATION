@@ -1,0 +1,37 @@
+schema_version = 1
+kind = "derived_country_config"
+country = "imperio_austriaco"
+country_name = "Imperio Austriaco"
+municipal_level = 4
+slug = "imperio_austriaco_state_vorarlberg"
+name = "Vorarlberg"
+source_country_code = "austria"
+derived_country_code = "imperio_austriaco"
+parent_config_slug = "imperio_austriaco_prov_vorarlberg"
+groups = []
+
+[selection]
+source_country_code = "austria"
+include_ids = ["austria_80101", "austria_80102", "austria_80103", "austria_80104", "austria_80105", "austria_80106", "austria_80107", "austria_80108", "austria_80109", "austria_80110", "austria_80111", "austria_80112", "austria_80113", "austria_80114", "austria_80115", "austria_80116", "austria_80117", "austria_80118", "austria_80119", "austria_80120", "austria_80121", "austria_80122", "austria_80123", "austria_80124", "austria_80125", "austria_80126", "austria_80127", "austria_80128", "austria_80129", "austria_80201", "austria_80202", "austria_80203", "austria_80204", "austria_80205", "austria_80206", "austria_80207", "austria_80208", "austria_80209", "austria_80210", "austria_80211", "austria_80212", "austria_80213", "austria_80214", "austria_80215", "austria_80216", "austria_80217", "austria_80218", "austria_80219", "austria_80220", "austria_80221", "austria_80222", "austria_80223", "austria_80224", "austria_80225", "austria_80226", "austria_80227", "austria_80228", "austria_80229", "austria_80230", "austria_80231", "austria_80232", "austria_80233", "austria_80234", "austria_80235", "austria_80236", "austria_80237", "austria_80238", "austria_80239", "austria_80240", "austria_80301", "austria_80302", "austria_80303", "austria_80401", "austria_80402", "austria_80403", "austria_80404", "austria_80405", "austria_80406", "austria_80407", "austria_80408", "austria_80409", "austria_80410", "austria_80411", "austria_80412", "austria_80413", "austria_80414", "austria_80415", "austria_80416", "austria_80417", "austria_80418", "austria_80419", "austria_80420", "austria_80421", "austria_80422", "austria_80423", "austria_80424"]
+subtract_ids = []
+include_codes = []
+subtract_codes = []
+group_slugs = []
+
+[[entities]]
+mode = "final"
+name = "Vorarlberg"
+code = "VOL"
+entity_type = "Estado"
+level = 3
+parent_config_slug = "imperio_austriaco_prov_vorarlberg"
+capitals = ["Bregenz"]
+use_selected_entities_as_children = false
+
+area_km2 = 2601.16
+pop_latest = 412307
+density = 158.51
+[[entities.include]]
+country_code = "austria"
+level = 3
+ids = ["austria_80101", "austria_80102", "austria_80103", "austria_80104", "austria_80105", "austria_80106", "austria_80107", "austria_80108", "austria_80109", "austria_80110", "austria_80111", "austria_80112", "austria_80113", "austria_80114", "austria_80115", "austria_80116", "austria_80117", "austria_80118", "austria_80119", "austria_80120", "austria_80121", "austria_80122", "austria_80123", "austria_80124", "austria_80125", "austria_80126", "austria_80127", "austria_80128", "austria_80129", "austria_80201", "austria_80202", "austria_80203", "austria_80204", "austria_80205", "austria_80206", "austria_80207", "austria_80208", "austria_80209", "austria_80210", "austria_80211", "austria_80212", "austria_80213", "austria_80214", "austria_80215", "austria_80216", "austria_80217", "austria_80218", "austria_80219", "austria_80220", "austria_80221", "austria_80222", "austria_80223", "austria_80224", "austria_80225", "austria_80226", "austria_80227", "austria_80228", "austria_80229", "austria_80230", "austria_80231", "austria_80232", "austria_80233", "austria_80234", "austria_80235", "austria_80236", "austria_80237", "austria_80238", "austria_80239", "austria_80240", "austria_80301", "austria_80302", "austria_80303", "austria_80401", "austria_80402", "austria_80403", "austria_80404", "austria_80405", "austria_80406", "austria_80407", "austria_80408", "austria_80409", "austria_80410", "austria_80411", "austria_80412", "austria_80413", "austria_80414", "austria_80415", "austria_80416", "austria_80417", "austria_80418", "austria_80419", "austria_80420", "austria_80421", "austria_80422", "austria_80423", "austria_80424"]

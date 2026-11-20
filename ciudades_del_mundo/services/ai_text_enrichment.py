@@ -12,7 +12,8 @@ from django.db import OperationalError, ProgrammingError, connection
 
 from ciudades_del_mundo.domain import ScrapedAdminArea, ScrapingJobConfig
 from ciudades_del_mundo.models import AdminArea, EntityTypeInference
-from ciudades_del_mundo.services.ai_text_provider import AiTextProvider
+from ciudades_del_mundo.ports.ai import AiTextProvider
+from ciudades_del_mundo.application.ai_responses import validate_enrichment_response
 from ciudades_del_mundo.services.dynamic_translations import (
     FIELD_NAME,
     FIELD_PLURAL,
@@ -73,9 +74,28 @@ class AiTextEnrichmentService:
         languages: tuple[str, ...] = DEFAULT_AI_LANGUAGES,
     ) -> None:
         self.provider = provider
+        self._response_cache: dict[str, dict] = {}
         self.languages = tuple(
             language for language in (normalize_dynamic_language_code(item) for item in languages) if language
         )
+
+    def _complete_json(self, *, system_prompt: str, payload: dict, image_url: str = "") -> dict:
+        # Per-run bounded cache. Failed/invalid completions are never cached.
+        key = _input_hash({
+            "model": getattr(self.provider, "model", ""),
+            "prompt_version": PROMPT_VERSION,
+            "system_prompt": system_prompt,
+            "payload": payload,
+            "image_url": image_url,
+        })
+        if key not in self._response_cache:
+            response = validate_enrichment_response(self.provider.complete_json(
+                system_prompt=system_prompt, payload=payload, image_url=image_url,
+            ))
+            if len(self._response_cache) >= 128:
+                self._response_cache.pop(next(iter(self._response_cache)))
+            self._response_cache[key] = response
+        return self._response_cache[key]
 
     def normalize_scraped_entities(
         self,
@@ -111,7 +131,7 @@ class AiTextEnrichmentService:
         country_code: str,
         limit: int | None = None,
     ) -> AiEnrichmentStats:
-        query = AdminArea.objects.filter(country_code=country_code).exclude(entity_type__isnull=True).exclude(entity_type="")
+        query = AdminArea.objects.filter(country_code=country_code).select_related("parent").exclude(entity_type__isnull=True).exclude(entity_type="")
         if limit:
             query = query.order_by("level", "name")[:limit]
         areas = list(query)
@@ -231,7 +251,7 @@ class AiTextEnrichmentService:
                     "For flags, use description for vexillological wording.",
                 ],
             }
-            response = self.provider.complete_json(
+            response = self._complete_json(
                 system_prompt=_visual_description_system_prompt(),
                 payload=payload,
                 image_url=str(row.get("remote_url") or ""),
@@ -272,7 +292,7 @@ class AiTextEnrichmentService:
                 "Set needs_review true unless the administrative meaning is clear from the country, level and samples.",
             ],
         }
-        response = self.provider.complete_json(
+        response = self._complete_json(
             system_prompt=_entity_type_system_prompt(),
             payload=payload,
         )
@@ -370,7 +390,7 @@ class AiTextEnrichmentService:
                 "Do not add administrative type words unless they are part of the proper name.",
             ],
         }
-        response = self.provider.complete_json(system_prompt=_translation_system_prompt(), payload=payload)
+        response = self._complete_json(system_prompt=_translation_system_prompt(), payload=payload)
         translations = _text_map(response.get("translations"), missing)
         needs_review = bool(response.get("needs_review", False))
         written = 0
@@ -423,7 +443,7 @@ class AiTextEnrichmentService:
                 "Use the usual administrative term for the country when language-specific usage is known.",
             ],
         }
-        response = self.provider.complete_json(system_prompt=_translation_system_prompt(), payload=payload)
+        response = self._complete_json(system_prompt=_translation_system_prompt(), payload=payload)
         needs_review = bool(response.get("needs_review", False))
         written = 0
         for field, values in (
@@ -431,7 +451,8 @@ class AiTextEnrichmentService:
             (FIELD_PLURAL, _text_map(response.get("plural"), languages)),
         ):
             for language, text in values.items():
-                if not text:
+                missing = missing_singular if field == FIELD_SINGULAR else missing_plural
+                if language not in missing or not text:
                     continue
                 upsert_dynamic_translation(
                     subject_type=SUBJECT_ENTITY_TYPE,

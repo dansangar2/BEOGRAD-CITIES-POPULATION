@@ -1950,3 +1950,52 @@ msgstr "Ranking capital"
 
 msgid "Ranking ciudad mas poblada"
 msgstr "Ranking ciudad mas poblada"
+
+#, python-format
+msgid "El grupo %(group)s de %(country)s ya esta asignado en este pais nuevo a %(owners)s. Quita esa asignacion antes de usarlo en otra entidad."
+msgstr "Die Gruppe %(group)s aus %(country)s ist in diesem neuen Land bereits %(owners)s zugewiesen. Entferne diese Zuweisung, bevor du sie für eine andere Entität verwendest."
+
+#, python-format
+msgid "%(config)s: no se pudo sincronizar la resta automatica: %(error)s"
+msgstr "%(config)s: Die automatische Subtraktion konnte nicht synchronisiert werden: %(error)s"
+
+msgid "Nuevo"
+msgstr "Neu"
+
+msgid "Sin popular"
+msgstr "Nicht befüllt"
+
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/new_country_detail.html
+msgid "ID"
+msgstr "ID"
+
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/new_country_detail.html
+msgid "Sin selección, se suman los datos de los hijos."
+msgstr "Ohne Auswahl werden die Daten aller untergeordneten Einheiten addiert."
+
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/new_country_detail.html
+msgid "La entidad padre no pertenece a este país."
+msgstr "Die übergeordnete Einheit gehört nicht zu diesem Land."
+
+
+msgid "Subdivisiones originales"
+msgstr "Ursprüngliche Unterteilungen"
+
+
+msgid "Plantilla"
+msgstr "Vorlage"
+
+
+msgid "Registro"
+msgstr "Eintrag"
+
+
+msgid "Introduce población y terreno a mano. Si dejas un campo vacío, se suman los valores de los hijos."
+msgstr "Gib Bevölkerung und Fläche ein. Leere Felder übernehmen die Summe der untergeordneten Einheiten."
+
+
+msgid "Selecciona grupos o subdivisiones para calcular la población y el terreno."
+msgstr "Wähle Gruppen oder Unterteilungen, um Bevölkerung und Fläche zu berechnen."

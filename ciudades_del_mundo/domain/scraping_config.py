@@ -68,6 +68,9 @@ class ScrapingPageConfig:
     root_entity_type: str | None = None
     repeat: dict[str, int] = field(default_factory=dict)
     sum_to_root: bool = False
+    wikidata_overrides: dict[str, str] = field(default_factory=dict)
+    preserve_source_codes: bool = False
+    code_overrides: dict[str, str] = field(default_factory=dict)
 
     @property
     def include_infosection(self) -> bool:
@@ -147,6 +150,7 @@ class ScrapingPageConfig:
                 data.get("area_overrides", data.get("size_overrides", data.get("custom_sizes")))
             ),
             table_levels=_parse_table_levels(data.get("table_levels", data.get("levels"))),
+            wikidata_overrides={str(code): str(qid).strip() for code, qid in (data.get("wikidata_overrides") or {}).items()},
             status_levels=_parse_status_levels(data.get("status_levels", data.get("entity_type_levels"))),
             include_tables=include_tables,
             include_sections=include_sections,
@@ -160,6 +164,8 @@ class ScrapingPageConfig:
             root_entity_type=_optional_string(data.get("root_entity_type")),
             repeat=_parse_repeat(data.get("repeat")),
             sum_to_root=bool(data.get("sum_to_root", False)),
+            preserve_source_codes=bool(data.get("preserve_source_codes", False)),
+            code_overrides={str(code): str(target) for code, target in (data.get("code_overrides") or {}).items()},
         )
 
 
@@ -179,6 +185,7 @@ class CityConfig:
     child_code: str | None = None
     child_level: int | None = None
     child_entity_type: str | None = None
+    data_wd: str = ""
 
     @classmethod
     def from_mapping(cls, data: dict) -> "CityConfig":
@@ -206,6 +213,7 @@ class CityConfig:
             child_code=str(data["child_id"]) if data.get("child_id") is not None else None,
             child_level=child_level,
             child_entity_type=str(data["child_type"]) if data.get("child_type") is not None else None,
+            data_wd=str(data.get("wikidata_id") or data.get("data_wd") or "").strip(),
         )
 
 

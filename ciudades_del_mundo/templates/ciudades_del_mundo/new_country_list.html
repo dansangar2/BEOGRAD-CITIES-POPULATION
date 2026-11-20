@@ -10,6 +10,10 @@
     <h1>{% trans "Nuevos paises" %}</h1>
   </div>
   <div class="actions">
+    <form method="post" action="{% url 'ciudades_del_mundo:new_country_export_toml' %}" data-config-export-form data-action-label="{% trans 'Exportar TOML' %}">
+      {% csrf_token %}
+      <button class="secondary" type="submit">{% trans "Exportar TOML" %}</button>
+    </form>
     <form method="post" action="{% url 'ciudades_del_mundo:new_country_import_toml' %}" data-config-task-form data-action-label="{% trans 'Importar TOML' %}">
       {% csrf_token %}
       <button class="secondary" type="submit" data-config-action="import-toml">{% trans "Importar TOML" %}</button>
@@ -63,10 +67,32 @@
     </div>
     <div class="group-country-panel-content new-country-panel-content" data-group-panel-content>
       <section class="panel">
+        <div class="section-title">
+          <a class="button secondary" href="{{ country.new_url }}">{% trans "Nuevo" %}</a>
+          {% if country.code %}
+          <div class="actions">
+            <form method="post" action="{% url 'ciudades_del_mundo:new_country_import_toml' %}" data-config-task-form data-action-label="{% trans 'Importar TOML' %}">
+              {% csrf_token %}
+              <input type="hidden" name="source_country_code" value="{{ country.code }}">
+              <button class="secondary" type="submit" data-config-action="import-toml">{% trans "Importar TOML" %}</button>
+            </form>
+            <form method="post" action="{% url 'ciudades_del_mundo:new_country_export_toml' %}" data-config-export-form data-action-label="{% trans 'Exportar TOML' %}">
+              {% csrf_token %}
+              <input type="hidden" name="source_country_code" value="{{ country.code }}">
+              <button class="secondary" type="submit">{% trans "Exportar TOML" %}</button>
+            </form>
+          </div>
+          {% endif %}
+        </div>
         <div class="stats-country-grid new-country-result-grid">
           {% for item in country.configs %}
           <article class="stats-country-card stats-country-card-editable new-country-result-card{% if not item.view_url %} is-unbuilt{% endif %}">
             <div class="stats-country-card-actions">
+              <form method="post" action="{% url 'ciudades_del_mundo:new_country_export_toml' %}" data-config-export-form data-action-label="{% trans 'Exportar TOML' %}">
+                {% csrf_token %}
+                <input type="hidden" name="country_slug" value="{{ item.key }}">
+                <button class="stats-country-card-action" type="submit" aria-label="{% trans 'Exportar TOML' %}" title="{% trans 'Exportar TOML' %}">TOML</button>
+              </form>
               {% if item.export_excel_url %}
               <a class="stats-country-card-action" href="{{ item.export_excel_url }}" aria-label="{% trans 'Exportar Excel' %}" title="{% trans 'Exportar Excel' %}">XLS</a>
               {% endif %}

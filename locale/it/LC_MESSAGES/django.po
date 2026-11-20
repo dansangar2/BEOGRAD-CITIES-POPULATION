@@ -1938,3 +1938,52 @@ msgstr "Ranking capital"
 
 msgid "Ranking ciudad mas poblada"
 msgstr "Ranking ciudad mas poblada"
+
+#, python-format
+msgid "El grupo %(group)s de %(country)s ya esta asignado en este pais nuevo a %(owners)s. Quita esa asignacion antes de usarlo en otra entidad."
+msgstr "Il gruppo %(group)s di %(country)s è già assegnato in questo nuovo paese a %(owners)s. Rimuovi tale assegnazione prima di usarlo in un’altra entità."
+
+#, python-format
+msgid "%(config)s: no se pudo sincronizar la resta automatica: %(error)s"
+msgstr "%(config)s: non è stato possibile sincronizzare la sottrazione automatica: %(error)s"
+
+msgid "Nuevo"
+msgstr "Nuovo"
+
+msgid "Sin popular"
+msgstr "Non popolato"
+
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/new_country_detail.html
+msgid "ID"
+msgstr "ID"
+
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/new_country_detail.html
+msgid "Sin selección, se suman los datos de los hijos."
+msgstr "Senza una selezione, vengono sommati i dati di tutti gli elementi figli."
+
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/new_country_detail.html
+msgid "La entidad padre no pertenece a este país."
+msgstr "L’entità padre non appartiene a questo paese."
+
+
+msgid "Subdivisiones originales"
+msgstr "Suddivisioni originali"
+
+
+msgid "Plantilla"
+msgstr "Modello"
+
+
+msgid "Registro"
+msgstr "Record"
+
+
+msgid "Introduce población y terreno a mano. Si dejas un campo vacío, se suman los valores de los hijos."
+msgstr "Inserisci popolazione e superficie. Un campo vuoto usa la somma delle unità figlie."
+
+
+msgid "Selecciona grupos o subdivisiones para calcular la población y el terreno."
+msgstr "Seleziona gruppi o suddivisioni per calcolare popolazione e superficie."

@@ -1,0 +1,23 @@
+Objetivo territorial de Bahamas
+
+L0: pais. L1: islas y grupos de islas de la division administrativa.
+L2: distritos de supervision y localidades principales bajo su isla.
+Conservar las repeticiones administrativas existentes, aunque compartan QID
+con una localidad. La tabla de localidades solo identifica la isla: no inventar
+un distrito intermedio ni asignar pueblos a distritos por proximidad del nombre.
+
+Unificar Nassau como Casablanca: New Providence (01, L1) > Nassau (17217,
+L2, City) > sus 24 distritos de supervision (0101..0124, L3, fuentes de
+ciudad unificada). Conservar IDs y poblaciones de los distritos y sumar una
+sola vez sus poblaciones para Nassau. No sustituir la isla por la ciudad ni
+duplicar Nassau al incorporar la tabla de localidades.
+
+Incluir las nueve localidades principales publicadas en /en/bahamas/cities/:
+Bailey Town (19473, isla 07), Dundas Town (32935, isla 03), Dunmore Town
+(17214, isla 12), Freeport (17215, isla 02), George Town (32937, isla 11),
+Marsh Harbour (17216, isla 03), Murphy Town (32936, isla 03), Nassau
+(17217, isla 01) y Spanish Wells (17219, isla 19). Preservar sus codigos
+de fila y las fechas de poblacion disponibles, aunque el ultimo censo tenga
+una celda vacia. No crear localidades adicionales donde la fuente no las ofrece.
+
+Fuente: CityPopulation /en/bahamas/admin/ y /en/bahamas/cities/.

@@ -7,6 +7,26 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils.translation import gettext as _
 
+from ciudades_del_mundo.web.http import _wants_json
+
+
+def _sqlite_is_busy(exc: OperationalError) -> bool:
+    cause = exc.__cause__ or exc
+    code = getattr(cause, "sqlite_errorcode", None)
+    if isinstance(code, int):
+        return (code & 0xFF) in {5, 6}  # SQLITE_BUSY / SQLITE_LOCKED, including extended codes.
+    return "database is locked" in str(exc).lower() or "database table is locked" in str(exc).lower()
+
+
+def database_busy_response(request):
+    message = _(
+        "La base de datos esta ocupada por una tarea de escritura. "
+        "Espera unos segundos y vuelve a intentarlo."
+    )
+    if _wants_json(request):
+        return JsonResponse({"error": message}, status=503)
+    return render(request, "ciudades_del_mundo/database_busy.html", {"message": message}, status=503)
+
 
 class DatabaseBusyMiddleware:
     """Return a controlled response when SQLite is temporarily locked."""
@@ -18,19 +38,14 @@ class DatabaseBusyMiddleware:
         try:
             return self.get_response(request)
         except OperationalError as exc:
-            if "database is locked" not in str(exc).lower():
+            response = self.process_exception(request, exc)
+            if response is None:
                 raise
+            return response
 
-            message = _(
-                "La base de datos esta ocupada por una tarea de escritura. "
-                "Espera unos segundos y vuelve a intentarlo."
-            )
-            if request.headers.get("x-requested-with") == "XMLHttpRequest":
-                return JsonResponse({"error": message}, status=503)
+    def process_exception(self, request, exception):
+        # Django converts view exceptions before __call__ regains control.
+        if not isinstance(exception, OperationalError) or not _sqlite_is_busy(exception):
+            return None
 
-            return render(
-                request,
-                "ciudades_del_mundo/database_busy.html",
-                {"message": message},
-                status=503,
-            )
+        return database_busy_response(request)

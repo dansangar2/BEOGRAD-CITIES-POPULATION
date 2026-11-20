@@ -1,10 +1,9 @@
+scrape_schema_version = 2
 name = "Slovakia"
 country_code = "slovakia"
 [visual_assets.flag]
 remote_url = "https://www.citypopulation.de/images/flags/slovakia.svg"
 source = "config"
-
-scrape_schema_version = 2
 
 [[pages]]
 source = "cities"
@@ -29,7 +28,7 @@ path = [
   "zilinskykraj",
 ]
 include = { infosection = true, major_subdivision = true, cities = true }
-force_highest_level = 1
+force_highest_level = 2
 include_root = false
 
 [[cities]]

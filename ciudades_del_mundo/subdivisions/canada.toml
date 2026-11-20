@@ -24,5 +24,6 @@ path = [
   "northwestterritories/admin",
   "nunavut/admin",
 ]
-include = { infosection = true, admin1 = true, admin2 = true }
-force_highest_level = 1
+# Provincial tables start at census divisions; provinces come from the national page.
+include = { infosection = false, admin1 = true, admin2 = true }
+force_highest_level = 2

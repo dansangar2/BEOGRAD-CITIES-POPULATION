@@ -1,6 +1,9 @@
 LEGAL_SUBDIVISION = 2
-
 scrape_schema_version = 2
+country_code = "bangladesh"
+wikidata_id = "Q902"
+# Repeated subdistrict labels inside minor sections are context, without children.
+exclude_entity_codes = ["4433_4433", "8747_8747", "1094_1094", "7088_7088", "2738_2738", "4918_4918", "8576_8576", "9482_9482"]
 
 [[pages]]
 source = "cities"
@@ -11,3 +14,131 @@ include = { infosection = true, major_subdivision = false, cities = false }
 source = "admin"
 path = ["admin"]
 include = { infosection = true, admin1 = true, admin2 = true }
+preserve_source_codes = true
+
+[[pages]]
+source = "admin"
+path = ["admin/22__coxs_bazar"]
+force_highest_level = 1
+root_code = "22"
+root_name = "Cox's Bazar"
+root_entity_type = "District"
+root_parent_code = "bangladesh"
+include = { infosection = true, major_subdivision = false, minor_subdivision = false }
+
+[[pages]]
+source = "admin"
+path = ["barisal/admin", "chittagong/admin", "dhaka/admin", "khulna/admin", "mymensingh/admin", "rajshahi/admin", "rangpur/admin", "sylhet/admin"]
+force_highest_level = 2
+parent_level = 1
+include = { infosection = false, major_subdivision = true, minor_subdivision = true }
+preserve_source_codes = true
+
+[[cities]]
+city = "Chittagong"
+id = "1516"
+level = 2
+type = "City"
+from = { 1 = ["15"] }
+communes = ["1516002", "1516010", "1516020", "1516006", "1516016", "1516019", "1516028", "1516031", "1516035", "1516043", "1516041", "1516055", "1516057", "1516065", "1516077"]
+keep_communes = false
+wikidata_id = "Q5102385"
+
+[[cities]]
+city = "Gazipur"
+id = "3333"
+level = 2
+type = "City"
+from = { 1 = ["33"] }
+communes = ["3333015", "3333018", "3333099", "3333040", "3333045", "3333050", "3333090", "3333093"]
+keep_communes = false
+wikidata_id = "Q17124787"
+
+[[cities]]
+city = "Khulna"
+id = "4733"
+level = 2
+type = "City"
+from = { 1 = ["47"] }
+communes = ["4733021", "4733045", "4733048", "4733051", "4733085"]
+keep_communes = false
+wikidata_id = "Q17136216"
+
+[[cities]]
+city = "Narayanganj"
+id = "6744"
+level = 2
+type = "City"
+from = { 1 = ["67"] }
+communes = ["6744006", "6744058"]
+keep_communes = false
+wikidata_id = "Q13058380"
+
+[[cities]]
+city = "Rajshahi"
+id = "8166"
+level = 2
+type = "City"
+from = { 1 = ["81"] }
+communes = ["8166022", "8166024", "8166038", "8166040", "8166085", "8166090"]
+keep_communes = false
+wikidata_id = "Q13059575"
+
+[[cities]]
+city = "Rangpur"
+id = "8575"
+level = 2
+type = "City"
+from = { 1 = ["85"] }
+communes = ["8575031", "8575033", "8575044", "8575055", "8575069", "8575089"]
+keep_communes = false
+wikidata_id = "Q20613196"
+
+[[cities]]
+city = "Sylhet"
+id = "9150"
+level = 2
+type = "City"
+from = { 1 = ["91"] }
+communes = ["9150005", "9150031", "9150048", "9150055", "9150057", "9150068"]
+keep_communes = false
+wikidata_id = "Q85847550"
+
+[[cities]]
+city = "Cumilla"
+id = "1950"
+level = 2
+type = "City"
+from = { 1 = ["19"] }
+communes = ["1950067", "1950033"]
+keep_communes = false
+wikidata_id = "Q1006296"
+
+[[cities]]
+city = "Dhaka"
+id = "dhaka_city"
+level = 2
+type = "City"
+from = { 1 = ["26"] }
+communes = ["2625", "2620"]
+keep_communes = true
+wikidata_id = "Q1354"
+child_id = "dhaka_municipality"
+child_level = 3
+child_type = "City"
+
+# Keep the municipal city role between the L2 urban unit and its corporations.
+[[parent_overrides]]
+codes = ["2625", "2620"]
+parent_code = "dhaka_municipality"
+level = 4
+
+[[parent_overrides]]
+code_pattern = "262[05][0-9]{3}"
+level = 5
+
+# Division pages omit district headers; district identity is encoded in the first two digits.
+[[parent_overrides]]
+code_pattern = '([0-9]{2})[0-9]{2}'
+match_levels = [2]
+parent_code_template = '\1'

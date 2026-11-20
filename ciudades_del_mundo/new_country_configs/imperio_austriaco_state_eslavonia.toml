@@ -1,0 +1,42 @@
+schema_version = 1
+kind = "derived_country_config"
+country = "imperio_austriaco"
+country_name = "Imperio Austriaco"
+municipal_level = 4
+slug = "imperio_austriaco_state_eslavonia"
+name = "Eslavonia"
+source_country_code = "croatia"
+derived_country_code = "imperio_austriaco"
+parent_config_slug = "imperio_austriaco_prov_croacia_eslavonia"
+groups = []
+
+[selection]
+source_country_code = "croatia"
+include_ids = ["croatia_0019", "croatia_0027", "croatia_0035", "croatia_0108", "croatia_0167", "croatia_0230", "croatia_0264", "croatia_0299", "croatia_0329", "croatia_0353", "croatia_0396", "croatia_0442", "croatia_0469", "croatia_0540", "croatia_0566", "croatia_0574", "croatia_0582", "croatia_0655", "croatia_0671", "croatia_0680", "croatia_0817", "croatia_0868", "croatia_0922", "croatia_0949", "croatia_1031", "croatia_1058", "croatia_1066", "croatia_1104", "croatia_1112", "croatia_1163", "croatia_1180", "croatia_1244", "croatia_1279", "croatia_1368", "croatia_1376", "croatia_1406", "croatia_1414", "croatia_1546", "croatia_1597", "croatia_1643", "croatia_1660", "croatia_1686", "croatia_1775", "croatia_1856", "croatia_2054", "croatia_2216", "croatia_2305", "croatia_2313", "croatia_2399", "croatia_2453", "croatia_2577", "croatia_2666", "croatia_2712", "croatia_2780", "croatia_2836", "croatia_2844", "croatia_2852", "croatia_2933", "croatia_2941", "croatia_2950", "croatia_2992", "croatia_3034", "croatia_3077", "croatia_3093", "croatia_3123", "croatia_3182", "croatia_3271", "croatia_3344", "croatia_3387", "croatia_3409", "croatia_3514", "croatia_3611", "croatia_3727", "croatia_3816", "croatia_3867", "croatia_3883", "croatia_3905", "croatia_3956", "croatia_3964", "croatia_3972", "croatia_4073", "croatia_4120", "croatia_4146", "croatia_4154", "croatia_4189", "croatia_4219", "croatia_4243", "croatia_4561", "croatia_4588", "croatia_4596", "croatia_4618", "croatia_4642", "croatia_4715", "croatia_4758", "croatia_4766", "croatia_4855", "croatia_4871", "croatia_4910", "croatia_4944", "croatia_4995", "croatia_5053", "croatia_5061", "croatia_5142", "croatia_5177", "croatia_5185", "croatia_5240", "croatia_5347", "croatia_5355", "croatia_5673", "croatia_5681", "croatia_5690", "croatia_5703", "croatia_5762", "croatia_5789", "croatia_5797", "croatia_5835", "croatia_5843", "croatia_6106", "croatia_6122", "croatia_6149", "croatia_6289", "serbia_M04355", "serbia_M04446", "serbia_M04537", "serbia_M04649", "serbia_M04775", "serbia_M04971", "serbia_M05041"]
+subtract_ids = []
+include_codes = []
+subtract_codes = []
+group_slugs = []
+
+[[entities]]
+mode = "final"
+name = "Eslavonia"
+code = "ESL"
+entity_type = "Estado"
+level = 3
+parent_config_slug = "imperio_austriaco_prov_croacia_eslavonia"
+capitals = ["Osijek"]
+use_selected_entities_as_children = false
+
+area_km2 = 15416.8
+pop_latest = 906299
+density = 58.79
+[[entities.include]]
+country_code = "croatia"
+level = 2
+ids = ["croatia_0019", "croatia_0027", "croatia_0035", "croatia_0108", "croatia_0167", "croatia_0230", "croatia_0264", "croatia_0299", "croatia_0329", "croatia_0353", "croatia_0396", "croatia_0442", "croatia_0469", "croatia_0540", "croatia_0566", "croatia_0574", "croatia_0582", "croatia_0655", "croatia_0671", "croatia_0680", "croatia_0817", "croatia_0868", "croatia_0922", "croatia_0949", "croatia_1031", "croatia_1058", "croatia_1066", "croatia_1104", "croatia_1112", "croatia_1163", "croatia_1180", "croatia_1244", "croatia_1279", "croatia_1368", "croatia_1376", "croatia_1406", "croatia_1414", "croatia_1546", "croatia_1597", "croatia_1643", "croatia_1660", "croatia_1686", "croatia_1775", "croatia_1856", "croatia_2054", "croatia_2216", "croatia_2305", "croatia_2313", "croatia_2399", "croatia_2453", "croatia_2577", "croatia_2666", "croatia_2712", "croatia_2780", "croatia_2836", "croatia_2844", "croatia_2852", "croatia_2933", "croatia_2941", "croatia_2950", "croatia_2992", "croatia_3034", "croatia_3077", "croatia_3093", "croatia_3123", "croatia_3182", "croatia_3271", "croatia_3344", "croatia_3387", "croatia_3409", "croatia_3514", "croatia_3611", "croatia_3727", "croatia_3816", "croatia_3867", "croatia_3883", "croatia_3905", "croatia_3956", "croatia_3964", "croatia_3972", "croatia_4073", "croatia_4120", "croatia_4146", "croatia_4154", "croatia_4189", "croatia_4219", "croatia_4243", "croatia_4561", "croatia_4588", "croatia_4596", "croatia_4618", "croatia_4642", "croatia_4715", "croatia_4758", "croatia_4766", "croatia_4855", "croatia_4871", "croatia_4910", "croatia_4944", "croatia_4995", "croatia_5053", "croatia_5061", "croatia_5142", "croatia_5177", "croatia_5185", "croatia_5240", "croatia_5347", "croatia_5355", "croatia_5673", "croatia_5681", "croatia_5690", "croatia_5703", "croatia_5762", "croatia_5789", "croatia_5797", "croatia_5835", "croatia_5843", "croatia_6106", "croatia_6122", "croatia_6149", "croatia_6289"]
+
+[[entities.include]]
+country_code = "serbia"
+level = 2
+ids = ["serbia_M04355", "serbia_M04446", "serbia_M04537", "serbia_M04649", "serbia_M04775", "serbia_M04971", "serbia_M05041"]

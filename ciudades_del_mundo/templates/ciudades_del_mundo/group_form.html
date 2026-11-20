@@ -777,7 +777,7 @@
         return section;
       });
       var options = normalizedSections.filter(function (section) {
-        return !used[section.id] && !hasSelectedAncestor(section, used);
+        return !used[section.id];
       }).map(function (section) {
         return { value: section.id, label: section.label || section.name || section.id };
       });
@@ -850,7 +850,21 @@
     var selectedFragment = document.createDocumentFragment();
     (state.children || []).forEach(function (child) {
       if (selected[child.id]) {
-        renderBadge(selectedFragment, child, "selected");
+        var selectedItem = document.createElement("div");
+        selectedItem.className = "button-row compact";
+        renderBadge(selectedItem, child, "selected");
+        var operation = document.createElement("select");
+        operation.dataset.childOperation = child.id;
+        operation.setAttribute("aria-label", child.label || child.name || child.id);
+        [{ value: "add", label: "{% trans 'Sumar' %}" }, { value: "subtract", label: "{% trans 'Restar' %}" }].forEach(function (item) {
+          var option = document.createElement("option");
+          option.value = item.value;
+          option.textContent = item.label;
+          operation.appendChild(option);
+        });
+        operation.value = selected[child.id] === "subtract" ? "subtract" : "add";
+        selectedItem.appendChild(operation);
+        selectedFragment.appendChild(selectedItem);
       } else {
         renderBadge(availableFragment, child, "available");
       }
@@ -911,7 +925,7 @@
       });
       children.forEach(function (child) {
         if (selectedById[child.id] || selectedByName[child.name] || selectedByName[child.label]) {
-          section.__selectedIds[child.id] = true;
+          section.__selectedIds[child.id] = (state.pendingSelected || []).find(function (item) { return item.id === child.id && item.operation === "subtract"; }) ? "subtract" : "add";
         }
       });
       state.pendingSelected = [];
@@ -936,13 +950,13 @@
     return (state.children || []).filter(function (child) {
       return selected[child.id];
     }).map(function (child) {
-      return { id: child.id, name: child.name || child.label || "" };
+      return { id: child.id, name: child.name || child.label || "", operation: selected[child.id] === "subtract" ? "subtract" : "add" };
     });
   }
 
   function sectionSelectedLabels(section) {
     return selectedItemsForSection(section).map(function (item) {
-      return item.name || item.label || item.id || "";
+      return (item.operation === "subtract" ? "− " : "") + (item.name || item.label || item.id || "");
     }).filter(Boolean);
   }
 
@@ -1052,9 +1066,6 @@
     var targetList = state.originalParent || sectionListForBlock(block);
     if (saveChanges) {
       var sectionState = section.__sectionState || {};
-      if (sectionState.area_id) {
-        removeDescendantSections(block, sectionState.area_id);
-      }
       if (state.placeholder && state.placeholder.parentNode) {
         state.placeholder.parentNode.insertBefore(section, state.placeholder);
         state.placeholder.remove();
@@ -1174,6 +1185,13 @@
       childrenLoading: null
     };
     section.__selectedIds = {};
+    section.addEventListener("change", function (event) {
+      var childId = event.target.dataset.childOperation;
+      if (childId && section.__selectedIds[childId]) {
+        section.__selectedIds[childId] = event.target.value === "subtract" ? "subtract" : "add";
+        refreshHidden();
+      }
+    });
     section.querySelector("[data-remove-group-section]").addEventListener("click", function () {
       section.remove();
       updateHierarchyFrom(block, 0);

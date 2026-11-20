@@ -1,0 +1,31 @@
+schema_version = 1
+kind = "derived_country_config"
+country = "imperio_austriaco"
+country_name = "Imperio Austriaco"
+municipal_level = 4
+slug = "imperio_austriaco_prov_bohemia"
+name = "Bohemia"
+source_country_code = "austria"
+derived_country_code = "imperio_austriaco"
+parent_config_slug = ""
+groups = []
+
+[selection]
+source_country_code = "austria"
+include_ids = []
+subtract_ids = []
+include_codes = []
+subtract_codes = []
+group_slugs = []
+
+[[entities]]
+mode = "intermediate"
+name = "Bohemia"
+code = "CBO"
+entity_type = "Corona"
+level = 1
+parent_config_slug = ""
+capitals = []
+area_km2 = 78815.43
+pop_latest = 10841866
+density = 137.56

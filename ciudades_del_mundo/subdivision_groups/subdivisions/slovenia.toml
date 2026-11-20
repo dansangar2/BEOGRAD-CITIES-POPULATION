@@ -1,0 +1,10 @@
+schema_version = 1
+kind = "derived_subdivision_bundle"
+source_country_code = "slovenia"
+
+[[subdivisions]]
+internal_name = "CARNIOLA"
+name = "Carniola"
+code = "CAI"
+entity_type = "Ducado"
+content = "slug = \"austria_carniola\"\nschema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"CARNIOLA\"\nsource_country_code = \"slovenia\"\nname = \"Carniola\"\ncode = \"CAI\"\nentity_type = \"Ducado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Ljubljana\"]\n\n[[include]]\ncountry_code = \"slovenia\"\nlevel = 0\nnames = []\nids = []\ncodes = [\"slovenia\"]\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"slovenia\"\nlevel = 1\nnames = []\nids = []\ncodes = []\ngroups = [\"ESLOVENIA_A_ESTRIA_REGION\", \"ESLOVENIA_A_HUNGRIA_REGION\"]\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"slovenia\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"ESLOVENIA_A_CARINTIA\", \"ESLOVENIA_A_GORIZA\", \"ESLOVENIA_A_ISTRIA\", \"ESLOVENIA_A_ESTRIA_MUNICIPIOS\"]\nderived_subdivisions = []\nexpressions = []\n"

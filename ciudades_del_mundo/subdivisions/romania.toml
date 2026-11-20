@@ -1,6 +1,5 @@
 name = "Romania"
 country_code = "romania"
-base_url = "https://www.citypopulation.de/en/"
 LEGAL_SUBDIVISION = 3
 
 scrape_schema_version = 2
@@ -23,7 +22,6 @@ path = [
   "localities/botosani",
   "localities/braila",
   "localities/brasov",
-  "localities/bucuresti",
   "localities/buzau",
   "localities/calarasi",
   "localities/carasseverin",
@@ -59,3 +57,99 @@ path = [
 ]
 include = { infosection = true, major_subdivision = true, cities = true }
 force_highest_level = 2
+
+
+# Bucuresti ya figura como ciudad de rango condado (L2) en admin.
+# No existe /localities/bucuresti/: mantener su funcion municipal en L3
+# con la misma identidad y metricas. Sus seis sectores administrativos son L4.
+[[synthetic_entities]]
+code = "RO321_city"
+name = "București"
+level = 3
+parent_code = "RO321"
+entity_type = "City"
+data_wd = "Q19660"
+copy_metrics_from = "RO321"
+url = "https://www.citypopulation.de/en/romania/admin/bucurești_ilfov/RO321__bucurești/"
+
+# INS, RPL 2021, resultados definitivos, tabla 1.22: codigos SIRUTA y
+# poblacion residente a 2021-12-01. Los sectores son boroughs, no localidades.
+# Su suma censal (1 716 961) no sustituye la estimacion de Bucarest de 2025.
+# Fuente: https://www.recensamantromania.ro/wp-content/uploads/2023/05/Tabel-1.22.xlsx
+[[synthetic_entities]]
+code = "179141"
+name = "Sector 1"
+level = 4
+parent_code = "RO321_city"
+entity_type = "Borough"
+raw_entity_type = "Sector"
+data_wd = "Q2162427"
+pop_latest = 217367
+pop_latest_date = "2021-12-01"
+last_census_year = 2021
+url = "https://www.recensamantromania.ro/wp-content/uploads/2023/05/Tabel-1.22.xlsx"
+
+[[synthetic_entities]]
+code = "179150"
+name = "Sector 2"
+level = 4
+parent_code = "RO321_city"
+entity_type = "Borough"
+raw_entity_type = "Sector"
+data_wd = "Q2728790"
+pop_latest = 291557
+pop_latest_date = "2021-12-01"
+last_census_year = 2021
+url = "https://www.recensamantromania.ro/wp-content/uploads/2023/05/Tabel-1.22.xlsx"
+
+[[synthetic_entities]]
+code = "179169"
+name = "Sector 3"
+level = 4
+parent_code = "RO321_city"
+entity_type = "Borough"
+raw_entity_type = "Sector"
+data_wd = "Q2455368"
+pop_latest = 374737
+pop_latest_date = "2021-12-01"
+last_census_year = 2021
+url = "https://www.recensamantromania.ro/wp-content/uploads/2023/05/Tabel-1.22.xlsx"
+
+[[synthetic_entities]]
+code = "179178"
+name = "Sector 4"
+level = 4
+parent_code = "RO321_city"
+entity_type = "Borough"
+raw_entity_type = "Sector"
+data_wd = "Q687235"
+pop_latest = 268018
+pop_latest_date = "2021-12-01"
+last_census_year = 2021
+url = "https://www.recensamantromania.ro/wp-content/uploads/2023/05/Tabel-1.22.xlsx"
+
+[[synthetic_entities]]
+code = "179187"
+name = "Sector 5"
+level = 4
+parent_code = "RO321_city"
+entity_type = "Borough"
+raw_entity_type = "Sector"
+data_wd = "Q167630"
+pop_latest = 240288
+pop_latest_date = "2021-12-01"
+last_census_year = 2021
+url = "https://www.recensamantromania.ro/wp-content/uploads/2023/05/Tabel-1.22.xlsx"
+
+[[synthetic_entities]]
+code = "179196"
+name = "Sector 6"
+level = 4
+parent_code = "RO321_city"
+entity_type = "Borough"
+raw_entity_type = "Sector"
+data_wd = "Q167280"
+pop_latest = 324994
+pop_latest_date = "2021-12-01"
+last_census_year = 2021
+url = "https://www.recensamantromania.ro/wp-content/uploads/2023/05/Tabel-1.22.xlsx"

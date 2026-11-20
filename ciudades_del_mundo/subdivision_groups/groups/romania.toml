@@ -1,0 +1,178 @@
+source_country_code = "romania"
+
+VALAQUIA = [
+    "Mehedinți",
+    "Gorj",
+    "Dolj",
+    "Olt",
+    "Argeș",
+    "Teleorman",
+    "Dâmbovița",
+    "Giurgiu",
+    "Ilfov",
+    "București",
+    "Călărași",
+    "Ialomița",
+    "Brăila",
+    "Vâlcea",
+    "Buzău",
+    "Prahova",
+]
+
+MOLDAVIA = [
+    "Galați",
+    "Vaslui",
+    "Iași",
+    "Botoșani",
+    "Neamț",
+    "Bacău",
+    "Vrancea",
+]
+
+DOBROGEA = [
+    "Constanța",
+    "Tulcea",
+]
+
+BOTOSANI_A_BUCOVINA = [
+    "Mihăileni",
+    "Cândești",
+]
+
+SUCEAVA_A_MOLDOVA = [
+    "Grămești",
+    "Zamostea",
+    "Zvoriștea",
+    "Hănțești",
+    "Adâncata",
+    "Siminicea",
+    "Dumbrăveni",
+    "Salcea",
+    "Verești",
+    "Fântânele",
+    "Liteni",
+    "Dolhasca",
+    "Dolhești",
+    "Vulturești",
+    "Bunești",
+    "Hârtop",
+    "Preutești",
+    "Forăști",
+    "Drăgușeni",
+    "Vadu Moldovei",
+    "Fântâna Mare",
+    "Fălticeni",
+    "Rădășeni",
+    "Boroaia",
+    "Bogdănești",
+    "Râșca",
+    "Mălini",
+    "Slatina",
+    "Baia",
+    "Cornu Luncii",
+    "Horodniceni",
+    "Broșteni",
+    "Crucea",
+]
+
+SUCEVA_A_TRANSILVANIA = [
+    "Șaru Dornei",
+    "Poiana Stampei",
+]
+
+MEHEDINITI_A_BANATO = [
+    "Orșova",
+    "Eșelnița",
+    "Dubova",
+    "Svinița",
+]
+
+CARASSEVERIN_A_TRANSILVANIA = [
+    "Băuțar",
+    "Marga",
+]
+
+BRASOV_A_VALAQUIA = [
+    "Predeal",
+]
+
+NEAMT_A_TRANSILVANIA = [
+    "Dămuc",
+    "Bicaz-Chei",
+    "Bicazu Ardelean",
+]
+
+MARAMURES_A_TRANSILVANIA = [
+    "Suciu de Sus",
+    "Târgu Lăpuș",
+    "Coroieni",
+    "Vima Mică",
+    "Boiu Mare",
+    "Groșii Țibleșului",
+    "Lăpuș",
+    "Băiuț",
+    "Cupșeni",
+]
+
+SALAJ_A_TRANSILVANIA = [
+    "Fildu de Jos",
+    "Almașu",
+    "Cuzăplac",
+    "Zimbor",
+    "Dragu",
+    "Hida",
+    "Gârbou",
+    "Zalha",
+    "Cristolț",
+    "Șimișna",
+    "Rus",
+    "Gâlgău",
+    "Poiana Blenchii",
+    "Ileanda",
+    "Lozna",
+    "Letca",
+    "Surduc",
+    "Băbeni",
+    "Bălan",
+]
+
+BUCAU_A_TRANSILVANIA = [
+    "Ghimeș-Făget",
+    "Palanca",
+    "Agăș",
+]
+
+VRANCEA_A_VALAQUIA = [
+    "Măicănești",
+    "Ciorăști",
+    "Bălești",
+    "Tătăranu",
+    "Sihlea",
+    "Gugești",
+    "Slobozia Bradului",
+    "Obrejița",
+    "Tâmboești",
+    "Dumbrăveni",
+    "Bordești",
+    "Gura Caliței",
+    "Dumitrești",
+    "Chiojdeni",
+    "Jitia",
+    "Vintileasca",
+]
+
+ARAD_A_BANATO = [
+    "Secusigiu",
+    "Vinga",
+    "Felnac",
+    "Zădăreni",
+    "Șagu",
+    "Fântânele",
+    "Frumușeni",
+    "Zăbrani",
+    "Lipova",
+    "Șiștarovăț",
+    "Ususău",
+    "Bata",
+    "Birchiș",
+]

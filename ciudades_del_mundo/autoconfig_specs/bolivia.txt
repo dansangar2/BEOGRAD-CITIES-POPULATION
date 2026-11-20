@@ -1,0 +1,53 @@
+Objetivo territorial de Bolivia
+
+Jerarquia solicitada: Pais > Departamento > Provincias > Municipios >
+Localidades/Zonas Urbanas, dentro de lo que permita la fuente.
+
+L0: pais. L1: departamentos. L2: provincias.
+L3: municipios y territorios indigenas publicados en /en/bolivia/admin/,
+conservando sus tipos originales y su provincia como padre.
+L4: localidades y asentamientos urbanos de las nueve paginas departamentales,
+bajo su municipio, conservando el tipo Urban Settlement de CityPopulation.
+Mantener LEGAL_SUBDIVISION = 2, codigos, QID y cifras de la fuente.
+No inventar localidades rurales ni una capa final para municipios sin
+asentamientos urbanos publicados. No dar por exhaustivo el poblamiento rural.
+
+/en/bolivia/dept/admin/ aporta el pais, los departamentos y las provincias.
+Su cabecera sigue siendo L0 aunque la ruta tenga un segmento adicional.
+/en/bolivia/admin/ presenta municipios directamente bajo departamentos;
+usar estos departamentos solo como contexto y enlazar los codigos municipales
+de seis digitos con su provincia de cuatro digitos, dentro del mismo departamento.
+Mantener el mismo encaje en todas las ramas, incluidas capitales y territorios
+indigenas. No fusionar funciones distintas por compartir nombre o QID.
+
+Las paginas /beni/, /chuquisaca/, /cochabamba/, /lapaz/, /oruro/, /pando/,
+/potosi/, /santacruz/ y /tarija/ publican asentamientos urbanos con contexto
+de provincia. Sus codigos de localidad incluyen el prefijo municipal de seis
+digitos: usar el municipio L3, no colgarlas directamente de la provincia L2.
+Por ejemplo, Baures 08080201002001 depende del municipio Baures 080802 y
+Abapo 07070301001001 del municipio Cabezas 070703, aunque sus nombres difieran.
+Conservar por separado La Paz municipio y La Paz asentamiento urbano, igual
+que las demas cabeceras homonimas, incluso cuando comparten QID.
+
+Las cifras urbanas departamentales consultadas llegan al censo de 2012 y son
+no revisadas. No sustituir con ellas poblaciones administrativas de 2024 ni
+mezclarlas con la lista nacional de ciudades mayores de 10 000 habitantes.
+Conservar el ultimo dato y su fecha de cada fila de la fuente, incluidas filas
+historicas sin poblacion en el ultimo censo. Si un codigo municipal historico
+ya no existe, resolver su pertenencia actual con evidencia; no inventar padres.
+
+Las tres paginas guardadas en el intento del 22/10/2026 contienen una raiz,
+9 departamentos, 113 provincias y 343 unidades municipales (336 municipios
+y 7 territorios indigenas). Estos conteos describen esa instantanea, no un
+limite fijo para futuros censos. La raiz de /cities/ identifica Bolivia como Q750.
+
+Fuentes de las paginas configuradas:
+https://www.citypopulation.de/en/bolivia/cities/
+https://www.citypopulation.de/en/bolivia/dept/admin/
+https://www.citypopulation.de/en/bolivia/admin/
+https://www.citypopulation.de/en/bolivia/
+https://www.citypopulation.de/en/bolivia/beni/
+https://www.citypopulation.de/en/bolivia/lapaz/
+https://www.citypopulation.de/en/bolivia/santacruz/
+https://www.citypopulation.de/en/bolivia/beni/it%C3%A9nez/08080201002001__baures/
+https://www.citypopulation.de/en/bolivia/santacruz/cordillera/07070301001001__abap%C3%B3/

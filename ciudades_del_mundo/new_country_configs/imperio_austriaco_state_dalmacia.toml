@@ -1,0 +1,37 @@
+schema_version = 1
+kind = "derived_country_config"
+country = "imperio_austriaco"
+country_name = "Imperio Austriaco"
+municipal_level = 4
+slug = "imperio_austriaco_state_dalmacia"
+name = "Dalmacia"
+source_country_code = "croatia"
+derived_country_code = "imperio_austriaco"
+parent_config_slug = "imperio_austriaco_prov_dalmacia"
+groups = []
+
+[selection]
+source_country_code = "croatia"
+include_ids = ["croatia_0094", "croatia_0175", "croatia_0205", "croatia_0221", "croatia_0256", "croatia_0272", "croatia_0507", "croatia_0515", "croatia_0728", "croatia_0779", "croatia_0876", "croatia_0884", "croatia_0957", "croatia_0981", "croatia_1007", "croatia_1139", "croatia_1341", "croatia_1481", "croatia_1538", "croatia_1554", "croatia_1678", "croatia_1716", "croatia_1732", "croatia_1813", "croatia_1830", "croatia_1848", "croatia_1929", "croatia_1961", "croatia_1970", "croatia_1988", "croatia_2046", "croatia_2194", "croatia_2267", "croatia_2348", "croatia_2437", "croatia_2496", "croatia_2585", "croatia_2640", "croatia_2674", "croatia_2682", "croatia_2801", "croatia_2828", "croatia_2887", "croatia_2968", "croatia_2984", "croatia_3000", "croatia_3069", "croatia_3085", "croatia_3107", "croatia_3140", "croatia_3166", "croatia_3174", "croatia_3204", "croatia_3352", "croatia_3379", "croatia_3395", "croatia_3417", "croatia_3433", "croatia_3441", "croatia_3450", "croatia_3492", "croatia_3506", "croatia_3549", "croatia_3573", "croatia_3581", "croatia_3638", "croatia_3719", "croatia_3778", "croatia_3794", "croatia_3824", "croatia_3832", "croatia_3891", "croatia_3948", "croatia_3999", "croatia_4022", "croatia_4065", "croatia_4090", "croatia_4111", "croatia_4138", "croatia_4162", "croatia_4197", "croatia_4235", "croatia_4251", "croatia_4278", "croatia_4286", "croatia_4430", "croatia_4448", "croatia_4456", "croatia_4472", "croatia_4545", "croatia_4600", "croatia_4634", "croatia_4693", "croatia_4740", "croatia_4898", "croatia_4928", "croatia_5002", "croatia_5118", "croatia_5134", "croatia_5207", "croatia_5223", "croatia_5231", "croatia_5258", "croatia_5282", "croatia_5371", "croatia_5711", "croatia_5720", "croatia_5738", "croatia_5746", "croatia_5754", "croatia_5819", "croatia_5827", "croatia_5851", "croatia_5860", "croatia_5878", "croatia_5886", "croatia_5894", "croatia_5908", "croatia_5916", "croatia_5924", "croatia_5932", "croatia_5959", "croatia_5983", "croatia_5991", "croatia_6009", "croatia_6017", "croatia_6025", "croatia_6173", "croatia_6211", "croatia_6220", "croatia_6246", "croatia_6254", "croatia_6262"]
+subtract_ids = []
+include_codes = []
+subtract_codes = []
+group_slugs = []
+
+[[entities]]
+mode = "final"
+name = "Dalmacia"
+code = "DAL"
+entity_type = "Estado"
+level = 3
+parent_config_slug = "imperio_austriaco_prov_dalmacia"
+capitals = ["Zadar"]
+use_selected_entities_as_children = false
+
+area_km2 = 12198.02
+pop_latest = 818289
+density = 67.08
+[[entities.include]]
+country_code = "croatia"
+level = 2
+ids = ["croatia_0094", "croatia_0175", "croatia_0205", "croatia_0221", "croatia_0256", "croatia_0272", "croatia_0507", "croatia_0515", "croatia_0728", "croatia_0779", "croatia_0876", "croatia_0884", "croatia_0957", "croatia_0981", "croatia_1007", "croatia_1139", "croatia_1341", "croatia_1481", "croatia_1538", "croatia_1554", "croatia_1678", "croatia_1716", "croatia_1732", "croatia_1813", "croatia_1830", "croatia_1848", "croatia_1929", "croatia_1961", "croatia_1970", "croatia_1988", "croatia_2046", "croatia_2194", "croatia_2267", "croatia_2348", "croatia_2437", "croatia_2496", "croatia_2585", "croatia_2640", "croatia_2674", "croatia_2682", "croatia_2801", "croatia_2828", "croatia_2887", "croatia_2968", "croatia_2984", "croatia_3000", "croatia_3069", "croatia_3085", "croatia_3107", "croatia_3140", "croatia_3166", "croatia_3174", "croatia_3204", "croatia_3352", "croatia_3379", "croatia_3395", "croatia_3417", "croatia_3433", "croatia_3441", "croatia_3450", "croatia_3492", "croatia_3506", "croatia_3549", "croatia_3573", "croatia_3581", "croatia_3638", "croatia_3719", "croatia_3778", "croatia_3794", "croatia_3824", "croatia_3832", "croatia_3891", "croatia_3948", "croatia_3999", "croatia_4022", "croatia_4065", "croatia_4090", "croatia_4111", "croatia_4138", "croatia_4162", "croatia_4197", "croatia_4235", "croatia_4251", "croatia_4278", "croatia_4286", "croatia_4430", "croatia_4448", "croatia_4456", "croatia_4472", "croatia_4545", "croatia_4600", "croatia_4634", "croatia_4693", "croatia_4740", "croatia_4898", "croatia_4928", "croatia_5002", "croatia_5118", "croatia_5134", "croatia_5207", "croatia_5223", "croatia_5231", "croatia_5258", "croatia_5282", "croatia_5371", "croatia_5711", "croatia_5720", "croatia_5738", "croatia_5746", "croatia_5754", "croatia_5819", "croatia_5827", "croatia_5851", "croatia_5860", "croatia_5878", "croatia_5886", "croatia_5894", "croatia_5908", "croatia_5916", "croatia_5924", "croatia_5932", "croatia_5959", "croatia_5983", "croatia_5991", "croatia_6009", "croatia_6017", "croatia_6025", "croatia_6173", "croatia_6211", "croatia_6220", "croatia_6246", "croatia_6254", "croatia_6262"]

@@ -344,7 +344,7 @@ class ScrapeAdminAreas:
                 self.on_unlinked_entities(config, unresolved)
 
         self._notify_persistence(config, "most_populated_assign", "start", count=len(entities))
-        entities, most_populated_updated = _assign_most_populated_to_entities(config, entities)
+        entities, most_populated_updated = _assign_most_populated_to_entities(entities)
         self._notify_persistence(
             config,
             "most_populated_assign",
@@ -842,11 +842,10 @@ def _parent_validation_problems(
 
 
 def _assign_most_populated_to_entities(
-    config: ScrapingJobConfig,
     entities: list[ScrapedAdminArea],
 ) -> tuple[list[ScrapedAdminArea], int]:
     summaries = _summaries_from_scraped_entities(entities)
-    assignments = calculate_most_populated_assignments(summaries, config.legal_subdivision_level)
+    assignments = calculate_most_populated_assignments(summaries)
     assignment_by_area_id = {assignment.area_id: assignment.most_populated_id for assignment in assignments}
     code_by_id = {entity.id: entity.code for entity in entities}
 

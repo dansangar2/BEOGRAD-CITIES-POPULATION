@@ -4,7 +4,7 @@ ARTEMISA_A_LA_HABANA = [
     "Caimito",
     "Alquízar",
     "Bauta",
-    "an Antonio de los Baños",
+    "San Antonio de los Baños",
     "Güira de Melena",
 ]
 
@@ -51,31 +51,7 @@ A_PUERTO_PRINCIPE = [
     "Camagüey",
 ]
 
-A_SANTA_CLARA = [
-    "Villa Clara",
-    "Cienfuegos",
-    "Sancti Spíritus",
-]
-
-A_SANTIAGO_DE_CUBA = [
-    "Las Tunas",
-    "Holguín",
-    "Granma",
-    "Santiago de Cuba",
-    "Guantánamo",
-]
-
 LAS_TUNAS_A_CENTRO = [
-    "Colombia",
-    "Amancio",
-]
-
-LAS_TUNAS_A_OCCIDENTAL = [
-    "Colombia",
-    "Amancio",
-]
-
-LAS_TUNAS_A_PUERTO_PRINCIPE = [
     "Colombia",
     "Amancio",
 ]
@@ -88,10 +64,10 @@ MATANZAS_A_CENTRAL = [
     "Ciénaga de Zapata",
 ]
 
-MATANZAS_A_SANTA_CLARA = [
-    "Ciénaga de Zapata",
-]
-
-SANCTI_SPIRITUS_A_ORIENTAL = [
-    "Jatibonico",
-]
+# Agrupaciones territoriales unificadas:
+# A_SANTA_CLARA -> A_CUBA_CENTRAL
+# A_SANTIAGO_DE_CUBA -> A_CUBA_ORIENTAL
+# LAS_TUNAS_A_OCCIDENTAL -> LAS_TUNAS_A_CENTRO
+# LAS_TUNAS_A_PUERTO_PRINCIPE -> LAS_TUNAS_A_CENTRO
+# SANCTI_SPIRITUS_A_ORIENTAL -> LAS_VILLAS_A_PUERTO_PRINCIPE
+# MATANZAS_A_SANTA_CLARA -> MATANZAS_A_CENTRAL

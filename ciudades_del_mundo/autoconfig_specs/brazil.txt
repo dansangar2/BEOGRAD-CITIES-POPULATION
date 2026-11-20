@@ -1,0 +1,47 @@
+Brasil: incorporar las zonas urbanas y las subdivisiones de las principales
+ciudades publicadas por CityPopulation, conservando los niveles ya persistidos:
+pais L0, estados y Distrito Federal L2, municipios L3.
+
+Las zonas urbanas de los 26 estados y Brasilia son entidades L4 bajo su municipio
+L3. Conservar sus codigos, poblaciones y fechas propios; no fusionarlas con el
+municipio aunque compartan nombre o QID. Las tablas municipales de las paginas
+estatales solo aportan contexto, sin reemplazar los datos administrativos.
+Preservar los codigos originales tambien en las paginas administrativas para
+conservar municipios homonimos de estados distintos. Enlazar por los primeros
+siete digitos IBGE las zonas urbanas (nueve digitos) con sus municipios;
+nunca por el nombre sin contexto estatal.
+Brasilia urbana usa el ID interno 2470 en cities/distritofederal; asignarle
+5300108_urban, distinto del municipio 5300108, y enlazarla con ese municipio.
+
+Los distritos de Belem y Sao Paulo y los subdistritos de Belo Horizonte,
+Brasilia, Curitiba, Fortaleza, Goiania, Manaus, Recife, Rio de Janeiro y Salvador
+son L5 bajo la localidad L4 de su ciudad, siguiendo el objetivo solicitado:
+municipio L3 > localidad L4 > distritos/subdistritos L5. Sao Paulo debe quedar
+3550308 > 355030800 > sus 96 distritos; Brasilia,
+5300108 > 5300108_urban > sus 33 subdistritos. Aplicar la misma cadena a las
+once ciudades, manteniendo los tipos y cifras originales de cada fila.
+La localidad conserva su poblacion urbana; las subdivisiones municipales
+mantienen el alcance territorial de la fuente, incluida su parte rural.
+No sumar ni reemplazar la poblacion de la localidad con sus subdivisiones.
+Conservar filas distintas para nombres repetidos, por ejemplo los subdistritos
+de Belo Horizonte pertenecientes a distintos distritos censales.
+Estas once paginas usan table#ts, sin table#tl. Configurarlas como cities con
+solo major_subdivision a partir de L5. Excluir la infoseccion municipal para
+que no cree otra localidad ni sustituya los datos urbanos de las paginas
+estatales. Enlazar los codigos de subdivision de once digitos con el codigo
+de localidad formado por los siete primeros digitos y 00; Brasilia usa
+explicitamente 5300108_urban.
+La columna District de Belo Horizonte aporta contexto censal: sus 14 filas
+de subdistrito deben colgar de 310620000 en L5. No enlazar Oeste, Nordeste, Norte,
+Pampulha o Venda Nova bajo otra fila de subdistrito con el nombre del distrito.
+
+No introducir aglomeraciones supramunicipales ni inventar localidades donde
+la fuente no las publica. La reorganizacion autorizada cambia solo el padre y
+el nivel de las 308 subdivisiones municipales. Conservar los IDs, poblaciones,
+tipos, traducciones y recursos de todas las entidades, incluidas sus localidades.
+
+Fuentes: https://www.citypopulation.de/en/brazil/
+https://www.citypopulation.de/en/brazil/acre/
+https://www.citypopulation.de/en/brazil/cities/distritofederal/
+https://www.citypopulation.de/en/brazil/belohorizonte/
+https://www.citypopulation.de/en/brazil/saopaulocity/

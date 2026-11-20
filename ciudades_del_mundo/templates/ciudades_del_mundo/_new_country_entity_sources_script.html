@@ -1,0 +1,226 @@
+<script>
+(() => {
+  const form = document.querySelector("[data-country-sources]");
+  const picker = form.querySelector("[data-source-country]");
+  const countrySearch = form.querySelector("[data-source-country-search]");
+  const countryOptions = [...picker.options];
+  const searchKey = value => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const boxes = new Map();
+  const selected = { original: new Map(), created: new Map(), groups: new Map() };
+  let selectionChanged = false;
+
+  function configureTable(panel, country, refreshPicked) {
+    const kind = panel.dataset.kind;
+    const selections = selected[kind];
+    panel.append(document.querySelector("#new-country-source-table").content.cloneNode(true));
+    const level = panel.querySelector("[data-level]");
+    const search = panel.querySelector("[data-search]");
+    const tbody = panel.querySelector("tbody");
+    const tableSpace = panel.querySelector("[data-source-table]");
+    const previous = panel.querySelector("[data-previous]");
+    const next = panel.querySelector("[data-next]");
+    const pageSize = panel.querySelector("[data-page-size]");
+    const pagination = panel.querySelector("[data-pagination]");
+    const pageLinks = panel.querySelector("[data-page-links]");
+    let request;
+    let timer;
+    let page = 1;
+    let loaded = false;
+    let hasNext = false;
+    level.closest("label").hidden = kind !== "original";
+
+    function message(text) {
+      tbody.replaceChildren();
+      const cell = tbody.insertRow().insertCell();
+      cell.colSpan = 2;
+      cell.className = "table-empty-cell";
+      cell.textContent = text;
+    }
+
+    function renderPages(totalPages) {
+      pagination.hidden = totalPages <= 1;
+      pageLinks.replaceChildren();
+      const pages = new Set([1, totalPages]);
+      const start = Math.max(1, Math.min(page - 2, totalPages - 4));
+      for (let n = start; n <= Math.min(totalPages, start + 4); n++) pages.add(n);
+      let last = 0;
+      for (const n of [...pages].sort((a, b) => a - b)) {
+        if (last && n - last > 1) pageLinks.append(" … ");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = n;
+        if (n === page) {
+          button.setAttribute("aria-current", "page");
+          button.disabled = true;
+        } else {
+          button.className = "secondary";
+          button.addEventListener("click", () => load(n, true));
+        }
+        pageLinks.append(button);
+        last = n;
+      }
+    }
+
+    async function load(destination = 1, paging = false) {
+      request?.abort();
+      const current = new AbortController();
+      request = current;
+      const url = new URL(kind === "created" ? form.dataset.createdUrl : form.dataset.originalUrl, location.origin);
+      url.search = new URLSearchParams({country, kind, compact: "1", page: destination, page_size: pageSize.value, q: search.value, level: level.value});
+      if (paging) {
+        // Keep the pager in place even when the last page has fewer rows.
+        tableSpace.style.minHeight = tableSpace.getBoundingClientRect().height + "px";
+      } else {
+        tableSpace.style.minHeight = "";
+        message(form.dataset.loading);
+        pagination.hidden = true;
+      }
+      tableSpace.setAttribute("aria-busy", "true");
+      if (!paging) previous.disabled = next.disabled = true;
+      try {
+        const response = await fetch(url, {signal: current.signal, headers: {Accept: "application/json"}});
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        if (current.signal.aborted) return;
+        if (kind === "original" && level.options.length === 1 && data.levels?.length) {
+          level.replaceChildren();
+          for (const option of data.levels) level.add(new Option(option.label, option.value));
+          level.value = String(data.level);
+        }
+        loaded = true;
+        page = data.page;
+        previous.disabled = page <= 1;
+        hasNext = data.has_next;
+        next.disabled = !hasNext;
+        renderPages(data.num_pages || 1);
+        tbody.replaceChildren();
+        if (!data.results.length) message(form.dataset.empty);
+        for (const item of data.results) {
+          const id = item.id || item.key || item.slug;
+          const key = JSON.stringify([country, id]);
+          const label = item.parent_label ? item.name + " · " + item.parent_label : item.name;
+          const checkbox = addSelectionRow(tbody, label, selections.has(key), checked => {
+            selectionChanged = true;
+            if (checked) selections.set(key, {country_code: country, key: id, label, checkbox});
+            else selections.delete(key);
+            refreshPicked();
+          });
+          if (selections.has(key)) selections.get(key).checkbox = checkbox;
+        }
+      } catch (error) {
+        if (!current.signal.aborted) {
+          message(form.dataset.error);
+          previous.disabled = page <= 1;
+          next.disabled = !hasNext;
+        }
+      } finally {
+        if (request === current) tableSpace.removeAttribute("aria-busy");
+      }
+    }
+    panel.addEventListener("toggle", () => { if (panel.open && !loaded) load(); });
+    level.addEventListener("change", () => load());
+    pageSize.addEventListener("change", () => load());
+    search.addEventListener("input", () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => load(), 250);
+    });
+    previous.addEventListener("click", () => load(page - 1, true));
+    next.addEventListener("click", () => load(page + 1, true));
+  }
+
+  function addSelectionRow(tbody, label, checked, onChange) {
+    const row = tbody.insertRow();
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = checked;
+    checkbox.setAttribute("aria-label", label);
+    checkbox.addEventListener("change", () => onChange(checkbox.checked));
+    row.insertCell().append(checkbox);
+    row.insertCell().textContent = label;
+    return checkbox;
+  }
+
+  function refreshCountryPicker() {
+    const value = picker.value;
+    const query = searchKey(countrySearch.value.trim());
+    picker.replaceChildren(...countryOptions.filter(option => !option.value || searchKey(option.text).includes(query)));
+    picker.value = [...picker.options].some(option => option.value === value && !option.disabled) ? value : "";
+  }
+  countrySearch.addEventListener("input", refreshCountryPicker);
+
+  function add(country, label) {
+    if (!country || boxes.has(country)) return;
+    const box = document.querySelector("#new-country-source-box").content.firstElementChild.cloneNode(true);
+    box.querySelector("h2").textContent = label;
+    const option = countryOptions.find(item => item.value === country);
+    if (option) option.disabled = true;
+    picker.value = "";
+    refreshCountryPicker();
+    const remove = box.querySelector("[data-remove-source]");
+    remove.addEventListener("click", () => {
+      for (const entries of Object.values(selected)) {
+        for (const [key, item] of entries) if (item.country_code === country) {
+          entries.delete(key);
+          selectionChanged = true;
+        }
+      }
+      boxes.delete(country);
+      if (option) option.disabled = false;
+      refreshCountryPicker();
+      box.remove();
+      form.dispatchEvent(new Event("country-sources-changed"));
+    });
+    boxes.set(country, box);
+    const picked = box.querySelector("[data-picked]");
+    function refreshPicked() {
+      const tbody = picked.tBodies[0];
+      tbody.replaceChildren();
+      for (const panel of box.querySelectorAll("details")) {
+        const entries = selected[panel.dataset.kind];
+        let count = 0;
+        for (const [key, item] of entries) {
+          if (item.country_code !== country) continue;
+          count++;
+          addSelectionRow(tbody, item.label, true, () => {
+            selectionChanged = true;
+            entries.delete(key);
+            if (item.checkbox) item.checkbox.checked = false;
+            refreshPicked();
+          });
+        }
+        panel.querySelector("[data-count]").textContent = count || "";
+      }
+      picked.hidden = !tbody.rows.length;
+      if (selectionChanged) form.dispatchEvent(new Event("country-sources-changed"));
+    }
+    for (const panel of box.querySelectorAll("details")) configureTable(panel, country, refreshPicked);
+    form.querySelector("[data-source-boxes]").append(box);
+    refreshPicked();
+  }
+
+  form.querySelector("[data-add-source]").addEventListener("click", () => {
+    if (picker.value) add(picker.value, picker.selectedOptions[0].text);
+  });
+  form.addEventListener("keydown", event => {
+    if (event.key === "Enter" && event.target.matches("[data-search], [data-source-country-search]")) event.preventDefault();
+  });
+  form.countrySourcePayload = () => ({
+      country_boxes: true,
+      selection_changed: selectionChanged,
+      selected_ids: [...selected.original.values()].map(item => item.key),
+      selected_derived_subdivisions: [...selected.created.values()].map(({country_code, key}) => ({country_code, key})),
+      group_entries: [...selected.groups.values()].map(({country_code, key}) => ({country_code, key}))
+  });
+  form.addEventListener("submit", () => {
+    form.elements.selection_json.value = JSON.stringify(form.countrySourcePayload());
+  });
+  const source = form.elements.source_country_code.value;
+  const initial = JSON.parse(document.querySelector("#new-country-initial-selections").textContent) || [];
+  for (const item of initial) selected[item.kind].set(JSON.stringify([item.country_code, item.key]), item);
+  add(source, form.dataset.sourceLabel || source);
+  for (const country of new Set(initial.map(item => item.country_code))) {
+    const option = [...picker.options].find(item => item.value === country);
+    add(country, option?.text || country);
+  }
+})();
+</script>

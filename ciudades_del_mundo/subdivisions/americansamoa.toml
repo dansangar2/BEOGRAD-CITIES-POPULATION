@@ -11,3 +11,58 @@ include = { infosection = true, major_subdivision = false, cities = false }
 source = "admin"
 path = ["admin"]
 include = { infosection = true, admin1 = true, admin2 = true }
+
+[[pages]]
+source = "cities"
+path = ["cities"]
+# La fuente publica 38 localidades de mas de 250 habitantes (censo 2020).
+# Pais L0 > distrito/isla L1 > condado L2 > localidad L3.
+include = { infosection = false, major_subdivision = false, cities = true }
+force_highest_level = 3
+parent_level = 2
+preserve_source_codes = true
+
+# La tabla de localidades solo identifica el distrito, no el condado.
+# Correspondencias censales; Fofo sigue incluido en Lealataua en esta fuente.
+[[parent_overrides]]
+codes = ["35401", "37927"] # Fagasa, Matu'u
+parent_code = "11"
+
+[[parent_overrides]]
+codes = ["37923", "8346", "12326", "789", "37926", "791", "35408"]
+parent_code = "12"
+
+[[parent_overrides]]
+codes = ["35397", "35398", "37925"] # Alofau, Amouli, Aunu'u
+parent_code = "13"
+
+[[parent_overrides]]
+codes = ["35395", "37929", "35403", "37930"]
+parent_code = "14"
+
+[[parent_overrides]]
+codes = ["35396", "35399", "37928", "35409"]
+parent_code = "15"
+
+[[parent_overrides]]
+codes = ["790", "35406"] # Leone, Puapua
+parent_code = "51"
+
+[[parent_overrides]]
+codes = ["35394", "35400", "35404"]
+parent_code = "52"
+
+[[parent_overrides]]
+codes = ["35402", "35405", "35407", "31798"]
+parent_code = "53"
+
+[[parent_overrides]]
+codes = ["17183", "8347", "17184", "8348", "37924", "8350", "8351", "8352"]
+parent_code = "54"
+
+# Nu'uuli completa atraviesa Ituau (Eastern) y Tualauta (Western).
+# Su unico antecesor comun es el pais: conservar una sola localidad L3 y
+# sus 4991 habitantes, sin atribuir el total a uno de los dos condados.
+[[parent_overrides]]
+code = "8349"
+parent_code = "americansamoa"

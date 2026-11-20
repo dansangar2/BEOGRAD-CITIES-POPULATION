@@ -17,10 +17,10 @@ path = [
   "podravska",
   "pomurska",
   "posavska",
-  "primorskonotranjska",
+  "notranjskokraska",
   "savinjska",
   "zasavska",
 ]
 include = { infosection = true, major_subdivision = true, cities = true }
-force_highest_level = 1
+force_highest_level = 2
 include_root = false

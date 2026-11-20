@@ -1,6 +1,6 @@
-LEGAL_SUBDIVISION = 2
-
+LEGAL_SUBDIVISION = 3
 scrape_schema_version = 2
+wikidata_id = "Q921"
 
 [[pages]]
 source = "cities"
@@ -11,3 +11,618 @@ include = { infosection = true, major_subdivision = false, cities = false }
 source = "admin"
 path = ["admin"]
 include = { infosection = true, admin1 = true, admin2 = true }
+table_levels = { infosection = 0, major_subdivision = 1, minor_subdivision = 3 }
+
+# The national page stops at mukims. Keep territorial roles at the same
+# levels on all four district pages, including the branches outside the city.
+[[pages]]
+source = "admin"
+path = ["bruneimuara/admin", "belait/admin", "tutong/admin", "temburong/admin"]
+force_highest_level = 3
+parent_level = 1
+include = { infosection = false, major_subdivision = true, minor_subdivision = true }
+table_levels = { major_subdivision = 3, minor_subdivision = 4 }
+preserve_source_codes = true
+
+# First aggregate each urban mukim part from its own Quarter rows.
+# Bangar retains the source Town row. All eight urban areas use the same
+# final roles: district L1 -> city L2 -> mukim L3 -> source leaves L4.
+
+[[cities]]
+city = "Kuala Belait"
+id = "201_36310"
+level = 3
+type = "Mukim"
+wikidata_id = "Q1954622"
+district_types = ["Quarter"]
+from = { 1 = ["2"], 3 = ["201"] }
+communes = ["20107"]
+keep_communes = false
+
+[[cities]]
+city = "Berakas A"
+id = "108"
+level = 3
+type = "Mukim"
+wikidata_id = "Q1952924"
+district_types = ["Quarter"]
+from = { 1 = ["1"], 3 = ["108"] }
+communes = ["10816", "10803", "10802", "10801", "10808", "10809", "10810", "10804", "10805", "10806", "10815", "10807", "10812", "10814", "10813", "10811"]
+keep_communes = false
+
+[[cities]]
+city = "Berakas B"
+id = "109"
+level = 3
+type = "Mukim"
+wikidata_id = "Q2024412"
+district_types = ["Quarter"]
+from = { 1 = ["1"], 3 = ["109"] }
+communes = ["10901", "10902", "10906", "10903", "10905", "10912", "10904", "10907", "10908", "10909", "10910", "10911"]
+keep_communes = false
+
+[[cities]]
+city = "Burong Pingai Ayer"
+id = "105"
+level = 3
+type = "Mukim"
+wikidata_id = "Q2024423"
+district_types = ["Quarter"]
+from = { 1 = ["1"], 3 = ["105"] }
+communes = ["10501", "10502", "10503", "10504", "10508", "10507", "10505", "10506"]
+keep_communes = false
+
+[[cities]]
+city = "Gadong A"
+id = "110"
+level = 3
+type = "Mukim"
+wikidata_id = "Q2364102"
+district_types = ["Quarter"]
+from = { 1 = ["1"], 3 = ["110"] }
+communes = ["11008", "11001", "11009", "11003", "11004", "11005", "11006", "11007", "11002", "11010", "11011", "11012"]
+keep_communes = false
+
+[[cities]]
+city = "Gadong B"
+id = "111"
+level = 3
+type = "Mukim"
+wikidata_id = "Q3866969"
+district_types = ["Quarter"]
+from = { 1 = ["1"], 3 = ["111"] }
+communes = ["11104", "11105", "11106", "11103", "11102", "11101", "11107", "11108", "11109", "11110"]
+keep_communes = false
+
+[[cities]]
+city = "Kianggeh"
+id = "101"
+level = 3
+type = "Mukim"
+wikidata_id = "Q2365664"
+district_types = ["Quarter"]
+from = { 1 = ["1"], 3 = ["101"] }
+communes = ["10103", "10102", "10107", "10110", "10108", "10105", "10104", "10109", "10106", "10111", "10101"]
+keep_communes = false
+
+[[cities]]
+city = "Kilanas"
+id = "114"
+level = 3
+type = "Mukim"
+wikidata_id = "Q2365651"
+district_types = ["Quarter"]
+from = { 1 = ["1"], 3 = ["114"] }
+communes = ["11405", "11403", "11402", "11409", "11408", "11401", "11410", "11404", "11411"]
+keep_communes = false
+
+[[cities]]
+city = "Kota Batu"
+id = "112"
+level = 3
+type = "Mukim"
+wikidata_id = "Q2365632"
+district_types = ["Quarter"]
+from = { 1 = ["1"], 3 = ["112"] }
+communes = ["11202", "11205", "11203", "11204", "11214", "11207", "11201", "11208", "11209", "11215", "11206"]
+keep_communes = false
+
+[[cities]]
+city = "Lumapas"
+id = "113"
+level = 3
+type = "Mukim"
+wikidata_id = "Q2364560"
+district_types = ["Quarter"]
+from = { 1 = ["1"], 3 = ["113"] }
+communes = ["11311"]
+keep_communes = false
+
+[[cities]]
+city = "Mentiri"
+id = "117"
+level = 3
+type = "Mukim"
+wikidata_id = "Q2365615"
+district_types = ["Quarter"]
+from = { 1 = ["1"], 3 = ["117"] }
+communes = ["11703", "11701", "11706", "11705", "11702", "11704", "11707", "11708", "11709"]
+keep_communes = false
+
+[[cities]]
+city = "Peramu"
+id = "106"
+level = 3
+type = "Mukim"
+wikidata_id = "Q2365595"
+district_types = ["Quarter"]
+from = { 1 = ["1"], 3 = ["106"] }
+communes = ["10604", "10602", "10603", "10605", "10607", "10601", "10606"]
+keep_communes = false
+
+[[cities]]
+city = "Saba"
+id = "103"
+level = 3
+type = "Mukim"
+wikidata_id = "Q2490424"
+district_types = ["Quarter"]
+from = { 1 = ["1"], 3 = ["103"] }
+communes = ["10301", "10302", "10305", "10303", "10304"]
+keep_communes = false
+
+[[cities]]
+city = "Sengkurong"
+id = "115"
+level = 3
+type = "Mukim"
+wikidata_id = "Q2490410"
+district_types = ["Quarter"]
+from = { 1 = ["1"], 3 = ["115"] }
+communes = ["11507", "11512", "11506", "11504", "11502"]
+keep_communes = false
+
+[[cities]]
+city = "Serasa"
+id = "118"
+level = 3
+type = "Mukim"
+wikidata_id = "Q2490398"
+district_types = ["Quarter"]
+from = { 1 = ["1"], 3 = ["118"] }
+communes = ["11801", "11805", "11802", "11803", "11804"]
+keep_communes = false
+
+[[cities]]
+city = "Sungai Kebun"
+id = "104"
+level = 3
+type = "Mukim"
+wikidata_id = "Q2490464"
+district_types = ["Quarter"]
+from = { 1 = ["1"], 3 = ["104"] }
+communes = ["10406", "10407", "10404", "10405", "10401", "10403", "10402"]
+keep_communes = false
+
+[[cities]]
+city = "Sungai Kedayan"
+id = "102"
+level = 3
+type = "Mukim"
+wikidata_id = "Q2490416"
+district_types = ["Quarter"]
+from = { 1 = ["1"], 3 = ["102"] }
+communes = ["10205", "102x099", "102x134", "10201", "10203", "10204", "10202"]
+keep_communes = false
+
+[[cities]]
+city = "Tamoi"
+id = "107"
+level = 3
+type = "Mukim"
+wikidata_id = "Q2490448"
+district_types = ["Quarter"]
+from = { 1 = ["1"], 3 = ["107"] }
+communes = ["10706", "10705", "10704", "10703", "10702", "10701", "10707"]
+keep_communes = false
+
+[[cities]]
+city = "Bangar"
+id = "402"
+level = 3
+type = "Mukim"
+wikidata_id = "Q2490430"
+district_types = ["Town"]
+from = { 1 = ["4"], 3 = ["402"] }
+communes = ["40201"]
+keep_communes = false
+
+[[cities]]
+city = "Keriam"
+id = "302"
+level = 3
+type = "Mukim"
+wikidata_id = "Q16944546"
+district_types = ["Quarter"]
+from = { 1 = ["3"], 3 = ["302"] }
+communes = ["30209"]
+keep_communes = false
+
+[[cities]]
+city = "Kuala Belait"
+id = "201"
+level = 3
+type = "Mukim"
+wikidata_id = "Q1954622"
+district_types = ["Quarter"]
+from = { 1 = ["2"], 3 = ["201"] }
+communes = ["20106", "20105", "20102", "20103", "20104", "20101"]
+keep_communes = false
+
+[[cities]]
+city = "Liang"
+id = "203"
+level = 3
+type = "Mukim"
+wikidata_id = "Q1953083"
+district_types = ["Quarter"]
+from = { 1 = ["2"], 3 = ["203"] }
+communes = ["20307", "20308"]
+keep_communes = false
+
+[[cities]]
+city = "Seria"
+id = "202"
+level = 3
+type = "Mukim"
+wikidata_id = "Q1953067"
+district_types = ["Quarter"]
+from = { 1 = ["2"], 3 = ["202"] }
+communes = ["20203", "20204", "20201", "20202", "20206"]
+keep_communes = false
+
+[[cities]]
+city = "Pekan Tutong"
+id = "301"
+level = 3
+type = "Mukim"
+wikidata_id = "Q2742235"
+district_types = ["Quarter"]
+from = { 1 = ["3"], 3 = ["301"] }
+communes = ["30102", "30107", "30106", "30104", "30101", "30108", "30111", "30105", "30103"]
+keep_communes = false
+
+[[cities]]
+city = "Bandar Seri Begawan"
+id = "bandar_seri_begawan"
+level = 3
+type = "City"
+wikidata_id = "Q9279"
+district_types = ["Mukim"]
+from = { 1 = ["1"] }
+communes = ["108", "109", "105", "110", "111", "101", "114", "112", "113", "117", "106", "103", "115", "118", "104", "102", "107"]
+keep_communes = false
+
+[[cities]]
+city = "Bangar"
+id = "19594"
+level = 3
+type = "City"
+wikidata_id = "Q1125479"
+district_types = ["Mukim"]
+from = { 1 = ["4"] }
+communes = ["402"]
+keep_communes = false
+
+[[cities]]
+city = "Binturan"
+id = "36331"
+level = 3
+type = "City"
+wikidata_id = "Q20464142"
+district_types = ["Mukim"]
+from = { 1 = ["3"] }
+communes = ["302"]
+keep_communes = false
+
+[[cities]]
+city = "Kuala Belait"
+id = "19592"
+level = 3
+type = "City"
+wikidata_id = "Q588045"
+district_types = ["Mukim"]
+from = { 1 = ["2"] }
+communes = ["201"]
+keep_communes = false
+
+[[cities]]
+city = "Lumut"
+id = "36308"
+level = 3
+type = "City"
+wikidata_id = "Q6703471"
+district_types = ["Mukim"]
+from = { 1 = ["2"] }
+communes = ["203"]
+keep_communes = false
+
+[[cities]]
+city = "Seria"
+id = "19596"
+level = 3
+type = "City"
+wikidata_id = "Q2159472"
+district_types = ["Mukim"]
+from = { 1 = ["2"] }
+communes = ["202"]
+keep_communes = false
+
+[[cities]]
+city = "Sungai Teraban"
+id = "36310"
+level = 3
+type = "City"
+wikidata_id = "Q6359327"
+district_types = ["Mukim"]
+from = { 1 = ["2"] }
+communes = ["201_36310"]
+keep_communes = false
+
+[[cities]]
+city = "Tutong"
+id = "19595"
+level = 3
+type = "City"
+wikidata_id = "Q2299301"
+district_types = ["Mukim"]
+from = { 1 = ["3"] }
+communes = ["301"]
+keep_communes = false
+
+[[synthetic_entities]]
+code = "108_remainder"
+name = "Berakas A"
+level = 3
+parent_code = "1"
+entity_type = "Mukim (part)"
+data_wd = "Q1952924"
+url = "https://www.citypopulation.de/en/brunei/bruneimuara/admin/108__berakas_a/"
+last_census_year = 2021
+metric_source_codes = ["10818", "10817"]
+
+[[synthetic_entities]]
+code = "110_remainder"
+name = "Gadong A"
+level = 3
+parent_code = "1"
+entity_type = "Mukim (part)"
+data_wd = "Q2364102"
+url = "https://www.citypopulation.de/en/brunei/bruneimuara/admin/110__gadong_a/"
+last_census_year = 2021
+metric_source_codes = ["110x040"]
+
+[[synthetic_entities]]
+code = "114_remainder"
+name = "Kilanas"
+level = 3
+parent_code = "1"
+entity_type = "Mukim (part)"
+data_wd = "Q2365651"
+url = "https://www.citypopulation.de/en/brunei/bruneimuara/admin/114__kilanas/"
+last_census_year = 2021
+metric_source_codes = ["11407", "11406", "114x454", "114x456"]
+
+[[synthetic_entities]]
+code = "112_remainder"
+name = "Kota Batu"
+level = 3
+parent_code = "1"
+entity_type = "Mukim (part)"
+data_wd = "Q2365632"
+url = "https://www.citypopulation.de/en/brunei/bruneimuara/admin/112__kota_batu/"
+last_census_year = 2021
+metric_source_codes = ["11216", "112x087", "11210", "11212", "11218", "11211", "11213", "112x007", "112x470", "112x445", "112x446", "11217", "112x468", "112x469"]
+
+[[synthetic_entities]]
+code = "113_remainder"
+name = "Lumapas"
+level = 3
+parent_code = "1"
+entity_type = "Mukim (part)"
+data_wd = "Q2364560"
+url = "https://www.citypopulation.de/en/brunei/bruneimuara/admin/113__lumapas/"
+last_census_year = 2021
+metric_source_codes = ["11307", "11304", "11302", "11305", "11309", "11303", "11301", "11310", "11306", "11308"]
+
+[[synthetic_entities]]
+code = "117_remainder"
+name = "Mentiri"
+level = 3
+parent_code = "1"
+entity_type = "Mukim (part)"
+data_wd = "Q2365615"
+url = "https://www.citypopulation.de/en/brunei/bruneimuara/admin/117__mentiri/"
+last_census_year = 2021
+metric_source_codes = ["117x436", "117x002", "117x050", "117x044", "117x465"]
+
+[[synthetic_entities]]
+code = "115_remainder"
+name = "Sengkurong"
+level = 3
+parent_code = "1"
+entity_type = "Mukim (part)"
+data_wd = "Q2490410"
+url = "https://www.citypopulation.de/en/brunei/bruneimuara/admin/115__sengkurong/"
+last_census_year = 2021
+metric_source_codes = ["11510", "11511", "11509", "11505", "11501", "11503", "11508"]
+
+[[synthetic_entities]]
+code = "118_remainder"
+name = "Serasa"
+level = 3
+parent_code = "1"
+entity_type = "Mukim (part)"
+data_wd = "Q2490398"
+url = "https://www.citypopulation.de/en/brunei/bruneimuara/admin/118__serasa/"
+last_census_year = 2021
+metric_source_codes = ["118x016", "118x472", "118x043"]
+
+[[synthetic_entities]]
+code = "402_remainder"
+name = "Bangar"
+level = 3
+parent_code = "4"
+entity_type = "Mukim (part)"
+data_wd = "Q2490430"
+url = "https://www.citypopulation.de/en/brunei/temburong/admin/402__bangar/"
+last_census_year = 2021
+metric_source_codes = ["40214", "40208", "40209", "40217", "40218", "402x256", "40213", "40216", "40202", "40206", "402x258", "40215", "40210", "40212", "40207", "402x271", "402x260", "40205", "40203", "40204", "40211", "402x444"]
+
+[[synthetic_entities]]
+code = "302_remainder"
+name = "Keriam"
+level = 3
+parent_code = "3"
+entity_type = "Mukim (part)"
+data_wd = "Q16944546"
+url = "https://www.citypopulation.de/en/brunei/tutong/admin/302__keriam/"
+last_census_year = 2021
+metric_source_codes = ["30202", "30208", "30201", "30207", "30203", "30206", "30204", "30205"]
+
+[[synthetic_entities]]
+code = "201_remainder"
+name = "Kuala Belait"
+level = 3
+parent_code = "2"
+entity_type = "Mukim (part)"
+data_wd = "Q1954622"
+url = "https://www.citypopulation.de/en/brunei/belait/admin/201__kuala_belait/"
+last_census_year = 2021
+metric_source_codes = ["201x405"]
+
+[[synthetic_entities]]
+code = "203_remainder"
+name = "Liang"
+level = 3
+parent_code = "2"
+entity_type = "Mukim (part)"
+data_wd = "Q1953083"
+url = "https://www.citypopulation.de/en/brunei/belait/admin/203__liang/"
+last_census_year = 2021
+metric_source_codes = ["203x383", "20312", "20318", "20316", "20305", "20309", "20313", "20303", "20317", "20310", "20304", "20311", "20314", "20301", "20302", "20315", "20306", "203x401"]
+
+[[synthetic_entities]]
+code = "202_remainder"
+name = "Seria"
+level = 3
+parent_code = "2"
+entity_type = "Mukim (part)"
+data_wd = "Q1953067"
+url = "https://www.citypopulation.de/en/brunei/belait/admin/202__seria/"
+last_census_year = 2021
+metric_source_codes = ["202x400", "202x399", "20205"]
+
+[[synthetic_entities]]
+code = "301_remainder"
+name = "Pekan Tutong"
+level = 3
+parent_code = "3"
+entity_type = "Mukim (part)"
+data_wd = "Q2742235"
+url = "https://www.citypopulation.de/en/brunei/tutong/admin/301__pekan_tutong/"
+last_census_year = 2021
+metric_source_codes = ["30112", "30110", "30109", "301x336", "301x458", "301x457"]
+
+# Aggregation uses the input mukim level; apply the final levels uniformly.
+[[parent_overrides]]
+codes = ["bandar_seri_begawan", "19594", "36331", "19592", "36308", "19596", "36310", "19595"]
+level = 2
+
+[[parent_overrides]]
+code_pattern = "[1-4][0-9]{2}"
+level = 3
+
+[[parent_overrides]]
+codes = ["201_36310"]
+level = 3
+
+# Rambai belongs to Tutong despite its 401 source code.
+[[parent_overrides]]
+codes = ["401"]
+parent_code = "3"
+level = 3
+
+[[parent_overrides]]
+match_levels = [4, 5]
+level = 4
+
+[[parent_overrides]]
+codes = ["10818", "10817"]
+parent_code = "108_remainder"
+level = 4
+
+[[parent_overrides]]
+codes = ["110x040"]
+parent_code = "110_remainder"
+level = 4
+
+[[parent_overrides]]
+codes = ["11407", "11406", "114x454", "114x456"]
+parent_code = "114_remainder"
+level = 4
+
+[[parent_overrides]]
+codes = ["11216", "112x087", "11210", "11212", "11218", "11211", "11213", "112x007", "112x470", "112x445", "112x446", "11217", "112x468", "112x469"]
+parent_code = "112_remainder"
+level = 4
+
+[[parent_overrides]]
+codes = ["11307", "11304", "11302", "11305", "11309", "11303", "11301", "11310", "11306", "11308"]
+parent_code = "113_remainder"
+level = 4
+
+[[parent_overrides]]
+codes = ["117x436", "117x002", "117x050", "117x044", "117x465"]
+parent_code = "117_remainder"
+level = 4
+
+[[parent_overrides]]
+codes = ["11510", "11511", "11509", "11505", "11501", "11503", "11508"]
+parent_code = "115_remainder"
+level = 4
+
+[[parent_overrides]]
+codes = ["118x016", "118x472", "118x043"]
+parent_code = "118_remainder"
+level = 4
+
+[[parent_overrides]]
+codes = ["40214", "40208", "40209", "40217", "40218", "402x256", "40213", "40216", "40202", "40206", "402x258", "40215", "40210", "40212", "40207", "402x271", "402x260", "40205", "40203", "40204", "40211", "402x444"]
+parent_code = "402_remainder"
+level = 4
+
+[[parent_overrides]]
+codes = ["30202", "30208", "30201", "30207", "30203", "30206", "30204", "30205"]
+parent_code = "302_remainder"
+level = 4
+
+[[parent_overrides]]
+codes = ["201x405"]
+parent_code = "201_remainder"
+level = 4
+
+[[parent_overrides]]
+codes = ["203x383", "20312", "20318", "20316", "20305", "20309", "20313", "20303", "20317", "20310", "20304", "20311", "20314", "20301", "20302", "20315", "20306", "203x401"]
+parent_code = "203_remainder"
+level = 4
+
+[[parent_overrides]]
+codes = ["202x400", "202x399", "20205"]
+parent_code = "202_remainder"
+level = 4
+
+[[parent_overrides]]
+codes = ["30112", "30110", "30109", "301x336", "301x458", "301x457"]
+parent_code = "301_remainder"
+level = 4

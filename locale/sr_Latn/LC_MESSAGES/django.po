@@ -1938,3 +1938,52 @@ msgstr "Ranking capital"
 
 msgid "Ranking ciudad mas poblada"
 msgstr "Ranking ciudad mas poblada"
+
+#, python-format
+msgid "El grupo %(group)s de %(country)s ya esta asignado en este pais nuevo a %(owners)s. Quita esa asignacion antes de usarlo en otra entidad."
+msgstr "Grupa %(group)s iz %(country)s je već dodeljena entitetu %(owners)s u ovoj novoj državi. Uklonite tu dodelu pre upotrebe grupe u drugom entitetu."
+
+#, python-format
+msgid "%(config)s: no se pudo sincronizar la resta automatica: %(error)s"
+msgstr "%(config)s: automatsko oduzimanje nije moglo da se sinhronizuje: %(error)s"
+
+msgid "Nuevo"
+msgstr "Novo"
+
+msgid "Sin popular"
+msgstr "Nepopulisano"
+
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/new_country_detail.html
+msgid "ID"
+msgstr "ID"
+
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/new_country_detail.html
+msgid "Sin selección, se suman los datos de los hijos."
+msgstr "Bez izbora sabiraju se podaci svih podređenih jedinica."
+
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/new_country_detail.html
+msgid "La entidad padre no pertenece a este país."
+msgstr "Nadređena jedinica ne pripada ovoj zemlji."
+
+
+msgid "Subdivisiones originales"
+msgstr "Izvorne jedinice"
+
+
+msgid "Plantilla"
+msgstr "Šablon"
+
+
+msgid "Registro"
+msgstr "Zapis"
+
+
+msgid "Introduce población y terreno a mano. Si dejas un campo vacío, se suman los valores de los hijos."
+msgstr "Unesite stanovništvo i površinu. Prazno polje koristi zbir podređenih jedinica."
+
+
+msgid "Selecciona grupos o subdivisiones para calcular la población y el terreno."
+msgstr "Izaberite grupe ili podele da biste izračunali stanovništvo i površinu."

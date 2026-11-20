@@ -1,0 +1,68 @@
+source_country_code = "croatia"
+
+FIUME = [
+    "Rijeka",
+]
+
+LINKA_SENJ_A_DALMACIA = [
+    "Novalja",
+]
+
+PRIMORJE_GORSKI_KOTAR_A_ISTRIA_ISLAS = [
+    "Mali Lošinj",
+    "Cres",
+    "Baška",
+    "Punat",
+    "Krk",
+    "Vrbnik",
+    "Dobrinj",
+    "Malinska-Dubašnica",
+    "Omišalj",
+]
+
+PRIMORJE_GORSKI_KOTAR_A_DALMACIA = [
+    "Rab",
+    "Lopar",
+]
+
+PRIMORJE_GORSKI_KOTAR_A_ISTRIA = [
+    "Mošćenička Draga",
+    "Lovran",
+    "Opatija",
+    "Matulji",
+    "Kastav",
+    "Viškovo",
+    "Klana",
+]
+
+ZADAR_A_CROACIA = [
+    "Gračac",
+]
+
+OSIJEK_BARANJA_A_HUNGRIA = [
+    "Bilje",
+    "Darda",
+    "Jagodnjak",
+    "Petlovac",
+    "Čeminac",
+    "Kneževi Vinogradi",
+    "Beli Manastir",
+    "Draž",
+    "Popovac",
+]
+
+SIKAK_MOSLAVINA_A_ESLAVONIA = [
+    "Jasenovac",
+    "Novska",
+]
+
+VIROVITICA_PODRAVINA_A_CROATIA = [
+    "Pitomača",
+    "Špišić Bukovica",
+]
+
+BELOVAR_BILOGORA_A_ESLAVONIA = [
+    "Đulovac",
+    "Daruvar",
+    "Sirač",
+]

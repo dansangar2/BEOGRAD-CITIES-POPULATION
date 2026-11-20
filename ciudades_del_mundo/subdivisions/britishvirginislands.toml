@@ -6,3 +6,9 @@ scrape_schema_version = 2
 source = "cities"
 path = ["cities"]
 include = { infosection = true, major_subdivision = true, cities = true }
+
+# Road Town's separate city table belongs to Tortola, not the last islands-table row (Yachts).
+[[parent_overrides]]
+codes = ["796"]
+match_level = 2
+parent_code = "7275"

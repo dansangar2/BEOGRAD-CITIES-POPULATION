@@ -6,6 +6,10 @@ import sys
 
 def main():
     """Run administrative tasks."""
+    if len(sys.argv) > 1 and sys.argv[1] == 'runserver':
+        from tools.java_local import selected_backend
+        if selected_backend() != 'python':
+            raise SystemExit('Selecciona backend = "python" en backend.toml o usa levantar_app.bat para Java.')
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ciudades_del_mundo.settings')
     try:
         from django.core.management import execute_from_command_line

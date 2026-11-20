@@ -4,7 +4,7 @@
 {% block title %}{% if config %}{{ form.name }}{% else %}{% trans "Nueva entidad" %}{% endif %} - {% trans "Ciudades del Mundo" %}{% endblock %}
 
 {% block content %}
-<section class="page-head compact">
+{% if not embedded %}<section class="page-head compact">
   <div>
     <p class="eyebrow">{{ country.name }}</p>
     <h1>{% if config %}{{ form.name }}{% else %}{% trans "Nueva entidad" %}{% endif %}</h1>
@@ -12,18 +12,28 @@
     <p class="muted">{{ source_country_label }}</p>
     {% endif %}
   </div>
-  <div class="actions">
+  {% if not embedded %}<div class="actions">
+    {% if config %}
+    <form method="post" action="{% url 'ciudades_del_mundo:new_country_export_toml' %}" data-config-export-form data-action-label="{% trans 'Exportar TOML' %}">
+      {% csrf_token %}
+      <input type="hidden" name="country_slug" value="{{ country.slug }}">
+      <input type="hidden" name="config_slug" value="{{ config.slug }}">
+      <button class="secondary" type="submit">{% trans "Exportar TOML" %}</button>
+    </form>
+    {% endif %}
     <a class="button secondary" href="{{ country_detail_url }}">{% trans "Volver" %}</a>
-  </div>
-</section>
+  </div>{% endif %}
+</section>{% endif %}
 
 {{ capital_options|json_script:"new-country-capital-options" }}
 {{ form.capitals|json_script:"new-country-capital-values" }}
 
-<form class="derived-create-form" method="post" data-derived-create-form data-new-country-capital-options-url="{{ capital_options_url }}" data-created-entity-options-url="{{ created_entity_options_url }}">
+<form class="derived-create-form" method="post" data-derived-create-form {% if embedded %}data-new-country-embedded{% endif %} data-new-country-capital-options-url="{{ capital_options_url }}" data-created-entity-options-url="{{ created_entity_options_url }}">
   {% csrf_token %}
   <input type="hidden" name="selection_json" data-derived-selection-json value="{{ form.selection_json }}">
   <input type="hidden" name="source_country_code" value="{{ form.source_country_code }}" data-derived-source-select>
+  <input type="hidden" name="parent_area_id" value="{{ parent_area_id }}">
+  <p class="empty" role="alert" data-new-country-entity-error hidden></p>
   <textarea name="content" hidden>{{ form.content }}</textarea>
 
   <div class="group-form-actions top">
@@ -33,8 +43,9 @@
   <section class="panel group-entry-main-box derived-create-main-box">
     <div class="form-grid compact-form-grid derived-create-main-grid">
       <label>
-        {% trans "Codigo" %}
+        {% trans "ID" %}:
         <input class="code-input" name="slug" value="{{ form.slug }}" autocomplete="off" autocapitalize="characters" spellcheck="false" data-uppercase-code-input required>
+        {% if parent_display_code %}<small data-new-country-id-preview data-parent-code="{{ parent_display_code }}" data-id-label="{% trans 'ID' %}"></small>{% endif %}
       </label>
       <label>
         {% trans "Nombre" %}
@@ -77,6 +88,8 @@
       </label>
     </div>
   </section>
+
+  <p class="muted">{% trans "Sin selección, se suman los datos de los hijos." %}</p>
 
   <section class="panel derived-tree-panel derived-create-source-panel" data-created-entity-panel hidden>
     <div class="derived-tree-head">

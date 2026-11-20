@@ -1,0 +1,4677 @@
+{
+  "provenance": "Synthetic Django characterization captured before Python archival, 2026-10-28; no user database.",
+  "responses": {
+    "cec818973de8775d": {
+      "status": 200,
+      "content_type": "application/json",
+      "disposition": null,
+      "json": {
+        "type": "bar",
+        "items": []
+      }
+    },
+    "18ddc2b2f18f80c4": {
+      "status": 200,
+      "content_type": "application/json",
+      "disposition": null,
+      "body": ""
+    },
+    "cc485f4df779cbaf": {
+      "status": 200,
+      "content_type": "application/json",
+      "disposition": null,
+      "json": {
+        "type": "donut",
+        "total": 0,
+        "countries": [],
+        "items": [],
+        "charts": {
+          "population": {
+            "type": "donut",
+            "total": 0,
+            "items": []
+          },
+          "area": {
+            "type": "donut",
+            "total": 0,
+            "items": []
+          }
+        }
+      }
+    },
+    "3f7ac01c025af964": {
+      "status": 404,
+      "content_type": "text/html; charset=utf-8",
+      "disposition": null,
+      "body": "CjwhZG9jdHlwZSBodG1sPgo8aHRtbCBsYW5nPSJlbiI+CjxoZWFkPgogIDx0aXRsZT5Ob3QgRm91bmQ8L3RpdGxlPgo8L2hlYWQ+Cjxib2R5PgogIDxoMT5Ob3QgRm91bmQ8L2gxPjxwPlRoZSByZXF1ZXN0ZWQgcmVzb3VyY2Ugd2FzIG5vdCBmb3VuZCBvbiB0aGlzIHNlcnZlci48L3A+CjwvYm9keT4KPC9odG1sPgo="
+    },
+    "b3f9422d5ded0d18": {
+      "status": 404,
+      "content_type": "text/html; charset=utf-8",
+      "disposition": null,
+      "body": ""
+    }
+  },
+  "cases": [
+    {
+      "path": "/api/derived/",
+      "method": "GET",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "HEAD",
+      "language": "es",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "POST",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "PUT",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "PATCH",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "DELETE",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "OPTIONS",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "GET",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "HEAD",
+      "language": "es",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "POST",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "PUT",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "PATCH",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "DELETE",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "OPTIONS",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "GET",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "HEAD",
+      "language": "es",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "POST",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "PUT",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "PATCH",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "DELETE",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "OPTIONS",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "GET",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "HEAD",
+      "language": "es",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "POST",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "PUT",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "PATCH",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "DELETE",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "OPTIONS",
+      "language": "es",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "GET",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "HEAD",
+      "language": "es",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "POST",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "PUT",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "PATCH",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "DELETE",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "GET",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "HEAD",
+      "language": "es",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "POST",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "PUT",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "PATCH",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "DELETE",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "GET",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "HEAD",
+      "language": "es",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "POST",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "PUT",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "PATCH",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "DELETE",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "GET",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "HEAD",
+      "language": "es",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "POST",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "PUT",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "PATCH",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "DELETE",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "GET",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "HEAD",
+      "language": "es",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "POST",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "PUT",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "PATCH",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "DELETE",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "GET",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "HEAD",
+      "language": "es",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "POST",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "PUT",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "PATCH",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "DELETE",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "es",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "GET",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "HEAD",
+      "language": "en",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "POST",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "PUT",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "PATCH",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "DELETE",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "OPTIONS",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "GET",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "HEAD",
+      "language": "en",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "POST",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "PUT",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "PATCH",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "DELETE",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "OPTIONS",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "GET",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "HEAD",
+      "language": "en",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "POST",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "PUT",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "PATCH",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "DELETE",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "OPTIONS",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "GET",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "HEAD",
+      "language": "en",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "POST",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "PUT",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "PATCH",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "DELETE",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "OPTIONS",
+      "language": "en",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "GET",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "HEAD",
+      "language": "en",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "POST",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "PUT",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "PATCH",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "DELETE",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "GET",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "HEAD",
+      "language": "en",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "POST",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "PUT",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "PATCH",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "DELETE",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "GET",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "HEAD",
+      "language": "en",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "POST",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "PUT",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "PATCH",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "DELETE",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "GET",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "HEAD",
+      "language": "en",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "POST",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "PUT",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "PATCH",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "DELETE",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "GET",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "HEAD",
+      "language": "en",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "POST",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "PUT",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "PATCH",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "DELETE",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "GET",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "HEAD",
+      "language": "en",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "POST",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "PUT",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "PATCH",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "DELETE",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "en",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "GET",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "HEAD",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "POST",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "PUT",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "PATCH",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "DELETE",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "OPTIONS",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "GET",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "HEAD",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "POST",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "PUT",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "PATCH",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "DELETE",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "OPTIONS",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "GET",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "HEAD",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "POST",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "PUT",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "PATCH",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "DELETE",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "OPTIONS",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "GET",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "HEAD",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "POST",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "PUT",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "PATCH",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "DELETE",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "OPTIONS",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "GET",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "HEAD",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "POST",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "PUT",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "PATCH",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "DELETE",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "GET",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "HEAD",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "POST",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "PUT",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "PATCH",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "DELETE",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "GET",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "HEAD",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "POST",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "PUT",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "PATCH",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "DELETE",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "GET",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "HEAD",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "POST",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "PUT",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "PATCH",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "DELETE",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "GET",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "HEAD",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "POST",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "PUT",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "PATCH",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "DELETE",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "GET",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "HEAD",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "POST",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "PUT",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "PATCH",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "DELETE",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "fr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "GET",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "HEAD",
+      "language": "de",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "POST",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "PUT",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "PATCH",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "DELETE",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "OPTIONS",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "GET",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "HEAD",
+      "language": "de",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "POST",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "PUT",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "PATCH",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "DELETE",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "OPTIONS",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "GET",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "HEAD",
+      "language": "de",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "POST",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "PUT",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "PATCH",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "DELETE",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "OPTIONS",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "GET",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "HEAD",
+      "language": "de",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "POST",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "PUT",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "PATCH",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "DELETE",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "OPTIONS",
+      "language": "de",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "GET",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "HEAD",
+      "language": "de",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "POST",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "PUT",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "PATCH",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "DELETE",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "GET",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "HEAD",
+      "language": "de",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "POST",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "PUT",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "PATCH",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "DELETE",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "GET",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "HEAD",
+      "language": "de",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "POST",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "PUT",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "PATCH",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "DELETE",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "GET",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "HEAD",
+      "language": "de",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "POST",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "PUT",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "PATCH",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "DELETE",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "GET",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "HEAD",
+      "language": "de",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "POST",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "PUT",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "PATCH",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "DELETE",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "GET",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "HEAD",
+      "language": "de",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "POST",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "PUT",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "PATCH",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "DELETE",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "de",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "GET",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "HEAD",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "POST",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "PUT",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "PATCH",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "DELETE",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "OPTIONS",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "GET",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "HEAD",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "POST",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "PUT",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "PATCH",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "DELETE",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "OPTIONS",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "GET",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "HEAD",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "POST",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "PUT",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "PATCH",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "DELETE",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "OPTIONS",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "GET",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "HEAD",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "POST",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "PUT",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "PATCH",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "DELETE",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "OPTIONS",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "GET",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "HEAD",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "POST",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "PUT",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "PATCH",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "DELETE",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "GET",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "HEAD",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "POST",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "PUT",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "PATCH",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "DELETE",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "GET",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "HEAD",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "POST",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "PUT",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "PATCH",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "DELETE",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "GET",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "HEAD",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "POST",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "PUT",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "PATCH",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "DELETE",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "GET",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "HEAD",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "POST",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "PUT",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "PATCH",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "DELETE",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "GET",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "HEAD",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "POST",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "PUT",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "PATCH",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "DELETE",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "ru",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "GET",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "HEAD",
+      "language": "it",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "POST",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "PUT",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "PATCH",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "DELETE",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "OPTIONS",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "GET",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "HEAD",
+      "language": "it",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "POST",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "PUT",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "PATCH",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "DELETE",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "OPTIONS",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "GET",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "HEAD",
+      "language": "it",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "POST",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "PUT",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "PATCH",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "DELETE",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "OPTIONS",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "GET",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "HEAD",
+      "language": "it",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "POST",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "PUT",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "PATCH",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "DELETE",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "OPTIONS",
+      "language": "it",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "GET",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "HEAD",
+      "language": "it",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "POST",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "PUT",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "PATCH",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "DELETE",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "GET",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "HEAD",
+      "language": "it",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "POST",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "PUT",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "PATCH",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "DELETE",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "GET",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "HEAD",
+      "language": "it",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "POST",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "PUT",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "PATCH",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "DELETE",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "GET",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "HEAD",
+      "language": "it",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "POST",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "PUT",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "PATCH",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "DELETE",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "GET",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "HEAD",
+      "language": "it",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "POST",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "PUT",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "PATCH",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "DELETE",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "GET",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "HEAD",
+      "language": "it",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "POST",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "PUT",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "PATCH",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "DELETE",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "it",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "GET",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "HEAD",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "POST",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "PUT",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "PATCH",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "DELETE",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "OPTIONS",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "GET",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "HEAD",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "POST",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "PUT",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "PATCH",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "DELETE",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "OPTIONS",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "GET",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "HEAD",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "POST",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "PUT",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "PATCH",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "DELETE",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "OPTIONS",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "GET",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "HEAD",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "POST",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "PUT",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "PATCH",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "DELETE",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "OPTIONS",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "GET",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "HEAD",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "POST",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "PUT",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "PATCH",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "DELETE",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "GET",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "HEAD",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "POST",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "PUT",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "PATCH",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "DELETE",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "GET",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "HEAD",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "POST",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "PUT",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "PATCH",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "DELETE",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "GET",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "HEAD",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "POST",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "PUT",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "PATCH",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "DELETE",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "GET",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "HEAD",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "POST",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "PUT",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "PATCH",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "DELETE",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "GET",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "HEAD",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "POST",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "PUT",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "PATCH",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "DELETE",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "sr",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "GET",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "HEAD",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "POST",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "PUT",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "PATCH",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "DELETE",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "OPTIONS",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "GET",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "HEAD",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "POST",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "PUT",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "PATCH",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "DELETE",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "OPTIONS",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "GET",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "HEAD",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "POST",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "PUT",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "PATCH",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "DELETE",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "OPTIONS",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "GET",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "HEAD",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "POST",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "PUT",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "PATCH",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "DELETE",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "OPTIONS",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "GET",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "HEAD",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "POST",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "PUT",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "PATCH",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "DELETE",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "GET",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "HEAD",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "POST",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "PUT",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "PATCH",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "DELETE",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "GET",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "HEAD",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "POST",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "PUT",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "PATCH",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "DELETE",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "GET",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "HEAD",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "POST",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "PUT",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "PATCH",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "DELETE",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "GET",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "HEAD",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "POST",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "PUT",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "PATCH",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "DELETE",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "GET",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "HEAD",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "POST",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "PUT",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "PATCH",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "DELETE",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "sr-latn",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "GET",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "HEAD",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "POST",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "PUT",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "PATCH",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "DELETE",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "OPTIONS",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "GET",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "HEAD",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "POST",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "PUT",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "PATCH",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "DELETE",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "OPTIONS",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "GET",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "HEAD",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "POST",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "PUT",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "PATCH",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "DELETE",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "OPTIONS",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "GET",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "HEAD",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "18ddc2b2f18f80c4"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "POST",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "PUT",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "PATCH",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "DELETE",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "OPTIONS",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "GET",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "HEAD",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "POST",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "PUT",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "PATCH",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "DELETE",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "GET",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "HEAD",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "POST",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "PUT",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "PATCH",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "DELETE",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/from-content/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "GET",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "HEAD",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "POST",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "PUT",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "PATCH",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "DELETE",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/invalid-content/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "GET",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "HEAD",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "POST",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "PUT",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "PATCH",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "DELETE",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/no-data/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "GET",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "HEAD",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "POST",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "PUT",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "PATCH",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "DELETE",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "GET",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "HEAD",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "b3f9422d5ded0d18"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "POST",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "PUT",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "PATCH",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "DELETE",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/SAMPLE/export-data-csv/",
+      "method": "OPTIONS",
+      "language": "ar",
+      "accept": "application/json",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "GET",
+      "language": "es",
+      "accept": "text/html",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "GET",
+      "language": "es",
+      "accept": "text/html",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "GET",
+      "language": "es",
+      "accept": "text/html",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "GET",
+      "language": "es",
+      "accept": "text/html",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "GET",
+      "language": "es",
+      "accept": "text/html",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "GET",
+      "language": "es",
+      "accept": "text/html",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "GET",
+      "language": "es",
+      "accept": "*/*",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "GET",
+      "language": "es",
+      "accept": "*/*",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "GET",
+      "language": "es",
+      "accept": "*/*",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "GET",
+      "language": "es",
+      "accept": "*/*",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "GET",
+      "language": "es",
+      "accept": "*/*",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "GET",
+      "language": "es",
+      "accept": "*/*",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "GET",
+      "language": "es",
+      "accept": "application/xml",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "GET",
+      "language": "es",
+      "accept": "application/xml",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "GET",
+      "language": "es",
+      "accept": "application/xml",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "GET",
+      "language": "es",
+      "accept": "application/xml",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "GET",
+      "language": "es",
+      "accept": "application/xml",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "GET",
+      "language": "es",
+      "accept": "application/xml",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "GET",
+      "language": "es",
+      "accept": "not-a-media-type",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "GET",
+      "language": "es",
+      "accept": "not-a-media-type",
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "GET",
+      "language": "es",
+      "accept": "not-a-media-type",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "GET",
+      "language": "es",
+      "accept": "not-a-media-type",
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "GET",
+      "language": "es",
+      "accept": "not-a-media-type",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "GET",
+      "language": "es",
+      "accept": "not-a-media-type",
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/api/countries/",
+      "method": "GET",
+      "language": "es",
+      "accept": null,
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/dashboard/population/",
+      "method": "GET",
+      "language": "es",
+      "accept": null,
+      "response": "cc485f4df779cbaf"
+    },
+    {
+      "path": "/api/derived/",
+      "method": "GET",
+      "language": "es",
+      "accept": null,
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/dashboard/derived/",
+      "method": "GET",
+      "language": "es",
+      "accept": null,
+      "response": "cec818973de8775d"
+    },
+    {
+      "path": "/configs/sample/export-data-csv/",
+      "method": "GET",
+      "language": "es",
+      "accept": null,
+      "response": "3f7ac01c025af964"
+    },
+    {
+      "path": "/configs/missing/export-data-csv/",
+      "method": "GET",
+      "language": "es",
+      "accept": null,
+      "response": "3f7ac01c025af964"
+    }
+  ]
+}

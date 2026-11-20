@@ -9,5 +9,36 @@ include = { infosection = true, major_subdivision = false, cities = false }
 
 [[pages]]
 source = "admin"
-path = ["dept/admin", "admin"]
+path = ["dept/admin"]
 include = { infosection = true, admin1 = true, admin2 = true }
+# La cabecera es el pais, aunque la ruta contenga dept/admin.
+force_highest_level = 0
+
+[[pages]]
+source = "admin"
+path = ["admin"]
+# Esta pagina omite las provincias: los departamentos solo aportan contexto.
+include = { infosection = false, admin1 = false, admin2 = true }
+force_highest_level = 3
+parent_level = 2
+preserve_source_codes = true
+
+[[pages]]
+source = "cities"
+path = [
+  "beni",
+  "chuquisaca",
+  "cochabamba",
+  "lapaz",
+  "oruro",
+  "pando",
+  "potosi",
+  "santacruz",
+  "tarija",
+]
+# Las provincias de estas paginas solo aportan contexto; conservar las cifras
+# administrativas de 2024 y las poblaciones urbanas de su propio censo.
+include = { infosection = false, major_subdivision = false, cities = true }
+force_highest_level = 4
+parent_level = 3
+preserve_source_codes = true

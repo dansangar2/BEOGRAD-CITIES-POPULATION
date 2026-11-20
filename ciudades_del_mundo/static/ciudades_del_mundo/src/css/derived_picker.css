@@ -1,0 +1,220 @@
+/* The created-subdivision picker scrolls as one table-width unit: toolbar, table and footer. */
+.derived-subdivision-option-table {
+  overflow-x: auto;
+}
+
+.derived-subdivision-option-table .group-table-toolbar.new-country-derived-subdivision-toolbar {
+  align-items: end;
+  display: grid;
+  grid-template-columns: minmax(0, 40fr) minmax(0, 15fr) minmax(0, 15fr) minmax(0, 30fr);
+  min-width: 920px;
+  width: 100%;
+}
+
+.derived-subdivision-option-table .new-country-derived-subdivision-controls input,
+.derived-subdivision-option-table .new-country-derived-subdivision-controls select,
+.derived-subdivision-option-table .new-country-derived-subdivision-controls .select2-container {
+  max-width: 100%;
+}
+
+.derived-subdivision-option-table .new-country-derived-subdivision-controls > label:nth-child(1) {
+  grid-column: 1;
+}
+
+.derived-subdivision-option-table .new-country-derived-subdivision-controls > label:nth-child(2) {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.derived-subdivision-option-table .new-country-derived-subdivision-controls > label:nth-child(3) {
+  grid-column: 3;
+}
+
+.derived-subdivision-option-table .new-country-derived-subdivision-toolbar > [data-new-country-derived-subdivision-pagination] {
+  grid-column: 4;
+  justify-content: flex-end;
+}
+
+.derived-subdivision-option-table .group-division-table-wrap,
+.derived-subdivision-option-table .group-table-pagination-foot {
+  min-width: 920px;
+  width: 100%;
+}
+
+.derived-subdivision-option-table .group-division-table-wrap {
+  overflow-x: visible;
+}
+
+.created-entity-option-table,
+.derived-subdivision-option-table,
+.source-area-option-table {
+  overflow-x: auto;
+}
+
+.created-entity-option-table .group-table-toolbar.new-country-created-entity-toolbar,
+.derived-subdivision-option-table .group-table-toolbar.new-country-derived-subdivision-toolbar,
+.source-area-option-table .group-table-toolbar.new-country-source-area-toolbar {
+  align-items: end;
+  display: grid;
+  gap: 8px;
+  margin-top: 0;
+  width: 100%;
+}
+
+.created-entity-option-table .group-table-toolbar.new-country-created-entity-toolbar {
+  grid-template-columns: minmax(240px, 40fr) minmax(86px, 15fr) minmax(240px, 45fr);
+  min-width: 760px;
+}
+
+.derived-subdivision-option-table .group-table-toolbar.new-country-derived-subdivision-toolbar {
+  grid-template-columns: minmax(260px, 40fr) minmax(150px, 15fr) minmax(86px, 15fr) minmax(240px, 30fr);
+  min-width: 940px;
+}
+
+.source-area-option-table .group-table-toolbar.new-country-source-area-toolbar {
+  grid-template-columns: minmax(240px, 32fr) minmax(170px, 16fr) minmax(130px, 14fr) minmax(86px, 10fr) minmax(250px, 28fr);
+  min-width: 1080px;
+}
+
+.new-country-created-entity-controls,
+.new-country-derived-subdivision-controls,
+.new-country-source-area-controls {
+  display: contents;
+}
+
+.new-country-created-entity-controls > label,
+.new-country-derived-subdivision-controls > label,
+.new-country-source-area-controls > label {
+  min-width: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+.new-country-created-entity-controls input,
+.new-country-created-entity-controls select,
+.new-country-created-entity-controls .select2-container,
+.new-country-derived-subdivision-controls input,
+.new-country-derived-subdivision-controls select,
+.new-country-derived-subdivision-controls .select2-container,
+.new-country-source-area-controls input,
+.new-country-source-area-controls select,
+.new-country-source-area-controls .select2-container {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+  width: 100% !important;
+}
+
+.new-country-created-entity-controls > label:nth-child(1),
+.new-country-derived-subdivision-controls > label:nth-child(1),
+.new-country-source-area-controls > label:nth-child(1) {
+  grid-column: 1;
+}
+
+.new-country-created-entity-controls > label:nth-child(2) {
+  grid-column: 2;
+}
+
+.new-country-derived-subdivision-controls > label:nth-child(2),
+.new-country-source-area-controls > label:nth-child(2) {
+  grid-column: 2;
+}
+
+.new-country-derived-subdivision-controls > label:nth-child(3),
+.new-country-source-area-controls > label:nth-child(3) {
+  grid-column: 3;
+}
+
+.new-country-source-area-controls > label:nth-child(4) {
+  grid-column: 4;
+}
+
+.new-country-created-entity-toolbar > [data-new-country-created-entity-pagination],
+.new-country-derived-subdivision-toolbar > [data-new-country-derived-subdivision-pagination],
+.new-country-source-area-toolbar > [data-new-country-source-area-pagination] {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  min-width: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+.new-country-created-entity-toolbar > [data-new-country-created-entity-pagination] {
+  grid-column: 3;
+}
+
+.new-country-derived-subdivision-toolbar > [data-new-country-derived-subdivision-pagination] {
+  grid-column: 4;
+}
+
+.new-country-source-area-toolbar > [data-new-country-source-area-pagination] {
+  grid-column: 5;
+}
+
+.created-entity-option-table .group-division-table-wrap,
+.created-entity-option-table .group-table-pagination-foot,
+.derived-subdivision-option-table .group-division-table-wrap,
+.derived-subdivision-option-table .group-table-pagination-foot,
+.source-area-option-table .group-division-table-wrap,
+.source-area-option-table .group-table-pagination-foot {
+  width: 100%;
+}
+
+.created-entity-option-table .group-division-table-wrap,
+.created-entity-option-table .group-table-pagination-foot {
+  min-width: 760px;
+}
+
+.derived-subdivision-option-table .group-division-table-wrap,
+.derived-subdivision-option-table .group-table-pagination-foot {
+  min-width: 940px;
+}
+
+.source-area-option-table .group-division-table-wrap,
+.source-area-option-table .group-table-pagination-foot {
+  min-width: 1080px;
+}
+
+.created-entity-option-table .group-division-table-wrap,
+.derived-subdivision-option-table .group-division-table-wrap,
+.source-area-option-table .group-division-table-wrap {
+  overflow-x: visible;
+}
+
+.group-division-table.new-country-source-area-table {
+  min-width: 0;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.group-division-table.new-country-source-area-table th:first-child,
+.group-division-table.new-country-source-area-table td:first-child {
+  text-align: center;
+  width: 42px;
+}
+
+.group-division-table.new-country-source-area-table th:nth-child(2),
+.group-division-table.new-country-source-area-table td:nth-child(2) {
+  text-align: left;
+  width: 30%;
+}
+
+.group-division-table.new-country-source-area-table th:nth-child(3),
+.group-division-table.new-country-source-area-table td:nth-child(3) {
+  width: 15%;
+}
+
+.group-division-table.new-country-source-area-table th:nth-child(4),
+.group-division-table.new-country-source-area-table td:nth-child(4) {
+  width: 8%;
+}
+
+.group-division-table.new-country-source-area-table th:nth-child(5),
+.group-division-table.new-country-source-area-table td:nth-child(5) {
+  width: 20%;
+}
+
+.group-division-table.new-country-source-area-table th:nth-child(6),
+.group-division-table.new-country-source-area-table td:nth-child(6) {
+  width: 15%;
+}

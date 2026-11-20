@@ -1,0 +1,31 @@
+schema_version = 1
+kind = "derived_country_config"
+country = "imperio_austriaco"
+country_name = "Imperio Austriaco"
+municipal_level = 4
+slug = "imperio_austriaco_prov_san_esteban"
+name = "Hungría"
+source_country_code = "austria"
+derived_country_code = "imperio_austriaco"
+parent_config_slug = ""
+groups = []
+
+[selection]
+source_country_code = "austria"
+include_ids = []
+subtract_ids = []
+include_codes = []
+subtract_codes = []
+group_slugs = []
+
+[[entities]]
+mode = "intermediate"
+name = "Hungría"
+code = "SES"
+entity_type = "Corona"
+level = 1
+parent_config_slug = ""
+capitals = []
+area_km2 = 282878.16
+pop_latest = 24196918
+density = 85.54

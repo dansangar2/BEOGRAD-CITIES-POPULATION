@@ -167,7 +167,7 @@ class CityPopulationClient:
         country_code: str,
         base_url: str,
         default_entity_type: str | None = None,
-        area_divisor: float = 1,
+        area_divisor: float | None = None,
         visible_pop_columns: list[tuple[int, str | None]] | None = None,
     ) -> CityPopulationEntity | None:
         main_td = self._main_name_cell(tr)
@@ -189,6 +189,8 @@ class CityPopulationClient:
             area_cell = tr.find(["td", "th"], class_="rarea")
             area_km2 = self.safe_float_text(area_cell.get_text(" ", strip=True)) if area_cell else None
             if area_km2 is not None:
+                if area_divisor is None:
+                    area_divisor = self.area_divisor_for_table(tr.find_parent("table"))
                 area_km2 = area_km2 / area_divisor
         if area_km2 is None:
             area_km2 = self._area_from_noviz_cell(tr)
@@ -274,6 +276,17 @@ class CityPopulationClient:
             data_wd=self._row_data_wd(main_td, tr),
             lookup_name=main_td.get_text(" ", strip=True),
         )
+
+    @staticmethod
+    def area_divisor_for_unit(text: str) -> int:
+        """Visible area cells can use hectares; data-area is already in km²."""
+        return 100 if re.search(r"\b(?:hect(?:ares?)?|ha)\b", text, re.IGNORECASE) else 1
+
+    def area_divisor_for_table(self, table: Tag | None) -> int:
+        header = table.find("thead") if table else None
+        area_header = header.find(class_="rarea") if header else None
+        unit_text = (area_header or header).get_text(" ", strip=True) if header else ""
+        return self.area_divisor_for_unit(unit_text)
 
     def safe_float(self, value: Optional[str]) -> float | None:
         if value is None:

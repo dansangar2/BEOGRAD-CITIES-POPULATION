@@ -8,7 +8,10 @@ include = { infosection = true, major_subdivision = false, cities = false }
 [[pages]]
 source = "admin"
 path = ["admin"]
-include = { infosection = true, admin1 = true, admin2 = true }
+# La raiz nacional procede del primer bloque (cities).
+# admin no tiene infosection: conservar provincias en L1 y distritos en L2.
+include = { infosection = false, admin1 = true, admin2 = true }
+force_highest_level = 1
 
 [[pages]]
 source = "cities"
@@ -22,7 +25,6 @@ path = [
   "dnipropetrovsk",
   "doneck",
   "ivanofrankivsk",
-  "kievcity",
   "kirovohrad",
   "kyiv",
   "luhansk",
@@ -39,7 +41,36 @@ path = [
   "zaporizzija",
   "zytomyr",
   "krym",
-  "msevastopol",
 ]
 include = { infosection = true, major_subdivision = true, cities = true }
 force_highest_level = 1
+# Los codigos de origen distinguen localidades homonimas.
+preserve_source_codes = true
+
+# Kyiv ya existe como ciudad de rango regional (80, L1) y ciudad (8000, L2).
+# Su pagina solo aporta diez distritos urbanos: usar el padre L2 existente.
+[[pages]]
+source = "cities"
+path = ["kievcity"]
+include = { infosection = true, major_subdivision = false, cities = true }
+force_highest_level = 2
+root_code = "8000"
+root_name = "Kyïv"
+root_parent_code = "80"
+root_entity_type = "City"
+
+# La tabla de Sevastopol repite el codigo regional 85: no crear otro 85 en L2.
+# Conservar la cabecera regional y el padre 85000 aportado por admin.
+[[pages]]
+source = "cities"
+path = ["msevastopol"]
+include = { infosection = true, major_subdivision = false, cities = false }
+force_highest_level = 1
+
+[[pages]]
+source = "cities"
+path = ["msevastopol"]
+include = { infosection = false, major_subdivision = false, cities = true }
+force_highest_level = 3
+table_levels = { tl = 2, ts = 3 }
+code_overrides = { "85" = "85000" }

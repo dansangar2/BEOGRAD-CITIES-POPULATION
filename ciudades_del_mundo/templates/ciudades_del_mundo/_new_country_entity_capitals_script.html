@@ -1,0 +1,75 @@
+<script>
+(() => {
+  const search = document.querySelector("[data-capital-search]");
+  const form = search.form;
+  const results = form.querySelector("[data-capital-results]");
+  const selected = form.querySelector("[data-capital-selected]");
+  const status = form.querySelector("[data-capital-status]");
+  const labels = JSON.parse(document.querySelector("#new-country-capital-labels").textContent) || {};
+  const choices = new Map([...selected.querySelectorAll("input")].map(input => [input.value, labels[input.value] || input.value]));
+  let timer;
+  let request;
+  let options = [];
+  function render() {
+    selected.replaceChildren();
+    results.replaceChildren();
+    for (const [id, label] of choices) {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "capitals";
+      input.value = id;
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "secondary";
+      remove.textContent = label + " ×";
+      remove.addEventListener("click", () => { choices.delete(id); render(); });
+      selected.append(input, remove);
+    }
+    for (const option of options) {
+      if (choices.has(option.value)) continue;
+      const add = document.createElement("button");
+      add.type = "button";
+      add.className = "secondary";
+      add.textContent = option.label;
+      add.addEventListener("click", () => { choices.set(option.value, option.label); render(); });
+      results.append(add);
+    }
+  }
+  async function lookup() {
+    request?.abort();
+    const current = new AbortController();
+    request = current;
+    status.textContent = form.dataset.loading;
+    options = [];
+    render();
+    try {
+      const payload = form.countrySourcePayload?.() || {country_boxes: true, selected_ids: []};
+      payload.area_id = form.dataset.capitalAreaId;
+      payload.query = search.value;
+      const response = await fetch(form.dataset.capitalsUrl, {
+        method: "POST", signal: current.signal,
+        headers: {"Content-Type": "application/json", "X-CSRFToken": form.elements.csrfmiddlewaretoken.value},
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (current.signal.aborted) return;
+      if (!response.ok) throw new Error(data.error);
+      options = data.capital_options;
+      status.textContent = options.length ? "" : form.dataset.empty;
+      render();
+    } catch (err) {
+      if (!current.signal.aborted) status.textContent = err.message || form.dataset.error;
+    }
+  }
+  search.addEventListener("focus", lookup);
+  search.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(lookup, 250); });
+  search.addEventListener("keydown", event => { if (event.key === "Enter") event.preventDefault(); });
+  form.addEventListener("country-sources-changed", () => {
+    request?.abort();
+    options = [];
+    status.textContent = "";
+    render();
+  });
+  render();
+})();
+</script>

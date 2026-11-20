@@ -17,3 +17,67 @@ path = [
   "regiaosud/admin",
 ]
 include = { infosection = true, admin1 = true, admin2 = true }
+# Lock the existing regional-page layout: states L2, municipalities L3.
+force_highest_level = 1
+preserve_source_codes = true
+
+[[pages]]
+source = "cities"
+path = [
+  "acre", "alagoas", "amapa", "amazonas", "bahia", "ceara",
+  "espiritosanto", "goias", "maranhao", "matogrosso", "matogrossodosul",
+  "minasgerais", "para", "paraiba", "parana", "pernambuco", "piaui",
+  "riodejaneiro", "riograndedonorte", "riograndedosul", "rondonia",
+  "roraima", "santacatarina", "saopaulo", "sergipe", "tocantins",
+]
+# Preserve the existing states at L2 and municipalities at L3. The municipal
+# table supplies parent context; only urban places are added at L4.
+include = { infosection = false, major_subdivision = false, cities = true }
+force_highest_level = 4
+parent_level = 3
+preserve_source_codes = true
+
+[[pages]]
+source = "cities"
+path = ["cities/distritofederal"]
+include = { infosection = false, major_subdivision = false, cities = true }
+force_highest_level = 4
+parent_level = 3
+preserve_source_codes = true
+# The urban table uses CityPopulation's internal city ID 2470. Give it a
+# deterministic identity distinct from municipality 5300108.
+code_overrides = { "2470" = "5300108_urban" }
+
+[[pages]]
+source = "cities"
+path = [
+  "belem", "belohorizonte", "brasilia", "curitiba", "fortaleza", "goiania",
+  "manaus", "recife", "rio", "salvador", "saopaulocity",
+]
+# Municipality L3 > existing urban locality L4 > municipal subdivisions L5.
+# The municipal infosection must not replace the locality's urban metrics.
+include = { infosection = false, major_subdivision = true, cities = false }
+force_highest_level = 5
+preserve_source_codes = true
+
+[[parent_overrides]]
+codes = ["5300108_urban"]
+parent_code = "5300108"
+
+[[parent_overrides]]
+# Urban localities retain their own identity and municipal parent.
+code_pattern = '^([0-9]{7})[0-9]{2}$'
+parent_code_template = '\1'
+level = 4
+
+[[parent_overrides]]
+# Subdivisions belong to the municipality's main locality (IBGE suffix 00).
+code_pattern = '^([0-9]{7})[0-9]{4}$'
+parent_code_template = '\g<1>00'
+level = 5
+
+[[parent_overrides]]
+# Brasilia's locality has an explicit identity instead of an IBGE suffix 00.
+code_pattern = '^5300108[0-9]{4}$'
+parent_code = "5300108_urban"
+level = 5

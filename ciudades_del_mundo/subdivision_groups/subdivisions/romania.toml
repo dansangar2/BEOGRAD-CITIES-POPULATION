@@ -1,0 +1,17 @@
+schema_version = 1
+kind = "derived_subdivision_bundle"
+source_country_code = "romania"
+
+[[subdivisions]]
+internal_name = "BUCOVINA"
+name = "Bucovina"
+code = "BUC"
+entity_type = "Ducado"
+content = "slug = \"austria_bucovina\"\nschema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"BUCOVINA\"\nsource_country_code = \"romania\"\nname = \"Bucovina\"\ncode = \"BUC\"\nentity_type = \"Ducado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = []\n\n[[include]]\ncountry_code = \"romania\"\nlevel = 2\nnames = [\"Suceava\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"romania\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"BOTOSANI_A_BUCOVINA\"]\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"romania\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"SUCEAVA_A_MOLDOVA\", \"SUCEVA_A_TRANSILVANIA\"]\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "TRANSILVANIA"
+name = "Transilvania"
+code = "TRA"
+entity_type = "Gran Principado"
+content = "slug = \"austria_transilvania\"\nschema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"TRANSILVANIA\"\nsource_country_code = \"romania\"\nname = \"Transilvania\"\ncode = \"TRA\"\nentity_type = \"Gran Principado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Sibiu\"]\n\n[[include]]\ncountry_code = \"romania\"\nlevel = 2\nnames = [\"Mureș\", \"Bistrița-Năsăud\", \"Cluj\", \"Alba\", \"Sibiu\", \"Covasna\", \"Harghita\", \"Hunedoara\", \"Brașov\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"romania\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"SUCEVA_A_TRANSILVANIA\", \"CARASSEVERIN_A_TRANSILVANIA\", \"NEAMT_A_TRANSILVANIA\", \"MARAMURES_A_TRANSILVANIA\", \"SALAJ_A_TRANSILVANIA\", \"BUCAU_A_TRANSILVANIA\"]\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"romania\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"BRASOV_A_VALAQUIA\"]\nderived_subdivisions = []\nexpressions = []\n"

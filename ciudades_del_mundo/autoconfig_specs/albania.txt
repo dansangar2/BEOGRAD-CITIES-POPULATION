@@ -1,0 +1,14 @@
+Objetivo territorial conservado de la configuracion SQL existente:
+
+- L0: Albania.
+- L1: condados (Counties).
+- L2: municipios (Municipalities).
+- L3: unidades municipales (Municipal Units).
+- Conservar LEGAL_SUBDIVISION = 3 y los tipos, codigos y poblaciones fuente.
+
+La pagina /albania/admin/ aporta el pais, 12 condados y 61 municipios.
+La pagina /albania/mun/admin/ aporta esos municipios como contexto L2 y
+373 unidades municipales L3; no contiene una infoseccion que deba exigirse.
+Conservar las unidades homonimas de distintos municipios por su codigo fuente.
+Tambien Tirane mantiene las funciones separadas de condado, municipio y unidad
+municipal en sus niveles respectivos. No crear una capa de localidades.

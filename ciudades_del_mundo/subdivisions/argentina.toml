@@ -11,3 +11,53 @@ include = { infosection = true, major_subdivision = false, cities = false }
 source = "admin"
 path = ["admin"]
 include = { infosection = true, admin1 = true, admin2 = true }
+
+[[pages]]
+source = "cities"
+# Provincia L1 > departamento/partido L2 > localidad (o parte) L3.
+# Las aglomeraciones de cities no sustituyen las localidades provinciales.
+path = [
+  "buenosaires",
+  "catamarca",
+  "chaco",
+  "chubut",
+  "cordoba",
+  "corrientes",
+  "entrerios",
+  "formosa",
+  "jujuy",
+  "lapampa",
+  "larioja",
+  "mendoza",
+  "misiones",
+  "neuquen",
+  "rionegro",
+  "salta",
+  "sanjuan",
+  "sanluis",
+  "santacruz",
+  "santafe",
+  "santiagodelestero",
+  "tierradelfuego",
+  "tucuman",
+]
+# La tabla de departamentos aporta solo el contexto de los padres; admin
+# conserva sus filas y cifras.
+include = { infosection = false, major_subdivision = false, cities = true }
+force_highest_level = 3
+parent_level = 2
+preserve_source_codes = true
+
+[[pages]]
+source = "admin"
+path = ["caba/admin"]
+# Distrito federal L1 > ciudad administrativa L2 > localidad L3 >
+# comunas L4 > barrios L5. Cada funcion conserva su propia entidad.
+include = { infosection = true, admin1 = true, admin2 = true }
+force_highest_level = 3
+root_code = "02000_locality"
+root_name = "Buenos Aires"
+root_parent_code = "02000"
+root_entity_type = "Locality"
+wikidata_overrides = { "02000_locality" = "Q1486" }
+preserve_source_codes = true

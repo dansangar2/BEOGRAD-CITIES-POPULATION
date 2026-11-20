@@ -1,3 +1,6 @@
+name = "Germany"
+country_code = "germany"
+wikidata_id = "Q183"
 LEGAL_SUBDIVISION = 2
 
 scrape_schema_version = 2
@@ -11,3 +14,263 @@ include = { infosection = true, major_subdivision = false, cities = false }
 source = "admin"
 path = ["admin"]
 include = { infosection = true, admin1 = true, admin2 = true }
+
+# Estados L1 > distritos L2 > municipios L3; conservar cada funcion territorial.
+[[pages]]
+source = "cities"
+path = [
+  "badenwurttemberg",
+  "bayern",
+  "berlin",
+  "brandenburg",
+  "bremen",
+  "hamburg",
+  "hessen",
+  "mecklenburgvorpommern",
+  "niedersachsen",
+  "nordrheinwestfalen",
+  "rheinlandpfalz",
+  "saarland",
+  "sachsen",
+  "sachsenanhalt",
+  "schleswigholstein",
+  "thuringen",
+]
+force_highest_level = 1
+preserve_source_codes = true
+include = { infosection = true, major_subdivision = true, cities = true }
+
+# Asentamientos censales de mas de 300 habitantes; los distritos son contexto.
+[[pages]]
+source = "cities"
+path = [
+  "settlements/badenwurttemberg",
+  "settlements/bayern",
+  "settlements/berlin",
+  "settlements/brandenburg",
+  "settlements/bremen",
+  "settlements/hamburg",
+  "settlements/hessen",
+  "settlements/mecklenburgvorpommern",
+  "settlements/niedersachsen",
+  "settlements/nordrheinwestfalen",
+  "settlements/rheinlandpfalz",
+  "settlements/saarland",
+  "settlements/sachsen",
+  "settlements/sachsenanhalt",
+  "settlements/schleswigholstein",
+  "settlements/thuringen",
+]
+force_highest_level = 4
+parent_level = 3
+table_levels = { tl = 2, ts = 4 }
+preserve_source_codes = true
+include = { infosection = false, major_subdivision = false, cities = true }
+
+# Subdivisiones urbanas: distritos municipales L4 y barrios/zonas estadisticas L5.
+[[pages]]
+source = "admin"
+path = [
+  "berlin/admin",
+  "bremen/admin",
+  "dortmund/admin",
+  "dresden/admin",
+  "duisburg/admin",
+  "dusseldorf/admin",
+  "essen/admin",
+  "frankfurt/admin",
+  "hamburg/admin",
+  "hannover/admin",
+  "koln/admin",
+  "leipzig/admin",
+  "munchen/admin",
+  "nurnberg/admin",
+  "stuttgart/admin",
+]
+force_highest_level = 4
+preserve_source_codes = true
+include = { infosection = false, major_subdivision = true, minor_subdivision = true }
+
+# La pagina general de Munich tiene M15 fuera de tbody: leer su ficha fuente.
+[[pages]]
+source = "admin"
+path = ["munchen/admin/M15__trudering_riem"]
+force_highest_level = 4
+preserve_source_codes = true
+include = { infosection = false, major_subdivision = true, minor_subdivision = false }
+
+[[parent_overrides]]
+codes = ["M15"]
+parent_code = "09162000"
+level = 4
+
+[[parent_overrides]]
+codes = ["M151", "M152", "M153", "M154"]
+parent_code = "M15"
+level = 5
+
+# El sufijo x identifica asentamientos hermanos, nunca una cadena entre ellos.
+[[parent_overrides]]
+code_pattern = '([0-9]{8})x.*'
+parent_code_template = '\1'
+level = 4
+
+# berlin: los distritos urbanos dependen del municipio, no del estado.
+[[parent_overrides]]
+codes = ["B01", "B04", "B02", "B11", "B10", "B08", "B03", "B12", "B05", "B06", "B07", "B09"]
+parent_code = "11000000"
+level = 4
+
+# bremen: los distritos urbanos dependen del municipio, no del estado.
+[[parent_overrides]]
+codes = ["0401141", "0401153", "0401135", "0401112", "0401111", "0401121", "0401151", "0401142", "0401144", "0401138", "0401134", "0401124", "0401136", "0401123", "0401137", "0401131", "0401132", "0401126", "0401127", "0401133", "0401152", "0401143", "0401125"]
+parent_code = "04011000"
+level = 4
+
+# dortmund: los distritos urbanos dependen del municipio, no del estado.
+[[parent_overrides]]
+codes = ["DO40", "DO30", "DO10", "DO60", "DO50", "DO80", "DO04", "DO07", "DO00", "DO70", "DO90", "DO20"]
+parent_code = "05913000"
+level = 4
+
+# dresden: los distritos urbanos dependen del municipio, no del estado.
+[[parent_overrides]]
+codes = ["DD5", "DD9", "DD0", "DD1", "DD3", "DD6", "DD4", "DD2", "DD8", "DD7"]
+parent_code = "14612000"
+level = 4
+
+# duisburg: los distritos urbanos dependen del municipio, no del estado.
+[[parent_overrides]]
+codes = ["DU5", "DU7", "DU2", "DU4", "DU3", "DU6", "DU1"]
+parent_code = "05112000"
+level = 4
+
+# dusseldorf: los distritos urbanos dependen del municipio, no del estado.
+[[parent_overrides]]
+codes = ["D01", "D02", "D03", "D04", "D05", "D06", "D07", "D08", "D09", "D10"]
+parent_code = "05111000"
+level = 4
+
+# essen: los distritos urbanos dependen del municipio, no del estado.
+[[parent_overrides]]
+codes = ["E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "E9"]
+parent_code = "05113000"
+level = 4
+
+# frankfurt: los distritos urbanos dependen del municipio, no del estado.
+[[parent_overrides]]
+codes = ["F16", "F01", "F02", "F03", "F04", "F09", "F07", "F10", "F08", "F11", "F05", "F06", "F14", "F12", "F13", "F15"]
+parent_code = "06412000"
+level = 4
+
+# hamburg: los distritos urbanos dependen del municipio, no del estado.
+[[parent_overrides]]
+codes = ["HH2", "HH6", "HH3", "HH1", "HH4", "HH7", "HH5"]
+parent_code = "02000000"
+level = 4
+
+# hannover: los distritos urbanos dependen del municipio, no del estado.
+[[parent_overrides]]
+codes = ["H11", "H03", "H04", "H08", "H01", "H13", "H12", "H06", "H10", "H05", "H09", "H07", "H02"]
+parent_code = "03241001"
+level = 4
+
+# koln: los distritos urbanos dependen del municipio, no del estado.
+[[parent_overrides]]
+codes = ["K6", "K4", "K8", "K1", "K3", "K9", "K5", "K7", "K2"]
+parent_code = "05315000"
+level = 4
+
+# leipzig: los distritos urbanos dependen del municipio, no del estado.
+[[parent_overrides]]
+codes = ["L7", "L0", "L9", "L1", "L8", "L2", "L4", "L3", "L5", "L6"]
+parent_code = "14713000"
+level = 4
+
+# munchen: los distritos urbanos dependen del municipio, no del estado.
+[[parent_overrides]]
+codes = ["M23", "M01", "M22", "M05", "M14", "M13", "M24", "M20", "M25", "M02", "M03", "M11", "M10", "M09", "M17", "M21", "M16", "M12", "M04", "M08", "M06", "M07", "M19", "M18"]
+parent_code = "09162000"
+level = 4
+
+# nurnberg: los distritos urbanos dependen del municipio, no del estado.
+[[parent_overrides]]
+codes = ["N0", "N8", "N7", "N9", "N4", "N3", "N5", "N1", "N2", "N6"]
+parent_code = "09564000"
+level = 4
+
+# stuttgart: los distritos urbanos dependen del municipio, no del estado.
+[[parent_overrides]]
+codes = ["S06", "S07", "S08", "S09", "S10", "S11", "S12", "S13", "S14", "S15", "S16", "S17", "S18", "S01", "S02", "S03", "S04", "S05", "S19", "S20", "S21", "S22", "S23"]
+parent_code = "08111000"
+level = 4
+
+# Cambios posteriores al censo: conservar los IDs y poblaciones de asentamientos.
+# Bromskirchen > Allendorf (Eder), 01-01-2023:
+# https://www.allendorf-eder.de/leben-in-allendorf/gemeinde-steckbrief/
+[[parent_overrides]]
+code_pattern = '06635005x.*'
+parent_code = "06635001"
+
+# Ostrau y Zschaitz-Ottewig > Jahnatal, 01-01-2023:
+# https://www.statistikportal.de/de/gemeindeverzeichnis/14522275
+# https://hov.isgv.de/Jahnatal
+[[parent_overrides]]
+code_pattern = '(14522450|14522620)x.*'
+parent_code = "14522275"
+
+# Maasbuell > Huerup, 01-03-2023:
+# https://www.amt-huerup.de/verzeichnis/objekt.php?mandat=81482
+[[parent_overrides]]
+code_pattern = '01059141x.*'
+parent_code = "01059126"
+
+# Cambios de Turingia 2023/2024, incluidos los nuevos codigos municipales:
+# https://statistik.thueringen.de/datenbank/allgangaben.asp
+# https://statistik.thueringen.de/datenbank/gebiet2.asp?krs=61
+# https://statistik.thueringen.de/datenbank/gebiet2.asp?krs=64
+# https://statistik.thueringen.de/datenbank/gebiet2.asp?krs=76
+[[parent_overrides]]
+code_pattern = '(16076004|16076084)x.*'
+parent_code = "16076094" # Berga-Wuenschendorf
+
+[[parent_overrides]]
+code_pattern = '(16061007|16061065|16061067|16061096|16061097|16061111)x.*'
+parent_code = "16061119" # Uder
+
+# Rodeberg se repartio entre dos municipios y dos distritos distintos.
+[[parent_overrides]]
+codes = ["16064055x0M20"] # Eigenrieden
+parent_code = "16064046" # Muehlhausen/Thueringen
+
+[[parent_overrides]]
+codes = ["16064055x0YP1"] # Struth
+parent_code = "16061118" # Dingelstaedt
+
+[[parent_overrides]]
+code_pattern = '16063028x.*'
+parent_code = "16063104" # Frankenroda > Amt Creuzburg
+
+[[parent_overrides]]
+code_pattern = '16076026x.*'
+parent_code = "16076003" # Hartmannsdorf > Bad Koestritz
+
+[[parent_overrides]]
+code_pattern = '16067036x.*'
+parent_code = "16067092" # Herrenhof > Georgenthal
+
+[[parent_overrides]]
+code_pattern = '16061049x.*'
+parent_code = "16061045" # Hohes Kreuz > Heilbad Heiligenstadt
+
+[[parent_overrides]]
+code_pattern = '16064072x.*'
+parent_code = "16064071" # Menteroda > Unstruttal
+
+[[parent_overrides]]
+code_pattern = '16064058x.*'
+parent_code = "16064076" # Schoenstedt > Unstrut-Hainich
+
+[[parent_overrides]]
+code_pattern = '16066073x.*'
+parent_code = "16066042" # Suelzfeld > Meiningen

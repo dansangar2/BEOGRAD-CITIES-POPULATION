@@ -11,3 +11,32 @@ include = { infosection = true, major_subdivision = false, cities = false }
 source = "admin"
 path = ["admin"]
 include = { infosection = true, admin1 = true, admin2 = true }
+
+[[cities]]
+city = "Bakı"
+id = "baku_city"
+level = 2
+type = "City"
+from = { 1 = ["01"] }
+# Explicit central-district selection; never aggregate every child of region 01.
+# Bineqedi, Nerimanov, Nesimi, Nizami, Sebail, Xetai and Yasamal.
+communes = ["0101", "0107", "0108", "0109", "0104", "0111", "0112"]
+keep_communes = false
+
+# Article 10 of the autonomous republic's constitution uses Azerbaijan's symbols.
+# Match the republic by code and level, separately from Naxcivan city (1101).
+[[visual_assets.admin_areas]]
+code = "19"
+level = 1
+kind = "flag"
+wikidata_id = "Q131083"
+commons_filename = "Flag of Azerbaijan.svg"
+source_url = "https://alimajlis.gov.az/en/pages/n-ar-constitution"
+
+[[visual_assets.admin_areas]]
+code = "19"
+level = 1
+kind = "coat"
+wikidata_id = "Q131083"
+commons_filename = "Emblem of Azerbaijan.svg"
+source_url = "https://alimajlis.gov.az/en/pages/n-ar-constitution"

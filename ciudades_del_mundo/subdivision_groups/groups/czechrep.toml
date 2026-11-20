@@ -1,0 +1,480 @@
+source_country_code = "czechrep"
+
+JIHOCESKY_A_MORAVIA = [
+    "Dešná",
+    "Županovice",
+    "Písečné",
+    "Staré Hobzí",
+    "Báňovice",
+    "Budíškovice",
+    "Třebětice",
+    "Budeč",
+    "Horní Slatina",
+    "Hříšice",
+    "Červený Hrádek",
+    "Dačice",
+    "Dobrohošť",
+    "Cizkrajov",
+    "Peč",
+    "Kostelní Vydří",
+    "Volfířov",
+    "Studená",
+    "Slavonice",
+    "Český Rudolec",
+    "Heřmaneč",
+    "Horní Němčice",
+    "Jilem",
+    "Zahrádky",
+    "Horní Meziříčko",
+    "Popelín",
+    "Kunžak",
+]
+
+MORAVSKOSLEZSKY_A_MORAVIA = [
+    "Ostrava",
+    "Paskov",
+    "Krmelín",
+    "Stará Ves nad Ondřejnicí",
+    "Žabeň",
+    "Sviadnov",
+    "Staříč",
+    "Fryčovice",
+    "Trnávka",
+    "Brušperk",
+    "Petřvald",
+    "Mošnov",
+    "Albrechtičky",
+    "Kateřinice",
+    "Skotnice",
+    "Sedlnice",
+    "Bartošovice",
+    "Kunín",
+    "Hladké Životice",
+    "Kujavy",
+    "Fulnek",
+    "Vrchy",
+    "Suchdol nad Odrou",
+    "Bernartice nad Odrou",
+    "Starý Jičín",
+    "Jeseník nad Odrou",
+    "Nový Jičín",
+    "Šenov u Nového Jičína",
+    "Libhošť",
+    "Rybí",
+    "Životice u Nového Jičína",
+    "Mořkov",
+    "Hodslavice",
+    "Hostašovice",
+    "Veřovice",
+    "Ženklava",
+    "Štramberk",
+    "Závišice",
+    "Příbor",
+    "Kopřivnice",
+    "Lichnov",
+    "Bordovice",
+    "Trojanovice",
+    "Frenštát pod Radhoštěm",
+    "Tichá",
+    "Hukvaldy",
+    "Palkovice",
+    "Kozlovice",
+    "Lhotka",
+    "Metylovice",
+    "Pstruží",
+    "Kunčice pod Ondřejníkem",
+    "Čeladná",
+    "Bílá",
+    "Spálov",
+    "Luboměř",
+    "Budišov nad Budišovkou",
+    "Bílčice",
+    "Dvorce",
+    "Křišťanovice",
+    "Roudno",
+    "Nová Pláň",
+    "Lomnice",
+    "Valšov",
+    "Moravskoslezský Kočov",
+    "Dětřichov nad Bystřicí",
+    "Ryžoviště",
+    "Břidličná",
+    "Velká Štáhle",
+    "Malá Štáhle",
+    "Dolní Moravice",
+    "Stará Ves",
+    "Rýmařov",
+    "Horní Město",
+    "Tvrdkov",
+    "Jiříkov",
+]
+
+MORAVSKOSLEZSKY_A_MORAVIA_SILESIA = [
+    "Petrovice",
+    "Janov",
+    "Jindřichov",
+    "Třemešná",
+    "Liptaň",
+    "Vysoká",
+    "Dívčí Hrad",
+    "Slezské Rudoltice",
+    "Rusín",
+    "Bohušov",
+    "Osoblaha",
+    "Hlinka",
+    "Slezské Pavlovice",
+    "Jakartovice",
+    "Litultovice",
+    "Lhotka u Litultovic",
+    "Dolní Životice",
+    "Mikolajice",
+    "Štáblovice",
+    "Uhlířov",
+    "Slavkov",
+    "Slatina",
+]
+
+MORAVSKOSLEZSKY_A_SILESIA_ALEMANA = [
+    "Šilheřovice",
+    "Ludgeřovice",
+    "Markvartovice",
+    "Hlučín",
+    "Darkovice",
+    "Hať",
+    "Píšť",
+    "Závada",
+    "Vřesina",
+    "Kozmice",
+    "Bohuslavice",
+    "Bělá",
+    "Chuchelná",
+    "Dolní Benešov",
+    "Bolatice",
+    "Strahovice",
+    "Kobeřice",
+    "Kravaře",
+    "Velké Hoštice",
+    "Chlebičov",
+    "Oldřišov",
+    "Služovice",
+    "Štěpánkovice",
+    "Hněvošice",
+    "Rohov",
+    "Sudice",
+    "Třebom",
+    "Háj ve Slezsku",
+]
+
+OLOMOUCKYKRAJ_A_SILESIA = [
+    "Bělá pod Pradědem",
+    "Lipová-lázně",
+    "Jeseník",
+    "Zlaté Hory",
+    "Mikulovice",
+    "Česká Ves",
+    "Písečná",
+    "Hradec-Nová Ves",
+    "Velké Kunětice",
+    "Supíkovice",
+    "Stará Červená Voda",
+    "Vidnava",
+    "Velká Kraš",
+    "Černá Voda",
+    "Vápenná",
+    "Žulová",
+    "Kobylá nad Vidnavkou",
+    "Bernartice",
+    "Vlčice",
+    "Skorošice",
+    "Uhelná",
+    "Javorník",
+    "Bílá Voda",
+]
+
+PARDUBICKY_A_MORAVIA = [
+    "Dolní Morava",
+    "Červená Voda",
+    "Horní Heřmanice",
+    "Cotkytle",
+    "Strážná",
+    "Tatenice",
+    "Krasíkov",
+    "Koruna",
+    "Třebařov",
+    "Staré Město",
+    "Dětřichov u Moravské Třebové",
+    "Borušov",
+    "Gruna",
+    "Městečko Trnávka",
+    "Radkov",
+    "Vranová Lhota",
+    "Hartinkov",
+    "Vysoká",
+    "Březinky",
+    "Biskupice",
+    "Jaroměřice",
+    "Jevíčko",
+    "Víska u Jevíčka",
+    "Chornice",
+    "Bezděčí u Trnávky",
+    "Rozstání",
+    "Malíkov",
+    "Linhartice",
+    "Rychnov na Moravě",
+    "Mladějov na Moravě",
+    "Kunčina",
+    "Moravská Třebová",
+    "Útěchov",
+    "Dlouhá Loučka",
+    "Křenov",
+    "Janůvky",
+    "Březina",
+    "Slatina",
+    "Bělá u Jevíčka",
+    "Bohuňov",
+    "Študlov",
+    "Rozhraní",
+    "Brněnec",
+    "Želivsko",
+    "Rudná",
+    "Pohledy",
+    "Březová nad Svitavou",
+    "Sklené",
+    "Hradec nad Svitavou",
+    "Kamenná Horka",
+    "Svitavy",
+    "Vendolí",
+    "Javorník",
+    "Koclířov",
+    "Lubník",
+    "Sázava",
+]
+
+VYSOCINA_A_MORAVIA_DISTRITOS = [
+    "Třebíč",
+    "Žďár nad Sázavou",
+    "Jihlava",
+]
+
+VYSOCINA_A_MORAVIA_MUNICIPIOS = [
+    "Počátky",
+]
+
+VYSOCINA_DISTRITOS_A_BOHEMIA_MUNICIPIOS = [
+    "Chlumětín",
+    "Křižánky",
+    "Vojnův Městec",
+    "Karlov",
+    "Škrdlovice",
+    "Polnička",
+    "Světnov",
+    "Radostín",
+    "Račín",
+    "Vepřová",
+    "Malá Losenice",
+    "Velká Losenice",
+    "Sázava",
+    "Nové Dvory",
+    "Nížkov",
+    "Rosička",
+    "Sirákov",
+    "Poděšín",
+    "Brzkov",
+    "Polná",
+    "Záborná",
+    "Dobroutov",
+    "Stáj",
+    "Věžnička",
+    "Ždírec",
+    "Dobronín",
+    "Kamenná",
+    "Střítež",
+    "Měšín",
+    "Smrčná",
+    "Hybrálec",
+    "Plandry",
+    "Bílý Kámen",
+    "Větrný Jeníkov",
+    "Zbinohy",
+    "Vyskytná nad Jihlavou",
+    "Hubenov",
+    "Mirošov",
+    "Ježená",
+    "Zbilidy",
+    "Šimanov",
+    "Kalhov",
+    "Ústí",
+    "Dvorce",
+    "Cejle",
+    "Dolní Cerekev",
+    "Rohozná",
+    "Hojkov",
+    "Boršov",
+    "Milíčov",
+    "Dušejov",
+    "Opatov",
+    "Dudín",
+    "Batelov",
+    "Horní Ves",
+]
+[[group_selections.JIHOCESKY_A_MORAVIA.country_groups]]
+country_code = "czechrep"
+include_names = ["Dešná", "Županovice", "Písečné", "Staré Hobzí", "Báňovice", "Budíškovice", "Třebětice", "Budeč", "Horní Slatina", "Hříšice", "Červený Hrádek", "Dačice", "Dobrohošť", "Cizkrajov", "Peč", "Kostelní Vydří", "Volfířov", "Studená", "Slavonice", "Český Rudolec", "Heřmaneč", "Horní Němčice", "Jilem", "Zahrádky", "Horní Meziříčko", "Popelín", "Kunžak"]
+
+[[group_selections.JIHOCESKY_A_MORAVIA.country_groups.sections]]
+level = 2
+area_id = "czechrep_CZ0313"
+selected_ids = ["czechrep_546143", "czechrep_562424", "czechrep_546917", "czechrep_547204", "czechrep_562726", "czechrep_546038", "czechrep_562327", "czechrep_546020", "czechrep_562319", "czechrep_546445", "czechrep_509116", "czechrep_546127", "czechrep_562416", "czechrep_546054", "czechrep_507717", "czechrep_508357", "czechrep_547441", "czechrep_547263", "czechrep_547166", "czechrep_546097", "czechrep_546305", "czechrep_562785", "czechrep_562769", "czechrep_547468", "czechrep_598658", "czechrep_546992", "czechrep_546615"]
+selected_names = ["Dešná", "Županovice", "Písečné", "Staré Hobzí", "Báňovice", "Budíškovice", "Třebětice", "Budeč", "Horní Slatina", "Hříšice", "Červený Hrádek", "Dačice", "Dobrohošť", "Cizkrajov", "Peč", "Kostelní Vydří", "Volfířov", "Studená", "Slavonice", "Český Rudolec", "Heřmaneč", "Horní Němčice", "Jilem", "Zahrádky", "Horní Meziříčko", "Popelín", "Kunžak"]
+selected_operations = ["add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add"]
+
+[[group_selections.MORAVSKOSLEZSKY_A_MORAVIA.country_groups]]
+country_code = "czechrep"
+include_names = ["Ostrava", "Paskov", "Krmelín", "Stará Ves nad Ondřejnicí", "Žabeň", "Sviadnov", "Staříč", "Fryčovice", "Trnávka", "Brušperk", "Petřvald", "Mošnov", "Albrechtičky", "Kateřinice", "Skotnice", "Sedlnice", "Bartošovice", "Kunín", "Hladké Životice", "Kujavy", "Fulnek", "Vrchy", "Suchdol nad Odrou", "Bernartice nad Odrou", "Starý Jičín", "Jeseník nad Odrou", "Nový Jičín", "Šenov u Nového Jičína", "Libhošť", "Rybí", "Životice u Nového Jičína", "Mořkov", "Hodslavice", "Hostašovice", "Veřovice", "Ženklava", "Štramberk", "Závišice", "Příbor", "Kopřivnice", "Lichnov", "Bordovice", "Trojanovice", "Frenštát pod Radhoštěm", "Tichá", "Hukvaldy", "Palkovice", "Kozlovice", "Lhotka", "Metylovice", "Pstruží", "Kunčice pod Ondřejníkem", "Čeladná", "Bílá", "Spálov", "Luboměř", "Budišov nad Budišovkou", "Bílčice", "Dvorce", "Křišťanovice", "Roudno", "Nová Pláň", "Lomnice", "Valšov", "Moravskoslezský Kočov", "Dětřichov nad Bystřicí", "Ryžoviště", "Břidličná", "Velká Štáhle", "Malá Štáhle", "Dolní Moravice", "Stará Ves", "Rýmařov", "Horní Město", "Tvrdkov", "Jiříkov"]
+
+[[group_selections.MORAVSKOSLEZSKY_A_MORAVIA.country_groups.sections]]
+level = 2
+area_id = "czechrep_CZ0806"
+selected_ids = ["czechrep_554821", "czechrep_598739"]
+selected_names = ["Ostrava", "Stará Ves nad Ondřejnicí"]
+selected_operations = ["add", "add"]
+
+[[group_selections.MORAVSKOSLEZSKY_A_MORAVIA.country_groups.sections]]
+level = 2
+area_id = "czechrep_CZ0802"
+selected_ids = ["czechrep_598569", "czechrep_598348", "czechrep_552691", "czechrep_569631", "czechrep_552569", "czechrep_598135", "czechrep_598038", "czechrep_598691", "czechrep_598551", "czechrep_598321", "czechrep_598364", "czechrep_512184", "czechrep_552577", "czechrep_598356", "czechrep_598071", "czechrep_598020"]
+selected_names = ["Paskov", "Krmelín", "Žabeň", "Sviadnov", "Staříč", "Fryčovice", "Brušperk", "Hukvaldy", "Palkovice", "Kozlovice", "Lhotka", "Metylovice", "Pstruží", "Kunčice pod Ondřejníkem", "Čeladná", "Bílá"]
+selected_operations = ["add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add"]
+
+[[group_selections.MORAVSKOSLEZSKY_A_MORAVIA.country_groups.sections]]
+level = 2
+area_id = "czechrep_CZ0804"
+selected_ids = ["czechrep_569755", "czechrep_599743", "czechrep_568686", "czechrep_568741", "czechrep_568643", "czechrep_568716", "czechrep_599832", "czechrep_599212", "czechrep_568546", "czechrep_569666", "czechrep_555312", "czechrep_599352", "czechrep_569747", "czechrep_599930", "czechrep_568481", "czechrep_599905", "czechrep_599468", "czechrep_599191", "czechrep_554171", "czechrep_500046", "czechrep_568554", "czechrep_547000", "czechrep_599689", "czechrep_599409", "czechrep_568511", "czechrep_500259", "czechrep_568732", "czechrep_599948", "czechrep_568473", "czechrep_599808", "czechrep_599565", "czechrep_599603", "czechrep_568431", "czechrep_599999", "czechrep_599344", "czechrep_599956", "czechrep_599867", "czechrep_599646"]
+selected_names = ["Trnávka", "Petřvald", "Mošnov", "Albrechtičky", "Kateřinice", "Skotnice", "Sedlnice", "Bartošovice", "Kunín", "Hladké Životice", "Kujavy", "Fulnek", "Vrchy", "Suchdol nad Odrou", "Bernartice nad Odrou", "Starý Jičín", "Jeseník nad Odrou", "Nový Jičín", "Šenov u Nového Jičína", "Libhošť", "Rybí", "Životice u Nového Jičína", "Mořkov", "Hodslavice", "Hostašovice", "Veřovice", "Ženklava", "Štramberk", "Závišice", "Příbor", "Kopřivnice", "Lichnov", "Bordovice", "Trojanovice", "Frenštát pod Radhoštěm", "Tichá", "Spálov", "Luboměř"]
+selected_operations = ["add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add"]
+
+[[group_selections.MORAVSKOSLEZSKY_A_MORAVIA.country_groups.sections]]
+level = 2
+area_id = "czechrep_CZ0805"
+selected_ids = ["czechrep_506460"]
+selected_names = ["Budišov nad Budišovkou"]
+selected_operations = ["add"]
+
+[[group_selections.MORAVSKOSLEZSKY_A_MORAVIA.country_groups.sections]]
+level = 2
+area_id = "czechrep_CZ0801"
+selected_ids = ["czechrep_597198", "czechrep_597317", "czechrep_597538", "czechrep_597741", "czechrep_546950", "czechrep_597589", "czechrep_551783", "czechrep_551732", "czechrep_597252", "czechrep_597791", "czechrep_597228", "czechrep_551694", "czechrep_551902", "czechrep_597287", "czechrep_551911", "czechrep_597783", "czechrep_597368", "czechrep_551821", "czechrep_597457"]
+selected_names = ["Bílčice", "Dvorce", "Křišťanovice", "Roudno", "Nová Pláň", "Lomnice", "Valšov", "Moravskoslezský Kočov", "Dětřichov nad Bystřicí", "Ryžoviště", "Břidličná", "Velká Štáhle", "Malá Štáhle", "Dolní Moravice", "Stará Ves", "Rýmařov", "Horní Město", "Tvrdkov", "Jiříkov"]
+selected_operations = ["add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add"]
+
+[[group_selections.MORAVSKOSLEZSKY_A_MORAVIA_SILESIA.country_groups]]
+country_code = "czechrep"
+include_names = ["Petrovice", "Janov", "Jindřichov", "Třemešná", "Liptaň", "Vysoká", "Dívčí Hrad", "Slezské Rudoltice", "Rusín", "Bohušov", "Osoblaha", "Hlinka", "Slezské Pavlovice", "Jakartovice", "Litultovice", "Lhotka u Litultovic", "Dolní Životice", "Mikolajice", "Štáblovice", "Uhlířov", "Slavkov", "Slatina"]
+
+[[group_selections.MORAVSKOSLEZSKY_A_MORAVIA_SILESIA.country_groups.sections]]
+level = 2
+area_id = "czechrep_CZ0801"
+selected_ids = ["czechrep_551848", "czechrep_597431", "czechrep_597449", "czechrep_597911", "czechrep_597571", "czechrep_597970", "czechrep_551864", "czechrep_597813", "czechrep_597775", "czechrep_597201", "czechrep_597716", "czechrep_551872", "czechrep_551881"]
+selected_names = ["Petrovice", "Janov", "Jindřichov", "Třemešná", "Liptaň", "Vysoká", "Dívčí Hrad", "Slezské Rudoltice", "Rusín", "Bohušov", "Osoblaha", "Hlinka", "Slezské Pavlovice"]
+selected_operations = ["add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add"]
+
+[[group_selections.MORAVSKOSLEZSKY_A_MORAVIA_SILESIA.country_groups.sections]]
+level = 2
+area_id = "czechrep_CZ0805"
+selected_ids = ["czechrep_507377", "czechrep_507920", "czechrep_553115", "czechrep_553051", "czechrep_568279", "czechrep_568333", "czechrep_568341", "czechrep_510289"]
+selected_names = ["Jakartovice", "Litultovice", "Lhotka u Litultovic", "Dolní Životice", "Mikolajice", "Štáblovice", "Uhlířov", "Slavkov"]
+selected_operations = ["add", "add", "add", "add", "add", "add", "add", "add"]
+
+[[group_selections.MORAVSKOSLEZSKY_A_MORAVIA_SILESIA.country_groups.sections]]
+level = 2
+area_id = "czechrep_CZ0804"
+selected_ids = ["czechrep_568406"]
+selected_names = ["Slatina"]
+selected_operations = ["add"]
+
+[[group_selections.MORAVSKOSLEZSKY_A_SILESIA_ALEMANA.country_groups]]
+country_code = "czechrep"
+include_names = ["Šilheřovice", "Ludgeřovice", "Markvartovice", "Hlučín", "Darkovice", "Hať", "Píšť", "Závada", "Vřesina", "Kozmice", "Bohuslavice", "Bělá", "Chuchelná", "Dolní Benešov", "Bolatice", "Strahovice", "Kobeřice", "Kravaře", "Velké Hoštice", "Chlebičov", "Oldřišov", "Služovice", "Štěpánkovice", "Hněvošice", "Rohov", "Sudice", "Třebom", "Háj ve Slezsku"]
+
+[[group_selections.MORAVSKOSLEZSKY_A_SILESIA_ALEMANA.country_groups.sections]]
+level = 2
+area_id = "czechrep_CZ0805"
+selected_ids = ["czechrep_510432", "czechrep_507971", "czechrep_508128", "czechrep_507016", "czechrep_568228", "czechrep_568210", "czechrep_509647", "czechrep_553492", "czechrep_568244", "czechrep_547182", "czechrep_506192", "czechrep_512974", "czechrep_507334", "czechrep_506702", "czechrep_506214", "czechrep_512869", "czechrep_507504", "czechrep_507580", "czechrep_510939", "czechrep_512923", "czechrep_509574", "czechrep_510297", "czechrep_510483", "czechrep_507105", "czechrep_568376", "czechrep_510378", "czechrep_569101", "czechrep_506753"]
+selected_names = ["Šilheřovice", "Ludgeřovice", "Markvartovice", "Hlučín", "Darkovice", "Hať", "Píšť", "Závada", "Vřesina", "Kozmice", "Bohuslavice", "Bělá", "Chuchelná", "Dolní Benešov", "Bolatice", "Strahovice", "Kobeřice", "Kravaře", "Velké Hoštice", "Chlebičov", "Oldřišov", "Služovice", "Štěpánkovice", "Hněvošice", "Rohov", "Sudice", "Třebom", "Háj ve Slezsku"]
+selected_operations = ["add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add"]
+
+[[group_selections.OLOMOUCKYKRAJ_A_SILESIA.country_groups]]
+country_code = "czechrep"
+include_names = ["Bělá pod Pradědem", "Lipová-lázně", "Jeseník", "Zlaté Hory", "Mikulovice", "Česká Ves", "Písečná", "Hradec-Nová Ves", "Velké Kunětice", "Supíkovice", "Stará Červená Voda", "Vidnava", "Velká Kraš", "Černá Voda", "Vápenná", "Žulová", "Kobylá nad Vidnavkou", "Bernartice", "Vlčice", "Skorošice", "Uhelná", "Javorník", "Bílá Voda"]
+
+[[group_selections.OLOMOUCKYKRAJ_A_SILESIA.country_groups.sections]]
+level = 2
+area_id = "czechrep_CZ0711"
+selected_ids = ["czechrep_523917", "czechrep_540030", "czechrep_536385", "czechrep_597996", "czechrep_540382", "czechrep_569356", "czechrep_540684", "czechrep_553301", "czechrep_569453", "czechrep_541117", "czechrep_541036", "czechrep_541303", "czechrep_553468", "czechrep_533491", "czechrep_541249", "czechrep_541575", "czechrep_557218", "czechrep_524891", "czechrep_541346", "czechrep_553484", "czechrep_541214", "czechrep_536148", "czechrep_525227"]
+selected_names = ["Bělá pod Pradědem", "Lipová-lázně", "Jeseník", "Zlaté Hory", "Mikulovice", "Česká Ves", "Písečná", "Hradec-Nová Ves", "Velké Kunětice", "Supíkovice", "Stará Červená Voda", "Vidnava", "Velká Kraš", "Černá Voda", "Vápenná", "Žulová", "Kobylá nad Vidnavkou", "Bernartice", "Vlčice", "Skorošice", "Uhelná", "Javorník", "Bílá Voda"]
+selected_operations = ["add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add"]
+
+[[group_selections.PARDUBICKY_A_MORAVIA.country_groups]]
+country_code = "czechrep"
+include_names = ["Dolní Morava", "Červená Voda", "Horní Heřmanice", "Cotkytle", "Strážná", "Tatenice", "Krasíkov", "Koruna", "Třebařov", "Staré Město", "Dětřichov u Moravské Třebové", "Borušov", "Gruna", "Městečko Trnávka", "Radkov", "Vranová Lhota", "Hartinkov", "Vysoká", "Březinky", "Biskupice", "Jaroměřice", "Jevíčko", "Víska u Jevíčka", "Chornice", "Bezděčí u Trnávky", "Rozstání", "Malíkov", "Linhartice", "Rychnov na Moravě", "Mladějov na Moravě", "Kunčina", "Moravská Třebová", "Útěchov", "Dlouhá Loučka", "Křenov", "Janůvky", "Březina", "Slatina", "Bělá u Jevíčka", "Bohuňov", "Študlov", "Rozhraní", "Brněnec", "Želivsko", "Rudná", "Pohledy", "Březová nad Svitavou", "Sklené", "Hradec nad Svitavou", "Kamenná Horka", "Svitavy", "Vendolí", "Javorník", "Koclířov", "Lubník", "Sázava"]
+
+[[group_selections.PARDUBICKY_A_MORAVIA.country_groups.sections]]
+level = 2
+area_id = "czechrep_CZ0534"
+selected_ids = ["czechrep_580163", "czechrep_580015", "czechrep_580295", "czechrep_579980", "czechrep_580988", "czechrep_581046", "czechrep_580490", "czechrep_580619", "czechrep_574392"]
+selected_names = ["Dolní Morava", "Červená Voda", "Horní Heřmanice", "Cotkytle", "Strážná", "Tatenice", "Krasíkov", "Lubník", "Sázava"]
+selected_operations = ["add", "add", "add", "add", "add", "add", "add", "add", "add"]
+
+[[group_selections.PARDUBICKY_A_MORAVIA.country_groups.sections]]
+level = 2
+area_id = "czechrep_CZ0533"
+selected_ids = ["czechrep_578266", "czechrep_578908", "czechrep_578789", "czechrep_572683", "czechrep_572632", "czechrep_574325", "czechrep_578380", "czechrep_574333", "czechrep_578975", "czechrep_572284", "czechrep_578991", "czechrep_572250", "czechrep_572519", "czechrep_578151", "czechrep_578193", "czechrep_578959", "czechrep_578096", "czechrep_574309", "czechrep_578690", "czechrep_578371", "czechrep_578339", "czechrep_578711", "czechrep_578401", "czechrep_578282", "czechrep_578444", "czechrep_572624", "czechrep_577987", "czechrep_578274", "czechrep_578142", "czechrep_577871", "czechrep_578762", "czechrep_505391", "czechrep_577812", "czechrep_578860", "czechrep_578681", "czechrep_577863", "czechrep_572195", "czechrep_578703", "czechrep_578550", "czechrep_505145", "czechrep_578754", "czechrep_572691", "czechrep_578215", "czechrep_577731", "czechrep_578932", "czechrep_572713", "czechrep_578231"]
+selected_names = ["Koruna", "Třebařov", "Staré Město", "Dětřichov u Moravské Třebové", "Borušov", "Gruna", "Městečko Trnávka", "Radkov", "Vranová Lhota", "Hartinkov", "Vysoká", "Březinky", "Biskupice", "Jaroměřice", "Jevíčko", "Víska u Jevíčka", "Chornice", "Bezděčí u Trnávky", "Rozstání", "Malíkov", "Linhartice", "Rychnov na Moravě", "Mladějov na Moravě", "Kunčina", "Moravská Třebová", "Útěchov", "Dlouhá Loučka", "Křenov", "Janůvky", "Březina", "Slatina", "Bělá u Jevíčka", "Bohuňov", "Študlov", "Rozhraní", "Brněnec", "Želivsko", "Rudná", "Pohledy", "Březová nad Svitavou", "Sklené", "Hradec nad Svitavou", "Kamenná Horka", "Svitavy", "Vendolí", "Javorník", "Koclířov"]
+selected_operations = ["add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add"]
+
+[[group_selections.VYSOCINA_A_MORAVIA_DISTRITOS.country_groups]]
+country_code = "czechrep"
+include_names = ["Třebíč", "Žďár nad Sázavou", "Jihlava"]
+
+[[group_selections.VYSOCINA_A_MORAVIA_DISTRITOS.country_groups.sections]]
+level = 1
+area_id = "czechrep_CZ063"
+selected_ids = ["czechrep_CZ0634", "czechrep_CZ0635", "czechrep_CZ0632"]
+selected_names = ["Třebíč", "Žďár nad Sázavou", "Jihlava"]
+selected_operations = ["add", "add", "add"]
+
+[[group_selections.VYSOCINA_A_MORAVIA_MUNICIPIOS.country_groups]]
+country_code = "czechrep"
+include_names = ["Počátky"]
+
+[[group_selections.VYSOCINA_A_MORAVIA_MUNICIPIOS.country_groups.sections]]
+level = 2
+area_id = "czechrep_CZ0633"
+selected_ids = ["czechrep_548561"]
+selected_names = ["Počátky"]
+selected_operations = ["add"]
+
+[[group_selections.VYSOCINA_DISTRITOS_A_BOHEMIA_MUNICIPIOS.country_groups]]
+country_code = "czechrep"
+include_names = ["Chlumětín", "Křižánky", "Vojnův Městec", "Karlov", "Škrdlovice", "Polnička", "Světnov", "Radostín", "Račín", "Vepřová", "Malá Losenice", "Velká Losenice", "Sázava", "Nové Dvory", "Nížkov", "Rosička", "Sirákov", "Poděšín", "Brzkov", "Polná", "Záborná", "Dobroutov", "Stáj", "Věžnička", "Ždírec", "Dobronín", "Kamenná", "Střítež", "Měšín", "Smrčná", "Hybrálec", "Plandry", "Bílý Kámen", "Větrný Jeníkov", "Zbinohy", "Vyskytná nad Jihlavou", "Hubenov", "Mirošov", "Ježená", "Zbilidy", "Šimanov", "Kalhov", "Ústí", "Dvorce", "Cejle", "Dolní Cerekev", "Rohozná", "Hojkov", "Boršov", "Milíčov", "Dušejov", "Opatov", "Dudín", "Batelov", "Horní Ves"]
+
+[[group_selections.VYSOCINA_DISTRITOS_A_BOHEMIA_MUNICIPIOS.country_groups.sections]]
+level = 2
+area_id = "czechrep_CZ0635"
+selected_ids = ["czechrep_595721", "czechrep_595918", "czechrep_597091", "czechrep_595845", "czechrep_596876", "czechrep_596485", "czechrep_596841", "czechrep_596566", "czechrep_588059", "czechrep_597015", "czechrep_596086", "czechrep_596981", "czechrep_596701", "czechrep_587974", "czechrep_596205", "czechrep_549941", "czechrep_596728", "czechrep_596451"]
+selected_names = ["Chlumětín", "Křižánky", "Vojnův Městec", "Karlov", "Škrdlovice", "Polnička", "Světnov", "Radostín", "Račín", "Vepřová", "Malá Losenice", "Velká Losenice", "Sázava", "Nové Dvory", "Nížkov", "Rosička", "Sirákov", "Poděšín"]
+selected_operations = ["add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add"]
+
+[[group_selections.VYSOCINA_DISTRITOS_A_BOHEMIA_MUNICIPIOS.country_groups.sections]]
+level = 2
+area_id = "czechrep_CZ0632"
+selected_ids = ["czechrep_586951", "czechrep_587711", "czechrep_588202", "czechrep_587036", "czechrep_587915", "czechrep_588148", "czechrep_588288", "czechrep_587028", "czechrep_587362", "czechrep_587958", "czechrep_587508", "czechrep_550299", "czechrep_550281", "czechrep_587702", "czechrep_586889", "czechrep_588121", "czechrep_588229", "czechrep_588172", "czechrep_587222", "czechrep_587532", "czechrep_587281", "czechrep_588211", "czechrep_588008", "czechrep_587320", "czechrep_588075", "czechrep_506729", "czechrep_586978", "czechrep_587044", "czechrep_587796", "czechrep_587150", "czechrep_586927", "czechrep_587524", "czechrep_587095", "czechrep_587621", "czechrep_587087", "czechrep_586862"]
+selected_names = ["Brzkov", "Polná", "Záborná", "Dobroutov", "Stáj", "Věžnička", "Ždírec", "Dobronín", "Kamenná", "Střítež", "Měšín", "Smrčná", "Hybrálec", "Plandry", "Bílý Kámen", "Větrný Jeníkov", "Zbinohy", "Vyskytná nad Jihlavou", "Hubenov", "Mirošov", "Ježená", "Zbilidy", "Šimanov", "Kalhov", "Ústí", "Dvorce", "Cejle", "Dolní Cerekev", "Rohozná", "Hojkov", "Boršov", "Milíčov", "Dušejov", "Opatov", "Dudín", "Batelov"]
+selected_operations = ["add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add", "add"]
+
+[[group_selections.VYSOCINA_DISTRITOS_A_BOHEMIA_MUNICIPIOS.country_groups.sections]]
+level = 2
+area_id = "czechrep_CZ0633"
+selected_ids = ["czechrep_547930"]
+selected_names = ["Horní Ves"]
+selected_operations = ["add"]

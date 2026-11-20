@@ -3,11 +3,13 @@ LEGAL_SUBDIVISION = 3
 scrape_schema_version = 2
 
 [[pages]]
+preserve_source_codes = true
 source = "admin"
 path = ["admin"]
 include = { infosection = true, admin1 = true, admin2 = true }
 
 [[pages]]
+preserve_source_codes = true
 source = "cities"
 path = [
   "alabama",
@@ -20,7 +22,6 @@ path = [
   "delaware",
   "florida",
   "georgia",
-  "hawaii",
   "idaho",
   "illinois",
   "indiana",
@@ -65,6 +66,14 @@ include = { infosection = true, major_subdivision = true, cities = true }
 force_highest_level = 1
 
 [[pages]]
+preserve_source_codes = true
+source = "cities"
+path = ["hawaii"]
+include = { infosection = true, major_subdivision = true, cities = false }
+force_highest_level = 1
+
+[[pages]]
+preserve_source_codes = true
 source = "admin"
 path = [
   "connecticut/admin",
@@ -88,3 +97,122 @@ path = [
 ]
 include = { infosection = true, admin1 = true, admin2 = true }
 force_highest_level = 1
+
+[[pages]]
+source = "cities"
+path = [
+  "places/alabama",
+  "places/alaska",
+  "places/arizona",
+  "places/arkansas",
+  "places/california",
+  "places/colorado",
+  "places/connecticut",
+  "places/delaware",
+  "places/florida",
+  "places/georgia",
+  "places/hawaii",
+  "places/idaho",
+  "places/illinois",
+  "places/indiana",
+  "places/iowa",
+  "places/kansas",
+  "places/kentucky",
+  "places/louisiana",
+  "places/maine",
+  "places/maryland",
+  "places/massachusetts",
+  "places/michigan",
+  "places/minnesota",
+  "places/mississippi",
+  "places/missouri",
+  "places/montana",
+  "places/nebraska",
+  "places/nevada",
+  "places/newhampshire",
+  "places/newjersey",
+  "places/newmexico",
+  "places/newyork",
+  "places/northcarolina",
+  "places/northdakota",
+  "places/ohio",
+  "places/oklahoma",
+  "places/oregon",
+  "places/pennsylvania",
+  "places/rhodeisland",
+  "places/southcarolina",
+  "places/southdakota",
+  "places/tennessee",
+  "places/texas",
+  "places/utah",
+  "places/vermont",
+  "places/virginia",
+  "places/washington",
+  "places/westvirginia",
+  "places/wisconsin",
+  "places/wyoming",
+  "districtofcolumbia",
+]
+include = { infosection = false, major_subdivision = false, cities = true }
+force_highest_level = 3
+preserve_source_codes = true
+
+# MCD codes consist of the five-digit county code followed by five digits.
+# Place codes use a different namespace and are not MCD ancestors.
+[[parent_overrides]]
+code_pattern = '^(\d{5})\d{5}$'
+parent_code_template = '\1'
+level = 3
+
+# These place codes accidentally prefix an unrelated county code.
+# Keep the county shown in the source County column.
+
+[[parent_overrides]]
+codes = ["0102320"]
+parent_code = "01115"
+level = 3
+
+[[parent_overrides]]
+codes = ["1329528"]
+parent_code = "13017"
+level = 3
+
+[[parent_overrides]]
+codes = ["1711982", "1718771"]
+parent_code = "17203"
+level = 3
+
+[[parent_overrides]]
+codes = ["1902530"]
+parent_code = "19141"
+level = 3
+
+[[parent_overrides]]
+codes = ["2203110"]
+parent_code = "22097"
+level = 3
+
+[[parent_overrides]]
+codes = ["2401925", "2403500"]
+parent_code = "24033"
+level = 3
+
+[[parent_overrides]]
+codes = ["2701558"]
+parent_code = "27077"
+level = 3
+
+[[parent_overrides]]
+codes = ["4814929", "4848772"]
+parent_code = "48157"
+level = 3
+
+[[parent_overrides]]
+codes = ["5106712", "5112590", "5113160", "5113192"]
+parent_code = "51093"
+level = 3
+
+[[parent_overrides]]
+codes = ["5506925"]
+parent_code = "55047"
+level = 3

@@ -401,8 +401,8 @@ def _build_node(data: dict[str, Any], *, parent_id: str, context: _BuildContext,
 
     if spec and folded_self_child and children:
         _refresh_node_totals_with_own_sources_and_children(obj)
-    if not spec and children:
-        _refresh_container_totals(obj)
+    if not spec and (children or data.get("manual_template")):
+        _refresh_container_totals(obj, manual=data)
     return built
 
 
@@ -526,17 +526,24 @@ def _build_generated_children(
     return _build_source_unit_children(obj, context=context, label=label)
 
 
-def _build_source_unit_children(obj: NuevoAdminArea, *, context: _BuildContext, label: str) -> int:
+def _build_source_unit_children(obj: NuevoAdminArea, *, context: _BuildContext, label: str, units=None) -> int:
+    from ciudades_del_mundo.services.composite_city_sources import composite_city
+
+    if units is None:
+        units = obj.municipios_originales.all()
     units = list(
-        obj.municipios_originales
-        .only("id", "country_code", "code", "name", "level", "entity_type", "raw_entity_type")
+        units.select_related("parent")
         .order_by("country_code", "level", "name", "id")
     )
     if not units:
         return 0
     used_codes = {str(code or "") for code in obj.children.values_list("code", flat=True)}
     built = 0
+    grouped = {}
     for unit in units:
+        identity = composite_city(unit) or unit
+        grouped.setdefault(identity.id, (identity, []))[1].append(unit)
+    for unit, source_units in grouped.values():
         try:
             level = int(unit.level or 0)
         except (TypeError, ValueError):
@@ -549,10 +556,13 @@ def _build_source_unit_children(obj: NuevoAdminArea, *, context: _BuildContext, 
             used_codes,
             fallback=unit.id,
         )
+        unit_spec = {}
+        for source in source_units:
+            unit_spec.setdefault(source.level, {}).setdefault(source.country_code, []).append({"id": source.id})
         child = create_nuevo_area_from_spec(
             parent_country_id=obj.id,
             new_name=str(unit.name or unit.id).strip(),
-            include_spec={level: {_clean_country_code(unit.country_code): [{"id": str(unit.id)}]}},
+            include_spec=unit_spec,
             entity_type=str(unit.entity_type or unit.raw_entity_type or "Subdivision").strip(),
             new_code=raw_code,
             capitals=[],
@@ -574,6 +584,14 @@ def _build_selected_entity_children(
     context: _BuildContext,
     label: str,
 ) -> int:
+    from ciudades_del_mundo.services.composite_city_sources import composite_city
+    district_ids = []
+    city_ids = set()
+    for unit in obj.municipios_originales.select_related("parent"):
+        city = composite_city(unit)
+        if city is not None:
+            district_ids.append(unit.id)
+            city_ids.add(city.id)
     built = 0
     seen: set[tuple[str, str, str]] = set()
     for index, block in enumerate(_blocks(data, "include", label=label), start=1):
@@ -584,6 +602,8 @@ def _build_selected_entity_children(
         area_values = _block_direct_area_values(block, label=f"{label}.include[{index}]")
         if area_values:
             for area, _preference in _lookup_many_with_preferences(country, level, area_values):
+                if composite_city(area) is not None or area.id in city_ids:
+                    continue
                 source_key = ("area", _clean_country_code(area.country_code), str(area.id))
                 if source_key in seen:
                     continue
@@ -616,6 +636,9 @@ def _build_selected_entity_children(
                 assigned_level=level,
                 label=f"{label}.include[{index}]",
             )
+    if district_ids:
+        built += _build_source_unit_children(obj, context=context, label=label,
+                                             units=obj.municipios_originales.filter(id__in=district_ids))
     return built
 
 
@@ -676,7 +699,7 @@ def _build_selected_group_child(
     child = create_nuevo_area_from_spec(
         parent_country_id=parent.id,
         new_name=group_key,
-        include_spec={level: {country: values}},
+        include_spec=_group_spec(country, group_key, level, context=context),
         entity_type=str(_("Grupo")),
         new_code=raw_code,
         capitals=[],
@@ -798,7 +821,12 @@ def _spec_from_node(data: dict[str, Any], *, default_country_code: str, context:
         country = _clean_country_code(block.get("country_code") or default_country_code)
         if _skip_missing_external_country(country, context):
             continue
-        values = _block_values(block, country_code=country, context=context, label=label)
+        values = _block_direct_area_values(block, label=label)
+        for group_key in _list_value(block.get("groups"), label=f"{label}.groups"):
+            group_spec = _group_spec(country, str(group_key), level, context=context)
+            for unit in _source_unit_areas_from_spec(group_spec, context=context):
+                include_levels[unit.country_code].add(unit.level)
+                spec.setdefault(unit.level, {}).setdefault(unit.country_code, []).append({"id": unit.id})
         if values:
             include_levels[country].add(level)
             spec.setdefault(level, {}).setdefault(country, []).extend(values)
@@ -818,7 +846,14 @@ def _spec_from_node(data: dict[str, Any], *, default_country_code: str, context:
         country = _clean_country_code(block.get("country_code") or default_country_code)
         if _skip_missing_external_country(country, context):
             continue
-        if not any(include_level < level for include_level in include_levels.get(country, set())):
+        values = _block_direct_area_values(block, label=label)
+        from ciudades_del_mundo.services.composite_city_sources import composite_city
+        district_subtraction = bool(values) and all(
+            composite_city(area) is not None
+            for area, _ in _lookup_many_with_preferences(country, level, values)
+        )
+        if not any(include_level < level or (district_subtraction and include_level == level)
+                   for include_level in include_levels.get(country, set())):
             raise ValueError(
                 _(
                     "%(label)s resta nivel %(level)s de %(country)s, "
@@ -826,7 +861,9 @@ def _spec_from_node(data: dict[str, Any], *, default_country_code: str, context:
                 )
                 % {"label": label, "level": level, "country": country}
             )
-        values = _block_values(block, country_code=country, context=context, label=label)
+        for group_key in _list_value(block.get("groups"), label=f"{label}.groups"):
+            for unit in _source_unit_areas_from_spec(_group_spec(country, str(group_key), level, context=context), context=context):
+                spec.setdefault("restar", {}).setdefault(unit.level, {}).setdefault(unit.country_code, []).append({"id": unit.id})
         if values:
             spec.setdefault("restar", {}).setdefault(level, {}).setdefault(country, []).extend(values)
         for subdivision_key in _list_value(block.get("derived_subdivisions"), label=f"{label}.derived_subdivisions"):
@@ -968,6 +1005,8 @@ def _source_unit_values_from_spec(
 
 
 def _source_unit_areas_from_spec(spec: dict, *, context: _BuildContext) -> list[AdminArea]:
+    from ciudades_del_mundo.services.composite_city_sources import normalize_composite_spec
+    spec = normalize_composite_spec(spec)
     include_map = {key: value for key, value in (spec or {}).items() if key != "restar"}
     restar_raw = (spec or {}).get("restar", {}) or {}
     mun_from_macros: set[str] = set()
@@ -1142,6 +1181,39 @@ def _group_names(country_code: str, group_key: str, *, context: _BuildContext) -
     )
 
 
+def _group_spec(country_code, group_key, level, *, context):
+    """Keep SQL group district identifiers, levels and subtraction operations."""
+    key = _safe_group_toml_key(group_key)
+    for group in SubdivisionGroup.objects.order_by("slug"):
+        data = _parse_group_content(group)
+        if not _group_matches(group, data, country_code=country_code, group_key=key):
+            continue
+        selection = data.get("selection") or {}
+        blocks = data.get("country_groups") or selection.get("country_groups") or []
+        spec = {}
+        for block in blocks:
+            country = _clean_country_code(block.get("country_code") or country_code)
+            section_names = set()
+            for section in block.get("sections") or []:
+                ids = section.get("selected_ids") or []
+                operations = section.get("selected_operations") or []
+                section_names.update(section.get("selected_names") or [])
+                areas = {area.id: area for area in AdminArea.objects.filter(id__in=ids, country_code=country)}
+                for index, area_id in enumerate(ids):
+                    area = areas.get(area_id)
+                    if area is None:
+                        raise ValueError(_("La seleccion contiene subdivisiones que no pertenecen al pais fuente."))
+                    target = spec.setdefault("restar", {}) if index < len(operations) and operations[index] == "subtract" else spec
+                    target.setdefault(area.level, {}).setdefault(country, []).append({"id": area.id})
+            names = [name for name in block.get("include_names") or block.get("names") or [] if name not in section_names]
+            if names:
+                spec.setdefault(level, {}).setdefault(country, []).extend(names)
+        if spec:
+            return spec
+        break
+    return {level: {country_code: _group_names(country_code, group_key, context=context)}}
+
+
 def _parse_group_content(group: SubdivisionGroup) -> dict[str, Any]:
     try:
         data = tomllib.loads(group.content or "")
@@ -1285,10 +1357,15 @@ def _child_code_for_context(parent: NuevoAdminArea, raw_code: str, context: _Bui
     return _child_code(parent, code)
 
 
-def _refresh_container_totals(obj: NuevoAdminArea) -> None:
+def _refresh_container_totals(obj: NuevoAdminArea, *, manual: dict | None = None) -> None:
     agg = obj.children.aggregate(total_area=Sum("area_km2"), total_pop=Sum("pop_latest"))
     total_area = _round_area(agg["total_area"])
     total_pop = agg["total_pop"]
+    if manual and manual.get("manual_template"):
+        if "manual_area" in manual:
+            total_area = _round_area(Decimal(str(manual["manual_area"])))
+        if "manual_population" in manual:
+            total_pop = int(manual["manual_population"])
     obj.area_km2 = total_area
     obj.pop_latest = total_pop
     obj.density = _density(total_pop, total_area)

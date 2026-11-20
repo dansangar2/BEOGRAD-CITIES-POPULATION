@@ -1,0 +1,35 @@
+Objetivo territorial de Bangladesh
+
+Conservar la jerarquia existente: L0 pais, L1 distritos (zilas), L2
+subdistritos (upazilas) y ciudades, L3 uniones (union parishads), municipios
+(paurashavas), acantonamientos y distritos urbanos (thanas) de la fuente.
+Las ocho paginas de divisiones aportan detalle; sus cabeceras no introducen
+una nueva capa de divisiones ni desplazan los niveles ya persistidos.
+
+Importar las uniones y las demas unidades inferiores reales, conservando
+codigos, tipos, poblaciones y padres. No fusionar por QID compartido una
+unidad rural con su homonima urbana. Completar tambien las ramas de Comilla
+que no aparecen completas en la pagina administrativa nacional.
+Recuperar el distrito de Cox's Bazar desde su ficha propia y vincular los
+subdistritos al distrito indicado por los dos primeros digitos de su codigo.
+Las etiquetas repetidas de subdistritos dentro de secciones inferiores,
+sin hijos propios, son contexto: no crean otra funcion territorial.
+Conservar las unidades especiales reales (reservas, rangos forestales y areas)
+con sus tipos originales, aunque la fuente no las denomine uniones.
+
+Representar como ciudades unificadas, mediante [[cities]], las corporaciones
+urbanas compuestas por varias unidades, siguiendo el mecanismo de Casablanca.
+Dhaka Norte y Dhaka Sur forman una sola Dhaka. Conservar la unidad urbana
+existente dhaka_city en L2, bajo el distrito de Dhaka, y crear la funcion
+municipal dhaka_municipality en L3, al mismo nivel que Municipality y Union.
+Ambas filas tienen nombre Dhaka, Q1354 y la misma poblacion, sin sumar esa
+repeticion entre niveles. Conservar ambas corporaciones como fuentes de la
+ciudad y los thanas con sus identidades y relaciones de pertenencia:
+Dhaka L2 > Dhaka ciudad L3 > City Corporation L4 > City District L5.
+Dhaka Norte conserva sus 28 thanas y Dhaka Sur sus 25; no colgarlos directamente
+de la ciudad unificada. La capital apunta a la funcion de ciudad en L3.
+La capa adicional representa las dos corporaciones que componen Dhaka. Las ciudades
+de una sola corporacion mantienen sus distritos urbanos directamente debajo,
+en L3, y las uniones rurales conservan L3 bajo sus respectivos subdistritos.
+No incluir areas metropolitanas ni subdistritos rurales vecinos en las sumas.
+No inventar localidades o wards para completar una capa inexistente.

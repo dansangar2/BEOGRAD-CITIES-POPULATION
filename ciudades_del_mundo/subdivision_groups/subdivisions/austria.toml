@@ -1,0 +1,52 @@
+schema_version = 1
+kind = "derived_subdivision_bundle"
+source_country_code = "austria"
+
+[[subdivisions]]
+internal_name = "ALTA_AUSTRIA"
+name = "Alta Austria"
+code = "AAU"
+entity_type = "Archiducado"
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"ALTA_AUSTRIA\"\nsource_country_code = \"austria\"\nname = \"Alta Austria\"\ncode = \"AAU\"\nentity_type = \"Archiducado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Linz\"]\n\n[[include]]\ncountry_code = \"austria\"\nlevel = 1\nnames = [\"Oberösterreich\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "BAJA_AUSTRIA"
+name = "Baja Austria"
+code = "BAU"
+entity_type = "Archiducado"
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"BAJA_AUSTRIA\"\nsource_country_code = \"austria\"\nname = \"Baja Austria\"\ncode = \"BAU\"\nentity_type = \"Archiducado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Wien\"]\n\n[[include]]\ncountry_code = \"austria\"\nlevel = 1\nnames = [\"Niederösterreich\", \"Wien\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "CARINTIA"
+name = "Carintia"
+code = "CAR"
+entity_type = "Ducado"
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"CARINTIA\"\nsource_country_code = \"austria\"\nname = \"Carintia\"\ncode = \"CAR\"\nentity_type = \"Ducado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Klagenfurt am Wörthersee\"]\n\n[[include]]\ncountry_code = \"austria\"\nlevel = 1\nnames = [\"Kärnten\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"slovenia\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"ESLOVENIA_ESTRIA_A_CARINTIA\", \"ESLOVENIA_A_CARINTIA\"]\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"UDINE_A_CARINTIA\"]\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "ESTIRIA"
+name = "Estiria"
+code = "EST"
+entity_type = "Ducado"
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"ESTIRIA\"\nsource_country_code = \"austria\"\nname = \"Estiria\"\ncode = \"EST\"\nentity_type = \"Ducado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Graz\"]\n\n[[include]]\ncountry_code = \"austria\"\nlevel = 1\nnames = [\"Steiermark\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"slovenia\"\nlevel = 1\nnames = []\nids = []\ncodes = []\ngroups = [\"ESLOVENIA_A_ESTRIA_REGION\"]\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"slovenia\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"ESLOVENIA_HUNGRIA_A_ESTRIA\"]\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"slovenia\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"ESLOVENIA_ESTRIA_A_CARINTIA\", \"ESLOVENIA_A_ESTRIA_MUNICIPIOS\"]\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "SALZBURGO"
+name = "Salzburgo"
+code = "SAL"
+entity_type = "Ducado"
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"SALZBURGO\"\nsource_country_code = \"austria\"\nname = \"Salzburgo\"\ncode = \"SAL\"\nentity_type = \"Ducado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Salzburg\"]\n\n[[include]]\ncountry_code = \"austria\"\nlevel = 1\nnames = [\"Salzburg\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "TIROL"
+name = "Tirol"
+code = "TIR"
+entity_type = "Condado Principesco"
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"TIROL\"\nsource_country_code = \"austria\"\nname = \"Tirol\"\ncode = \"TIR\"\nentity_type = \"Condado Principesco\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Innsbruck\"]\n\n[[include]]\ncountry_code = \"austria\"\nlevel = 1\nnames = [\"Tirol\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 1\nnames = [\"Trentino-Alto Adige\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "VORARLBERG"
+name = "Vorarlberg"
+code = "VOL"
+entity_type = "Estado"
+content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"VORARLBERG\"\nsource_country_code = \"austria\"\nname = \"Vorarlberg\"\ncode = \"VOL\"\nentity_type = \"Estado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Bregenz\"]\n\n[[include]]\ncountry_code = \"austria\"\nlevel = 1\nnames = [\"Vorarlberg\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n"

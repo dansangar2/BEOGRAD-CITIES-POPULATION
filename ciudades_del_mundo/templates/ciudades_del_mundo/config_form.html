@@ -282,14 +282,8 @@
           </div>
           <div class="button-row config-city-section-actions">
             {% if mode == "edit" %}
-            <form method="post" action="{% url 'ciudades_del_mundo:config_city_merge_import_toml' slug %}" data-config-export-form data-action-label="{% trans 'Importar TOML' %}" data-exporting-label="{% trans 'Importando TOML...' %}" data-export-success-label="{% trans 'TOML importado correctamente.' %}" data-export-error-label="{% trans 'No se pudo importar el TOML.' %}">
-              {% csrf_token %}
-              <button class="secondary" type="submit">{% trans "Importar TOML" %}</button>
-            </form>
-            <form method="post" action="{% url 'ciudades_del_mundo:config_city_merge_export_toml' slug %}" data-config-export-form data-action-label="{% trans 'Exportar TOML' %}" data-exporting-label="{% trans 'Exportando TOML...' %}" data-export-success-label="{% trans 'TOML exportado correctamente.' %}" data-export-error-label="{% trans 'No se pudo exportar el TOML.' %}">
-              {% csrf_token %}
-              <button class="secondary" type="submit">{% trans "Exportar TOML" %}</button>
-            </form>
+            <button class="secondary" type="submit" form="config-city-merge-import">{% trans "Importar TOML" %}</button>
+            <button class="secondary" type="submit" form="config-city-merge-export">{% trans "Exportar TOML" %}</button>
             {% endif %}
             <button class="secondary" type="button" data-open-config-city-picker>{% trans "Añadir" %}</button>
           </div>
@@ -485,6 +479,15 @@
       </div>
     </form>
   </div>
+
+  {% if mode == "edit" %}
+  <form id="config-city-merge-import" method="post" action="{% url 'ciudades_del_mundo:config_city_merge_import_toml' slug %}" data-config-export-form data-action-label="{% trans 'Importar TOML' %}" data-exporting-label="{% trans 'Importando TOML...' %}" data-export-success-label="{% trans 'TOML importado correctamente.' %}" data-export-error-label="{% trans 'No se pudo importar el TOML.' %}" hidden>
+    {% csrf_token %}
+  </form>
+  <form id="config-city-merge-export" method="post" action="{% url 'ciudades_del_mundo:config_city_merge_export_toml' slug %}" data-config-export-form data-action-label="{% trans 'Exportar TOML' %}" data-exporting-label="{% trans 'Exportando TOML...' %}" data-export-success-label="{% trans 'TOML exportado correctamente.' %}" data-export-error-label="{% trans 'No se pudo exportar el TOML.' %}" hidden>
+    {% csrf_token %}
+  </form>
+  {% endif %}
 
   <div class="config-tab-panel" data-config-panel="file" role="tabpanel" hidden>
     <section class="panel warning-panel">

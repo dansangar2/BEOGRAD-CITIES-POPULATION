@@ -1,0 +1,34 @@
+Objetivo territorial: anadir las localidades publicadas por CityPopulation
+sin cambiar las divisiones administrativas ni sus identificadores existentes.
+
+L0: Samoa Americana.
+L1: distritos e islas (5 filas).
+L2: condados y repeticiones censales de Rose Atoll y Swains Island (16 filas).
+L3: las 38 localidades de mas de 250 habitantes de la tabla nacional cities,
+con codigos de origen y poblacion del censo de 2020. No inventar localidades
+en Manu'a, Rose Atoll o Swains Island para completar la ultima capa.
+LEGAL_SUBDIVISION sigue siendo 2. Las cifras de admin no se sustituyen por
+las de las localidades ni se suman entre niveles.
+
+Cadena ordinaria: pais > distrito > condado > localidad. Correspondencias
+censales explicitas en parent_overrides porque cities solo indica distrito.
+Conservar Lealataua tal como la fuente censal lo publica, incluido Fofo.
+Puapua completa figura en Lealataua en el censo; Tafuna tiene toda su
+poblacion en Tualauta (su porcion en Ituau esta deshabitada).
+
+Excepcion transfronteriza: Nu'uuli completa conserva 4991 habitantes como una
+sola localidad L3. Atraviesa Ituau/Eastern y Tualauta/Western; su padre es el
+pais, unico antecesor comun. No asignar todo su total a uno de los condados,
+duplicar su poblacion ni fabricar condados intermedios. La fuente cities no
+publica filas de partes: no inventarlas para completar ramas.
+
+Conteos directos esperados de localidades por condado: 11=2, 12=7, 13=3,
+14=4, 15=4, 51=2, 52=3, 53=4, 54=8. Nu'uuli anade una hija L3 de la raiz;
+los cinco distritos/islas L1 y las dieciseis divisiones L2 se conservan.
+
+Fuentes:
+https://www.citypopulation.de/en/americansamoa/cities/
+https://www.citypopulation.de/en/americansamoa/admin/
+https://en.wikipedia.org/wiki/Administrative_divisions_of_American_Samoa
+https://www2.census.gov/geo/maps/cong_dist/cd118/cd_based/ST60/CD118_AS00.pdf
+https://tigerweb.geo.census.gov/tigerwebmain/Files/acs24/tigerweb_acs24_incplace_2020_tab20_as.html

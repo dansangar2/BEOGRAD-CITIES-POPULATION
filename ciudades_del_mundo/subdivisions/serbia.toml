@@ -8,7 +8,8 @@ include = { infosection = true, major_subdivision = false, cities = false }
 [[pages]]
 source = "admin"
 path = ["admin"]
-include = { infosection = true, admin1 = true, admin2 = true }
+include = { infosection = false, admin1 = true, admin2 = true }
+force_highest_level = 1
 
 [[pages]]
 source = "cities"
@@ -40,5 +41,219 @@ path = [
   "zlatibor",
 ]
 include = { infosection = true, major_subdivision = true, cities = true }
-force_highest_level = 1
+force_highest_level = 2
 include_root = false
+# Obilic (Bojnik) is distinct from Obiliq in Kosovo.
+# https://www.wikidata.org/wiki/Q2749459
+wikidata_overrides = { "24382" = "Q2749459" }
+
+[[pages]]
+source = "admin"
+path = ["https://www.citypopulation.de/en/kosovo/admin/"]
+include = { infosection = false, admin1 = true, admin2 = true }
+force_highest_level = 1
+# Add the seven districts once, without adding their municipalities or localities again.
+sum_to_root = true
+
+[[pages]]
+source = "cities"
+path = ["https://www.citypopulation.de/en/kosovo/cities/"]
+include = { infosection = false, major_subdivision = false, cities = true }
+force_highest_level = 3
+
+# Kosovo locality parents verified from the two source tables.
+
+[[parent_overrides]]
+codes = ["32571", "39473", "32569", "32568", "39471"]
+parent_code = "6"
+level = 3
+
+[[cities]]
+city = "Beograd"
+id = "city_beograd"
+district_types = ["City Municipality"]
+level = 2
+type = "City"
+from = { 1 = ["01"] }
+keep_communes = true
+
+[[cities]]
+city = "Niš"
+id = "city_nis"
+district_types = ["City Municipality"]
+level = 2
+type = "City"
+from = { 1 = ["23"] }
+keep_communes = true
+
+# The urban settlements span several city municipalities; no single
+# municipality is published for them in the regional source tables.
+[[parent_overrides]]
+codes = ["00141"]
+parent_code = "city_beograd"
+level = 4
+
+[[parent_overrides]]
+codes = ["26678"]
+parent_code = "city_nis"
+level = 4
+
+[[parent_overrides]]
+codes = ["32563"]
+parent_code = "2"
+level = 3
+
+[[parent_overrides]]
+codes = ["32570"]
+parent_code = "6_03"
+level = 3
+
+[[parent_overrides]]
+codes = ["30195", "32575", "32574", "8152_32572", "30198", "30196"]
+parent_code = "7"
+level = 3
+
+[[parent_overrides]]
+codes = ["1173"]
+parent_code = "1_25"
+level = 3
+
+[[parent_overrides]]
+codes = ["10857"]
+parent_code = "6_09"
+level = 3
+
+[[parent_overrides]]
+codes = ["1141"]
+parent_code = "2_02"
+level = 3
+
+[[parent_overrides]]
+codes = ["1142"]
+parent_code = "3_04"
+level = 3
+
+[[parent_overrides]]
+codes = ["39472"]
+parent_code = "34"
+level = 3
+
+[[parent_overrides]]
+codes = ["30193"]
+parent_code = "5_06"
+level = 3
+
+[[parent_overrides]]
+codes = ["8147_30199"]
+parent_code = "31"
+level = 3
+
+[[parent_overrides]]
+codes = ["20037"]
+parent_code = "1_07"
+level = 3
+
+[[parent_overrides]]
+codes = ["20039"]
+parent_code = "3_10"
+level = 3
+
+[[parent_overrides]]
+codes = ["20038"]
+parent_code = "5_08"
+level = 3
+
+[[parent_overrides]]
+codes = ["29762"]
+parent_code = "6_13"
+level = 3
+
+[[parent_overrides]]
+codes = ["39476"]
+parent_code = "30"
+level = 3
+
+[[parent_overrides]]
+codes = ["32573"]
+parent_code = "32"
+level = 3
+
+[[parent_overrides]]
+codes = ["39477"]
+parent_code = "99"
+level = 3
+
+[[parent_overrides]]
+codes = ["1145"]
+parent_code = "4_11"
+level = 3
+
+[[parent_overrides]]
+codes = ["8151_29310"]
+parent_code = "6_15"
+level = 3
+
+[[parent_overrides]]
+codes = ["1157"]
+parent_code = "5_17"
+level = 3
+
+[[parent_overrides]]
+codes = ["39474", "39475"]
+parent_code = "1"
+level = 3
+
+[[parent_overrides]]
+codes = ["10861"]
+parent_code = "6_18"
+level = 3
+
+[[parent_overrides]]
+codes = ["1161"]
+parent_code = "19"
+level = 3
+
+[[parent_overrides]]
+codes = ["1162"]
+parent_code = "20"
+level = 3
+
+[[parent_overrides]]
+codes = ["10860"]
+parent_code = "2_16"
+level = 3
+
+[[parent_overrides]]
+codes = ["32567", "32566"]
+parent_code = "4"
+level = 3
+
+[[parent_overrides]]
+codes = ["29763"]
+parent_code = "1_22"
+level = 3
+
+[[parent_overrides]]
+codes = ["30197"]
+parent_code = "4_21"
+level = 3
+
+[[parent_overrides]]
+codes = ["20040"]
+parent_code = "7_24"
+level = 3
+
+[[parent_overrides]]
+codes = ["8148_32565"]
+parent_code = "3_26"
+level = 3
+
+[[parent_overrides]]
+codes = ["30194"]
+parent_code = "5"
+level = 3
+
+[[parent_overrides]]
+codes = ["1179"]
+parent_code = "4_27"
+level = 3

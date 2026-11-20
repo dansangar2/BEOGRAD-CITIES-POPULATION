@@ -1,0 +1,627 @@
+/* Configuraciones TOML: tabla editable, pestañas y tareas asíncronas. */
+.config-table {
+  min-width: 920px;
+}
+
+.config-table th:last-child,
+.config-table td:last-child {
+  width: 290px;
+}
+
+.config-table-search {
+  margin-top: 0;
+}
+
+.config-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.config-tab {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.config-tab.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.config-tab-ai {
+  border-color: transparent;
+  background: linear-gradient(135deg, #111827, #7c3aed 45%, #db2777);
+  color: #fff;
+  box-shadow: 0 10px 22px rgb(124 58 237 / 20%);
+}
+
+.config-tab-ai.is-active {
+  background: linear-gradient(135deg, #0f172a, #2563eb, #e11d48, #f59e0b);
+}
+
+.rainbow-text {
+  background: linear-gradient(90deg, #ef4444, #f59e0b, #22c55e, #06b6d4, #8b5cf6, #ec4899);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: 900;
+}
+
+.config-tab-ai .rainbow-text {
+  text-shadow: 0 1px 0 rgb(255 255 255 / 18%);
+}
+
+.config-tab-panel[hidden] {
+  display: none;
+}
+
+.compact-form-grid {
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
+}
+
+.manual-pages-wrap {
+  margin-top: 8px;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.manual-pages-table {
+  min-width: 980px;
+  table-layout: fixed;
+}
+
+/* Column widths for the v2 pages table are driven by the colgroup below. */
+.config-pages-toml-table col.manual-col-procedure { width: 20%; }
+.config-pages-toml-table col.manual-col-routes { width: 50%; }
+.config-pages-toml-table col.manual-col-config { width: 20%; }
+.config-pages-toml-table col.manual-col-force-level { width: 10%; }
+.config-pages-toml-table col.manual-col-actions { width: 20%; }
+
+.config-pages-toml-table th,
+.config-pages-toml-table td {
+  vertical-align: top;
+}
+
+.config-pages-toml-table input,
+.config-pages-toml-table select {
+  width: 100%;
+  min-width: 0;
+}
+
+.manual-actions-cell {
+  padding-top: 10px;
+}
+
+.manual-principal-stack,
+.manual-field-stack {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.manual-principal-stack {
+  grid-template-rows: minmax(48px, auto) minmax(0, 1fr);
+  height: 268px;
+  min-height: 268px;
+}
+
+.manual-field-stack-five {
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+  height: 268px;
+  min-height: 268px;
+}
+
+.manual-source-field {
+  align-self: start;
+}
+
+.manual-mini-field {
+  display: grid;
+  gap: 0.16rem;
+  margin: 0;
+  min-width: 0;
+}
+
+.manual-mini-field > span,
+.manual-mini-label {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.manual-mini-field input,
+.manual-mini-field select {
+  min-height: 34px;
+}
+
+.toml-root-fields {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.config-form-header-actions {
+  align-items: center;
+}
+
+.config-form-header-actions form {
+  margin: 0;
+}
+
+.spaced-title {
+  margin-top: 24px;
+}
+
+.dual-table-transfer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.transfer-panel {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.transfer-panel h3 {
+  margin: 0;
+}
+
+.transfer-filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.1fr) minmax(150px, 0.9fr) minmax(190px, 1fr);
+  gap: 8px;
+}
+
+.transfer-table-wrap {
+  max-height: 420px;
+}
+
+.transfer-table-wrap table {
+  min-width: 520px;
+}
+
+.transfer-table-wrap td strong {
+  display: inline-block;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+
+.warning-panel {
+  margin-bottom: 12px;
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--line));
+  background: color-mix(in srgb, var(--warning) 8%, var(--surface));
+}
+
+.ai-config-panel {
+  border-color: color-mix(in srgb, #8b5cf6 42%, var(--line));
+  background:
+    radial-gradient(circle at 12% 18%, rgb(236 72 153 / 10%), transparent 28%),
+    radial-gradient(circle at 88% 12%, rgb(14 165 233 / 11%), transparent 30%),
+    var(--surface);
+}
+
+.switch-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.config-toast-stack {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 1200;
+  --config-toast-height: 136px;
+  --config-toast-gap: 8px;
+  --config-toast-offscreen-x: calc(100% + 34px);
+  --config-toast-exit-y: calc(0px - var(--config-toast-height) - var(--config-toast-gap));
+  display: block;
+  width: min(360px, calc(100vw - 36px));
+  height: calc(
+    var(--config-toast-height) +
+    var(--config-toast-height) +
+    var(--config-toast-height) +
+    var(--config-toast-height) +
+    var(--config-toast-gap) +
+    var(--config-toast-gap) +
+    var(--config-toast-gap)
+  );
+  overflow: hidden;
+  pointer-events: none;
+  contain: layout paint;
+}
+
+.config-task-toast {
+  position: absolute;
+  top: 0;
+  right: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  height: var(--config-toast-height);
+  min-height: var(--config-toast-height);
+  max-height: var(--config-toast-height);
+  pointer-events: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--info);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 30px rgb(15 23 42 / 14%);
+  overflow: hidden;
+  transform-origin: top right;
+  transform: translate3d(var(--toast-x, 0px), var(--toast-y, 0px), 0);
+  opacity: var(--toast-opacity, 1);
+  transition:
+    transform 0.54s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.24s ease;
+  will-change: opacity, transform;
+}
+
+.config-task-toast.is-entering {
+  animation: config-toast-enter-square 0.54s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.config-task-toast.is-dismissing {
+  z-index: 100;
+  pointer-events: none;
+  transition: none;
+  animation: config-toast-exit-square 0.58s cubic-bezier(0.37, 0, 0.2, 1) forwards;
+}
+
+@keyframes config-toast-enter-square {
+  0% {
+    opacity: 0;
+    transform: translate3d(var(--config-toast-offscreen-x), calc(var(--toast-y) - 16px), 0);
+  }
+  34% {
+    opacity: 0.92;
+    transform: translate3d(var(--config-toast-offscreen-x), var(--toast-y), 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0px, var(--toast-y), 0);
+  }
+}
+
+@keyframes config-toast-exit-square {
+  0% {
+    opacity: 1;
+    transform: translate3d(0px, var(--toast-y), 0);
+  }
+  48% {
+    opacity: 1;
+    transform: translate3d(0px, var(--toast-exit-y), 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--config-toast-offscreen-x), var(--toast-exit-y), 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .config-task-toast,
+  .config-task-toast.is-entering,
+  .config-task-toast.is-dismissing {
+    animation: none;
+    transition: none;
+  }
+}
+
+.config-task-toast.is-success {
+  border-left-color: var(--accent);
+}
+
+.config-task-toast.is-error {
+  border-left-color: var(--danger);
+}
+
+.config-task-toast-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.config-task-toast-header .quiet {
+  flex: 0 0 auto;
+}
+
+.config-task-toast-status {
+  flex: 0 0 auto;
+  height: 2.8em;
+  margin: 0;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+.config-task-output {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.config-task-output.is-empty {
+  visibility: hidden;
+}
+
+.stats-empty-only-panel {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.stats-empty-state {
+  min-height: 180px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 850;
+  text-align: center;
+}
+
+.stats-children-table th:nth-child(3),
+.stats-children-table td:nth-child(3) {
+  width: 190px;
+}
+
+.stats-children-table th:nth-child(4),
+.stats-children-table td:nth-child(4),
+.stats-children-table th:nth-child(6),
+.stats-children-table td:nth-child(6),
+.stats-children-table th:nth-child(8),
+.stats-children-table td:nth-child(8) {
+  width: 92px;
+}
+
+@media (max-width: 820px) {
+  .compact-form-grid,
+  .dual-table-transfer,
+  .transfer-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid.new-country-data-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .new-country-data-form-grid .new-country-data-description {
+    grid-column: 1 / -1;
+  }
+
+  .config-toast-stack {
+    top: 10px;
+    right: 10px;
+    --config-toast-height: 128px;
+    --config-toast-gap: 8px;
+    width: calc(100vw - 20px);
+  }
+}
+
+.country-data-table th:nth-child(2),
+.country-data-table td:nth-child(2) {
+  width: 200px;
+  min-width: 200px;
+}
+
+.country-data-table th:nth-child(3),
+.country-data-table td:nth-child(3),
+.country-data-table th:nth-child(5),
+.country-data-table td:nth-child(5),
+.country-data-table th:nth-child(7),
+.country-data-table td:nth-child(7) {
+  width: 104px;
+  min-width: 104px;
+}
+
+.stats-empty-state {
+  display: grid;
+  place-items: center;
+}
+
+/* Ajustes de configuración solicitados el 2026-06-02. */
+.config-task-toast-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.config-task-toast-title strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.config-task-toast-icon {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--info) 14%, transparent);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.config-task-toast.is-success .config-task-toast-icon {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.config-task-toast.is-error .config-task-toast-icon {
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+}
+
+.config-task-toast-header {
+  gap: 8px;
+}
+
+.config-task-toast-status {
+  height: 2.35em;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.config-task-output {
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.config-task-toast-icon {
+  width: 24px;
+  height: 24px;
+  font-size: 15px;
+}
+
+.dual-table-transfer {
+  align-items: stretch;
+}
+
+.transfer-panel {
+  grid-template-rows: auto minmax(68px, auto) minmax(0, 1fr);
+}
+
+.transfer-filters-placeholder {
+  visibility: hidden;
+  min-height: 68px;
+}
+
+.transfer-table-wrap {
+  min-height: 420px;
+}
+
+.transfer-filters select,
+.transfer-filters input {
+  width: 100%;
+}
+
+.ai-login-grid {
+  align-items: end;
+}
+
+.ai-login-actions {
+  display: grid;
+  gap: 6px;
+  align-content: end;
+}
+
+.button[aria-disabled="true"] {
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+.stats-empty-only-panel,
+.stats-empty-state,
+.stats-empty-state.empty {
+  border: 0 !important;
+  outline: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.stats-empty-state,
+.stats-empty-state.empty {
+  display: grid;
+  min-height: 220px;
+  place-items: center;
+  color: color-mix(in srgb, var(--ink) 88%, #000);
+  font-size: 22px;
+  font-weight: 850;
+  text-align: center;
+}
+
+.stats-children-table th:nth-child(3),
+.stats-children-table td:nth-child(3) {
+  width: 130px;
+}
+
+.stats-children-table th:nth-child(4),
+.stats-children-table td:nth-child(4),
+.stats-children-table th:nth-child(6),
+.stats-children-table td:nth-child(6),
+.stats-children-table th:nth-child(8),
+.stats-children-table td:nth-child(8) {
+  width: 76px;
+}
+
+.stats-children-table th:nth-child(5),
+.stats-children-table td:nth-child(5),
+.stats-children-table th:nth-child(7),
+.stats-children-table td:nth-child(7),
+.stats-children-table th:nth-child(9),
+.stats-children-table td:nth-child(9) {
+  width: 58px;
+}
+
+.config-task-log-link {
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+.startup-config-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.startup-config-dialog {
+  width: min(520px, 100%);
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--panel-shadow);
+  text-align: center;
+}
+
+.startup-config-spinner {
+  width: 34px;
+  height: 34px;
+  margin: 0 auto 14px;
+}
+
+.startup-config-dialog h2 {
+  margin: 4px 0 10px;
+}
+
+.startup-config-dialog p {
+  margin: 8px 0;
+}
+
+.startup-config-overlay.is-error .startup-config-spinner {
+  display: none;
+}
+
+.startup-config-overlay.is-error .startup-config-dialog {
+  border-color: var(--danger);
+}
+

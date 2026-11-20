@@ -12,6 +12,7 @@ from django.utils.translation import gettext as _
 
 from ciudades_del_mundo.models import AdminArea, DerivedCountryConfig, NuevoAdminArea
 from ciudades_del_mundo.services.derived_codes import derived_country_root_code
+from ciudades_del_mundo.services.derived_country_group_sync import sync_automatic_group_subtractions
 from ciudades_del_mundo.services.derived_subdivision_builder import (
     _BuildContext,
     _build_node,
@@ -85,6 +86,8 @@ def build_derived_country_config(
     source_population_year: int | None = None,
 ) -> DerivedCountryConfigBuildResult:
     """Materialize one SQL ``DerivedCountryConfig`` as a ``NuevoAdminArea`` tree."""
+    sync_automatic_group_subtractions(config.country)
+    config.refresh_from_db(fields=["content", "source_country_code", "derived_country_code"])
     data = _parse_config_toml(config)
     source_country = _clean_country_code(
         data.get("source_country_code")
@@ -181,6 +184,13 @@ def build_derived_country_config(
                 progressed = True
             if not progressed:
                 raise ValueError(_("%(country)s tiene padres circulares entre sus divisiones.") % {"country": config.country_id})
+        for item_config, item_data in sorted(
+            build_items, key=lambda item: -getattr(built_nodes.get(item[0].slug), "level", 0),
+        ):
+            entities = item_data.get("entities") or []
+            node = built_nodes.get(item_config.slug)
+            if node is not None and entities and entities[0].get("manual_template"):
+                _refresh_container_totals(node, manual=entities[0])
         _refresh_container_totals(root)
 
     from ciudades_del_mundo.services.nuevo_admin_builder import refresh_nuevo_admin_most_populated

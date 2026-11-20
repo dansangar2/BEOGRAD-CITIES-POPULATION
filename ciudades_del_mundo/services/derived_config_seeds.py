@@ -7,6 +7,7 @@ from pathlib import Path
 import json
 import re
 import tomllib
+from tempfile import NamedTemporaryFile
 
 from django.conf import settings
 from django.db import transaction
@@ -53,6 +54,114 @@ def bundled_new_country_config_paths(slugs: list[str] | tuple[str, ...] | None =
     return _seed_paths(NEW_COUNTRY_CONFIG_SEED_ROOT, slugs)
 
 
+def new_country_seed_source(path: Path) -> str:
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
+    return _clean_country_code(data.get("source_country_code") or data.get("selection", {}).get("source_country_code") or "")
+
+
+def _new_country_seed_identity(data: dict, path: Path) -> tuple[str, str]:
+    slug = normalize_seed_slug(str(data.get("slug") or path.stem))
+    country = normalize_seed_slug(str(data.get("country") or data.get("country_slug") or slug))
+    return country, "" if data.get("kind") == "derived_country" else slug
+
+
+def _new_country_toml_value(value) -> str:
+    """Serialize parsed TOML values, including nested inline tables, losslessly."""
+    if isinstance(value, str):
+        return _toml_string(value)
+    if isinstance(value, bool):
+        return _toml_bool(value)
+    if isinstance(value, (int, float)):
+        return repr(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(_new_country_toml_value(item) for item in value) + "]"
+    if isinstance(value, dict):
+        return "{ " + ", ".join(f"{_toml_string(key)} = {_new_country_toml_value(item)}" for key, item in value.items()) + " }"
+    return value.isoformat()  # TOML date/time values.
+
+
+def _render_new_country_seed(data: dict) -> str:
+    """Keep global keys at the root and structured recipe tables editable."""
+    lines = []
+
+    def append_table(table, prefix):
+        children = []
+        for key, value in table.items():
+            key = key if re.fullmatch(r"[A-Za-z0-9_-]+", key) else _toml_string(key)
+            is_array_table = isinstance(value, list) and value and all(isinstance(item, dict) for item in value)
+            if isinstance(value, dict) or is_array_table:
+                children.append((key, value, is_array_table))
+            else:
+                lines.append(f"{key} = {_new_country_toml_value(value)}")
+        for key, value, is_array_table in children:
+            path = f"{prefix}.{key}" if prefix else key
+            for item in value if is_array_table else [value]:
+                lines.extend(["", f"[[{path}]]" if is_array_table else f"[{path}]"])
+                append_table(item, path)
+
+    append_table(data, "")
+    return "\n".join(lines) + "\n"
+
+
+def export_new_countries_to_toml(*, countries=None, config_ids=None, output_dir=None) -> list[Path]:
+    """Export each SQL recipe (or empty container) to its own stable seed file."""
+    root = Path(output_dir) if output_dir is not None else NEW_COUNTRY_CONFIG_SEED_ROOT
+    countries = list(countries if countries is not None else DerivedCountry.objects.prefetch_related("configs").order_by("slug"))
+    existing = {}
+    for path in _seed_paths(root):
+        try:
+            data = tomllib.loads(path.read_text(encoding="utf-8"))
+            if data.get("kind") in {"derived_country", "derived_country_config"}:
+                existing.setdefault(_new_country_seed_identity(data, path), []).append(path)
+        except (ValueError, OSError):
+            continue  # An unrelated or invalid file must never be replaced.
+    planned = {}
+    for country in countries:
+        configs = list(country.configs.order_by("slug"))
+        records = [config for config in configs if config_ids is None or config.pk in config_ids]
+        if not configs and config_ids is None:
+            records = [None]
+        elif config_ids is None and (country.slug, "") in existing:
+            records.append(None)  # Refresh previously exported container metadata too.
+        for config in records:
+            data = tomllib.loads(config.content or "") if config else {}
+            data.update(kind="derived_country_config" if config else "derived_country", country=country.slug,
+                        country_name=country.name, description=country.description,
+                        source_country_code=country.source_country_code)
+            data.setdefault("schema_version", 1)
+            if config:
+                data.update(slug=config.slug, name=config.name, source_country_code=config.source_country_code or country.source_country_code,
+                            derived_country_code=config.derived_country_code, is_active=config.is_active)
+            else:
+                data.update(slug=country.slug, name=country.name)
+            identity = (country.slug, config.slug if config else "")
+            paths = existing.get(identity)
+            if not paths:
+                stem = normalize_seed_slug(country.slug) + ("__" + normalize_seed_slug(config.slug) if config else "")
+                path = root / f"{stem}.toml"
+                suffix = 2
+                while path.exists() or path in planned:
+                    path = root / f"{stem}__{suffix}.toml"
+                    suffix += 1
+                paths = [path]
+            content = _render_new_country_seed(data)
+            tomllib.loads(content)
+            for path in paths:
+                planned[path] = content
+    root.mkdir(parents=True, exist_ok=True)
+    for path, content in planned.items():
+        temporary = None
+        try:
+            with NamedTemporaryFile(mode="w", encoding="utf-8", dir=root, suffix=".tmp", delete=False) as handle:
+                temporary = Path(handle.name)
+                handle.write(content)
+            temporary.replace(path)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+    return list(planned)
+
+
 def bundled_subdivision_group_paths(slugs: list[str] | tuple[str, ...] | None = None) -> list[Path]:
     """Return TOML seed files for the `/groups/` SQL section."""
     return _group_seed_paths(slugs)
@@ -91,25 +200,28 @@ def import_derived_subdivision_seed(slug: str, *, force: bool = True) -> Derived
     return records[0]
 
 
-def import_new_country_config_path(path: Path, *, force: bool = True) -> DerivedCountryConfig:
+def import_new_country_config_path(path: Path, *, force: bool = True) -> DerivedCountryConfig | DerivedCountry:
     """Create or refresh a `DerivedCountryConfig` from one TOML seed."""
+    from ciudades_del_mundo.services.derived_country_group_sync import sync_automatic_group_subtractions
+
     path = Path(path)
     content = path.read_text(encoding="utf-8")
-    data = _parse_seed(content, expected_kind="derived_country_config", path=path)
+    kind = tomllib.loads(content).get("kind")
+    data = _parse_seed(content, expected_kind="derived_country" if kind == "derived_country" else "derived_country_config", path=path)
     slug = normalize_seed_slug(str(data.get("slug") or path.stem))
     name = str(data.get("name") or _title_from_slug(slug)).strip()
     if not name:
         raise ValueError(_("%(path)s: el nombre es obligatorio.") % {"path": path})
 
     country_slug = normalize_seed_slug(str(data.get("country") or data.get("country_slug") or slug))
-    source_country_code = _clean_country_code(data.get("source_country_code") or "")
+    source_country_code = new_country_seed_source(path)
     derived_country_code = _clean_country_code(data.get("derived_country_code") or slug) or slug
     country_name = str(data.get("country_name") or "").strip() or (
         name if country_slug == slug else _title_from_slug(country_slug)
     )
 
     with transaction.atomic():
-        country, _created = DerivedCountry.objects.update_or_create(
+        country, _created = DerivedCountry.objects.get_or_create(
             slug=country_slug,
             defaults={
                 "name": country_name,
@@ -117,8 +229,11 @@ def import_new_country_config_path(path: Path, *, force: bool = True) -> Derived
                 "source_country_code": source_country_code,
             },
         )
+        if kind == "derived_country":
+            return country
         existing = country.configs.filter(slug=slug).first()
         if existing and not force:
+            sync_automatic_group_subtractions(country)
             return existing
         config, _created = DerivedCountryConfig.objects.update_or_create(
             country=country,
@@ -131,6 +246,7 @@ def import_new_country_config_path(path: Path, *, force: bool = True) -> Derived
                 "is_active": bool(data.get("is_active", True)),
             },
         )
+        sync_automatic_group_subtractions(country)
     return config
 
 
@@ -142,11 +258,16 @@ def import_subdivision_group_path(path: Path, *, force: bool = True) -> Subdivis
     return groups[0]
 
 
-def import_subdivision_group_path_records(path: Path, *, force: bool = True) -> list[SubdivisionGroup]:
+def import_subdivision_group_path_records(
+    path: Path, *, force: bool = True, group_keys: set[str] | None = None,
+) -> list[SubdivisionGroup]:
     """Create or refresh all `SubdivisionGroup` records from one country TOML seed."""
     path = Path(path)
     content = path.read_text(encoding="utf-8")
     records = _parse_subdivision_group_seed_records(content, path=path)
+    if group_keys is not None:
+        wanted = {_safe_group_toml_key(key) for key in group_keys}
+        records = [data for data in records if _safe_group_toml_key(data.get("internal_name")) in wanted]
     groups: list[SubdivisionGroup] = []
     with transaction.atomic():
         for data in records:
@@ -221,7 +342,38 @@ def import_derived_subdivision_path_records(path: Path, *, force: bool = True) -
                 },
             )
             subdivisions.append(subdivision)
+        _import_derived_subdivision_group_dependencies(subdivisions)
     return subdivisions
+
+
+def _import_derived_subdivision_group_dependencies(records: list[DerivedSubdivision]) -> None:
+    """Import missing referenced groups during the explicit TOML import only."""
+    required: dict[str, set[str]] = {}
+
+    def visit(node: dict, default_country: str) -> None:
+        country = _clean_country_code(node.get("source_country_code") or default_country)
+        for operation in ("include", "subtract", "capital_groups"):
+            for block in node.get(operation) or []:
+                block_country = _clean_country_code(block.get("country_code") or country)
+                keys = list(block.get("groups") or [])
+                if block.get("group") or block.get("group_key"):
+                    keys.append(block.get("group") or block.get("group_key"))
+                if block_country:
+                    required.setdefault(block_country, set()).update(_safe_group_toml_key(key) for key in keys)
+        for child in node.get("children") or []:
+            visit(child, country)
+
+    for record in records:
+        visit(tomllib.loads(record.content or ""), record.source_country_code)
+    paths: dict[Path, set[str]] = {}
+    for country, keys in required.items():
+        for key in keys:
+            if _subdivision_group_duplicate_for_key(source_country_code=country, entry_slug=key.lower()):
+                continue
+            for path in bundled_subdivision_group_paths([f"{country}/{key.lower()}"]):
+                paths.setdefault(path, set()).add(key)
+    for path, keys in paths.items():
+        import_subdivision_group_path_records(path, force=False, group_keys=keys)
 
 
 def _derived_subdivision_import_default_country_code(path: Path) -> str:
@@ -372,6 +524,7 @@ def render_derived_country_selection_toml(
             city_merge_status__in=[
                 int(AdminArea.CityMergeStatus.NONE),
                 int(AdminArea.CityMergeStatus.UNIFIED),
+                int(AdminArea.CityMergeStatus.SOURCE),
             ],
         )
         .select_related("parent")
@@ -969,6 +1122,9 @@ def _parse_subdivision_group_seed_records(content: str, *, path: Path) -> list[d
                     source_country_code=source_country_code,
                     internal_name=safe_internal_name,
                     names=names,
+                ) + _group_selection_metadata_content(
+                    (data.get("group_selections") or {}).get(safe_internal_name)
+                    or (data if len(assignments) == 1 and data.get("country_groups") else {}),
                 ),
             }
         )
@@ -1543,7 +1699,7 @@ def _normalized_group_seed_content(group: SubdivisionGroup) -> str:
     source_country_code = _clean_country_code(group.source_country_code or data.get("source_country_code") or "")
     lines = [f"source_country_code = {_toml_string(source_country_code)}", "", f"{internal_name} = {_toml_array(names)}"]
     selection = data.get("selection") if isinstance(data.get("selection"), dict) else {}
-    country_groups = selection.get("country_groups") if isinstance(selection, dict) else None
+    country_groups = data.get("country_groups") or selection.get("country_groups")
     if isinstance(country_groups, list):
         lines.append("")
         for block in country_groups:
@@ -1579,6 +1735,7 @@ def _normalized_group_seed_content(group: SubdivisionGroup) -> str:
                         f"area_id = {_toml_string(section.get('area_id') or '')}",
                         f"selected_ids = {_toml_array([str(item or '') for item in selected_ids])}",
                         f"selected_names = {_toml_array([str(item or '') for item in selected_names])}",
+                        f"selected_operations = {_toml_array(section.get('selected_operations') or [item.get('operation') or 'add' for item in section.get('selected') or []])}",
                     ]
                 )
             lines.append("")
@@ -1588,6 +1745,7 @@ def _normalized_group_seed_content(group: SubdivisionGroup) -> str:
 def _normalized_group_bundle_seed_content(country_code: str, groups: list[SubdivisionGroup]) -> str:
     country_code = _safe_seed_dir_name(country_code)
     payloads: list[tuple[str, list[str]]] = []
+    selection_metadata = []
     seen: set[str] = set()
     for group in groups:
         content = str(group.content or "").strip()
@@ -1610,13 +1768,35 @@ def _normalized_group_bundle_seed_content(country_code: str, groups: list[Subdiv
             )
         seen.add(entry_slug)
         payloads.append((internal_name, _group_selected_names_from_seed_data(data, internal_name=internal_name)))
+        metadata = _group_selection_metadata_content(data, prefix=f"group_selections.{internal_name}.")
+        if metadata:
+            selection_metadata.append(metadata)
 
     lines = [f"source_country_code = {_toml_string(country_code)}", ""]
     for index, (internal_name, names) in enumerate(sorted(payloads, key=lambda item: item[0])):
         lines.append(f"{internal_name} = {_toml_multiline_array(names)}")
         if index < len(payloads) - 1:
             lines.append("")
-    return "\n".join(lines).rstrip()
+    return "\n".join(lines).rstrip() + "".join(selection_metadata)
+
+
+def _group_selection_metadata_content(data: dict, *, prefix: str = "") -> str:
+    """Add optional structured selectors to the existing name-list export."""
+    blocks = data.get("country_groups") or (data.get("selection") or {}).get("country_groups") or []
+    lines = []
+    for block in blocks:
+        lines.extend(["", f"[[{prefix}country_groups]]",
+                      f"country_code = {_toml_string(block.get('country_code') or '')}",
+                      f"include_names = {_toml_array(block.get('include_names') or block.get('names') or [])}"])
+        for section in block.get("sections") or []:
+            selected = section.get("selected") or []
+            lines.extend(["", f"[[{prefix}country_groups.sections]]",
+                          f"level = {int(section.get('level') or 0)}",
+                          f"area_id = {_toml_string(section.get('area_id') or '')}",
+                          f"selected_ids = {_toml_array(section.get('selected_ids') or [item.get('id') or '' for item in selected])}",
+                          f"selected_names = {_toml_array(section.get('selected_names') or [item.get('name') or '' for item in selected])}",
+                          f"selected_operations = {_toml_array(section.get('selected_operations') or [item.get('operation') or 'add' for item in selected])}"])
+    return "\n".join(lines) + "\n" if lines else ""
 
 
 def _normalized_derived_subdivision_bundle_seed_content(
@@ -1650,6 +1830,15 @@ def _normalized_derived_subdivision_bundle_seed_content(
                     "children": [],
                 },
             ).strip()
+        # A subdivision can move to another country without changing its SQL ID.
+        if record.slug != _derived_subdivision_record_slug(country_code, entry_slug):
+            data = tomllib.loads(content)
+            if data.get("slug") != record.slug:
+                assignment = f"slug = {_toml_string(record.slug)}"
+                if "slug" in data:
+                    content = re.sub(r"(?m)^slug\s*=.*$", lambda match: assignment, content, count=1)
+                else:
+                    content = assignment + "\n" + content
         payloads.append((internal_name, record, content))
 
     lines = [

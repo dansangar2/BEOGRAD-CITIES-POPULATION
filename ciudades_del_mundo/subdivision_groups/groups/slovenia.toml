@@ -1,0 +1,65 @@
+source_country_code = "slovenia"
+
+ESLOVENIA_A_GORIZA = [
+    "Bovec",
+    "Kobarid",
+    "Tolmin",
+    "Cerkno",
+    "Kanal",
+    "Brda",
+    "Nova Gorica",
+    "Ajdovščina",
+    "Renče - Vogrsko",
+    "Šempeter - Vrtojba",
+    "Miren - Kostanjevica",
+    "Komen",
+    "Sežana",
+    "Divača",
+]
+
+ESLOVENIA_A_ISTRIA = [
+    "Piran",
+    "Izola",
+    "Koper",
+    "Ankaran",
+    "Hrpelje - Kozina",
+    "Pivka",
+]
+
+ESLOVENIA_ESTRIA_A_CARINTIA = [
+    "Črna na Koroškem",
+    "Mežica",
+    "Prevalje",
+    "Ravne na Koroškem",
+    "Muta",
+]
+
+ESLOVENIA_A_CARINTIA = [
+    "Jezersko",
+]
+
+ESLOVENIA_A_ESTRIA_MUNICIPIOS = [
+    "Krško",
+    "Brežice",
+]
+
+ESLOVENIA_A_ESTRIA_REGION = [
+    "Podravska",
+    "Koroška",
+    "Savinjska",
+]
+
+ESLOVENIA_A_HUNGRIA_REGION = [
+    "Pomurska",
+]
+
+ESLOVENIA_HUNGRIA_A_ESTRIA = [
+    "Razkrižje",
+    "Ljutomer",
+    "Veržej",
+    "Križevci",
+    "Sveti Jurij ob Ščavnici",
+    "Radenci",
+    "Gornja Radgona",
+    "Apače",
+]

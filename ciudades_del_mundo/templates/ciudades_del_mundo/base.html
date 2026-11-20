@@ -1,4 +1,4 @@
-{% load static i18n %}
+﻿{% load static i18n %}
 {% get_current_language as LANGUAGE_CODE %}
 {% get_available_languages as LANGUAGES %}
 <!doctype html>
@@ -25,12 +25,14 @@
       } catch (error) {}
     })();
   </script>
+  {% block vendor_styles %}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="{% static 'ciudades_del_mundo/app.css' %}?v=20260823-country-level-pagination">
+  {% endblock %}
+  <link rel="stylesheet" href="{% static 'ciudades_del_mundo/app.css' %}?v=20261120-group-refresh">
 </head>
 <body data-running-label="{% trans 'En ejecución' %}" data-queued-label="{% trans 'En cola' %}" data-succeeded-label="{% trans 'Correcto' %}" data-failed-label="{% trans 'Error' %}" data-cancelled-label="{% trans 'Cancelado' %}" data-log-label="{% trans 'Ver registro' %}">
-  <header class="topbar">
+  {% if not embedded %}<header class="topbar">
     <a class="brand" href="{% url 'ciudades_del_mundo:dashboard' %}">{% trans "Ciudades del Mundo" %}</a>
     <nav class="nav">
       <a href="{% url 'ciudades_del_mundo:dashboard' %}">{% trans "Panel" %}</a>
@@ -101,7 +103,7 @@
         </label>
       </div>
     </div>
-  </header>
+  </header>{% endif %}
   <main class="shell">
     {% if messages %}
     <div class="messages">
@@ -112,10 +114,12 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
+  {% block vendor_scripts %}
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="{% static 'ciudades_del_mundo/app.js' %}?v=20260823-country-level-pagination"></script>
+  {% endblock %}
+  <script src="{% static 'ciudades_del_mundo/app.js' %}?v=20261120-group-refresh"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -1,0 +1,25 @@
+Objetivo territorial de Bhutan
+
+L0: pais. L1: los 20 distritos (dzongkhags).
+L2: los 205 gewogs y la municipalidad publicados en /en/bhutan/admin/.
+L3: las ciudades y pueblos publicados en /en/bhutan/cities/.
+Mantener LEGAL_SUBDIVISION = 2, los IDs, tipos y poblaciones administrativos.
+
+La tabla de localidades identifica el distrito, no el gewog. Conservar ese
+padre directo en L1 sin inventar una adscripcion a un gewog ni nuevas unidades
+intermedias. Todas las localidades conservan L3 en las 20 ramas del pais.
+Mantener separadas localidades y unidades administrativas homonimas, incluso
+si comparten QID; la localidad de Thimphu no sustituye a su municipalidad.
+
+La instantanea del 22 de octubre de 2026 contiene 53 localidades principales,
+no un inventario de todas las aldeas. Conservar los codigos, fechas y filas de
+poblacion de la fuente, incluida Deothang, reclasificada como rural en 2017.
+No inventar poblaciones recientes para las filas sin dato en el ultimo censo.
+
+Los parent_overrides relacionan los codigos de localidad con los codigos BT
+de distrito usando data-admid y los enlaces administrativos de la propia tabla.
+No confundir los codigos numericos de distrito de /cities/ con sus IDs SQL BT.
+
+Fuentes (instantaneas locales de la carga d5b33abb0f60):
+https://www.citypopulation.de/en/bhutan/cities/
+https://www.citypopulation.de/en/bhutan/admin/

@@ -78,7 +78,7 @@ class Command(BaseCommand):
             slug = path.stem
             if section == "new-countries":
                 record = import_new_country_config_path(path, force=force)
-                self.stdout.write(f"[new-countries] {record.country_id}/{record.slug}")
+                self.stdout.write(f"[new-countries] {getattr(record, 'country_id', record.slug)}/{record.slug}")
                 imported += 1
             elif section == "groups":
                 records = import_subdivision_group_path_records(path, force=force)

@@ -1,0 +1,31 @@
+schema_version = 1
+kind = "derived_country_config"
+country = "imperio_austriaco"
+country_name = "Imperio Austriaco"
+municipal_level = 4
+slug = "imperio_austriaco_prov_lombardia_venecia"
+name = "Lombardía-Venecia"
+source_country_code = "austria"
+derived_country_code = "imperio_austriaco"
+parent_config_slug = "imperio_austriaco_corona_estados_vecinos"
+groups = []
+
+[selection]
+source_country_code = "austria"
+include_ids = []
+subtract_ids = []
+include_codes = []
+subtract_codes = []
+group_slugs = []
+
+[[entities]]
+mode = "intermediate"
+name = "Lombardía-Venecia"
+code = "LYV"
+entity_type = "Provincia"
+level = 2
+parent_config_slug = "imperio_austriaco_corona_estados_vecinos"
+capitals = []
+area_km2 = 46313.2
+pop_latest = 15188093
+density = 327.94

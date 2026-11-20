@@ -11,3 +11,92 @@ include = { infosection = true, major_subdivision = false, cities = false }
 source = "admin"
 path = ["admin"]
 include = { infosection = true, admin1 = true, admin2 = true }
+
+# Keep settlements separate from gewogs and the municipality.
+[[pages]]
+source = "cities"
+path = ["cities"]
+include = { infosection = false, major_subdivision = false, cities = true }
+force_highest_level = 3
+parent_level = 1
+preserve_source_codes = true
+
+[[parent_overrides]]
+codes = ["27722"]
+parent_code = "BT001"
+
+[[parent_overrides]]
+codes = ["27725", "38117", "27724", "14215", "27723"]
+parent_code = "BT002"
+
+[[parent_overrides]]
+codes = ["27726", "38118", "38119", "36304"]
+parent_code = "BT003"
+
+[[parent_overrides]]
+codes = ["38120", "27727"]
+parent_code = "BT004"
+
+[[parent_overrides]]
+codes = ["27728", "38121"]
+parent_code = "BT005"
+
+[[parent_overrides]]
+codes = ["38122", "27729"]
+parent_code = "BT006"
+
+[[parent_overrides]]
+codes = ["38125", "27731", "38123", "38126", "27730", "38124"]
+parent_code = "BT007"
+
+[[parent_overrides]]
+codes = ["38127", "27733"]
+parent_code = "BT008"
+
+[[parent_overrides]]
+codes = ["38128", "36305", "27734"]
+parent_code = "BT009"
+
+[[parent_overrides]]
+codes = ["38129", "27735"]
+parent_code = "BT010"
+
+[[parent_overrides]]
+codes = ["27736", "38131", "38130", "14217"]
+parent_code = "BT011"
+
+[[parent_overrides]]
+codes = ["27738", "27737", "38132"]
+parent_code = "BT012"
+
+[[parent_overrides]]
+codes = ["27739", "14216"]
+parent_code = "BT013"
+
+[[parent_overrides]]
+codes = ["38133", "14214"]
+parent_code = "BT014"
+
+[[parent_overrides]]
+codes = ["36307", "38134", "36306", "14220", "38135"]
+parent_code = "BT015"
+
+[[parent_overrides]]
+codes = ["27740"]
+parent_code = "BT016"
+
+[[parent_overrides]]
+codes = ["27741"]
+parent_code = "BT017"
+
+[[parent_overrides]]
+codes = ["27742"]
+parent_code = "BT018"
+
+[[parent_overrides]]
+codes = ["38136", "14221"]
+parent_code = "BT019"
+
+[[parent_overrides]]
+codes = ["38137", "38138", "27743"]
+parent_code = "BT020"

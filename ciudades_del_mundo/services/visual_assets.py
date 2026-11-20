@@ -859,6 +859,42 @@ def get_visual_assets_for_entity(
         cursor.execute(sql, [entity_type, entity_key])
         rows = _dictfetchall(cursor)
     translations_by_asset = _translations_for_asset_rows(rows)
+    return _visual_assets_from_rows(entity_type, entity_key, rows, translations_by_asset, include_fallbacks=include_fallbacks)
+
+
+def get_stored_visual_assets_for_entities(entity_type: str, entity_keys: list[str]) -> dict[str, dict]:
+    """Read only the requested entities' SQL assets and translations in a batch."""
+    keys = list(dict.fromkeys(str(key) for key in entity_keys))
+    if not keys or not visual_asset_tables_exist():
+        return {}
+    placeholders = ", ".join(["%s"] * len(keys))
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT id, entity_type, entity_key, entity_name, country_code, kind,
+                   wikidata_id, commons_filename, remote_url, local_path,
+                   local_exists, source, status, error, license_name, author,
+                   attribution, source_url, updated_at
+              FROM {VISUAL_ASSET_TABLE}
+             WHERE entity_type = %s AND entity_key IN ({placeholders})
+            """,
+            [entity_type, *keys],
+        )
+        rows = _dictfetchall(cursor)
+    translations_by_asset = _translations_for_asset_rows(rows)
+    rows_by_key: dict[str, list[dict]] = {key: [] for key in keys}
+    for row in rows:
+        rows_by_key[str(row["entity_key"])].append(row)
+    return {
+        key: _visual_assets_from_rows(entity_type, key, entity_rows, translations_by_asset, include_fallbacks=False)
+        for key, entity_rows in rows_by_key.items()
+    }
+
+
+def _visual_assets_from_rows(
+    entity_type: str, entity_key: str, rows: list[dict], translations_by_asset: dict,
+    *, include_fallbacks: bool,
+) -> dict[str, dict]:
     assets: dict[str, dict] = {}
     for row in rows:
         kind = str(row["kind"])
@@ -1237,8 +1273,8 @@ def _configured_admin_area_visual_assets(entity_key: str) -> dict[str, dict]:
     )
 
 
-def _configured_admin_area_visual_asset_candidates(area) -> dict[str, AssetCandidate]:
-    config = _load_config(str(getattr(area, "country_code", "") or ""))
+def _configured_admin_area_visual_asset_candidates(area, *, config_data: dict | None = None) -> dict[str, AssetCandidate]:
+    config = config_data if config_data is not None else _load_config(str(getattr(area, "country_code", "") or ""))
     if not config:
         return {}
     visual_assets = config.get("visual_assets") or {}

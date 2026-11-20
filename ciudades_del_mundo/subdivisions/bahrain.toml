@@ -2,6 +2,9 @@ LEGAL_SUBDIVISION = 1
 
 scrape_schema_version = 2
 
+# Al-Wusṭā (Central Governorate) was abolished in 2014.
+exclude_entity_codes = ["2100"]
+
 [[pages]]
 source = "cities"
 path = ["cities"]

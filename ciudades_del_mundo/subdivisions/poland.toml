@@ -1,6 +1,5 @@
 name = "Poland"
 country_code = "poland"
-base_url = "https://www.citypopulation.de/en/"
 LEGAL_SUBDIVISION = 3
 
 scrape_schema_version = 2
@@ -8,14 +7,16 @@ scrape_schema_version = 2
 [[pages]]
 source = "admin"
 path = ["admin"]
+preserve_source_codes = true
 include = { infosection = true, admin1 = true, admin2 = true }
 
 [[pages]]
 source = "admin"
 # Voivodatos L1, condados L2 y comunas L3.
+preserve_source_codes = true
 path = [
   "dolnoslaskie/admin",
-  "kujawsko_pomorskie/admin",
+  "kujawskopomorskie/admin",
   "lubelskie/admin",
   "lubuskie/admin",
   "lodzkie/admin",
@@ -27,7 +28,7 @@ path = [
   "pomorskie/admin",
   "slaskie/admin",
   "swietokrzyskie/admin",
-  "warminsko_mazurskie/admin",
+  "warminskomazurskie/admin",
   "wielkopolskie/admin",
   "zachodniopomorskie/admin",
 ]
@@ -36,31 +37,103 @@ force_highest_level = 1
 
 [[pages]]
 source = "cities"
-# Página de towns por voivodato; se persiste solo ts como lugar L4.
+preserve_source_codes = true
+# Localidades de todo el pais; las comunas de la tabla solo identifican al padre.
 path = [
-  "dolnoslaskie",
-  "kujawsko_pomorskie",
-  "lubelskie",
-  "lubuskie",
-  "lodzkie",
-  "malopolskie",
-  "mazowieckie",
-  "opolskie",
-  "podkarpackie",
-  "podlaskie",
-  "pomorskie",
-  "slaskie",
-  "swietokrzyskie",
-  "warminsko_mazurskie",
-  "wielkopolskie",
-  "zachodniopomorskie",
+  "localities/jeleniogorski",
+  "localities/legnickoglogowski",
+  "localities/walbrzyski",
+  "localities/wroclawski",
+  "localities/bydgoskotorunski",
+  "localities/grudziadzki",
+  "localities/wloclawski",
+  "localities/lodzki",
+  "localities/piotrkowski",
+  "localities/sieradzki",
+  "localities/skierniewicki",
+  "localities/bialski",
+  "localities/chelmskozamojski",
+  "localities/lubelski",
+  "localities/pulawski",
+  "localities/lubuskie",
+  "localities/malopolskie",
+  "localities/ciechanowski",
+  "localities/ostrolecki",
+  "localities/radomski",
+  "localities/warszawski",
+  "localities/opolskie",
+  "localities/podkarpackie",
+  "localities/bialostocki",
+  "localities/lomzynski",
+  "localities/suwalski",
+  "localities/pomorskie",
+  "localities/slaskie",
+  "localities/swietokrzyskie",
+  "localities/elblaski",
+  "localities/elcki",
+  "localities/olsztynski",
+  "localities/kaliski",
+  "localities/koninski",
+  "localities/leszczynski",
+  "localities/pilski",
+  "localities/poznanski",
+  "localities/zachodniopomorskie",
 ]
-include = { infosection = true, major_subdivision = true, cities = true }
-force_highest_level = 1
+# El agregado de subregion del pie de tabla no ocupa un nivel administrativo.
+include = { infosection = false, major_subdivision = false, cities = true }
+force_highest_level = 4
+table_levels = { tl = 3, ts = 4 }
+# Conservar el ID de Biskupiec ya importado desde la tabla de towns.
+code_overrides = { "0964590" = "2814024" }
+
+# Comunas homonimas: padre contrastado mediante P131 y los QID de la fuente.
+[[parent_overrides]]
+codes = ["0868253", "0868260", "0868282", "0868307", "0868320", "0868359", "0868371", "0868388", "0868402", "0868419", "0868431", "0868477", "0868483", "0868520", "0868572", "0868589", "0868603", "0868626", "0868661", "0868678", "0868690", "0868715", "0868738", "0868750", "0868767", "0868773", "0868780"]
+parent_code = "0412032"
+
+# Comunas homonimas: padre contrastado mediante P131 y los QID de la fuente.
+[[parent_overrides]]
+codes = ["0094113", "0094120", "0094136", "0094165", "0094188", "0094194", "0094219", "0094231", "0094248", "0094254", "0094277", "0094283", "0094290", "0094308", "0094314", "0094320", "0094350", "0094366", "0094372", "0094395", "0094403", "0094410", "0094426"]
+parent_code = "0419052"
+
+# Comunas homonimas: padre contrastado mediante P131 y los QID de la fuente.
+[[parent_overrides]]
+codes = ["0813068", "0813111", "0813140", "0813163", "0813217", "0813252", "0813358", "0813364", "0813393"]
+parent_code = "1204012"
+
+# Comunas homonimas: padre contrastado mediante P131 y los QID de la fuente.
+[[parent_overrides]]
+codes = ["0462982"]
+parent_code = "1211132"
+
+# Comunas homonimas: padre contrastado mediante P131 y los QID de la fuente.
+[[parent_overrides]]
+codes = ["0212759", "0212860", "0212883", "0212890", "0212950", "0212995", "0213003", "0213049", "0213084", "0213115", "0213138"]
+parent_code = "1212032"
+
+# Comunas homonimas: padre contrastado mediante P131 y los QID de la fuente.
+[[parent_overrides]]
+codes = ["0048053", "0067613", "0067748", "0067754", "0067783", "0067895"]
+parent_code = "1218062"
+
+# Comunas homonimas: padre contrastado mediante P131 y los QID de la fuente.
+[[parent_overrides]]
+codes = ["0347962", "0347979", "0347991", "0348000", "0348016", "0348022", "0348039", "0348074", "0348080"]
+parent_code = "1801032"
+
+# Comunas homonimas: padre contrastado mediante P131 y los QID de la fuente.
+[[parent_overrides]]
+codes = ["0815995", "0816049", "0816109", "0816180", "0816291", "0816316", "0816405", "0816440", "0816470", "0816500", "0816517", "0816569", "0816598", "0816606"]
+parent_code = "1803032"
+
+# Comunas homonimas: padre contrastado mediante P131 y los QID de la fuente.
+[[parent_overrides]]
+codes = ["0647144", "0647227", "0647279", "0647345", "0647405", "0647440", "0647546", "0647569"]
+parent_code = "1810032"
 
 [[pages]]
 source = "cities"
-# Localidades por subregión/urban county: comunas L3 como contexto y lugares L4.
-path = ["localities/jeleniogorski"]
-include = { infosection = true, major_subdivision = true, cities = true }
-force_highest_level = 3
+path = ["https://www.citypopulation.de/en/poland/warminskomazurskie/powiat_olszty%C5%84ski/2814024__biskupiec/"]
+include = { infosection = false, major_subdivision = false, cities = true }
+force_highest_level = 4
+preserve_source_codes = true

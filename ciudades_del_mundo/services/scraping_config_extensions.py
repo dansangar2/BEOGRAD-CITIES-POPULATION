@@ -7,8 +7,11 @@ one administrative reality across several page families.
 
 from __future__ import annotations
 
+import re
 import tomllib
 from typing import Iterable
+
+from django.utils.translation import gettext as _
 
 from ciudades_del_mundo.models import ScrapingConfig
 
@@ -16,6 +19,7 @@ _RUNTIME_FIELDS = (
     "runtime_synthetic_entities",
     "runtime_parent_overrides",
     "runtime_root_metric_sources",
+    "runtime_excluded_entity_codes",
 )
 
 
@@ -43,7 +47,7 @@ def attach_runtime_config_extensions(configs: Iterable[object]) -> None:
             object.__setattr__(config, name, value)
 
 
-def parse_runtime_config_extensions(content: str) -> dict[str, tuple[dict, ...]]:
+def parse_runtime_config_extensions(content: str) -> dict[str, tuple[dict, ...] | tuple[str, ...]]:
     try:
         data = tomllib.loads(content or "")
     except tomllib.TOMLDecodeError as exc:
@@ -53,6 +57,7 @@ def parse_runtime_config_extensions(content: str) -> dict[str, tuple[dict, ...]]
         "runtime_synthetic_entities": _normalize_synthetic_entities(data.get("synthetic_entities")),
         "runtime_parent_overrides": _normalize_parent_overrides(data.get("parent_overrides")),
         "runtime_root_metric_sources": _normalize_root_metric_sources(data.get("root_metric_sources")),
+        "runtime_excluded_entity_codes": _string_list(data.get("exclude_entity_codes")),
     }
 
 
@@ -75,7 +80,9 @@ def _normalize_synthetic_entities(raw) -> tuple[dict, ...]:
                 "area_km2": item.get("area_km2"),
                 "pop_latest": item.get("pop_latest"),
                 "pop_latest_date": _optional_string(item.get("pop_latest_date")),
+                "last_census_year": _optional_int(item.get("last_census_year")),
                 "url": _optional_string(item.get("url")),
+                "data_wd": _optional_string(item.get("data_wd")) or "",
                 "copy_metrics_from": _optional_string(item.get("copy_metrics_from")),
                 "metric_source_codes": _string_list(item.get("metric_source_codes")),
                 "metric_source_parent_code": _optional_string(item.get("metric_source_parent_code")),
@@ -89,7 +96,26 @@ def _normalize_parent_overrides(raw) -> tuple[dict, ...]:
     normalized = []
     for item in _as_list(raw):
         parent_code = _optional_string(item.get("parent_code"))
-        if "level" not in item and parent_code is None:
+        code_pattern = _optional_string(item.get("code_pattern"))
+        parent_code_template = _optional_string(item.get("parent_code_template"))
+        if parent_code_template and not code_pattern:
+            raise ValueError(_("Configuracion invalida: %(error)s") % {
+                "error": "parent_overrides.parent_code_template: code_pattern",
+            })
+        if parent_code_template and parent_code:
+            raise ValueError(_("Configuracion invalida: %(error)s") % {
+                "error": "parent_overrides: parent_code / parent_code_template",
+            })
+        if code_pattern:
+            try:
+                pattern = re.compile(code_pattern)
+                if parent_code_template:
+                    pattern.sub(parent_code_template, "")
+            except (re.error, IndexError) as exc:
+                raise ValueError(_("Configuracion invalida: %(error)s") % {
+                    "error": f"parent_overrides.code_pattern: {exc}",
+                }) from exc
+        if "level" not in item and parent_code is None and parent_code_template is None:
             raise ValueError("Cada [[parent_overrides]] necesita parent_code o level.")
         values = {
             "codes": _string_list(item.get("codes") or item.get("code")),
@@ -99,6 +125,10 @@ def _normalize_parent_overrides(raw) -> tuple[dict, ...]:
         }
         if parent_code is not None:
             values["parent_code"] = parent_code
+        if code_pattern:
+            values["code_pattern"] = code_pattern
+        if parent_code_template:
+            values["parent_code_template"] = parent_code_template
         if "level" in item:
             values["level"] = _int_value(item.get("level"), field="parent_overrides.level")
         normalized.append(values)

@@ -1,0 +1,31 @@
+schema_version = 1
+kind = "derived_country_config"
+country = "imperio_austriaco"
+country_name = "Imperio Austriaco"
+municipal_level = 4
+slug = "imperio_austriaco_prov_serbia_banato_tamis"
+name = "Serbia y Banato de Tamis"
+source_country_code = "austria"
+derived_country_code = "imperio_austriaco"
+parent_config_slug = "imperio_austriaco_corona_estados_vecinos"
+groups = []
+
+[selection]
+source_country_code = "austria"
+include_ids = []
+subtract_ids = []
+include_codes = []
+subtract_codes = []
+group_slugs = []
+
+[[entities]]
+mode = "intermediate"
+name = "Serbia y Banato de Tamis"
+code = "SYT"
+entity_type = "Provincia"
+level = 2
+parent_config_slug = "imperio_austriaco_corona_estados_vecinos"
+capitals = []
+area_km2 = 28449.33
+pop_latest = 2149095
+density = 75.54

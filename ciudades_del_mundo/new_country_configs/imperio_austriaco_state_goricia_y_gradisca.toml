@@ -1,0 +1,42 @@
+schema_version = 1
+kind = "derived_country_config"
+country = "imperio_austriaco"
+country_name = "Imperio Austriaco"
+municipal_level = 4
+slug = "imperio_austriaco_state_goricia_y_gradisca"
+name = "Goricia y Gradisca"
+source_country_code = "italy"
+derived_country_code = "imperio_austriaco"
+parent_config_slug = "imperio_austriaco_prov_litoral_austriaco"
+groups = []
+
+[selection]
+source_country_code = "italy"
+include_ids = ["italy_030001", "italy_030004", "italy_030023", "italy_030024", "italy_030098", "italy_030105", "italy_030120", "italy_030135", "italy_030138", "italy_030190", "italy_031001", "italy_031002", "italy_031003", "italy_031004", "italy_031005", "italy_031006", "italy_031007", "italy_031008", "italy_031009", "italy_031010", "italy_031011", "italy_031012", "italy_031013", "italy_031014", "italy_031015", "italy_031016", "italy_031017", "italy_031018", "italy_031019", "italy_031020", "italy_031021", "italy_031022", "italy_031023", "italy_031024", "italy_031025", "italy_032001", "italy_032002", "italy_032005", "slovenia_001", "slovenia_006", "slovenia_007", "slovenia_014", "slovenia_019", "slovenia_044", "slovenia_046", "slovenia_049", "slovenia_075", "slovenia_084", "slovenia_111", "slovenia_128", "slovenia_183", "slovenia_201"]
+subtract_ids = []
+include_codes = []
+subtract_codes = []
+group_slugs = []
+
+[[entities]]
+mode = "final"
+name = "Goricia y Gradisca"
+code = "GYG"
+entity_type = "Estado"
+level = 3
+parent_config_slug = "imperio_austriaco_prov_litoral_austriaco"
+capitals = ["Gorizia"]
+use_selected_entities_as_children = false
+
+area_km2 = 3146.63
+pop_latest = 306454
+density = 97.39
+[[entities.include]]
+country_code = "italy"
+level = 3
+ids = ["italy_030001", "italy_030004", "italy_030023", "italy_030024", "italy_030098", "italy_030105", "italy_030120", "italy_030135", "italy_030138", "italy_030190", "italy_031001", "italy_031002", "italy_031003", "italy_031004", "italy_031005", "italy_031006", "italy_031007", "italy_031008", "italy_031009", "italy_031010", "italy_031011", "italy_031012", "italy_031013", "italy_031014", "italy_031015", "italy_031016", "italy_031017", "italy_031018", "italy_031019", "italy_031020", "italy_031021", "italy_031022", "italy_031023", "italy_031024", "italy_031025", "italy_032001", "italy_032002", "italy_032005"]
+
+[[entities.include]]
+country_code = "slovenia"
+level = 2
+ids = ["slovenia_001", "slovenia_006", "slovenia_007", "slovenia_014", "slovenia_019", "slovenia_044", "slovenia_046", "slovenia_049", "slovenia_075", "slovenia_084", "slovenia_111", "slovenia_128", "slovenia_183", "slovenia_201"]

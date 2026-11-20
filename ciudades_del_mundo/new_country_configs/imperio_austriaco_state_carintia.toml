@@ -1,0 +1,47 @@
+schema_version = 1
+kind = "derived_country_config"
+country = "imperio_austriaco"
+country_name = "Imperio Austriaco"
+municipal_level = 4
+slug = "imperio_austriaco_state_carintia"
+name = "Carintia"
+source_country_code = "austria"
+derived_country_code = "imperio_austriaco"
+parent_config_slug = "imperio_austriaco_prov_carintia"
+groups = []
+
+[selection]
+source_country_code = "austria"
+include_ids = ["austria_20101", "austria_20201", "austria_20302", "austria_20305", "austria_20306", "austria_20307", "austria_20316", "austria_20320", "austria_20321", "austria_20402", "austria_20403", "austria_20405", "austria_20409", "austria_20412", "austria_20414", "austria_20415", "austria_20416", "austria_20417", "austria_20418", "austria_20419", "austria_20421", "austria_20424", "austria_20425", "austria_20428", "austria_20432", "austria_20435", "austria_20441", "austria_20442", "austria_20501", "austria_20502", "austria_20503", "austria_20504", "austria_20505", "austria_20506", "austria_20508", "austria_20509", "austria_20511", "austria_20512", "austria_20513", "austria_20515", "austria_20518", "austria_20519", "austria_20520", "austria_20523", "austria_20527", "austria_20530", "austria_20531", "austria_20534", "austria_20601", "austria_20602", "austria_20603", "austria_20604", "austria_20605", "austria_20607", "austria_20608", "austria_20609", "austria_20610", "austria_20611", "austria_20613", "austria_20616", "austria_20618", "austria_20619", "austria_20620", "austria_20622", "austria_20624", "austria_20625", "austria_20627", "austria_20630", "austria_20631", "austria_20632", "austria_20633", "austria_20634", "austria_20635", "austria_20636", "austria_20637", "austria_20638", "austria_20639", "austria_20640", "austria_20642", "austria_20643", "austria_20644", "austria_20701", "austria_20702", "austria_20703", "austria_20705", "austria_20707", "austria_20708", "austria_20710", "austria_20711", "austria_20712", "austria_20713", "austria_20719", "austria_20720", "austria_20721", "austria_20722", "austria_20723", "austria_20724", "austria_20725", "austria_20726", "austria_20727", "austria_20801", "austria_20802", "austria_20803", "austria_20804", "austria_20805", "austria_20806", "austria_20807", "austria_20808", "austria_20810", "austria_20812", "austria_20815", "austria_20817", "austria_20905", "austria_20909", "austria_20911", "austria_20912", "austria_20913", "austria_20914", "austria_20918", "austria_20923", "austria_21001", "austria_21002", "austria_21003", "austria_21004", "austria_21005", "austria_21006", "austria_21007", "austria_21008", "austria_21009", "austria_21010", "italy_030054", "italy_030076", "italy_030117", "slovenia_016", "slovenia_074", "slovenia_081", "slovenia_103", "slovenia_163", "slovenia_175"]
+subtract_ids = []
+include_codes = []
+subtract_codes = []
+group_slugs = []
+
+[[entities]]
+mode = "final"
+name = "Carintia"
+code = "CAR"
+entity_type = "Estado"
+level = 3
+parent_config_slug = "imperio_austriaco_prov_carintia"
+capitals = ["Klagenfurt am Wörthersee"]
+use_selected_entities_as_children = false
+
+area_km2 = 10228.72
+pop_latest = 595556
+density = 58.22
+[[entities.include]]
+country_code = "austria"
+level = 3
+ids = ["austria_20101", "austria_20201", "austria_20302", "austria_20305", "austria_20306", "austria_20307", "austria_20316", "austria_20320", "austria_20321", "austria_20402", "austria_20403", "austria_20405", "austria_20409", "austria_20412", "austria_20414", "austria_20415", "austria_20416", "austria_20417", "austria_20418", "austria_20419", "austria_20421", "austria_20424", "austria_20425", "austria_20428", "austria_20432", "austria_20435", "austria_20441", "austria_20442", "austria_20501", "austria_20502", "austria_20503", "austria_20504", "austria_20505", "austria_20506", "austria_20508", "austria_20509", "austria_20511", "austria_20512", "austria_20513", "austria_20515", "austria_20518", "austria_20519", "austria_20520", "austria_20523", "austria_20527", "austria_20530", "austria_20531", "austria_20534", "austria_20601", "austria_20602", "austria_20603", "austria_20604", "austria_20605", "austria_20607", "austria_20608", "austria_20609", "austria_20610", "austria_20611", "austria_20613", "austria_20616", "austria_20618", "austria_20619", "austria_20620", "austria_20622", "austria_20624", "austria_20625", "austria_20627", "austria_20630", "austria_20631", "austria_20632", "austria_20633", "austria_20634", "austria_20635", "austria_20636", "austria_20637", "austria_20638", "austria_20639", "austria_20640", "austria_20642", "austria_20643", "austria_20644", "austria_20701", "austria_20702", "austria_20703", "austria_20705", "austria_20707", "austria_20708", "austria_20710", "austria_20711", "austria_20712", "austria_20713", "austria_20719", "austria_20720", "austria_20721", "austria_20722", "austria_20723", "austria_20724", "austria_20725", "austria_20726", "austria_20727", "austria_20801", "austria_20802", "austria_20803", "austria_20804", "austria_20805", "austria_20806", "austria_20807", "austria_20808", "austria_20810", "austria_20812", "austria_20815", "austria_20817", "austria_20905", "austria_20909", "austria_20911", "austria_20912", "austria_20913", "austria_20914", "austria_20918", "austria_20923", "austria_21001", "austria_21002", "austria_21003", "austria_21004", "austria_21005", "austria_21006", "austria_21007", "austria_21008", "austria_21009", "austria_21010"]
+
+[[entities.include]]
+country_code = "italy"
+level = 3
+ids = ["italy_030054", "italy_030076", "italy_030117"]
+
+[[entities.include]]
+country_code = "slovenia"
+level = 2
+ids = ["slovenia_016", "slovenia_074", "slovenia_081", "slovenia_103", "slovenia_163", "slovenia_175"]

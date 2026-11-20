@@ -247,3 +247,92 @@ RIETI_A_ABRUZOS_ULTRA_II = [
     "Amatrice",
     "Accumoli",
 ]
+
+PAVIA_AFUERA = [
+    "Bereguardo",
+    "Casorate Primo",
+    "Trovo",
+    "Rognano",
+    "Giussago",
+    "Vellezzo Bellini",
+    "Battuda",
+    "Trivolzio",
+    "Marcignago",
+    "Torre d'Isola",
+    "Pavia",
+    "Certosa di Pavia",
+    "Borgarello",
+    "Giussago",
+    "Zeccone",
+    "Bornasco",
+    "Siziano",
+    "Vidigulfo",
+    "Landriano",
+    "Bascapè",
+    "Torrevecchia Pia",
+    "Ceranova",
+    "Marzano",
+    "Lardirago",
+    "San Genesio ed Uniti",
+    "Roncaro",
+    "Sant'Alessio con Vialone",
+    "Torre d'Arese",
+    "Villanterio",
+    "Magherno",
+    "Vistarino",
+    "Cura Carpignano",
+    "Albuzzano",
+    "Valle Salimbene",
+    "Linarolo",
+    "Filighera",
+    "Copiano",
+    "Gerenzago",
+    "Inverno e Monteleone",
+    "Miradolo Terme",
+    "Santa Cristina e Bissone",
+    "Chignolo Po",
+    "Monticelli Pavese",
+    "Pieve Porto Morone",
+    "Badia Pavese",
+    "Zerbo",
+    "San Zenone al Po",
+    "Spessa",
+    "Costa de' Nobili",
+    "Corteolona e Genzone",
+    "Torre de' Negri",
+    "Belgioioso",
+    "Linarolo",
+]
+
+TRIESTE_A_TRIESTE = [
+    "Trieste",
+]
+
+TRIESTE_A_ISTRIA = [
+    "Muggia",
+    "San Dorligo della Valle",
+]
+
+UDINE_A_GORIZA = [
+    "Chiopris-Viscone",
+    "San Vito al Torre",
+    "Visco",
+    "Aiello del Friuli",
+    "Campolongo Tapogliano",
+    "Ruda",
+    "Cervignano del Friuli",
+    "Terzo d'Aquileia",
+    "Aquileia",
+    "Fiumicello Villa Vicentina",
+]
+
+UDINE_A_CARINTIA = [
+    "Tarvisio",
+    "Malborghetto Valbruna",
+    "Pontebba",
+]
+
+VENECIA_JULIA_A_GORITZA = [
+    "Trieste",
+    "Gorizia",
+]

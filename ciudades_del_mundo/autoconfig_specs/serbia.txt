@@ -1,0 +1,44 @@
+Objetivo territorial confirmado por el usuario:
+
+- L0: Serbia, conservando su identidad, poblacion y recursos nacionales.
+- L1: distritos (tambien llamados condados por el usuario).
+- L2: municipios, incluidas las municipalidades urbanas de Belgrado.
+- L3: localidades; no crear otra capa de distritos debajo de los municipios.
+
+Incorporar a esta configuracion los siete distritos y 38 municipios de Kosovo
+publicados en https://www.citypopulation.de/en/kosovo/admin/.
+Incorporar las localidades publicadas en
+https://www.citypopulation.de/en/kosovo/cities/.
+Esta segunda pagina es una seleccion de localidades que superaron 4.000
+habitantes, no un inventario completo de asentamientos.
+
+Vincular cada localidad a su municipio cuando la identidad permita reconocerlo.
+Cuando solo se conozca el distrito, conservar ese padre en L1 y la localidad en
+L3, sin inventar un municipio ni subir la localidad a L2. Esta excepcion fue
+autorizada expresamente por el usuario.
+
+En las tablas comprobadas hay 44 localidades de Kosovo: 27 se vinculan por
+nombre/alias publicado a un municipio y 17 conservan el distrito como padre.
+No inferir municipios por prefijos numericos de los IDs de CityPopulation.
+La fuente asigna por error Q608274 a Obilic (Bojnik), codigo serbio 24382;
+su identidad correcta es Q2749459. Corregirla antes de fusionar por Wikidata
+para conservar esa localidad y Obiliq (Kosovo) como entidades distintas.
+
+Conservar los distritos y municipios en el mismo nivel en las ramas de Serbia
+y Kosovo. Las paginas regionales serbias empiezan por municipios en L2 al
+excluir la cabecera del distrito; las localidades quedan en L3. Preservar los
+IDs y las poblaciones existentes y no modificar la configuracion independiente
+de Kosovo como efecto lateral de esta incorporacion.
+
+Unificacion de ciudades solicitada por el usuario:
+- Crear Beograd (city_beograd) en L2 bajo el distrito 01, agregando sus 17
+  City Municipality. Conservarlas como fuentes en L3 y sus localidades en L4.
+- Crear Nis (city_nis) en L2 bajo el distrito 23, agregando solo sus cinco
+  City Municipality. Las otras seis municipalidades del distrito quedan en L2
+  fuera de la ciudad y conservan sus localidades en L3.
+- Conservar los IDs, poblaciones, tipos y traducciones de las filas fuente.
+  Las poblaciones completas son las sumas de las municipalidades, sin sumar
+  otra vez las localidades ni confundirlas con la poblacion del casco urbano.
+- Los cascos urbanos Beograd (00141) y Nis (26678) no tienen un municipio
+  unico publicado en la fuente: conservarlos en L4 bajo la ciudad completa,
+  sin inventar una adscripcion municipal ni perder sus cifras censales.

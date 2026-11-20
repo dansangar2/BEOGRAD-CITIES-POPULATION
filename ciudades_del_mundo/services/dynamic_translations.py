@@ -7,6 +7,7 @@ import hashlib
 import json
 
 from django.db import OperationalError, ProgrammingError
+from django.db.models import F
 
 from ciudades_del_mundo.models import DynamicTranslation
 
@@ -36,6 +37,28 @@ def dynamic_country_name(country_code: str, language_code: str | None) -> str:
         language_code,
         country_code=str(country_code or "").strip().lower(),
     )
+
+
+def dynamic_country_names(country_codes: list[str], language_code: str | None) -> dict[str, str]:
+    """Read reviewed country names for one summary without per-country queries."""
+    keys = list(dict.fromkeys(str(code or "").strip().lower() for code in country_codes))
+    languages = _language_candidates(language_code)
+    if not keys or not languages:
+        return {}
+    try:
+        rows = list(DynamicTranslation.objects.filter(
+            subject_type=SUBJECT_COUNTRY, subject_key__in=keys, country_code=F("subject_key"),
+            field=FIELD_NAME, language__in=languages, is_active=True, needs_review=False,
+        ).order_by("pk").values("subject_key", "language", "text"))
+    except (OperationalError, ProgrammingError):
+        return {}
+    names_by_language: dict[tuple[str, str], str] = {}
+    for row in rows:
+        names_by_language.setdefault((row["subject_key"], row["language"]), str(row["text"] or ""))
+    return {
+        key: next((names_by_language[(key, language)] for language in languages if names_by_language.get((key, language))), "")
+        for key in keys
+    }
 
 
 def dynamic_area_name(area, language_code: str | None) -> str:

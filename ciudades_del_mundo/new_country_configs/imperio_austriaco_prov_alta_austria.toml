@@ -1,0 +1,31 @@
+schema_version = 1
+kind = "derived_country_config"
+country = "imperio_austriaco"
+country_name = "Imperio Austriaco"
+municipal_level = 4
+slug = "imperio_austriaco_prov_alta_austria"
+name = "Alta Austria"
+source_country_code = "austria"
+derived_country_code = "imperio_austriaco"
+parent_config_slug = "imperio_austriaco"
+groups = []
+
+[selection]
+source_country_code = "austria"
+include_ids = []
+subtract_ids = []
+include_codes = []
+subtract_codes = []
+group_slugs = []
+
+[[entities]]
+mode = "intermediate"
+name = "Alta Austria"
+code = "P_ALTA_AUSTRIA"
+entity_type = "Provincia"
+level = 2
+parent_config_slug = "imperio_austriaco"
+capitals = []
+area_km2 = 11979.9
+pop_latest = 1537159
+density = 128.31

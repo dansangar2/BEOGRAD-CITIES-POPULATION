@@ -19,6 +19,7 @@ from django.utils import timezone
 from ciudades_del_mundo.infrastructure.scraping import PythonScrapingConfigRepository
 from ciudades_del_mundo.services.config_asset_overrides import load_config_asset_overrides
 from ciudades_del_mundo.services.visual_assets import (
+    _configured_admin_area_visual_asset_candidates,
     commons_visual_asset_candidate_for_name,
     visual_asset_tables_exist,
 )
@@ -526,6 +527,10 @@ def _citypopulation_country_wikidata_id(config, *, slug: str, country_code: str,
     CityPopulation associates with the page, instead of relying only on TOML or
     a later Wikidata name search.
     """
+    configured_qid = _normalize_wikidata_id(config_data.get("wikidata_id") or config_data.get("wikidata"))
+    if configured_qid:
+        return configured_qid
+
     stored_qid = _country_root_data_wd(country_code)
     if stored_qid:
         _log_asset_mirror(logger, f"[assets] {country_code}: Wikidata ID leído del campo data_wd={stored_qid}")
@@ -1069,6 +1074,10 @@ def _assign_wikidata_assets_from_scraped_data_wd(
         qid_has_assets = bool(filenames)
         for area in target_areas:
             area_filenames = dict(filenames)
+            configured_candidates = _configured_admin_area_visual_asset_candidates(area, config_data=data)
+            for kind, candidate in configured_candidates.items():
+                if kind in kind_filter and candidate.commons_filename:
+                    area_filenames[kind] = candidate.commons_filename
             for kind in kind_filter:
                 if area_filenames.get(kind):
                     continue
@@ -1097,13 +1106,15 @@ def _assign_wikidata_assets_from_scraped_data_wd(
             for kind, filename in area_filenames.items():
                 if kind not in kind_filter or not filename:
                     continue
+                configured = configured_candidates.get(kind)
+                configured = configured if configured and configured.commons_filename else None
                 applied += _upsert_wikidata_override_asset(
                     area,
                     kind=kind,
-                    wikidata_id=qid,
+                    wikidata_id=(configured.wikidata_id or qid) if configured else qid,
                     commons_filename=filename,
                     replace_existing=True,
-                    source="wikidata_data_wd" if filenames.get(kind) else "commons_search",
+                    source=configured.source if configured else ("wikidata_data_wd" if filenames.get(kind) else "commons_search"),
                 )
                 area_assignments += 1
         if qid_has_assets:

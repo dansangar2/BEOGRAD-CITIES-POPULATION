@@ -1,0 +1,31 @@
+schema_version = 1
+kind = "derived_country_config"
+country = "imperio_austriaco"
+country_name = "Imperio Austriaco"
+municipal_level = 4
+slug = "imperio_austriaco_prov_hungria"
+name = "Hungría"
+source_country_code = "austria"
+derived_country_code = "imperio_austriaco"
+parent_config_slug = "imperio_austriaco_prov_san_esteban"
+groups = []
+
+[selection]
+source_country_code = "austria"
+include_ids = []
+subtract_ids = []
+include_codes = []
+subtract_codes = []
+group_slugs = []
+
+[[entities]]
+mode = "intermediate"
+name = "Hungría"
+code = "P_HUNGRIA"
+entity_type = "Provincia"
+level = 2
+parent_config_slug = "imperio_austriaco_prov_san_esteban"
+capitals = []
+area_km2 = 183991.69
+pop_latest = 17579148
+density = 95.54

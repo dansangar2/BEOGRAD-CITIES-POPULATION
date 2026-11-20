@@ -10,9 +10,13 @@
     <h1>{{ country.name }}</h1>
   </div>
   <div class="actions">
+    <form method="post" action="{% url 'ciudades_del_mundo:new_country_export_toml' %}" data-config-export-form data-action-label="{% trans 'Exportar TOML' %}">
+      {% csrf_token %}
+      <input type="hidden" name="country_slug" value="{{ country.slug }}">
+      <button class="secondary" type="submit">{% trans "Exportar TOML" %}</button>
+    </form>
     <a class="button secondary" href="{% url 'ciudades_del_mundo:new_country_list' %}">{% trans "Volver" %}</a>
     <a class="button secondary" href="{{ export_excel_url }}">{% trans "Exportar Excel" %}</a>
-    <a class="button secondary" href="{{ new_country_config_new_url }}">{% trans "Nueva entidad" %}</a>
   </div>
 </section>
 
@@ -41,12 +45,21 @@
   data-expand-label="{% trans 'Desplegar' %}"
   data-collapse-label="{% trans 'Plegar' %}"
   data-parent-label="{% trans 'Padre' %}"
+  data-id-label="{% trans 'ID' %}"
+  data-new-label="{% trans 'Nuevo' %}"
+  data-edit-label="{% trans 'Editar' %}"
   data-clone-label="{% trans 'Clonar' %}"
   data-clone-title="{% trans 'Clonar entidad' %}"
-  data-delete-label="X"
+  data-delete-label="{% trans 'Borrar' %}"
   data-delete-title="{% trans 'Eliminar entidad' %}"
   data-delete-confirm="{% trans 'Eliminar esta entidad?' %}"
 >
+  <div class="section-title new-country-config-create-toolbar">
+    <h2>{% trans "Configuracion" %}</h2>
+    <div class="actions">
+      <button class="secondary" type="button" data-new-country-entity-open data-create-url="{{ new_country_config_new_url }}">{% trans "Nuevo" %}</button>
+    </div>
+  </div>
   <div class="new-country-config-tree-toolbar">
     <label>
       <span>{% trans "Nivel" %}</span>
@@ -72,7 +85,6 @@
       <tr>
         <th class="new-country-tree-toggle-heading"><span class="visually-hidden">{% trans "Desplegar" %}</span></th>
         <th>{% trans "Nivel" %}</th>
-        <th>{% trans "Codigo" %}</th>
         <th>{% trans "Nombre" %}</th>
         <th>{% trans "Tipo" %}</th>
         <th>{% trans "Terreno" %}</th>
@@ -83,7 +95,7 @@
     </thead>
     <tbody data-new-country-config-tree-body>
       <tr data-new-country-config-tree-status>
-        <td colspan="9">
+        <td colspan="8">
           <span class="loading-spinner" aria-hidden="true"></span>
           {% trans "Cargando entidades..." %}
         </td>
@@ -91,4 +103,24 @@
     </tbody>
   </table>
 </div>
+<dialog class="new-country-entity-dialog" data-new-country-entity-dialog aria-labelledby="new-country-entity-dialog-title">
+  <div class="section-title">
+    <h2 id="new-country-entity-dialog-title" data-create-title="{% trans 'Nueva entidad' %}" data-edit-title="{% trans 'Editar' %}">{% trans "Nueva entidad" %}</h2>
+    <div class="actions">
+      <button class="secondary" type="button" data-new-country-entity-close>{% trans "Cancelar" %}</button>
+      <button type="button" data-new-country-entity-create data-create-label="{% trans 'Crear' %}" data-save-label="{% trans 'Guardar' %}" disabled>{% trans "Crear" %}</button>
+    </div>
+  </div>
+  <div class="new-country-kind-chooser" data-new-country-kind-chooser hidden>
+    <section class="panel">
+      <button type="button" class="secondary" data-new-country-kind="template" aria-describedby="country-template-help">{% trans "Plantilla" %}</button>
+      <p id="country-template-help">{% trans "Introduce población y terreno a mano. Si dejas un campo vacío, se suman los valores de los hijos." %}</p>
+    </section>
+    <section class="panel">
+      <button type="button" class="secondary" data-new-country-kind="record" aria-describedby="country-record-help">{% trans "Registro" %}</button>
+      <p id="country-record-help">{% trans "Selecciona grupos o subdivisiones para calcular la población y el terreno." %}</p>
+    </section>
+  </div>
+  <iframe data-new-country-entity-frame title="{% trans 'Nueva entidad' %}"></iframe>
+</dialog>
 {% endblock %}

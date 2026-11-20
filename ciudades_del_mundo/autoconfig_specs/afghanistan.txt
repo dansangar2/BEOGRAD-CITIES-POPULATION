@@ -1,0 +1,15 @@
+Objetivo territorial de Afganistan
+
+Conservar la jerarquia vigente: L0 pais, L1 provincias y L2 distritos.
+LEGAL_SUBDIVISION sigue siendo 2. No modificar las identidades, poblaciones,
+traducciones ni relaciones de las entidades ya importadas.
+
+Anadir los sectores urbanos de Kabul en L3 bajo el distrito capital 0101,
+que permanece en L2 bajo la provincia de Kabul 01, L1.
+Fuente: https://www.citypopulation.de/en/afghanistan/kabulcity/
+Conservar los codigos kab01-kab13 y kab15-kab17, el tipo City District y
+las proyecciones de poblacion de 2020-09-21: 16 hijos directos de 0101.
+No crear el sector 14 ni los sectores 18-22, sin datos en esta pagina.
+No crear otra ciudad ni sustituir la identidad del distrito capital por
+la ciudad: la pagina aporta sectores, no una nueva capa territorial.
+Las demas ramas terminan en L2 mientras no haya subdivisiones publicadas.

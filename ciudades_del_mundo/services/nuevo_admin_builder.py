@@ -14,7 +14,7 @@ import tomllib
 from urllib.parse import unquote, urlparse
 
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.db.utils import OperationalError, ProgrammingError
 
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -620,6 +620,18 @@ def _lookup_many_with_preferences(
             raw_label,
             city_merge_status_preference,
         )
+        # Explicit source district selections must not be hidden by the default
+        # preference for the aggregate city. Ambiguous labels keep that default.
+        exact_sources = list(qs.filter(city_merge_status=AdminArea.CityMergeStatus.SOURCE).filter(
+            Q(id=label) | Q(code=label)
+        )[:2])
+        if len(exact_sources) == 1 and not (
+            isinstance(raw_label, dict)
+            and any(key in raw_label for key in ("city_merge_status", "prefer_city_merge_status", "merge_status"))
+        ):
+            from ciudades_del_mundo.services.composite_city_sources import composite_city
+            if composite_city(exact_sources[0]) is not None:
+                preference = _city_merge_status_preference(AdminArea.CityMergeStatus.SOURCE)
         lookup_qs = qs
         parent_label = _label_parent(raw_label)
         parent = None
@@ -1367,6 +1379,7 @@ def create_nuevo_area_from_spec(
     source_population_year: int | None = None,
     source_population_index_registry: SourcePopulationIndexRegistry | None = None,
     allow_duplicate_source_data: bool = False,
+    existing_area: NuevoAdminArea | None = None,
 ) -> NuevoAdminArea:
     """Create or update one derived area from a canonical source ``spec``.
 
@@ -1387,6 +1400,10 @@ def create_nuevo_area_from_spec(
 
     default_atomic = parent.municipal_level
 
+    from ciudades_del_mundo.services.composite_city_sources import normalize_composite_spec
+    normalized_spec = normalize_composite_spec(include_spec, fallback_level=default_atomic)
+    composite_selection = normalized_spec != include_spec
+    include_spec = normalized_spec
     include_map = {k: v for k, v in include_spec.items() if k != "restar"}
     restar_raw = include_spec.get("restar", {}) or {}
 
@@ -1572,7 +1589,7 @@ def create_nuevo_area_from_spec(
     }
     mun_final_ids = mun_incluidos - mun_restar
 
-    if not macro_ids and not mun_final_ids and not sub_extra_final_ids:
+    if not macro_ids and not mun_final_ids and not sub_extra_final_ids and not composite_selection:
         raise ValueError(f"La especificación para '{new_name}' no produjo ninguna unidad.")
 
     # ---------------------------------------------------------
@@ -1644,8 +1661,7 @@ def create_nuevo_area_from_spec(
 
     new_id = f"{parent.country_code}-{code_val}"
 
-    obj = NuevoAdminArea.objects.create(
-        id=new_id,
+    fields = dict(
         country_code=parent.country_code,
         code=code_val,
         name=new_name,
@@ -1657,6 +1673,15 @@ def create_nuevo_area_from_spec(
         pop_latest=total_pop,
         municipal_level=default_atomic,
     )
+    if existing_area is None:
+        obj = NuevoAdminArea.objects.create(id=new_id, **fields)
+    else:
+        obj = existing_area
+        fields["code"] = obj.code
+        fields["level"] = obj.level
+        for key, value in fields.items():
+            setattr(obj, key, value)
+        obj.save(update_fields=[*fields, "updated_at"])
 
     # ---------------------------------------------------------
     # Vincular municipios_originales (M2M)

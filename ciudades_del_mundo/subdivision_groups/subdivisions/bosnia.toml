@@ -1,0 +1,10 @@
+schema_version = 1
+kind = "derived_subdivision_bundle"
+source_country_code = "bosnia"
+
+[[subdivisions]]
+internal_name = "BOSNIA_Y_HERZEGOVINA"
+name = "Bosnia y Herzegovina"
+code = "BYH"
+entity_type = "Provincia"
+content = "slug = \"austria_bosnia_y_herzegovina\"\nschema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"BOSNIA_Y_HERZEGOVINA\"\nsource_country_code = \"bosnia\"\nname = \"Bosnia y Herzegovina\"\ncode = \"BYH\"\nentity_type = \"Provincia\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Sarajevo\"]\n\n[[include]]\ncountry_code = \"bosnia\"\nlevel = 0\nnames = []\nids = []\ncodes = [\"bosnia\"]\ngroups = []\nderived_subdivisions = []\nexpressions = []\n"

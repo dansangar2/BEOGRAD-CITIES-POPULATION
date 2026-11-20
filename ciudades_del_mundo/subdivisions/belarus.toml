@@ -11,3 +11,24 @@ include = { infosection = true, major_subdivision = false, cities = false }
 source = "admin"
 path = ["admin"]
 include = { infosection = true, admin1 = true, admin2 = true }
+
+# Regiones L1, distritos/ciudades de rango distrital L2 y localidades L3.
+# La pagina nacional solo muestra localidades de mas de 10.000 habitantes.
+[[pages]]
+source = "cities"
+path = ["brest", "gomel", "grodno", "minsk", "mogilev", "vitebsk"]
+include = { infosection = true, major_subdivision = true, cities = true }
+force_highest_level = 1
+preserve_source_codes = true
+
+# Minsk conserva su rango regional (5, L1), la ciudad (511, L2)
+# y sus nueve distritos urbanos (L3), sin inventar localidades.
+[[pages]]
+source = "cities"
+path = ["minskcitydistricts"]
+include = { infosection = true, major_subdivision = false, cities = true }
+force_highest_level = 2
+root_code = "511"
+root_parent_code = "5"
+root_entity_type = "City"
+preserve_source_codes = true

@@ -8,7 +8,8 @@ include = { infosection = true, major_subdivision = false, cities = false }
 [[pages]]
 source = "admin"
 path = ["admin"]
-include = { infosection = true, admin1 = true, admin2 = true }
+include = { infosection = false, admin1 = true, admin2 = true }
+force_highest_level = 1
 
 [[pages]]
 source = "cities"
@@ -34,7 +35,7 @@ path = [
   "zala",
 ]
 include = { infosection = true, major_subdivision = true, cities = true }
-force_highest_level = 1
+force_highest_level = 2
 include_root = false
 
 [[cities]]

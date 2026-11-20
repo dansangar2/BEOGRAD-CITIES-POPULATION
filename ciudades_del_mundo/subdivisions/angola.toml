@@ -1,6 +1,7 @@
 LEGAL_SUBDIVISION = 3
 
 scrape_schema_version = 2
+wikidata_id = "Q916"
 
 [[pages]]
 source = "cities"
@@ -10,10 +11,32 @@ include = { infosection = true, major_subdivision = false, cities = false }
 [[pages]]
 source = "admin"
 path = ["admin"]
-include = { infosection = true, admin1 = true, admin2 = true }
+include = { infosection = false, admin1 = true, admin2 = true }
+force_highest_level = 1
+preserve_source_codes = true
 
 [[pages]]
 source = "admin"
 path = ["communes/admin"]
-include = { infosection = true, admin1 = true, admin2 = true }
-force_highest_level = 1
+include = { infosection = false, admin1 = false, admin2 = true }
+force_highest_level = 3
+preserve_source_codes = true
+
+[[cities]]
+city = "Luanda"
+id = "luanda_city"
+level = 2
+type = "City"
+parent_type = "Province"
+from = { 1 = ["05"] }
+communes = ["0501", "0502", "0503", "0504", "0505", "0506", "0507", "0508", "0509", "0510", "0511", "0512", "0513", "0514", "0515", "0516"]
+keep_communes = false
+
+[[parent_overrides]]
+code_pattern = '([0-9]{4})[0-9]'
+parent_code_template = '\1'
+level = 3
+
+[[parent_overrides]]
+code_pattern = '05[0-9]{3}'
+level = 4

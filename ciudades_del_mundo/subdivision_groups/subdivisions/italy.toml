@@ -145,3 +145,31 @@ code = "TIT"
 entity_type = "Magistrado"
 description = "Importada desde C:\\MisProyectos\\BEOGRAD-CITIES-POPULATION\\ciudades_del_mundo\\subdivision_groups\\subdivisions\\italy.toml."
 content = "schema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"TIERRA_DE_TRABAJO\"\nsource_country_code = \"italy\"\nname = \"Tierra de Trabajo\"\ncode = \"TIT\"\nentity_type = \"Magistrado\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Capua\"]\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 2\nnames = [\"Caserta\", \"Napoli\", \"Frosinone\"]\ngroups = []\nexpressions = []\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\ngroups = [\"LATINA_A_TIERRA_DE_TRABAJO\", \"AGUILA_A_TIERRA_DE_TRABAJO\", \"ISERNIA_A_TIERRA_DE_TRABAJO\", \"BENEVENTO_A_TIERRA_DE_TRABAJO\", \"AVELLINO_A_TIERRA_DE_TRABAJO\"]\nexpressions = []\n\n[[subtract]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\ngroups = [\"PONTECORVO\", \"FROSIONE_A_ESTADOS_PONTIFICIOS\", \"NAPOLES_A_PRINCIPADO_CITRA\"]\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "GORICIA_Y_GRADISCA"
+name = "Goricia y Gradisca"
+code = "GYG"
+entity_type = "Condado Principesco"
+content = "slug = \"austria_goricia_y_gradisca\"\nschema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"GORICIA_Y_GRADISCA\"\nsource_country_code = \"italy\"\nname = \"Goricia y Gradisca\"\ncode = \"GYG\"\nentity_type = \"Condado Principesco\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Gorizia\"]\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"VENECIA_JULIA_A_GORITZA\"]\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"slovenia\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"ESLOVENIA_A_GORIZA\"]\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"UDINE_A_GORIZA\"]\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"TRIESTE_A_TRIESTE\", \"TRIESTE_A_ISTRIA\"]\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "LOMBARDIA"
+name = "Lombardía"
+code = "LOM"
+entity_type = "Reino"
+content = "slug = \"austria_lombardia\"\nschema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"LOMBARDIA\"\nsource_country_code = \"italy\"\nname = \"Lombardía\"\ncode = \"LOM\"\nentity_type = \"Reino\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Milano\"]\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 1\nnames = [\"Lombardia\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"PAVIA_AFUERA\"]\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"italy\"\nlevel = 2\nnames = [\"Pavia\"]\nids = []\ncodes = []\ngroups = [\"VENECIA_JULIA_A_GORITZA\"]\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "TRIESTE"
+name = "Trieste"
+code = "TRI"
+entity_type = "Ciudad Imperial Libre"
+content = "slug = \"austria_trieste\"\nschema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"TRIESTE\"\nsource_country_code = \"italy\"\nname = \"Trieste\"\ncode = \"TRI\"\nentity_type = \"Ciudad Imperial Libre\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Trieste\"]\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"TRIESTE_A_TRIESTE\"]\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "VENECIA"
+name = "Venecía"
+code = "VEN"
+entity_type = "Reino"
+content = "slug = \"austria_venecia\"\nschema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"VENECIA\"\nsource_country_code = \"italy\"\nname = \"Venecía\"\ncode = \"VEN\"\nentity_type = \"Reino\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Venezia\"]\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 1\nnames = [\"Veneto\", \"Friuli-Venezia Giulia\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"italy\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"VENECIA_JULIA_A_GORITZA\"]\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"UDINE_A_GORIZA\"]\nderived_subdivisions = []\nexpressions = []\n"

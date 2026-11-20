@@ -1,0 +1,445 @@
+.dashboard-metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.metric,
+.panel,
+.row-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--panel-shadow);
+}
+
+.metric {
+  padding: 16px;
+}
+
+.metric span {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.metric strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 30px;
+}
+
+.metric strong small {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.metric-detail {
+  margin-top: 4px;
+}
+
+.metric .small-strong {
+  font-size: 22px;
+}
+
+.panel {
+  padding: 18px;
+}
+
+.panel.spaced,
+.layout-2 + .layout-2 {
+  margin-top: 22px;
+}
+
+.country-detail-section[hidden] + .layout-2 {
+  margin-top: 22px;
+}
+
+.layout-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.stack {
+  display: grid;
+  gap: 10px;
+}
+
+.row-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+}
+
+.row-card span,
+.muted,
+.empty,
+small {
+  color: var(--muted);
+}
+
+.table-wrap {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.table-wrap.subtle {
+  border-color: var(--line);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 820px;
+}
+
+th,
+td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+td {
+  font-size: 14px;
+}
+
+.compact-table th,
+.compact-table td {
+  padding: 9px 10px;
+}
+
+code,
+pre,
+textarea {
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+}
+
+code {
+  font-size: 12px;
+}
+
+pre {
+  overflow: auto;
+  margin: 12px 0 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #111827;
+  color: #f9fafb;
+}
+
+.console {
+  min-height: 320px;
+  max-height: 620px;
+  white-space: pre-wrap;
+}
+
+.task-output-panel code,
+.task-console code {
+  overflow-wrap: anywhere;
+}
+
+.task-history-panel {
+  overflow: auto;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(140px, 190px) max-content;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.advanced-filters {
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.compact-filters,
+.task-table-filter-form {
+  grid-template-columns: minmax(140px, 220px) max-content;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  align-self: end;
+  min-height: 40px;
+}
+
+input,
+select,
+button,
+.button,
+textarea {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+}
+
+input,
+select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 11px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.78;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+.select2-container {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.select2-container--default .select2-selection--single,
+.select2-container--default .select2-selection--multiple {
+  min-height: 40px;
+  background: var(--surface);
+  border-color: var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+  color: var(--ink);
+  line-height: 38px;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+  height: 38px;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__placeholder,
+.select2-container--default .select2-selection--multiple .select2-selection__placeholder {
+  color: var(--muted);
+}
+
+.select2-container--default .select2-selection--multiple {
+  align-items: center;
+  display: flex;
+  padding: 2px 6px;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__rendered {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice {
+  align-items: center;
+  display: inline-flex;
+  max-width: 100%;
+  margin: 2px 0;
+  background: var(--surface-alt);
+  border-color: var(--line);
+  color: var(--ink);
+  white-space: normal;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice__display {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+  border-right-color: var(--line);
+  color: var(--muted);
+}
+
+.select2-container--default .select2-search--inline .select2-search__field,
+.select2-container--default .select2-search--dropdown .select2-search__field {
+  color: var(--ink);
+}
+
+.select2-container--default .select2-search--inline .select2-search__field {
+  min-height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.select2-dropdown {
+  z-index: 1300;
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--ink);
+  box-shadow: var(--panel-shadow);
+}
+
+.select2-container--default .select2-results__option {
+  color: var(--ink);
+}
+
+.select2-container--default .select2-results__option--selected {
+  background: var(--surface-alt);
+}
+
+.select2-container--default .select2-results__option--highlighted[aria-selected] {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.select2-container--default.select2-container--disabled .select2-selection--single,
+.select2-container--default.select2-container--disabled .select2-selection--multiple {
+  background: var(--surface-alt);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.select2-dropdown-search-visible .select2-search--dropdown,
+.select2-dropdown-search-visible .select2-search--dropdown.select2-search--hide {
+  display: block !important;
+  padding: 8px;
+}
+
+.select2-dropdown-search-visible .select2-search__field {
+  min-height: 36px;
+  width: 100% !important;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.select2-dropdown-search-visible .select2-results {
+  border-top: 1px solid var(--line);
+}
+
+.async-table-panel {
+  min-height: 220px;
+}
+
+.table-loading,
+.table-error {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  text-align: center;
+}
+
+.inline-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.table-empty-cell.inline-loading {
+  display: table-cell;
+}
+
+.table-empty-cell.inline-loading .loading-spinner {
+  margin-right: 8px;
+  vertical-align: -0.2em;
+}
+
+.loading-spinner {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border: 3px solid var(--chart-empty);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: loading-spin 0.75s linear infinite;
+}
+
+button.is-loading,
+.button.is-loading {
+  cursor: progress;
+}
+
+button .button-loading-spinner,
+.button .button-loading-spinner {
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  border-width: 2px;
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.table-error {
+  color: var(--danger);
+}
+
+.table-meta {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 560px;
+  padding: 12px;
+  resize: vertical;
+  background: var(--card-bg);
+  color: var(--ink);
+  line-height: 1.45;
+}
+
+.description-textarea {
+  min-height: 280px;
+}
+
+.code-input {
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  text-transform: uppercase;
+}
+

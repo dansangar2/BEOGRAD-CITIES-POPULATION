@@ -3,6 +3,55 @@ from django.db import models
 from django.db.models import Q
 
 
+class TerritorialReference(models.Model):
+    """Explicitly imported, reviewed reference; independent from scraped areas."""
+
+    country = models.SlugField(max_length=64, db_index=True)
+    version = models.CharField(max_length=100)
+    content = models.JSONField()
+    content_hash = models.CharField(max_length=64)
+    reviewed_by = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["country", "version"], name="territorial_reference_version")]
+
+
+class TerritorialEvidence(models.Model):
+    """Immutable frozen pages and parser observations, loaded/discovered explicitly."""
+
+    country = models.SlugField(max_length=64, db_index=True)
+    version = models.CharField(max_length=64)
+    content = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["country", "version"], name="territorial_evidence_version")]
+
+
+class TerritorialRun(models.Model):
+    """Reviewable alternative run. Applying never overwrites ScrapingConfig."""
+
+    id = models.CharField(max_length=32, primary_key=True)
+    country = models.SlugField(max_length=64, db_index=True)
+    reference = models.ForeignKey(TerritorialReference, on_delete=models.PROTECT)
+    evidence = models.ForeignKey(TerritorialEvidence, null=True, blank=True, on_delete=models.PROTECT)
+    task = models.ForeignKey("WebTask", null=True, blank=True, on_delete=models.SET_NULL)
+    status = models.CharField(max_length=24, default="pending")
+    inputs = models.JSONField(default=dict)
+    inputs_hash = models.CharField(max_length=64, blank=True)
+    plan = models.JSONField(default=dict)
+    plan_hash = models.CharField(max_length=64, blank=True)
+    approved_plan = models.JSONField(default=dict)
+    diagnostics = models.JSONField(default=list)
+    comparison = models.JSONField(default=list)
+    metrics = models.JSONField(default=dict)
+    result = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    applied_at = models.DateTimeField(null=True, blank=True)
+
+
 class AdminArea(models.Model):
     """Administrative area scraped directly from CityPopulation."""
 

@@ -1,6 +1,7 @@
 LEGAL_SUBDIVISION = 2
 
 scrape_schema_version = 2
+wikidata_id = "Q399"
 
 [[pages]]
 source = "cities"
@@ -11,3 +12,34 @@ include = { infosection = true, major_subdivision = false, cities = false }
 source = "admin"
 path = ["admin"]
 include = { infosection = true, admin1 = true, admin2 = true }
+preserve_source_codes = true
+
+[[pages]]
+source = "cities"
+path = ["aragatsotn", "ararat", "armavir", "gegharkunik", "kotayk", "lori", "shirak", "syunik", "tavush", "vayotsdzor"]
+# Keep the municipality table as parent context: locality codes use older boundaries.
+include = { infosection = false, major_subdivision = true, cities = true }
+force_highest_level = 2
+preserve_source_codes = true
+
+[[cities]]
+city = "Yerevan"
+id = "yerevan_city"
+level = 2
+type = "City"
+parent_type = "Province-Level City"
+from = { 1 = ["01"] }
+communes = ["0101", "0102", "0103", "0104", "0105", "0106", "0107", "0108", "0109", "0110", "0111", "0112"]
+keep_communes = false
+
+[[visual_assets.admin_areas]]
+code = "yerevan_city"
+kind = "flag"
+wikidata_id = "Q1953"
+commons_filename = "Flag of Yerevan.svg"
+
+[[visual_assets.admin_areas]]
+code = "yerevan_city"
+kind = "coat"
+wikidata_id = "Q1953"
+commons_filename = "Coat of arms of Yerevan.svg"

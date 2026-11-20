@@ -8,7 +8,9 @@ include = { infosection = true, major_subdivision = false, cities = false }
 [[pages]]
 source = "admin"
 path = ["admin"]
-include = { infosection = true, admin1 = true, admin2 = true }
+# This page has no infosection; the country root comes from cities above.
+include = { infosection = false, admin1 = true, admin2 = true }
+force_highest_level = 1
 
 [[pages]]
 source = "cities"
@@ -36,5 +38,7 @@ path = [
   "zagreb",
 ]
 include = { infosection = true, major_subdivision = true, cities = true }
-force_highest_level = 1
+# County roots (including Grad Zagreb) already come from admin at L1.
+# Read municipalities at L2 and settlements at L3; do not follow city districts.
+force_highest_level = 2
 include_root = false

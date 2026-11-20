@@ -1,0 +1,789 @@
+{
+  "notice": "SYNTHETIC representative branches; codes/populations are test data, not an official Spanish reference.",
+  "pages": {
+    "https://www.citypopulation.de/en/spain/admin/": "<table id=\"tl\"><thead><tr><th>Name</th><th>Status</th><th class=\"rpop\" data-coldate=\"2021-01-01\">Population</th></tr></thead><tbody class=\"admin1\"><tr><td class=\"rname\" id=\"i01\" data-wd=\"\"><span itemprop=\"name\">Andalucía</span></td><td class=\"rstatus\">Autonomous Community</td><td class=\"rpop\">200</td></tr></tbody><tbody class=\"admin2\"><tr><td class=\"rname\" id=\"i0101\" data-wd=\"\"><span itemprop=\"name\">Sevilla</span></td><td class=\"rstatus\">Province</td><td class=\"rpop\">100</td></tr><tr><td class=\"rname\" id=\"i0102\" data-wd=\"\"><span itemprop=\"name\">Cádiz</span></td><td class=\"rstatus\">Province</td><td class=\"rpop\">100</td></tr></tbody><tbody class=\"admin1\"><tr><td class=\"rname\" id=\"i02\" data-wd=\"\"><span itemprop=\"name\">Madrid</span></td><td class=\"rstatus\">Autonomous Community</td><td class=\"rpop\">200</td></tr></tbody><tbody class=\"admin2\"><tr><td class=\"rname\" id=\"i0201\" data-wd=\"\"><span itemprop=\"name\">Madrid</span></td><td class=\"rstatus\">Province</td><td class=\"rpop\">100</td></tr></tbody><tbody class=\"admin1\"><tr><td class=\"rname\" id=\"i03\" data-wd=\"\"><span itemprop=\"name\">Ceuta</span></td><td class=\"rstatus\">Autonomous Community</td><td class=\"rpop\">200</td></tr></tbody><tbody class=\"admin1\"><tr><td class=\"rname\" id=\"i04\" data-wd=\"\"><span itemprop=\"name\">Melilla</span></td><td class=\"rstatus\">Autonomous Community</td><td class=\"rpop\">200</td></tr></tbody><tfoot><tr><td class=\"rname\" id=\"iES\" data-wd=\"Q29\"><span itemprop=\"name\">Spain</span></td><td class=\"rstatus\">Country</td><td class=\"rpop\">1000</td></tr></tfoot></table>",
+    "https://www.citypopulation.de/en/spain/localities/seville/": "<table id=\"tl\"><thead><tr><th>Name</th><th>Status</th><th class=\"rpop\" data-coldate=\"2021-01-01\">Population</th></tr></thead><tbody class=\"adm\"><tr><td class=\"rname\" id=\"i0101\" data-wd=\"\"><span itemprop=\"name\">Sevilla</span></td><td class=\"rstatus\">Province</td><td class=\"rpop\">100</td></tr></tbody><tbody><tr><td class=\"rname\" id=\"i0101001\" data-wd=\"\"><span itemprop=\"name\">Sevilla</span></td><td class=\"rstatus\">Municipality</td><td class=\"rpop\">70</td></tr></tbody><tfoot></tfoot></table><table id=\"ts\"><thead><tr><th>Name</th><th>Status</th><th class=\"radm\">Municipality</th><th class=\"rpop\" data-coldate=\"2021-01-01\">Population</th></tr></thead><tbody><tr><td class=\"rname\" id=\"i010100101\" data-wd=\"\"><span itemprop=\"name\">Sevilla</span></td><td class=\"rstatus\">Locality</td><td class=\"radm\">Sevilla</td><td class=\"rpop\">40</td></tr><tr><td class=\"rname\" id=\"i010100102\" data-wd=\"\"><span itemprop=\"name\">Sevilla parte</span></td><td class=\"rstatus\">Locality</td><td class=\"radm\">Sevilla</td><td class=\"rpop\">30</td></tr></tbody><tfoot></tfoot></table>",
+    "https://www.citypopulation.de/en/spain/localities/cadiz/": "<table id=\"tl\"><thead><tr><th>Name</th><th>Status</th><th class=\"rpop\" data-coldate=\"2021-01-01\">Population</th></tr></thead><tbody class=\"adm\"><tr><td class=\"rname\" id=\"i0102\" data-wd=\"\"><span itemprop=\"name\">Cádiz</span></td><td class=\"rstatus\">Province</td><td class=\"rpop\">100</td></tr></tbody><tbody><tr><td class=\"rname\" id=\"i0102001\" data-wd=\"\"><span itemprop=\"name\">Cádiz</span></td><td class=\"rstatus\">Municipality</td><td class=\"rpop\">70</td></tr></tbody><tfoot></tfoot></table><table id=\"ts\"><thead><tr><th>Name</th><th>Status</th><th class=\"radm\">Municipality</th><th class=\"rpop\" data-coldate=\"2021-01-01\">Population</th></tr></thead><tbody><tr><td class=\"rname\" id=\"i010200101\" data-wd=\"\"><span itemprop=\"name\">Cádiz</span></td><td class=\"rstatus\">Locality</td><td class=\"radm\">Cádiz</td><td class=\"rpop\">40</td></tr><tr><td class=\"rname\" id=\"i010200102\" data-wd=\"\"><span itemprop=\"name\">Cádiz parte</span></td><td class=\"rstatus\">Locality</td><td class=\"radm\">Cádiz</td><td class=\"rpop\">30</td></tr></tbody><tfoot></tfoot></table>",
+    "https://www.citypopulation.de/en/spain/localities/madrid/": "<table id=\"tl\"><thead><tr><th>Name</th><th>Status</th><th class=\"rpop\" data-coldate=\"2021-01-01\">Population</th></tr></thead><tbody class=\"adm\"><tr><td class=\"rname\" id=\"i0201\" data-wd=\"\"><span itemprop=\"name\">Madrid</span></td><td class=\"rstatus\">Province</td><td class=\"rpop\">100</td></tr></tbody><tbody><tr><td class=\"rname\" id=\"i0201001\" data-wd=\"Q2807\"><span itemprop=\"name\">Madrid</span></td><td class=\"rstatus\">Municipality</td><td class=\"rpop\">70</td></tr></tbody><tfoot></tfoot></table><table id=\"ts\"><thead><tr><th>Name</th><th>Status</th><th class=\"radm\">Municipality</th><th class=\"rpop\" data-coldate=\"2021-01-01\">Population</th></tr></thead><tbody><tr><td class=\"rname\" id=\"i020100101\" data-wd=\"Q2807\"><span itemprop=\"name\">Madrid</span></td><td class=\"rstatus\">Locality (part)</td><td class=\"radm\">Madrid</td><td class=\"rpop\">40</td></tr><tr><td class=\"rname\" id=\"i020100102\" data-wd=\"Q2807\"><span itemprop=\"name\">Madrid parte</span></td><td class=\"rstatus\">Locality (part)</td><td class=\"radm\">Madrid</td><td class=\"rpop\">30</td></tr></tbody><tfoot></tfoot></table>",
+    "https://www.citypopulation.de/en/spain/ceuta/": "<table id=\"tl\"><thead><tr><th>Name</th><th>Status</th><th class=\"rpop\" data-coldate=\"2021-01-01\">Population</th></tr></thead><tbody><tr><td class=\"rname\" id=\"i03001\" data-wd=\"\"><span itemprop=\"name\">Ceuta</span></td><td class=\"rstatus\">Municipality</td><td class=\"rpop\">70</td></tr></tbody><tfoot><tr><td class=\"rname\" id=\"i03\" data-wd=\"\"><span itemprop=\"name\">Ceuta</span></td><td class=\"rstatus\">Autonomous City</td><td class=\"rpop\">70</td></tr></tfoot></table>",
+    "https://www.citypopulation.de/en/spain/localities/ceuta/": "<table id=\"tl\"><thead><tr><th>Name</th><th>Status</th><th class=\"rpop\" data-coldate=\"2021-01-01\">Population</th></tr></thead><tbody class=\"adm\"><tr><td class=\"rname\" id=\"i03__spain_ceuta__repeat2\" data-wd=\"\"><span itemprop=\"name\">Ceuta</span></td><td class=\"rstatus\">Autonomous City</td><td class=\"rpop\">70</td></tr></tbody><tbody><tr><td class=\"rname\" id=\"i03001\" data-wd=\"\"><span itemprop=\"name\">Ceuta</span></td><td class=\"rstatus\">Municipality</td><td class=\"rpop\">70</td></tr></tbody><tfoot></tfoot></table><table id=\"ts\"><thead><tr><th>Name</th><th>Status</th><th class=\"radm\">Municipality</th><th class=\"rpop\" data-coldate=\"2021-01-01\">Population</th></tr></thead><tbody><tr><td class=\"rname\" id=\"i0300101\" data-wd=\"\"><span itemprop=\"name\">Ceuta</span></td><td class=\"rstatus\">Locality</td><td class=\"radm\">Ceuta</td><td class=\"rpop\">70</td></tr></tbody><tfoot></tfoot></table>",
+    "https://www.citypopulation.de/en/spain/melilla/": "<table id=\"tl\"><thead><tr><th>Name</th><th>Status</th><th class=\"rpop\" data-coldate=\"2021-01-01\">Population</th></tr></thead><tbody><tr><td class=\"rname\" id=\"i04001\" data-wd=\"\"><span itemprop=\"name\">Melilla</span></td><td class=\"rstatus\">Municipality</td><td class=\"rpop\">70</td></tr></tbody><tfoot><tr><td class=\"rname\" id=\"i04\" data-wd=\"\"><span itemprop=\"name\">Melilla</span></td><td class=\"rstatus\">Autonomous City</td><td class=\"rpop\">70</td></tr></tfoot></table>",
+    "https://www.citypopulation.de/en/spain/localities/melilla/": "<table id=\"tl\"><thead><tr><th>Name</th><th>Status</th><th class=\"rpop\" data-coldate=\"2021-01-01\">Population</th></tr></thead><tbody class=\"adm\"><tr><td class=\"rname\" id=\"i04__spain_melilla__repeat2\" data-wd=\"\"><span itemprop=\"name\">Melilla</span></td><td class=\"rstatus\">Autonomous City</td><td class=\"rpop\">70</td></tr></tbody><tbody><tr><td class=\"rname\" id=\"i04001\" data-wd=\"\"><span itemprop=\"name\">Melilla</span></td><td class=\"rstatus\">Municipality</td><td class=\"rpop\">70</td></tr></tbody><tfoot></tfoot></table><table id=\"ts\"><thead><tr><th>Name</th><th>Status</th><th class=\"radm\">Municipality</th><th class=\"rpop\" data-coldate=\"2021-01-01\">Population</th></tr></thead><tbody><tr><td class=\"rname\" id=\"i0400101\" data-wd=\"\"><span itemprop=\"name\">Melilla</span></td><td class=\"rstatus\">Locality</td><td class=\"radm\">Melilla</td><td class=\"rpop\">70</td></tr></tbody><tfoot></tfoot></table>"
+  },
+  "reference": {
+    "schema_version": 1,
+    "country": "spain",
+    "version": "synthetic-branches-v1",
+    "provenance": "Synthetic test reference declared in territorial_support.py; NOT official territorial data.",
+    "scope": "Only frozen synthetic Andalucía, Madrid, Ceuta and Melilla branches. Not a national acceptance dataset.",
+    "entry_path": "spain/",
+    "roles": [
+      {
+        "id": "country",
+        "level": 0
+      },
+      {
+        "id": "community",
+        "level": 1
+      },
+      {
+        "id": "province",
+        "level": 2
+      },
+      {
+        "id": "municipality",
+        "level": 3
+      },
+      {
+        "id": "locality",
+        "level": 4
+      }
+    ],
+    "entities": [
+      {
+        "id": "ref_spain",
+        "code": "spain",
+        "names": [
+          "Spain"
+        ],
+        "role": "country",
+        "parent": null
+      },
+      {
+        "id": "ref_01",
+        "code": "01",
+        "names": [
+          "Andalucía"
+        ],
+        "role": "community",
+        "parent": "ref_spain"
+      },
+      {
+        "id": "ref_02",
+        "code": "02",
+        "names": [
+          "Madrid"
+        ],
+        "role": "community",
+        "parent": "ref_spain"
+      },
+      {
+        "id": "ref_03",
+        "code": "03",
+        "names": [
+          "Ceuta"
+        ],
+        "role": "community",
+        "parent": "ref_spain"
+      },
+      {
+        "id": "ref_04",
+        "code": "04",
+        "names": [
+          "Melilla"
+        ],
+        "role": "community",
+        "parent": "ref_spain"
+      },
+      {
+        "id": "ref_0101",
+        "code": "0101",
+        "names": [
+          "Sevilla"
+        ],
+        "role": "province",
+        "parent": "ref_01"
+      },
+      {
+        "id": "ref_0102",
+        "code": "0102",
+        "names": [
+          "Cádiz"
+        ],
+        "role": "province",
+        "parent": "ref_01"
+      },
+      {
+        "id": "ref_0201",
+        "code": "0201",
+        "names": [
+          "Madrid"
+        ],
+        "role": "province",
+        "parent": "ref_02"
+      },
+      {
+        "id": "ref_03__spain_ceuta__repeat2",
+        "code": "03__spain_ceuta__repeat2",
+        "names": [
+          "Ceuta"
+        ],
+        "role": "province",
+        "parent": "ref_03",
+        "repeat_of": "ref_03"
+      },
+      {
+        "id": "ref_04__spain_melilla__repeat2",
+        "code": "04__spain_melilla__repeat2",
+        "names": [
+          "Melilla"
+        ],
+        "role": "province",
+        "parent": "ref_04",
+        "repeat_of": "ref_04"
+      },
+      {
+        "id": "ref_0101001",
+        "code": "0101001",
+        "names": [
+          "Sevilla"
+        ],
+        "role": "municipality",
+        "parent": "ref_0101"
+      },
+      {
+        "id": "ref_0102001",
+        "code": "0102001",
+        "names": [
+          "Cádiz"
+        ],
+        "role": "municipality",
+        "parent": "ref_0102"
+      },
+      {
+        "id": "ref_0201001",
+        "code": "0201001",
+        "names": [
+          "Madrid"
+        ],
+        "role": "municipality",
+        "parent": "ref_0201"
+      },
+      {
+        "id": "ref_03001",
+        "code": "03001",
+        "names": [
+          "Ceuta"
+        ],
+        "role": "municipality",
+        "parent": "ref_03__spain_ceuta__repeat2"
+      },
+      {
+        "id": "ref_04001",
+        "code": "04001",
+        "names": [
+          "Melilla"
+        ],
+        "role": "municipality",
+        "parent": "ref_04__spain_melilla__repeat2"
+      },
+      {
+        "id": "ref_010100101",
+        "code": "010100101",
+        "names": [
+          "Sevilla"
+        ],
+        "role": "locality",
+        "parent": "ref_0101001"
+      },
+      {
+        "id": "ref_010100102",
+        "code": "010100102",
+        "names": [
+          "Sevilla parte"
+        ],
+        "role": "locality",
+        "parent": "ref_0101001"
+      },
+      {
+        "id": "ref_010200101",
+        "code": "010200101",
+        "names": [
+          "Cádiz"
+        ],
+        "role": "locality",
+        "parent": "ref_0102001"
+      },
+      {
+        "id": "ref_010200102",
+        "code": "010200102",
+        "names": [
+          "Cádiz parte"
+        ],
+        "role": "locality",
+        "parent": "ref_0102001"
+      },
+      {
+        "id": "ref_020100101",
+        "code": "020100101",
+        "names": [
+          "Madrid"
+        ],
+        "role": "locality",
+        "parent": "ref_0201001"
+      },
+      {
+        "id": "ref_020100102",
+        "code": "020100102",
+        "names": [
+          "Madrid parte"
+        ],
+        "role": "locality",
+        "parent": "ref_0201001"
+      },
+      {
+        "id": "ref_0300101",
+        "code": "0300101",
+        "names": [
+          "Ceuta"
+        ],
+        "role": "locality",
+        "parent": "ref_03001"
+      },
+      {
+        "id": "ref_0400101",
+        "code": "0400101",
+        "names": [
+          "Melilla"
+        ],
+        "role": "locality",
+        "parent": "ref_04001"
+      }
+    ],
+    "exceptions": [
+      {
+        "id": "autonomous_city_repetition",
+        "entities": [
+          "ref_03__spain_ceuta__repeat2",
+          "ref_04__spain_melilla__repeat2"
+        ],
+        "reason": "Preserve explicit community and province roles on consecutive levels, matching the existing Spain recipe.",
+        "provenance": "Existing subdivisions/spain.toml repeat.infosection=2; synthetic acceptance only."
+      }
+    ]
+  },
+  "traditional_content": "LEGAL_SUBDIVISION = 3\nscrape_schema_version = 2\n\n[[pages]]\nsource = \"admin\"\npath = [\"admin\"]\ninclude = { infosection = true, major_subdivision = true, minor_subdivision = true }\n\n[[pages]]\nsource = \"cities\"\npath = [\"andalucia\", \"aragon\", \"canarias\", \"castillalamancha\", \"castillayleon\", \"cataluna\", \"comunitatvalenciana\", \"extremadura\", \"galicia\", \"paisvasco\", \"larioja\", \"asturias\", \"cantabria\", \"illesbalears\", \"madrid\", \"murcia\", \"navarra\"]\ninclude = { cities = true, infosection = false, major_subdivision = true }\n\n[[pages]]\nsource = \"cities\"\npath = [\"ceuta\", \"melilla\"]\nparent_level = 2\ninclude = { cities = false, infosection = true, major_subdivision = true }\nrepeat = { infosection = 2 }\n\n[[pages]]\nsource = \"cities\"\npath = [\"localities/acoruna\", \"localities/alava\", \"localities/albacete\", \"localities/alicante\", \"localities/almeria\", \"localities/avila\", \"localities/badajoz\", \"localities/barcelona\", \"localities/burgos\", \"localities/caceres\", \"localities/cadiz\", \"localities/castellon\", \"localities/ciudadreal\", \"localities/cordoba\", \"localities/cuenca\", \"localities/girona\", \"localities/granada\", \"localities/guadalajara\", \"localities/guipuzcoa\", \"localities/huelva\", \"localities/huesca\", \"localities/jaen\", \"localities/laspalmas\", \"localities/leon\", \"localities/lleida\", \"localities/lugo\", \"localities/malaga\", \"localities/ourense\", \"localities/palencia\", \"localities/pontevedra\", \"localities/salamanca\", \"localities/santacruzdetenerife\", \"localities/segovia\", \"localities/sevilla\", \"localities/soria\", \"localities/tarragona\", \"localities/teruel\", \"localities/toledo\", \"localities/valencia\", \"localities/valladolid\", \"localities/vizcaya\", \"localities/zamora\", \"localities/zaragoza\", \"localities/asturias\", \"localities/cantabria\", \"localities/illesbalears\", \"localities/larioja\", \"localities/madrid\", \"localities/murcia\", \"localities/navarra\", \"localities/ceuta\", \"localities/melilla\"]\ninclude = { cities = true, infosection = false, major_subdivision = true }\n\n[visual_assets]\nbulk_country_wikidata = true\nstrict_required = true\nrequired_kinds = [\"flag\", \"coat\"]\n",
+  "captured_owners": {
+    "application/scrape_admin_areas.py": "c0dc275aeb4c853e78f83ea963bd08148b35cd70463a9ca141223aa4db82e1a3",
+    "application/citypopulation_linking.py": "bdfd9763457018827a855c30cc5f4c8202cbfaa07f5fbab58d56764363848f22",
+    "infrastructure/scraping/citypopulation_sections.py": "7b8bba1e714837e638cc71303de6d9d2430bcddf49decb4e62e66f6f28b8db0f"
+  },
+  "selected_paths": [
+    "spain/admin",
+    "spain/ceuta",
+    "spain/melilla",
+    "spain/localities/cadiz",
+    "spain/localities/madrid",
+    "spain/localities/ceuta",
+    "spain/localities/melilla",
+    "spain/localities/seville"
+  ],
+  "baseline": [
+    {
+      "code": "spain",
+      "name": "Spain",
+      "level": 0,
+      "country_code": "spain",
+      "entity_type": "Country",
+      "raw_entity_type": "Country",
+      "parent_code": null,
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 1000,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/admin/#iES",
+      "data_wd": "Q29",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: infosection",
+      "contributes_to_root": false,
+      "most_populated_city_code": "0400101",
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "01",
+      "name": "Andalucía",
+      "level": 1,
+      "country_code": "spain",
+      "entity_type": "Autonomous Community",
+      "raw_entity_type": "Autonomous Community",
+      "parent_code": "spain",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 200,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/admin/#i01",
+      "data_wd": "",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: major_subdivision",
+      "contributes_to_root": false,
+      "most_populated_city_code": "010200101",
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "02",
+      "name": "Madrid",
+      "level": 1,
+      "country_code": "spain",
+      "entity_type": "Autonomous Community",
+      "raw_entity_type": "Autonomous Community",
+      "parent_code": "spain",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 200,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/admin/#i02",
+      "data_wd": "",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: major_subdivision",
+      "contributes_to_root": false,
+      "most_populated_city_code": "020100101",
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "03",
+      "name": "Ceuta",
+      "level": 1,
+      "country_code": "spain",
+      "entity_type": "Autonomous Community",
+      "raw_entity_type": "Autonomous Community",
+      "parent_code": "spain",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 200,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/admin/#i03",
+      "data_wd": "",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: major_subdivision",
+      "contributes_to_root": false,
+      "most_populated_city_code": "0300101",
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "04",
+      "name": "Melilla",
+      "level": 1,
+      "country_code": "spain",
+      "entity_type": "Autonomous Community",
+      "raw_entity_type": "Autonomous Community",
+      "parent_code": "spain",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 200,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/admin/#i04",
+      "data_wd": "",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: major_subdivision",
+      "contributes_to_root": false,
+      "most_populated_city_code": "0400101",
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "0101",
+      "name": "Sevilla",
+      "level": 2,
+      "country_code": "spain",
+      "entity_type": "Province",
+      "raw_entity_type": "Province",
+      "parent_code": "01",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 100,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/admin/#i0101",
+      "data_wd": "",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: minor_subdivision",
+      "contributes_to_root": false,
+      "most_populated_city_code": "010100101",
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "0102",
+      "name": "Cádiz",
+      "level": 2,
+      "country_code": "spain",
+      "entity_type": "Province",
+      "raw_entity_type": "Province",
+      "parent_code": "01",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 100,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/admin/#i0102",
+      "data_wd": "",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: minor_subdivision",
+      "contributes_to_root": false,
+      "most_populated_city_code": "010200101",
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "0201",
+      "name": "Madrid",
+      "level": 2,
+      "country_code": "spain",
+      "entity_type": "Province",
+      "raw_entity_type": "Province",
+      "parent_code": "02",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 100,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/admin/#i0201",
+      "data_wd": "",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: minor_subdivision",
+      "contributes_to_root": false,
+      "most_populated_city_code": "020100101",
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "03__spain_ceuta__repeat2",
+      "name": "Ceuta",
+      "level": 2,
+      "country_code": "spain",
+      "entity_type": "Autonomous City",
+      "raw_entity_type": "Autonomous City",
+      "parent_code": "03",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 70,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/localities/ceuta/#i03__spain_ceuta__repeat2",
+      "data_wd": "",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: major_subdivision",
+      "contributes_to_root": false,
+      "most_populated_city_code": "0300101",
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "04__spain_melilla__repeat2",
+      "name": "Melilla",
+      "level": 2,
+      "country_code": "spain",
+      "entity_type": "Autonomous City",
+      "raw_entity_type": "Autonomous City",
+      "parent_code": "04",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 70,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/localities/melilla/#i04__spain_melilla__repeat2",
+      "data_wd": "",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: major_subdivision",
+      "contributes_to_root": false,
+      "most_populated_city_code": "0400101",
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "0101001",
+      "name": "Sevilla",
+      "level": 3,
+      "country_code": "spain",
+      "entity_type": "Municipality",
+      "raw_entity_type": "Municipality",
+      "parent_code": "0101",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 70,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/localities/seville/#i0101001",
+      "data_wd": "",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: minor_subdivision",
+      "contributes_to_root": false,
+      "most_populated_city_code": "010100101",
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "0102001",
+      "name": "Cádiz",
+      "level": 3,
+      "country_code": "spain",
+      "entity_type": "Municipality",
+      "raw_entity_type": "Municipality",
+      "parent_code": "0102",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 70,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/localities/cadiz/#i0102001",
+      "data_wd": "",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: minor_subdivision",
+      "contributes_to_root": false,
+      "most_populated_city_code": "010200101",
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "0201001",
+      "name": "Madrid",
+      "level": 3,
+      "country_code": "spain",
+      "entity_type": "Municipality",
+      "raw_entity_type": "Municipality",
+      "parent_code": "0201",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 70,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/localities/madrid/#i0201001",
+      "data_wd": "Q2807",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: minor_subdivision",
+      "contributes_to_root": false,
+      "most_populated_city_code": "020100101",
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "03001",
+      "name": "Ceuta",
+      "level": 3,
+      "country_code": "spain",
+      "entity_type": "Municipality",
+      "raw_entity_type": "Municipality",
+      "parent_code": "03__spain_ceuta__repeat2",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 70,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/localities/ceuta/#i03001",
+      "data_wd": "",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: minor_subdivision",
+      "contributes_to_root": false,
+      "most_populated_city_code": "0300101",
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "04001",
+      "name": "Melilla",
+      "level": 3,
+      "country_code": "spain",
+      "entity_type": "Municipality",
+      "raw_entity_type": "Municipality",
+      "parent_code": "04__spain_melilla__repeat2",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 70,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/localities/melilla/#i04001",
+      "data_wd": "",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: minor_subdivision",
+      "contributes_to_root": false,
+      "most_populated_city_code": "0400101",
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "010100101",
+      "name": "Sevilla",
+      "level": 4,
+      "country_code": "spain",
+      "entity_type": "Locality",
+      "raw_entity_type": "Locality",
+      "parent_code": "0101001",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 40,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/localities/seville/#i010100101",
+      "data_wd": "",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: cities",
+      "contributes_to_root": false,
+      "most_populated_city_code": null,
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "010100102",
+      "name": "Sevilla parte",
+      "level": 4,
+      "country_code": "spain",
+      "entity_type": "Locality",
+      "raw_entity_type": "Locality",
+      "parent_code": "0101001",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 30,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/localities/seville/#i010100102",
+      "data_wd": "",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: cities",
+      "contributes_to_root": false,
+      "most_populated_city_code": null,
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "010200101",
+      "name": "Cádiz",
+      "level": 4,
+      "country_code": "spain",
+      "entity_type": "Locality",
+      "raw_entity_type": "Locality",
+      "parent_code": "0102001",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 40,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/localities/cadiz/#i010200101",
+      "data_wd": "",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: cities",
+      "contributes_to_root": false,
+      "most_populated_city_code": null,
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "010200102",
+      "name": "Cádiz parte",
+      "level": 4,
+      "country_code": "spain",
+      "entity_type": "Locality",
+      "raw_entity_type": "Locality",
+      "parent_code": "0102001",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 30,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/localities/cadiz/#i010200102",
+      "data_wd": "",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: cities",
+      "contributes_to_root": false,
+      "most_populated_city_code": null,
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "020100101",
+      "name": "Madrid",
+      "level": 4,
+      "country_code": "spain",
+      "entity_type": "Locality (part)",
+      "raw_entity_type": "Locality (part)",
+      "parent_code": "0201001",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 40,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/localities/madrid/#i020100101",
+      "data_wd": "Q2807",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: cities",
+      "contributes_to_root": false,
+      "most_populated_city_code": null,
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "020100102",
+      "name": "Madrid parte",
+      "level": 4,
+      "country_code": "spain",
+      "entity_type": "Locality (part)",
+      "raw_entity_type": "Locality (part)",
+      "parent_code": "0201001",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 30,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/localities/madrid/#i020100102",
+      "data_wd": "Q2807",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: cities",
+      "contributes_to_root": false,
+      "most_populated_city_code": null,
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "0300101",
+      "name": "Ceuta",
+      "level": 4,
+      "country_code": "spain",
+      "entity_type": "Locality",
+      "raw_entity_type": "Locality",
+      "parent_code": "03001",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 70,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/localities/ceuta/#i0300101",
+      "data_wd": "",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: cities",
+      "contributes_to_root": false,
+      "most_populated_city_code": null,
+      "translations": {},
+      "preserve_source_code": false
+    },
+    {
+      "code": "0400101",
+      "name": "Melilla",
+      "level": 4,
+      "country_code": "spain",
+      "entity_type": "Locality",
+      "raw_entity_type": "Locality",
+      "parent_code": "04001",
+      "area_km2": null,
+      "density": null,
+      "pop_latest": 70,
+      "pop_latest_date": "2021-01-01",
+      "last_census_year": 2021,
+      "url": "https://www.citypopulation.de/en/spain/localities/melilla/#i0400101",
+      "data_wd": "",
+      "city_merge_status": 0,
+      "annotations": "CityPopulation section: cities",
+      "contributes_to_root": false,
+      "most_populated_city_code": null,
+      "translations": {},
+      "preserve_source_code": false
+    }
+  ]
+}

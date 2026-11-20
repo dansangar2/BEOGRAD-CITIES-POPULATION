@@ -1,0 +1,47 @@
+schema_version = 1
+kind = "derived_country_config"
+country = "imperio_austriaco"
+country_name = "Imperio Austriaco"
+municipal_level = 4
+slug = "imperio_austriaco_state_serbia_y_banato_de_tamis"
+name = "Serbia y Banato de Tamis"
+source_country_code = "serbia"
+derived_country_code = "imperio_austriaco"
+parent_config_slug = "imperio_austriaco_prov_serbia_banato_tamis"
+groups = []
+
+[selection]
+source_country_code = "serbia"
+include_ids = ["hungary_08253", "hungary_11280", "hungary_14410", "hungary_18999", "hungary_26666", "hungary_27234", "romania_009280", "romania_009574", "romania_009887", "romania_010006", "romania_010765", "romania_010827", "romania_011940", "romania_012144", "romania_012402", "romania_012643", "romania_012778", "romania_012920", "romania_012938", "romania_023207", "romania_063334", "romania_100317", "romania_110063", "romania_112245", "romania_112904", "romania_113607", "romania_116796", "romania_133278", "romania_148453", "romania_155118", "romania_155243", "romania_155261", "romania_155289", "romania_155314", "romania_155350", "romania_155403", "romania_155458", "romania_155494", "romania_155528", "romania_155546", "romania_155591", "romania_155662", "romania_155724", "romania_155760", "romania_155797", "romania_155840", "romania_155911", "romania_155957", "romania_156035", "romania_156106", "romania_156151", "romania_156213", "romania_156259", "romania_156277", "romania_156311", "romania_156357", "romania_156437", "romania_156473", "romania_156534", "romania_156589", "romania_156623", "romania_156669", "romania_156712", "romania_156767", "romania_156801", "romania_156927", "romania_157004", "romania_157031", "romania_157086", "romania_157193", "romania_157246", "romania_157273", "romania_157317", "romania_157362", "romania_157424", "romania_157451", "romania_157497", "romania_157530", "romania_157585", "romania_157683", "romania_157736", "romania_157781", "romania_157834", "romania_157898", "romania_157923", "romania_157969", "romania_158010", "romania_158065", "romania_158109", "romania_158136", "romania_158181", "romania_158243", "romania_158314", "romania_158396", "romania_158449", "romania_158528", "romania_158564", "romania_158608", "romania_158653", "romania_158699", "romania_158733", "romania_158779", "romania_158804", "romania_158859", "romania_158895", "romania_158966", "romania_159035", "romania_159071", "romania_159142", "romania_159213", "romania_159259", "romania_159339", "romania_159366", "romania_159375", "romania_159384", "romania_159393", "romania_159400", "romania_159419", "romania_159428", "romania_159437", "romania_159446", "romania_159455", "romania_159464", "romania_159473", "romania_159482", "romania_159491", "romania_159507", "romania_159516", "romania_159525", "serbia_M01457", "serbia_M01513", "serbia_M01583", "serbia_M01709", "serbia_M01793", "serbia_M01905", "serbia_M02087", "serbia_M02150", "serbia_M02234", "serbia_M02269", "serbia_M02353", "serbia_M02472", "serbia_M02612", "serbia_M02668", "serbia_M02780", "serbia_M02815", "serbia_M02878", "serbia_M02920", "serbia_M02983", "serbia_M03018", "serbia_M03046", "serbia_M03060", "serbia_M03088", "serbia_M03151", "serbia_M03193", "serbia_M03291", "serbia_M03445", "serbia_M03487", "serbia_M03564", "serbia_M03732", "serbia_M03760", "serbia_M03914", "serbia_M04012", "serbia_M04180", "serbia_M04229", "serbia_M04264"]
+subtract_ids = []
+include_codes = []
+subtract_codes = []
+group_slugs = []
+
+[[entities]]
+mode = "final"
+name = "Serbia y Banato de Tamis"
+code = "SYT"
+entity_type = "Estado"
+level = 3
+parent_config_slug = "imperio_austriaco_prov_serbia_banato_tamis"
+capitals = ["Timiș"]
+use_selected_entities_as_children = false
+
+area_km2 = 28449.33
+pop_latest = 2149095
+density = 75.54
+[[entities.include]]
+country_code = "hungary"
+level = 3
+ids = ["hungary_08253", "hungary_11280", "hungary_14410", "hungary_18999", "hungary_26666", "hungary_27234"]
+
+[[entities.include]]
+country_code = "romania"
+level = 3
+ids = ["romania_009280", "romania_009574", "romania_009887", "romania_010006", "romania_010765", "romania_010827", "romania_011940", "romania_012144", "romania_012402", "romania_012643", "romania_012778", "romania_012920", "romania_012938", "romania_023207", "romania_063334", "romania_100317", "romania_110063", "romania_112245", "romania_112904", "romania_113607", "romania_116796", "romania_133278", "romania_148453", "romania_155118", "romania_155243", "romania_155261", "romania_155289", "romania_155314", "romania_155350", "romania_155403", "romania_155458", "romania_155494", "romania_155528", "romania_155546", "romania_155591", "romania_155662", "romania_155724", "romania_155760", "romania_155797", "romania_155840", "romania_155911", "romania_155957", "romania_156035", "romania_156106", "romania_156151", "romania_156213", "romania_156259", "romania_156277", "romania_156311", "romania_156357", "romania_156437", "romania_156473", "romania_156534", "romania_156589", "romania_156623", "romania_156669", "romania_156712", "romania_156767", "romania_156801", "romania_156927", "romania_157004", "romania_157031", "romania_157086", "romania_157193", "romania_157246", "romania_157273", "romania_157317", "romania_157362", "romania_157424", "romania_157451", "romania_157497", "romania_157530", "romania_157585", "romania_157683", "romania_157736", "romania_157781", "romania_157834", "romania_157898", "romania_157923", "romania_157969", "romania_158010", "romania_158065", "romania_158109", "romania_158136", "romania_158181", "romania_158243", "romania_158314", "romania_158396", "romania_158449", "romania_158528", "romania_158564", "romania_158608", "romania_158653", "romania_158699", "romania_158733", "romania_158779", "romania_158804", "romania_158859", "romania_158895", "romania_158966", "romania_159035", "romania_159071", "romania_159142", "romania_159213", "romania_159259", "romania_159339", "romania_159366", "romania_159375", "romania_159384", "romania_159393", "romania_159400", "romania_159419", "romania_159428", "romania_159437", "romania_159446", "romania_159455", "romania_159464", "romania_159473", "romania_159482", "romania_159491", "romania_159507", "romania_159516", "romania_159525"]
+
+[[entities.include]]
+country_code = "serbia"
+level = 2
+ids = ["serbia_M01457", "serbia_M01513", "serbia_M01583", "serbia_M01709", "serbia_M01793", "serbia_M01905", "serbia_M02087", "serbia_M02150", "serbia_M02234", "serbia_M02269", "serbia_M02353", "serbia_M02472", "serbia_M02612", "serbia_M02668", "serbia_M02780", "serbia_M02815", "serbia_M02878", "serbia_M02920", "serbia_M02983", "serbia_M03018", "serbia_M03046", "serbia_M03060", "serbia_M03088", "serbia_M03151", "serbia_M03193", "serbia_M03291", "serbia_M03445", "serbia_M03487", "serbia_M03564", "serbia_M03732", "serbia_M03760", "serbia_M03914", "serbia_M04012", "serbia_M04180", "serbia_M04229", "serbia_M04264"]

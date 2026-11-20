@@ -1,0 +1,3 @@
+# "java": Django + API Java (predeterminado). "python": solo Django.
+# Cerrar y volver a abrir levantar_app.bat reinicia ambos y recompila Java si cambia.
+backend = "python"

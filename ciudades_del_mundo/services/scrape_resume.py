@@ -20,7 +20,8 @@ from ciudades_del_mundo.domain import ScrapedAdminArea
 
 
 SCRAPE_RESUME_DIR_NAME = ".web_scrape_resume"
-SCRAPE_RESUME_VERSION = 1
+# Parsed metrics from older checkpoints may still contain hectares as km².
+SCRAPE_RESUME_VERSION = 2
 
 
 @dataclass(frozen=True)

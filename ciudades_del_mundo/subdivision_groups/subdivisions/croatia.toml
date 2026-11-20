@@ -1,0 +1,38 @@
+schema_version = 1
+kind = "derived_subdivision_bundle"
+source_country_code = "croatia"
+
+[[subdivisions]]
+internal_name = "CROACIA"
+name = "Croacia"
+code = "CRO"
+entity_type = "Reino"
+content = "slug = \"austria_croacia\"\nschema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"CROACIA\"\nsource_country_code = \"croatia\"\nname = \"Croacia\"\ncode = \"CRO\"\nentity_type = \"Reino\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Zagreb\"]\n\n[[include]]\ncountry_code = \"croatia\"\nlevel = 1\nnames = [\"Grad Zagreb\", \"Zagreb\", \"Karlovac\", \"Lika-Senj\", \"Primorje-Gorski kotar\", \"Sisak-Moslavina\", \"Bjelovar-Bilogora\", \"Varaždin\", \"Krapina-Zagorje\", \"Koprivnica-Križevci\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"croatia\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"ZADAR_A_CROACIA\", \"VIROVITICA_PODRAVINA_A_CROATIA\"]\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"croatia\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"FIUME\", \"LINKA_SENJ_A_DALMACIA\", \"PRIMORJE_GORSKI_KOTAR_A_ISTRIA\", \"PRIMORJE_GORSKI_KOTAR_A_ISTRIA_ISLAS\", \"PRIMORJE_GORSKI_KOTAR_A_DALMACIA\", \"SIKAK_MOSLAVINA_A_ESLAVONIA\", \"BELOVAR_BILOGORA_A_ESLAVONIA\"]\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "DALMACIA"
+name = "Dalmacia"
+code = "DAL"
+entity_type = "Reino"
+content = "slug = \"austria_dalmacia\"\nschema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"DALMACIA\"\nsource_country_code = \"croatia\"\nname = \"Dalmacia\"\ncode = \"DAL\"\nentity_type = \"Reino\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Zadar\"]\n\n[[include]]\ncountry_code = \"croatia\"\nlevel = 1\nnames = [\"Dubrovnik-Neretva\", \"Split-Dalmacija\", \"Šibenik-Knin\", \"Zadar\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"montenegro\"\nlevel = 1\nnames = []\nids = []\ncodes = []\ngroups = [\"MONTENEGRO_DALMACIA\"]\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"croatia\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"LINKA_SENJ_A_DALMACIA\", \"PRIMORJE_GORSKI_KOTAR_A_DALMACIA\"]\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"croatia\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"ZADAR_A_CROACIA\"]\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "ESLAVONIA"
+name = "Eslavonia"
+code = "ESL"
+entity_type = "Reino"
+content = "slug = \"austria_eslavonia\"\nschema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"ESLAVONIA\"\nsource_country_code = \"croatia\"\nname = \"Eslavonia\"\ncode = \"ESL\"\nentity_type = \"Reino\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Osijek\"]\n\n[[include]]\ncountry_code = \"croatia\"\nlevel = 1\nnames = [\"Vukovar-Srijem\", \"Osijek-Baranja\", \"Brod-Posavina\", \"Požega-Slavonija\", \"Virovitica-Podravina\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"serbia\"\nlevel = 1\nnames = []\nids = []\ncodes = []\ngroups = [\"SERBIA_A_ESLAVONIA_DISTRITOS\"]\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"croatia\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"SIKAK_MOSLAVINA_A_ESLAVONIA\", \"BELOVAR_BILOGORA_A_ESLAVONIA\"]\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"serbia\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"SERBIA_A_ESLAVONIA_MUNICIPIOS\"]\nderived_subdivisions = []\nexpressions = []\n\n[[subtract]]\ncountry_code = \"croatia\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"OSIJEK_BARANJA_A_HUNGRIA\", \"VIROVITICA_PODRAVINA_A_CROATIA\"]\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "FIUME"
+name = "Fiume"
+code = "FIU"
+entity_type = "Ciudad y Distrito"
+content = "slug = \"austria_fiume\"\nschema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"FIUME\"\nsource_country_code = \"croatia\"\nname = \"Fiume\"\ncode = \"FIU\"\nentity_type = \"Ciudad y Distrito\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Rijeka\"]\n\n[[include]]\ncountry_code = \"croatia\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"FIUME\"]\nderived_subdivisions = []\nexpressions = []\n"
+
+[[subdivisions]]
+internal_name = "ISTRIA"
+name = "Istria"
+code = "IST"
+entity_type = "Margraviato"
+content = "slug = \"austria_istria\"\nschema_version = 1\nkind = \"derived_subdivision\"\ninternal_name = \"ISTRIA\"\nsource_country_code = \"croatia\"\nname = \"Istria\"\ncode = \"IST\"\nentity_type = \"Margraviato\"\nlevel = 1\ngeneric_name = \"\"\ncapitals = [\"Pula\"]\n\n[[include]]\ncountry_code = \"croatia\"\nlevel = 1\nnames = [\"Istra\"]\nids = []\ncodes = []\ngroups = []\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"croatia\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"PRIMORJE_GORSKI_KOTAR_A_ISTRIA\", \"PRIMORJE_GORSKI_KOTAR_A_ISTRIA_ISLAS\"]\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"slovenia\"\nlevel = 2\nnames = []\nids = []\ncodes = []\ngroups = [\"ESLOVENIA_A_ISTRIA\"]\nderived_subdivisions = []\nexpressions = []\n\n[[include]]\ncountry_code = \"italy\"\nlevel = 3\nnames = []\nids = []\ncodes = []\ngroups = [\"TRIESTE_A_ISTRIA\"]\nderived_subdivisions = []\nexpressions = []\n"

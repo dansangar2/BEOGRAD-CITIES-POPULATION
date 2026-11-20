@@ -1,118 +1,48 @@
-name = "Austria"
-country_code = "austria"
-LEGAL_SUBDIVISION = 4
-
-[visual_assets.flag]
-remote_url = "https://www.citypopulation.de/images/flags/austria.svg"
-source = "config"
-
+LEGAL_SUBDIVISION = 3
 scrape_schema_version = 2
+name = "Austria"
 
 [[pages]]
 source = "admin"
 path = ["admin"]
-include = { infosection = true, admin1 = true, admin2 = true }
+include = { infosection = true, major_subdivision = true, minor_subdivision = true }
 
 [[pages]]
 source = "cities"
-path = [
-  "burgenland",
-  "karnten",
-  "niederosterreich",
-  "oberosterreich",
-  "salzburg",
-  "steiermark",
-  "tirol",
-  "vorarlberg",
-  "wien",
-]
-include = { infosection = true, major_subdivision = true, cities = true }
+path = ["burgenland", "karnten", "niederosterreich", "oberosterreich", "salzburg", "steiermark", "tirol", "vorarlberg"]
 force_highest_level = 1
-include_root = false
+include = { cities = true, infosection = true, major_subdivision = true }
 
 [[pages]]
 source = "cities"
-path = [
-  "localities/eisenstadt",
-  "localities/gussing",
-  "localities/jennersdorf",
-  "localities/mattersburg",
-  "localities/neusiedl",
-  "localities/oberpullendorf",
-  "localities/oberwart",
-  "localities/feldkirchen",
-  "localities/hermagor",
-  "localities/klagenfurt",
-  "localities/sanktveit",
-  "localities/spittal",
-  "localities/villach",
-  "localities/volkermarkt",
-  "localities/wolfsberg",
-  "localities/amstetten",
-  "localities/baden",
-  "localities/bruck",
-  "localities/ganserndorf",
-  "localities/gmund",
-  "localities/hollabrunn",
-  "localities/horn",
-  "localities/korneuburg",
-  "localities/krems",
-  "localities/lilienfeld",
-  "localities/melk",
-  "localities/mistelbach",
-  "localities/modling",
-  "localities/neunkirchen",
-  "localities/sanktpolten",
-  "localities/scheibbs",
-  "localities/tulln",
-  "localities/waidhofen",
-  "localities/wienerneustadt",
-  "localities/zwettl",
-  "localities/braunau",
-  "localities/eferding",
-  "localities/freistadt",
-  "localities/gmunden",
-  "localities/grieskirchen",
-  "localities/kirchdorf",
-  "localities/linz",
-  "localities/perg",
-  "localities/ried",
-  "localities/rohrbach",
-  "localities/scharding",
-  "localities/steyr",
-  "localities/urfahr",
-  "localities/vocklabruck",
-  "localities/wels",
-  "localities/hallein",
-  "localities/salzburg",
-  "localities/sanktjohann",
-  "localities/tamsweg",
-  "localities/zellamsee",
-  "localities/bruckmurzzuschlag",
-  "localities/deutschlandsberg",
-  "localities/graz",
-  "localities/hartbergfurstenfeld",
-  "localities/leibnitz",
-  "localities/leoben",
-  "localities/liezen",
-  "localities/murau",
-  "localities/murtal",
-  "localities/sudoststeiermark",
-  "localities/voitsberg",
-  "localities/weiz",
-  "localities/imst",
-  "localities/innsbruck",
-  "localities/kitzbuhel",
-  "localities/kufstein",
-  "localities/landeck",
-  "localities/lienz",
-  "localities/reutte",
-  "localities/schwaz",
-  "localities/bludenz",
-  "localities/bregenz",
-  "localities/dornbirn",
-  "localities/feldkirch",
-]
-include = { infosection = true, major_subdivision = true, cities = true }
+path = ["localities/eisenstadt", "localities/gussing", "localities/jennersdorf", "localities/mattersburg", "localities/neusiedl", "localities/oberpullendorf", "localities/oberwart", "localities/feldkirchen", "localities/hermagor", "localities/klagenfurt", "localities/sanktveit", "localities/spittal", "localities/villach", "localities/volkermarkt", "localities/wolfsberg", "localities/amstetten", "localities/baden", "localities/bruck", "localities/ganserndorf", "localities/gmund", "localities/hollabrunn", "localities/horn", "localities/korneuburg", "localities/krems", "localities/lilienfeld", "localities/melk", "localities/mistelbach", "localities/modling", "localities/neunkirchen", "localities/sanktpolten", "localities/scheibbs", "localities/tulln", "localities/waidhofen", "localities/wienerneustadt", "localities/zwettl", "localities/braunau", "localities/eferding", "localities/freistadt", "localities/gmunden", "localities/grieskirchen", "localities/kirchdorf", "localities/linz", "localities/perg", "localities/ried", "localities/rohrbach", "localities/scharding", "localities/steyr", "localities/urfahr", "localities/vocklabruck", "localities/wels", "localities/hallein", "localities/salzburg", "localities/sanktjohann", "localities/tamsweg", "localities/zellamsee", "localities/bruckmurzzuschlag", "localities/deutschlandsberg", "localities/graz", "localities/hartbergfurstenfeld", "localities/leibnitz", "localities/leoben", "localities/liezen", "localities/murau", "localities/murtal", "localities/sudoststeiermark", "localities/voitsberg", "localities/weiz", "localities/imst", "localities/innsbruck", "localities/kitzbuhel", "localities/kufstein", "localities/landeck", "localities/lienz", "localities/reutte", "localities/schwaz", "localities/bludenz", "localities/bregenz", "localities/dornbirn", "localities/feldkirch"]
+force_highest_level = 3
+include = { cities = true, infosection = false, major_subdivision = true }
+
+[[pages]]
+source = "cities"
+path = ["wien"]
 force_highest_level = 2
-include_root = false
+root_code = "90001"
+root_parent_code = "9"
+root_entity_type = "Capital City"
+include = { cities = false, infosection = true, major_subdivision = false }
+
+[[pages]]
+source = "cities"
+path = ["wien"]
+force_highest_level = 3
+root_code = "90001_city"
+root_parent_code = "90001"
+root_entity_type = "City"
+include = { cities = false, infosection = true, major_subdivision = false }
+
+[[parent_overrides]]
+codes = ["901", "902", "903", "904", "905", "906", "907", "908", "909", "910", "911", "912", "913", "914", "915", "916", "917", "918", "919", "920", "921", "922", "923"]
+parent_code = "90001_city"
+level = 4
+
+[visual_assets]
+bulk_country_wikidata = true
+strict_required = true
+required_kinds = ["flag", "coat"]

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import json
 import os
 from pathlib import Path
 import threading
@@ -51,7 +52,7 @@ from ciudades_del_mundo.services.visual_assets import (
 )
 from ciudades_del_mundo.services.wikidata_parent_links import repair_entities_with_wikidata_parent_links
 from ciudades_del_mundo.web.log_retention import cleanup_old_logs
-from ciudades_del_mundo.web.task_progress import current_task_id
+from ciudades_del_mundo.web.task_progress import current_task_id, write_config_progress
 
 
 class Command(BaseCommand):
@@ -75,6 +76,15 @@ class Command(BaseCommand):
         )
         parser.add_argument("--debug", action="store_true")
         parser.add_argument("--list-pages", action="store_true", help="Only print the pages that would be scraped.")
+        parser.add_argument("--strategy", choices=("traditional", "ai"), default="traditional",
+            help="Scraping strategy. AI proposes a territorial plan; traditional SQL/TOML behavior is the default.")
+        parser.add_argument("--ai-engine", choices=("local", "provider"),
+            help="Territorial AI engine: local symbolic inference by default; provider requires credentials and explicit selection.")
+        evidence_group = parser.add_mutually_exclusive_group()
+        evidence_group.add_argument("--evidence-id", type=int, help="Frozen SQL evidence version for the AI strategy.")
+        evidence_group.add_argument("--discover", action="store_true", help="Explicitly allow same-country discovery for the AI strategy.")
+        parser.add_argument("--territorial-run", help="Review a stored AI run; add --plan-hash to apply the reviewed plan.")
+        parser.add_argument("--plan-hash", help="Explicit approval of the stored territorial plan version to apply.")
         parser.add_argument(
             "--page-workers",
             type=int,
@@ -154,7 +164,59 @@ class Command(BaseCommand):
             help="Maximum existing text/assets processed by post-scrape AI enrichment.",
         )
 
+    def _handle_ai_strategy(self, options):
+        from ciudades_del_mundo.services.scraping_strategies import AiScrapingStrategy
+        from ciudades_del_mundo.services.territorial_reconciliation import task_checkpoint
+
+        countries = options.get("countries") or []
+        if len(countries) > 1:
+            raise CommandError("The AI strategy requires one explicit country per proposal/review.")
+        incompatible = ("list_pages", "seed_assets_from_pages", "download_assets", "resume", "ai_enrich",
+            "ai_translate_area_names", "asset_subdivision_levels", "max_individual_wikidata_lookups")
+        if any(options.get(name) for name in incompatible):
+            raise CommandError("Traditional scraping/assets/enrichment options cannot be combined with --strategy ai.")
+        run_id = options.get("territorial_run")
+        plan_hash = options.get("plan_hash")
+        country = countries[0] if countries else None
+        if run_id and (options.get("evidence_id") or options.get("discover")):
+            raise CommandError("Review/application of an existing run cannot select new evidence.")
+        if plan_hash and not run_id:
+            raise CommandError("--plan-hash requires --territorial-run.")
+        if not run_id and not country:
+            raise CommandError("The AI strategy requires an explicit country; it never runs all countries by default.")
+        strategy = AiScrapingStrategy(engine=options.get("ai_engine") or "local")
+
+        def checkpoint():
+            task_checkpoint(current_task_id())
+
+        def progress(phase):
+            self._write(f"territorial phase={phase}")
+            if country:
+                write_config_progress(country, phase, detail="strategy=ai")
+
+        try:
+            if run_id:
+                if plan_hash:
+                    result = strategy.apply(run_id, country=country, plan_hash=plan_hash, checkpoint=checkpoint)
+                    payload = {"strategy": "ai", "run": run_id, "result": result}
+                else:
+                    payload = strategy.review(run_id, country=country)
+            else:
+                run = strategy.propose(country, evidence_id=options.get("evidence_id"),
+                    discover=bool(options.get("discover")), checkpoint=checkpoint,
+                    progress=progress)
+                payload = {"strategy": "ai", "run": run.pk, "status": run.status,
+                    "plan_hash": run.plan_hash, "applied": False}
+            self._write(json.dumps(payload, ensure_ascii=False))
+        except (ValueError, RuntimeError, OSError) as exc:
+            raise CommandError(str(exc)) from exc
+
     def handle(self, *args, **options):
+        if options.get("strategy", "traditional") == "ai":
+            self._handle_ai_strategy(options)
+            return
+        if any(options.get(name) for name in ("evidence_id", "discover", "territorial_run", "plan_hash", "ai_engine")):
+            raise CommandError("Territorial options require --strategy ai.")
         self._stdout_lock = threading.Lock()
         self._sqlite_write_lock = sqlite_write_lock_if_needed() or threading.Lock()
         cleanup_old_logs()

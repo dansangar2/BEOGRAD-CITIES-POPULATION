@@ -35,6 +35,7 @@ class ScrapedAdminArea:
     contributes_to_root: bool = False
     most_populated_city_code: str | None = None
     translations: dict[str, str] = field(default_factory=dict)
+    preserve_source_code: bool = False
 
     @property
     def id(self) -> str:

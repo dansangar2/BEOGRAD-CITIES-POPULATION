@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import codecs
 import os
 import subprocess
 import sys
@@ -30,6 +31,7 @@ MAX_PERSISTED_TASKS = 300
 TASK_LOG_DIR_NAME = ".web_task_logs"
 OUTPUT_TAIL_LINES = 240
 OUTPUT_STATUS_TAIL_CHARS = 12000
+OUTPUT_CHUNK_BYTES = 64 * 1024
 
 
 def _bounded_max_running_tasks(value: int | str | None) -> int:
@@ -165,26 +167,40 @@ class TaskManager:
         return len(task.output_text)
 
     def output_since_text(self, task: WebTask, offset: int) -> tuple[str, int, bool]:
-        """Return log content appended after offset plus the new offset."""
+        """Read a bounded block; file cursors count consumed UTF-8 bytes.
+
+        Incomplete trailing characters stay unread until the next request.
+        The DB-only fallback retains its historical character-based cursor.
+        """
         offset = max(0, int(offset or 0))
         log_path = self._resolve_log_path(task)
         if log_path and log_path.exists():
             try:
-                size = int(log_path.stat().st_size)
-                reset = offset > size
-                if reset:
-                    offset = 0
                 with log_path.open("rb") as handle:
+                    size = os.fstat(handle.fileno()).st_size
+                    reset = offset > size
+                    if reset:
+                        offset = 0
                     handle.seek(offset)
-                    chunk = handle.read()
-                return chunk.decode("utf-8", errors="replace"), size, reset
+                    chunk = handle.read(OUTPUT_CHUNK_BYTES)
+                    if offset > os.fstat(handle.fileno()).st_size:
+                        # The file may have been truncated after the first stat.
+                        offset, reset = 0, True
+                        handle.seek(0)
+                        chunk = handle.read(OUTPUT_CHUNK_BYTES)
+                    at_end = handle.tell() >= os.fstat(handle.fileno()).st_size
+                decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+                text = decoder.decode(chunk, final=not task.is_active and at_end)
+                pending, _ = decoder.getstate()
+                return text, offset + len(chunk) - len(pending), reset
             except OSError:
                 pass
         text = task.output_text
         reset = offset > len(text)
         if reset:
             offset = 0
-        return text[offset:], len(text), reset
+        next_offset = min(len(text), offset + OUTPUT_CHUNK_BYTES)
+        return text[offset:next_offset], next_offset, reset
 
     def _cancel_locked(self, task: WebTask) -> subprocess.Popen | None:
         task.cancel_requested = True
@@ -200,7 +216,8 @@ class TaskManager:
 
     def _dispatch_queued_locked(self) -> list[str]:
         """Promote queued rows while respecting the backend process limit."""
-        running = WebTask.objects.filter(status=WebTask.Status.RUNNING, cancel_requested=False).count()
+        # Cancellation requests retain their slot until the child has exited.
+        running = WebTask.objects.filter(status=WebTask.Status.RUNNING).count()
         slots = max(0, self._max_running_tasks - running)
         if slots <= 0:
             return []
@@ -257,29 +274,37 @@ class TaskManager:
             progress_path = task_progress_path(task_id)
 
         try:
-            process = subprocess.Popen(
-                command,
-                cwd=settings.BASE_DIR,
-                env={
-                    **os.environ,
-                    "CIUDADES_WEB_TASK_CHILD": "1",
-                    WEB_TASK_ID_ENV: task_id,
-                    WEB_TASK_PROGRESS_PATH_ENV: str(progress_path),
-                    "PYTHONUNBUFFERED": "1",
-                    "PYTHONIOENCODING": "utf-8",
-                },
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                bufsize=1,
-            )
+            # Serialize the last eligibility check, spawn and registration with
+            # cancellation/replacement. Preparation above may have been cancelled.
+            with self._lock:
+                task = self.get(task_id)
+                if not task or task.status != WebTask.Status.RUNNING or task.cancel_requested:
+                    close_old_connections()
+                    return
+                process = subprocess.Popen(
+                    command,
+                    cwd=settings.BASE_DIR,
+                    env={
+                        **os.environ,
+                        "CIUDADES_WEB_TASK_CHILD": "1",
+                        WEB_TASK_ID_ENV: task_id,
+                        WEB_TASK_PROGRESS_PATH_ENV: str(progress_path),
+                        "PYTHONUNBUFFERED": "1",
+                        "PYTHONIOENCODING": "utf-8",
+                    },
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    bufsize=1,
+                )
+                self._processes[task_id] = process
         except OSError as exc:
             task_ids_to_start = []
             with self._lock:
                 task = self.get(task_id)
-                if task:
+                if task and not task.cancel_requested:
                     task.status = WebTask.Status.FAILED
                     task.finished_at = timezone.now()
                     self._append_output_locked(
@@ -293,7 +318,6 @@ class TaskManager:
             return
 
         with self._lock:
-            self._processes[task_id] = process
             task = self.get(task_id)
             cancel_requested = bool(task and task.cancel_requested)
 

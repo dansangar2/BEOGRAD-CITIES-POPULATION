@@ -11,3 +11,25 @@ include = { infosection = true, major_subdivision = false, cities = false }
 source = "admin"
 path = ["admin"]
 include = { infosection = true, admin1 = true, admin2 = true }
+
+# Keep settlements below communes, including homonymous administrative seats.
+[[pages]]
+source = "cities"
+path = ["cities"]
+include = { infosection = false, major_subdivision = false, cities = true }
+force_highest_level = 3
+parent_level = 2
+preserve_source_codes = true
+
+# These settlements have a different identity from their containing commune.
+[[parent_overrides]]
+codes = ["24949", "24950"] # Godomey, Zinvié
+parent_code = "031" # Abomey-Calavi
+
+[[parent_overrides]]
+codes = ["24951"] # Ekpé (no source QID)
+parent_code = "109" # Sèmè-Kpodji
+
+[[parent_overrides]]
+codes = ["34335"] # Sè
+parent_code = "095" # Houéyogbé

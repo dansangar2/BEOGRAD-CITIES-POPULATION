@@ -19,8 +19,14 @@ include = { cities = true, infosection = false, major_subdivision = true }
 [[pages]]
 source = "cities"
 path = ["ciudaddelahabana"]
-parent_level = 2
-include = { cities = true, infosection = false, major_subdivision = true }
+parent_level = 1
+force_highest_level = 2
+include = { cities = true, infosection = false, major_subdivision = false }
+
+[[parent_overrides]]
+codes = ["2301", "2302", "2303", "2304", "2305", "2306", "2307", "2308", "2309", "2310", "2311", "2312", "2313", "2314", "2315"]
+parent_code = "2300001"
+level = 3
 
 [visual_assets]
 bulk_country_wikidata = true

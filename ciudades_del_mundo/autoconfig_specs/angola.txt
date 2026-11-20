@@ -1,0 +1,34 @@
+Pais/config slug y country_code: angola.
+Fuente operativa: ScrapingConfig.content en SQL.
+Receta para importacion explicita: subdivisions/angola.toml.
+
+L0: Angola, codigo angola, ID angola_angola, QID Q916.
+L1: provincias de la division publicada por CityPopulation.
+L2: municipios ordinarios; ciudad unificada de Luanda bajo su provincia 05.
+L3: comunas/unidades publicadas en communes/admin para municipios ordinarios;
+los 16 municipios integrantes de Luanda bajo la ciudad unificada.
+L4: comunas/unidades de esos municipios de Luanda.
+Conservar LEGAL_SUBDIVISION = 3 y los tipos originales, incluidos Municipality
+en communes/admin cuando la fuente repite una funcion municipal. No fusionar
+esas filas con su municipio padre por compartir nombre, QID o poblacion.
+
+Luanda sigue el mecanismo [[cities]] de Casablanca: conservar la provincia,
+crear una ciudad con codigo propio luanda_city y marcar sus municipios fuente
+como SOURCE, manteniendo su detalle. Seleccionar los codigos 0501 a 0516;
+no reutilizar 05 ni confundir la ciudad compuesta con la fila urbana 623.
+La cadena es provincia 05 L1 > luanda_city L2 > 16 municipios L3 > unidades L4.
+Los municipios ordinarios conservan L2 y sus unidades L3.
+
+El bloque admin aporta provincias L1 y municipios L2. communes/admin aporta
+solo unidades L3: su cabecera provincial sirve como contexto, no se persiste
+de nuevo a otro nivel. Derivar el padre municipal de cada codigo de cinco
+digitos mediante sus cuatro primeros digitos; Luanda agrega un nivel para
+conservar la cadena de la ciudad. No deducir esos padres por nombre.
+Conservar codigos de fuente en ambos bloques para no perder filas con QID
+compartido. No inventar localidades finales.
+
+Comprobar todos los bloques guardados y la API de detalle tras aplicar SQL.
+Las instantaneas del 21/10/2026 contienen 21 provincias, 326 municipios y
+542 unidades de communes/admin; confirmar conteos si cambia la fuente.
+Verificar raiz y assets nacionales Q916, sin nuevas consultas AI o scraping
+para una reparacion que puede ejecutarse con las paginas guardadas.

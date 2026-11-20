@@ -1,0 +1,428 @@
+/* Dashboard tables: only "Tabla de datos" keeps horizontal scroll.
+   All other tables fit inside the viewport on desktop: color/numeric columns are
+   intrinsic-width and never wrap; only name/type columns may wrap. */
+.dashboard-combined-wrap,
+.first-order-color-legend-wrap,
+.first-order-summary-wrap,
+.subdivision-share-wrap,
+.stats-children-wrap,
+.dashboard-recent-tasks-panel .table-wrap {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.country-data-table-wrap {
+  overflow: auto;
+}
+
+.dashboard-combined-table,
+.first-order-legend-table,
+.first-order-summary-table,
+.subdivision-share-wrap .first-order-summary-table,
+.stats-children-table,
+.dashboard-recent-tasks-panel table {
+  width: 100%;
+  min-width: 0;
+  table-layout: auto;
+}
+
+.dashboard-combined-table th,
+.dashboard-combined-table td,
+.first-order-legend-table th,
+.first-order-legend-table td,
+.first-order-summary-table th,
+.first-order-summary-table td,
+.stats-children-table th,
+.stats-children-table td,
+.dashboard-recent-tasks-panel th,
+.dashboard-recent-tasks-panel td {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.dashboard-combined-table th,
+.dashboard-combined-table td,
+.first-order-legend-table th,
+.first-order-legend-table td,
+.first-order-summary-table th,
+.first-order-summary-table td,
+.stats-children-table th,
+.stats-children-table td {
+  padding-right: 5px;
+  padding-left: 5px;
+  font-size: clamp(10px, 0.64vw, 12px);
+}
+
+.dashboard-combined-table .color-column,
+.dashboard-combined-table th:nth-child(1),
+.dashboard-combined-table td:nth-child(1),
+.first-order-legend-table .color-column,
+.first-order-legend-table th:nth-child(1),
+.first-order-legend-table td:nth-child(1),
+.first-order-summary-table .color-column,
+.first-order-summary-table th:nth-child(1),
+.first-order-summary-table td:nth-child(1),
+.stats-children-table .color-column,
+.stats-children-table th:nth-child(1),
+.stats-children-table td:nth-child(1) {
+  width: 22px;
+  min-width: 22px;
+  max-width: 22px;
+  padding-right: 3px;
+  padding-left: 3px;
+  text-align: center;
+}
+
+.dashboard-combined-table th:nth-child(2),
+.dashboard-combined-table td:nth-child(2),
+.first-order-legend-table th:nth-child(2),
+.first-order-legend-table td:nth-child(2),
+.first-order-summary-table th:nth-child(2),
+.first-order-summary-table td:nth-child(2),
+.stats-children-table th:nth-child(2),
+.stats-children-table td:nth-child(2),
+.dashboard-recent-tasks-panel th:nth-child(1),
+.dashboard-recent-tasks-panel td:nth-child(1) {
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.first-order-legend-table th:nth-child(3),
+.first-order-legend-table td:nth-child(3),
+.first-order-summary-table th:nth-child(3),
+.first-order-summary-table td:nth-child(3),
+.stats-children-table th:nth-child(3),
+.stats-children-table td:nth-child(3) {
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.dashboard-combined-table th:nth-child(n+3),
+.dashboard-combined-table td:nth-child(n+3),
+.first-order-legend-table th:nth-child(n+4),
+.first-order-legend-table td:nth-child(n+4),
+.first-order-summary-table th:nth-child(n+4),
+.first-order-summary-table td:nth-child(n+4),
+.stats-children-table th:nth-child(n+4),
+.stats-children-table td:nth-child(n+4),
+.dashboard-recent-tasks-panel th:nth-child(n+2),
+.dashboard-recent-tasks-panel td:nth-child(n+2) {
+  width: 1%;
+  min-width: 0;
+  max-width: none;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.dashboard-recent-tasks-panel th:nth-child(2),
+.dashboard-recent-tasks-panel td:nth-child(2) {
+  text-align: left;
+}
+
+.dashboard-combined-table .table-sort-button,
+.first-order-legend-table .table-sort-button,
+.first-order-summary-table .table-sort-button,
+.stats-children-table .table-sort-button,
+.dashboard-recent-tasks-panel .table-sort-button {
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.stats-child-name-cell strong,
+.stats-child-name-cell span {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+@media (min-width: 1281px) {
+  .country-detail-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Keep first-order sortable headers on one line; the active arrow stays to the right. */
+.first-order-legend-table thead th:nth-child(2),
+.first-order-legend-table thead th:nth-child(3) {
+  white-space: nowrap;
+}
+
+.first-order-legend-table .table-sort-button {
+  gap: 0.2em;
+}
+
+.subdivision-share-wrap .first-order-summary-table .table-sort-button {
+  gap: 0.15em;
+  font-size: 9.5px;
+  line-height: 1;
+}
+
+.subdivision-share-wrap .first-order-summary-table th:nth-child(2),
+.subdivision-share-wrap .first-order-summary-table th:nth-child(3) {
+  white-space: nowrap;
+}
+
+/* Responsive style hardening: avoid clipping themed cards, panels and toasts at intermediate aspect ratios. */
+.topbar,
+.topbar-controls,
+.theme-form {
+  min-width: 0;
+}
+
+.topbar {
+  flex-wrap: wrap;
+}
+
+.brand,
+.nav,
+.topbar-controls,
+.theme-form,
+.language-picker,
+.language-form {
+  min-width: 0;
+}
+
+.nav a,
+.theme-form label,
+.language-picker summary {
+  max-width: 100%;
+}
+
+.country-detail-grid,
+.country-share-grid,
+.identity-grid,
+.knowledge-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+}
+
+.country-detail-panel {
+  height: auto;
+  min-height: clamp(520px, 72vh, 760px);
+  min-height: clamp(520px, 72dvh, 760px);
+  overflow: visible;
+}
+
+.country-data-table-wrap,
+.first-order-color-legend-wrap,
+.stats-children-wrap,
+.subdivision-share-wrap,
+.dashboard-combined-wrap,
+.first-order-summary-wrap,
+.task-history-panel,
+.table-wrap {
+  min-width: 0;
+}
+
+.country-visual-card,
+.identity-card,
+.country-share-card,
+.knowledge-card,
+.metric,
+.panel,
+.row-card,
+.stats-country-card {
+  min-width: 0;
+}
+
+.country-visual-card img,
+.identity-card img,
+.identity-detail-image img,
+.image-preview-dialog img {
+  max-width: 100%;
+}
+
+.country-first-order-charts,
+.dashboard-population-chart-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
+}
+
+.first-order-visual-layout {
+  grid-template-columns: minmax(0, 1.2fr) minmax(min(100%, 180px), 0.8fr);
+}
+
+.stats-country-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 148px), 1fr));
+}
+
+.stats-country-card {
+  --country-flag-box-size: clamp(88px, 7.4vw, 132px);
+  min-height: auto;
+  overflow: hidden;
+}
+
+.stats-country-card strong {
+  display: -webkit-box;
+  min-height: 2.5em;
+  overflow: hidden;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.stats-country-card-metrics span,
+.population-country-name,
+.bar-label,
+.compact-list dd {
+  min-width: 0;
+}
+
+.config-toast-stack {
+  --config-toast-height: clamp(124px, 17vh, 144px);
+  --config-toast-height: clamp(124px, 17dvh, 144px);
+}
+
+.config-task-toast,
+.config-task-toast-status,
+.config-task-output {
+  min-width: 0;
+}
+
+.config-task-output {
+  overflow: auto;
+}
+
+html[data-theme^="retro"] .stats-country-card,
+html[data-theme^="retro"] .country-share-card,
+html[data-theme^="retro"] .country-visual-card,
+html[data-theme^="retro"] .identity-card,
+html[data-theme^="retro"] .knowledge-card {
+  background:
+    linear-gradient(180deg, var(--retro-panel-glow), transparent 42%),
+    var(--card-bg);
+}
+
+@media (max-width: 1180px) {
+  .first-order-visual-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .country-detail-panel {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 920px) {
+  .topbar-controls,
+  .theme-form {
+    justify-content: flex-start;
+  }
+
+  .country-detail-grid,
+  .country-share-grid,
+  .identity-grid,
+  .knowledge-grid,
+  .country-first-order-charts,
+  .dashboard-population-chart-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-country-card {
+    --country-flag-box-size: clamp(96px, 38vw, 148px);
+  }
+}
+
+.technical-field-help {
+  margin: 0.75rem 0 1rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.35));
+  border-radius: 0.9rem;
+  background: var(--panel-muted-bg, rgba(148, 163, 184, 0.08));
+}
+
+.technical-field-help summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.technical-field-help dl {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.35fr) minmax(0, 1fr);
+  gap: 0.55rem 1rem;
+  margin: 0.9rem 0 0;
+}
+
+.technical-field-help dt {
+  font-family: var(--mono-font, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-weight: 700;
+}
+
+.technical-field-help dd {
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .technical-field-help dl {
+    grid-template-columns: 1fr;
+  }
+}
+
+.page-path-cell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0.35rem;
+  min-width: 0;
+  min-height: 0;
+  padding-bottom: calc(34px + 0.4rem);
+  position: relative;
+}
+
+.page-path-list {
+  align-content: start;
+  display: grid;
+  gap: 0.35rem;
+  grid-auto-rows: minmax(34px, max-content);
+  height: 100%;
+  max-height: none;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  padding-right: 0.25rem;
+  scrollbar-gutter: stable;
+}
+
+.page-path-row {
+  align-self: start;
+  display: grid;
+  grid-template-columns: minmax(250px, 1fr) auto;
+  gap: 0.35rem;
+  align-items: center;
+  min-height: 34px;
+}
+
+.page-path-row input {
+  height: 34px;
+  width: 100%;
+  min-width: 250px;
+}
+
+.mini-button {
+  align-self: end;
+  height: 34px;
+  margin-top: 0;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.85rem;
+}
+
+.page-path-cell [data-add-page-path] {
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  right: 0;
+}
+
+.advanced-scraping-field[hidden],
+.config-tab-ai[hidden] {
+  display: none !important;
+}
+
+

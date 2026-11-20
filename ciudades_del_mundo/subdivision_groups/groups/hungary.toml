@@ -1,0 +1,10 @@
+source_country_code = "hungary"
+
+HUNGRIA_A_BANATO = [
+    "Kiszombor",
+    "Ferencszállás",
+    "Klárafalva",
+    "Kübekháza",
+    "Katymár",
+    "Bácsborsód",
+]

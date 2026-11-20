@@ -1,0 +1,91 @@
+{% extends "ciudades_del_mundo/base.html" %}
+{% load i18n %}
+{% block title %}{% trans "Nueva entidad" %}{% endblock %}
+{% block content %}
+<form method="post" class="derived-create-form" data-new-country-embedded {% if not manual_template %}data-country-sources{% endif %}
+      data-original-url="{{ source_area_options_url }}" data-created-url="{{ derived_subdivision_options_url }}"
+      data-capitals-url="{{ capital_options_url }}" data-capital-area-id="{{ capital_area_id }}"
+      data-source-label="{{ source_country_label }}" data-loading="{% trans 'Cargando tabla...' %}"
+      data-empty="{% trans 'Sin datos.' %}" data-error="{% trans 'La tabla no se pudo cargar. Reintenta en unos segundos.' %}">
+  {% csrf_token %}
+  <input type="hidden" name="source_country_code" value="{{ form.source_country_code }}">
+  <input type="hidden" name="parent_area_id" value="{{ parent_area_id }}">
+  <input type="hidden" name="parent_config_slug" value="{{ form.parent_config_slug }}">
+  <input type="hidden" name="selection_json">
+  <p role="alert" data-new-country-entity-error hidden></p>
+  <section class="panel">
+    <div class="form-grid compact-form-grid">
+      <label>{% trans "ID" %}
+        <input name="slug" class="code-input" value="{{ form.slug }}" data-uppercase-code-input required {% if editing %}readonly{% endif %}>
+        <small data-new-country-id-preview data-parent-code="{{ parent_display_code }}" data-id-label="{% trans 'ID' %}"></small>
+      </label>
+      <label>{% trans "Nombre" %}<input name="name" value="{{ form.name }}" required></label>
+      <label>{% trans "Tipo" %}<input name="entity_type" value="{{ form.entity_type }}"></label>
+      {% if manual_template %}
+      <label>{% trans "Poblacion" %}<input type="number" min="0" step="1" name="manual_population" value="{{ form.manual_population }}"></label>
+      <label>{% trans "Terreno" %} (km²)<input type="number" min="0" step="0.01" name="manual_area" value="{{ form.manual_area }}"></label>
+      {% endif %}
+      <div data-capital-picker>
+        <label>{% trans "Capitales" %}
+          <input type="search" data-capital-search placeholder="{% trans 'Buscar capital' %}">
+        </label>
+        <p data-capital-status aria-live="polite"></p>
+        <div data-capital-results></div>
+        <div data-capital-selected>
+          {% for capital in form.capitals %}<input type="hidden" name="capitals" value="{{ capital }}">{% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+  {% if not manual_template %}
+  <div class="actions">
+    <label>{% trans "Buscar pais" %}<input type="search" data-source-country-search></label>
+    <label>{% trans "País" %}
+      <select data-source-country>
+        <option value="">{% trans "Selecciona un pais" %}</option>
+        {% for item in source_area_countries %}<option value="{{ item.value }}">{{ item.label }}</option>{% endfor %}
+      </select>
+    </label>
+    <button type="button" class="secondary" data-add-source>{% trans "Añadir" %}</button>
+  </div>
+  <div data-source-boxes></div>
+  {% endif %}
+  <p class="muted">{% trans "Sin selección, se suman los datos de los hijos." %}</p>
+  <button type="submit" hidden>{% trans "Crear" %}</button>
+</form>
+{{ initial_selections|json_script:"new-country-initial-selections" }}
+{{ capital_labels|json_script:"new-country-capital-labels" }}
+<template id="new-country-source-box">
+  <section class="panel country-source-box">
+    <div class="section-title"><h2></h2><button type="button" class="secondary" data-remove-source>{% trans "Quitar" %}</button></div>
+    <details data-kind="groups"><summary>{% trans "Grupos" %} <span data-count></span></summary></details>
+    <details data-kind="created"><summary>{% trans "Subdivisiones creadas" %} <span data-count></span></summary></details>
+    <details data-kind="original"><summary>{% trans "Subdivisiones originales" %} <span data-count></span></summary></details>
+    <table data-picked hidden>
+      <thead><tr><th>{% trans "Seleccionar" %}</th><th>{% trans "Nombre" %}</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+</template>
+<template id="new-country-source-table">
+  <div class="actions country-source-controls">
+    <label>{% trans "Nivel" %}<select data-level><option value="">{% trans "Selecciona un nivel" %}</option></select></label>
+    <label>{% trans "Buscar" %}<input type="search" data-search></label>
+    <label>{% trans "Filas por pagina" %}
+      <select data-page-size><option>20</option><option>50</option><option>100</option></select>
+    </label>
+  </div>
+  <div data-source-table>
+    <table><thead><tr><th>{% trans "Seleccionar" %}</th><th>{% trans "Nombre" %}</th></tr></thead><tbody aria-live="polite"></tbody></table>
+  </div>
+  <nav class="actions country-source-pagination" data-pagination hidden>
+    <button type="button" class="secondary" data-previous aria-label="{% trans 'Anterior' %}">‹</button>
+    <span data-page-links></span>
+    <button type="button" class="secondary" data-next aria-label="{% trans 'Siguiente' %}">›</button>
+  </nav>
+</template>
+{% endblock %}
+{% block scripts %}
+{% include "ciudades_del_mundo/_new_country_entity_capitals_script.html" %}
+{% if not manual_template %}{% include "ciudades_del_mundo/_new_country_entity_sources_script.html" %}{% endif %}
+{% endblock %}

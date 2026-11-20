@@ -1,6 +1,5 @@
 name = "Albania"
 country_code = "albania"
-base_url = "https://www.citypopulation.de/en/"
 LEGAL_SUBDIVISION = 3
 
 scrape_schema_version = 2
@@ -14,5 +13,6 @@ include = { infosection = true, admin1 = true, admin2 = true }
 source = "admin"
 # /mun/admin usa los municipios L2 como contexto para unidades municipales L3.
 path = ["mun/admin"]
-include = { infosection = true, admin1 = true, admin2 = true }
-force_highest_level = 1
+include = { infosection = false, admin1 = true, admin2 = true }
+force_highest_level = 2
+preserve_source_codes = true

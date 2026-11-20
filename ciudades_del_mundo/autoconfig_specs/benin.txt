@@ -1,0 +1,26 @@
+Objetivo territorial de Benin
+
+L0: pais. L1: los 12 departamentos. L2: las 77 comunas.
+L3: las ciudades y pueblos publicados en /en/benin/cities/, bajo su comuna.
+Mantener LEGAL_SUBDIVISION = 2, los IDs y las poblaciones administrativas.
+Conservar por separado la comuna y su localidad homonima, aunque compartan QID;
+no sustituir la poblacion de una comuna por la de su cabecera urbana.
+
+La instantanea disponible contiene 66 localidades. CityPopulation solo ofrece
+las localidades principales y advierte que la lista es completa respecto a la
+clasificacion del censo de 2002; no representa todos los pueblos ni aldeas.
+No inventar localidades ni arrondissements para rellenar capas ausentes.
+
+La tabla de localidades identifica el departamento. Enlazar las cabeceras con
+su comuna por identidad en L2. Godomey (24949) y Zinvie (24950) pertenecen a
+Abomey-Calavi (031); Ekpe (24951, sin QID en la fuente) a Seme-Kpodji (109);
+Se (34335) a Houeyogbe (095). Mantener sus codigos originales.
+Aplicar el mismo encaje a Cotonou, Porto-Novo y Parakou: departamento > comuna
+> localidad, sin fusionar las funciones consecutivas.
+
+Fuentes:
+https://www.citypopulation.de/en/benin/cities/
+https://www.citypopulation.de/en/benin/admin/
+https://www.decentralisation.gouv.bj/commune/16/abomey-calavi/
+https://semaphore.uqar.ca/id/eprint/3543/1/Anthelme_Gansa_fevrier2026.pdf
+https://houeyogbe.mairie.bj/conseilarrondissement

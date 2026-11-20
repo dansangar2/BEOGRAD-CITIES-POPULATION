@@ -1,0 +1,37 @@
+schema_version = 1
+kind = "derived_country_config"
+country = "imperio_austriaco"
+country_name = "Imperio Austriaco"
+municipal_level = 4
+slug = "imperio_austriaco_state_bosnia_y_herzegovina"
+name = "Bosnia y Herzegovina"
+source_country_code = "bosnia"
+derived_country_code = "imperio_austriaco"
+parent_config_slug = "imperio_austriaco_prov_bosnia_herzegovina"
+groups = []
+
+[selection]
+source_country_code = "bosnia"
+include_ids = ["bosnia_10014", "bosnia_10049", "bosnia_10146", "bosnia_10189", "bosnia_10197", "bosnia_10219", "bosnia_10227", "bosnia_10243", "bosnia_10260", "bosnia_10294", "bosnia_10308", "bosnia_10324", "bosnia_10359", "bosnia_10375", "bosnia_10391", "bosnia_10405", "bosnia_10421", "bosnia_10448", "bosnia_10472", "bosnia_10499", "bosnia_10529", "bosnia_10545", "bosnia_10570", "bosnia_10588", "bosnia_10600", "bosnia_10626", "bosnia_10634", "bosnia_10685", "bosnia_10715", "bosnia_10731", "bosnia_10766", "bosnia_10774", "bosnia_10847", "bosnia_10863", "bosnia_10928", "bosnia_10987", "bosnia_11045", "bosnia_11061", "bosnia_11088", "bosnia_11100", "bosnia_11118", "bosnia_11126", "bosnia_11142", "bosnia_11177", "bosnia_11185", "bosnia_11207", "bosnia_11215", "bosnia_11231", "bosnia_11240", "bosnia_11258", "bosnia_11266", "bosnia_11274", "bosnia_11282", "bosnia_11304", "bosnia_11312", "bosnia_11339", "bosnia_11410", "bosnia_11428", "bosnia_11436", "bosnia_11444", "bosnia_11452", "bosnia_11479", "bosnia_11487", "bosnia_11495", "bosnia_11509", "bosnia_11517", "bosnia_11525", "bosnia_11533", "bosnia_11541", "bosnia_11550", "bosnia_11576", "bosnia_11592", "bosnia_11606", "bosnia_11614", "bosnia_11622", "bosnia_11746", "bosnia_20010", "bosnia_20028", "bosnia_20036", "bosnia_20044", "bosnia_20052", "bosnia_20079", "bosnia_20087", "bosnia_20095", "bosnia_20109", "bosnia_20117", "bosnia_20125", "bosnia_20133", "bosnia_20141", "bosnia_20150", "bosnia_20168", "bosnia_20184", "bosnia_20192", "bosnia_20222", "bosnia_20249", "bosnia_20257", "bosnia_20265", "bosnia_20273", "bosnia_20281", "bosnia_20290", "bosnia_20303", "bosnia_20311", "bosnia_20320", "bosnia_20338", "bosnia_20346", "bosnia_20354", "bosnia_20362", "bosnia_20389", "bosnia_20397", "bosnia_20419", "bosnia_20427", "bosnia_20435", "bosnia_20451", "bosnia_20460", "bosnia_20478", "bosnia_20486", "bosnia_20494", "bosnia_20508", "bosnia_20516", "bosnia_20524", "bosnia_20559", "bosnia_20567", "bosnia_20571", "bosnia_20575", "bosnia_20583", "bosnia_20605", "bosnia_20613", "bosnia_20621", "bosnia_20630", "bosnia_20648", "bosnia_20656", "bosnia_20664", "bosnia_20672", "bosnia_30163", "bosnia_istocno_sarajevo"]
+subtract_ids = []
+include_codes = []
+subtract_codes = []
+group_slugs = []
+
+[[entities]]
+mode = "final"
+name = "Bosnia y Herzegovina"
+code = "BYH"
+entity_type = "Estado"
+level = 3
+parent_config_slug = "imperio_austriaco_prov_bosnia_herzegovina"
+capitals = ["Sarajevo"]
+use_selected_entities_as_children = false
+
+area_km2 = 51237.79
+pop_latest = 3473078
+density = 67.78
+[[entities.include]]
+country_code = "bosnia"
+level = 3
+ids = ["bosnia_10014", "bosnia_10049", "bosnia_10146", "bosnia_10189", "bosnia_10197", "bosnia_10219", "bosnia_10227", "bosnia_10243", "bosnia_10260", "bosnia_10294", "bosnia_10308", "bosnia_10324", "bosnia_10359", "bosnia_10375", "bosnia_10391", "bosnia_10405", "bosnia_10421", "bosnia_10448", "bosnia_10472", "bosnia_10499", "bosnia_10529", "bosnia_10545", "bosnia_10570", "bosnia_10588", "bosnia_10600", "bosnia_10626", "bosnia_10634", "bosnia_10685", "bosnia_10715", "bosnia_10731", "bosnia_10766", "bosnia_10774", "bosnia_10847", "bosnia_10863", "bosnia_10928", "bosnia_10987", "bosnia_11045", "bosnia_11061", "bosnia_11088", "bosnia_11100", "bosnia_11118", "bosnia_11126", "bosnia_11142", "bosnia_11177", "bosnia_11185", "bosnia_11207", "bosnia_11215", "bosnia_11231", "bosnia_11240", "bosnia_11258", "bosnia_11266", "bosnia_11274", "bosnia_11282", "bosnia_11304", "bosnia_11312", "bosnia_11339", "bosnia_11410", "bosnia_11428", "bosnia_11436", "bosnia_11444", "bosnia_11452", "bosnia_11479", "bosnia_11487", "bosnia_11495", "bosnia_11509", "bosnia_11517", "bosnia_11525", "bosnia_11533", "bosnia_11541", "bosnia_11550", "bosnia_11576", "bosnia_11592", "bosnia_11606", "bosnia_11614", "bosnia_11622", "bosnia_11746", "bosnia_20010", "bosnia_20028", "bosnia_20036", "bosnia_20044", "bosnia_20052", "bosnia_20079", "bosnia_20087", "bosnia_20095", "bosnia_20109", "bosnia_20117", "bosnia_20125", "bosnia_20133", "bosnia_20141", "bosnia_20150", "bosnia_20168", "bosnia_20184", "bosnia_20192", "bosnia_20222", "bosnia_20249", "bosnia_20257", "bosnia_20265", "bosnia_20273", "bosnia_20281", "bosnia_20290", "bosnia_20303", "bosnia_20311", "bosnia_20320", "bosnia_20338", "bosnia_20346", "bosnia_20354", "bosnia_20362", "bosnia_20389", "bosnia_20397", "bosnia_20419", "bosnia_20427", "bosnia_20435", "bosnia_20451", "bosnia_20460", "bosnia_20478", "bosnia_20486", "bosnia_20494", "bosnia_20508", "bosnia_20516", "bosnia_20524", "bosnia_20559", "bosnia_20567", "bosnia_20571", "bosnia_20575", "bosnia_20583", "bosnia_20605", "bosnia_20613", "bosnia_20621", "bosnia_20630", "bosnia_20648", "bosnia_20656", "bosnia_20664", "bosnia_20672", "bosnia_30163", "bosnia_istocno_sarajevo"]

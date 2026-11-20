@@ -9,6 +9,8 @@ from ciudades_del_mundo.services.ai_text_enrichment import (
     apply_stored_entity_type_inferences,
 )
 from ciudades_del_mundo.services.dynamic_translations import clear_dynamic_translation_cache, dynamic_entity_type_label
+from unittest.mock import Mock, patch
+from ciudades_del_mundo.ports.ai import AiProviderResponseError
 
 
 class FakeAiProvider:
@@ -41,6 +43,51 @@ class FakeAiProvider:
 
 
 class AiTextEnrichmentTests(TestCase):
+    def setUp(self):
+        clear_dynamic_translation_cache()
+
+    def tearDown(self):
+        clear_dynamic_translation_cache()
+
+    def test_existing_entity_types_load_parents_in_one_query(self):
+        root = AdminArea.objects.create(id="aa_aa", code="aa", country_code="aa", name="AA",
+                                        level=0, entity_type="Country", raw_entity_type="Country")
+        for number in range(5):
+            AdminArea.objects.create(id=f"aa_{number}", code=str(number), country_code="aa", name=str(number),
+                                     level=1, parent=root, entity_type="Province", raw_entity_type="Province")
+        service = AiTextEnrichmentService(FakeAiProvider())
+        with patch.object(service, "normalize_scraped_entities", side_effect=lambda config, entities: entities):
+            with self.assertNumQueries(1):
+                stats = service.enrich_existing_admin_area_entity_types(country_code="aa")
+        self.assertEqual(stats.entity_types_applied, 0)
+
+    def test_invalid_provider_response_writes_no_translation(self):
+        service = AiTextEnrichmentService(Mock(model="fake", complete_json=Mock(return_value={
+            "needs_review": "false", "translations": {"es": "bad"},
+        })), languages=("es",))
+        with self.assertRaises(AiProviderResponseError):
+            service._translate_name(subject_type="country", subject_key="aa", country_code="aa", source_text="AA")
+        self.assertEqual(DynamicTranslation.objects.count(), 0)
+
+    def test_sql_translations_skip_provider_on_a_new_service_run(self):
+        first = AiTextEnrichmentService(FakeAiProvider(), languages=("es",))
+        first._translate_name(subject_type="country", subject_key="aa", country_code="aa", source_text="AA")
+        provider = Mock(model="fake")
+        second = AiTextEnrichmentService(provider, languages=("es",))
+        self.assertEqual(second._translate_name(subject_type="country", subject_key="aa", country_code="aa", source_text="AA"), 0)
+        provider.complete_json.assert_not_called()
+
+    def test_filling_plural_keeps_an_existing_singular_translation(self):
+        existing = DynamicTranslation.objects.create(
+            subject_type="entity_type", subject_key="Province", country_code="aa", field="singular",
+            language="es", text="Manual", needs_review=False, is_active=True,
+        )
+        service = AiTextEnrichmentService(FakeAiProvider(), languages=("es",))
+        self.assertEqual(service._translate_entity_type("Province", country_code="aa"), 1)
+        existing.refresh_from_db()
+        self.assertEqual(existing.text, "Manual")
+        self.assertEqual(DynamicTranslation.objects.get(field="plural").text, "Provincias")
+
     def test_infers_incomplete_entity_type_and_stores_dynamic_labels(self):
         service = AiTextEnrichmentService(FakeAiProvider(), languages=("es", "en"))
         entities = [

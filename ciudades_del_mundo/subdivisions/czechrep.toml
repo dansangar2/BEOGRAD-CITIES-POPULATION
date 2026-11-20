@@ -1,10 +1,10 @@
+scrape_schema_version = 2
+LEGAL_SUBDIVISION = 3
 name = "Czech Republic"
 country_code = "czechrep"
 [visual_assets.flag]
 remote_url = "https://commons.wikimedia.org/wiki/Special:Redirect/file/Flag%20of%20the%20Czech%20Republic.svg?width=640"
 source = "config"
-
-scrape_schema_version = 2
 
 [[pages]]
 source = "cities"
@@ -14,7 +14,8 @@ include = { infosection = true, major_subdivision = false, cities = false }
 [[pages]]
 source = "admin"
 path = ["admin"]
-include = { infosection = true, admin1 = true, admin2 = true }
+force_highest_level = 1
+include = { infosection = false, major_subdivision = true, minor_subdivision = true }
 
 [[pages]]
 source = "cities"
@@ -33,6 +34,15 @@ path = [
   "vysocina",
   "zlinskykraj",
 ]
-include = { infosection = true, major_subdivision = true, cities = true }
-force_highest_level = 1
+include = { infosection = false, major_subdivision = true, cities = true }
+force_highest_level = 2
 include_root = false
+
+[[synthetic_entities]]
+code = "CZ0100_city"
+name = "Praha"
+level = 3
+parent_code = "CZ0100"
+entity_type = "City"
+data_wd = "Q1085"
+copy_metrics_from = "CZ0100"

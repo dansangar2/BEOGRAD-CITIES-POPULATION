@@ -1,0 +1,33 @@
+source_country_code = "serbia"
+
+SERBIA_A_ESLAVONIA_DISTRITOS = [
+    "Srem",
+]
+
+SERBIA_A_ESLAVONIA_MUNICIPIOS = [
+    "Zemun",
+    "Novi Beograd",
+    "Surčin",
+]
+
+SERBIA_A_BANATO_DISTRITOS = [
+    "Južni Banat",
+    "Južna Bačka",
+    "Zapadna Bačka",
+    "Severna Bačka",
+    "Severni Banat",
+    "Srednji Banat",
+]
+
+SERBIA_A_BANATO_MUNICIPIOS = [
+    "Palilula",
+]
+
+SERBIA_HUNGARA_A_BANATO = [
+    "Zrenjanin",
+]
+
+SERBIA_BANATO_A_HUNGRIA = [
+    "Novi Kneževac",
+    "Apatin",
+]

@@ -1,0 +1,37 @@
+schema_version = 1
+kind = "derived_country_config"
+country = "imperio_austriaco"
+country_name = "Imperio Austriaco"
+municipal_level = 4
+slug = "imperio_austriaco_state_fiume"
+name = "Fiume"
+source_country_code = "croatia"
+derived_country_code = "imperio_austriaco"
+parent_config_slug = "imperio_austriaco_prov_fiume"
+groups = []
+
+[selection]
+source_country_code = "croatia"
+include_ids = ["croatia_3735"]
+subtract_ids = []
+include_codes = []
+subtract_codes = []
+group_slugs = []
+
+[[entities]]
+mode = "final"
+name = "Fiume"
+code = "FIU"
+entity_type = "Estado"
+level = 3
+parent_config_slug = "imperio_austriaco_prov_fiume"
+capitals = ["Rijeka"]
+use_selected_entities_as_children = false
+
+area_km2 = 43.2
+pop_latest = 105705
+density = 2446.88
+[[entities.include]]
+country_code = "croatia"
+level = 2
+ids = ["croatia_3735"]

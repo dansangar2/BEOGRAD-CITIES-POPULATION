@@ -1,0 +1,31 @@
+schema_version = 1
+kind = "derived_country_config"
+country = "imperio_austriaco"
+country_name = "Imperio Austriaco"
+municipal_level = 4
+slug = "imperio_austriaco_corona_estados_vecinos"
+name = "Estados Vecinos"
+source_country_code = "austria"
+derived_country_code = "imperio_austriaco"
+parent_config_slug = ""
+groups = []
+
+[selection]
+source_country_code = "austria"
+include_ids = []
+subtract_ids = []
+include_codes = []
+subtract_codes = []
+group_slugs = []
+
+[[entities]]
+mode = "intermediate"
+name = "Estados Vecinos"
+code = "EV"
+entity_type = "Corona"
+level = 1
+parent_config_slug = ""
+capitals = []
+area_km2 = 144289.33
+pop_latest = 22102025
+density = 153.18

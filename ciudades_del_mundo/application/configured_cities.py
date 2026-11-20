@@ -58,17 +58,16 @@ def _apply_configured_city(
             default=None,
         ),
         city_merge_status=CITY_MERGE_UNIFIED,
+        data_wd=config.data_wd or (by_code[config.code].data_wd if config.code in by_code else ""),
     )
     child_city = _configured_city_child(config, city)
 
     source_unit_codes = {commune.code for commune in resolved_communes}
     target_commune_level = config.level + 1
-    shifts_by_code = {}
-    if config.keep_communes:
-        shifts_by_code = {
-            commune.code: target_commune_level - commune.level
-            for commune in resolved_communes
-        }
+    shifts_by_code = {
+        commune.code: target_commune_level - commune.level
+        for commune in resolved_communes
+    }
     stale_configured_children_by_code = {
         entity.code: -1
         for entity in entities
@@ -83,10 +82,6 @@ def _apply_configured_city(
     for entity in entities:
         if entity.code in configured_codes:
             continue
-        if not config.keep_communes and _belongs_to_source_unit(entity, source_unit_codes, by_code):
-            transformed.append(replace(entity, city_merge_status=CITY_MERGE_SOURCE))
-            continue
-
         stale_shift = _shift_for_entity(entity, stale_configured_children_by_code, by_code)
         if stale_shift is not None:
             transformed.append(
@@ -103,7 +98,7 @@ def _apply_configured_city(
             continue
 
         shift = _shift_for_entity(entity, shifts_by_code, by_code)
-        if shift is None:
+        if shift is None or (not config.keep_communes and not _belongs_to_source_unit(entity, source_unit_codes, by_code)):
             transformed.append(entity)
             continue
 
@@ -163,6 +158,9 @@ def _belongs_to_source_unit(
         parent = by_code.get(parent_code)
         parent_code = parent.parent_code if parent else None
 
+    if entity.parent_code in by_code:
+        return False
+
     for code in source_unit_codes:
         source = by_code.get(code)
         if source and entity.level > source.level and entity.code.startswith(code):
@@ -187,6 +185,11 @@ def _shift_for_entity(
             return shift
         parent = by_code.get(parent_code)
         parent_code = parent.parent_code if parent else None
+
+    # A resolved parent chain takes precedence over coincidental code prefixes.
+    # Only infer descendants by prefix when the entity has no known parent.
+    if entity.parent_code in by_code:
+        return None
 
     for code, shift in shifts_by_code.items():
         parent = by_code.get(code)
@@ -392,6 +395,11 @@ def _resolve_city_commune(
     match = _closest_at_or_below_level(original_matches, config.level)
     if match:
         return match
+    if original_matches:
+        # Explicit direct children can already occupy their final child level.
+        # The aggregation shifts them relative to the configured entity; their
+        # source level need not be at or above that entity's target level.
+        return min(original_matches, key=lambda entity: entity.level)
 
     configured_children = [
         entity

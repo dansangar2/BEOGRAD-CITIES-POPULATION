@@ -11,3 +11,16 @@ include = { infosection = true, major_subdivision = false, cities = false }
 source = "admin"
 path = ["admin"]
 include = { infosection = true, admin1 = true, admin2 = true }
+
+# Sectores urbanos bajo el distrito capital existente (0101, L2).
+# La fuente publica 1-13 y 15-17; no inventar los sectores sin datos.
+[[pages]]
+source = "cities"
+path = ["kabulcity"]
+force_highest_level = 3
+include = { infosection = false, major_subdivision = false, cities = true }
+
+[[parent_overrides]]
+code_pattern = 'kab[0-9]{2}'
+parent_code = "0101"
+level = 3

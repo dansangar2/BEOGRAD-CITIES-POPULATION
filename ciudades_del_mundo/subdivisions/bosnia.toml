@@ -1,26 +1,27 @@
 name = "Bosnia and Herzegovina"
 country_code = "bosnia"
-base_url = "https://www.citypopulation.de/en/"
 LEGAL_SUBDIVISION = 3
 
 scrape_schema_version = 2
+# This urban aggregate overlaps the unified city; it is not a subdivision.
+exclude_entity_codes = ["209xxx"]
 
 [[pages]]
-source = "cities"
+source = "citiesadmin"
 # País raíz + entidades/cantones mezclados en table#tl.
 path = ["cities"]
-include = { infosection = true, major_subdivision = true, cities = true }
+include = { infosection = true, major_subdivision = true, minor_subdivision = true, cities = true }
+# National urban summaries are settlements, not municipalities.
+table_levels = { cities = 4 }
 
 [[pages]]
 source = "cities"
 # Cantones/entidades L2, municipios L3 y localidades L4.
 path = [
-  "brcko",
   "bosanskopodrinjski",
   "hercegovackoneretvanski",
   "kanton10",
   "posavski",
-  "republikasrpska",
   "sarajevo",
   "srednjobosanski",
   "tuzlanski",
@@ -31,7 +32,73 @@ path = [
 include = { infosection = true, major_subdivision = true, cities = true }
 force_highest_level = 2
 
+[[pages]]
+source = "cities"
+path = ["republikasrpska"]
+include = { infosection = true, major_subdivision = true, cities = true }
+# L1 is the national entity (2111); L2 is its canton-equivalent role (200).
+force_highest_level = 2
+root_code = "200"
+root_parent_code = "2111"
+table_levels = { major_subdivision = 3, cities = 4 }
+
+[[pages]]
+source = "cities"
+path = ["brcko"]
+# Keep only the municipality and its settlements; the district exists at L1.
+include = { infosection = false, major_subdivision = true, cities = true }
+force_highest_level = 3
+
+[[parent_overrides]]
+codes = ["30163"]
+parent_code = "6871"
+level = 3
+
 [[parent_overrides]]
 # Los cantones pertenecen a Federacija Bosna i Hercegovina.
 codes = ["6755", "6756", "6761", "6757", "6758", "6754", "6759", "6760", "6762", "6763"]
 parent_code = "2112"
+
+[[cities]]
+city = "Sarajevo"
+id = "11746"
+level = 3
+type = "City"
+from = { 2 = ["6758"] }
+district_types = ["City (Constituent Municipality)"]
+communes = ["10839", "10871", "11568", "11584"]
+keep_communes = true
+
+[[cities]]
+city = "Istočno Sarajevo"
+id = "istocno_sarajevo"
+level = 3
+type = "City"
+from = { 2 = ["200"] }
+district_types = ["City (Constituent Municipality)"]
+communes = ["20176", "20206", "20214", "20443", "20532", "20591"]
+keep_communes = true
+
+[[visual_assets.admin_areas]]
+code = "11746"
+kind = "flag"
+wikidata_id = "Q11194"
+commons_filename = "Flag of Sarajevo.svg"
+
+[[visual_assets.admin_areas]]
+code = "11746"
+kind = "coat"
+wikidata_id = "Q11194"
+commons_filename = "Coat of arms of Sarajevo.svg"
+
+[[visual_assets.admin_areas]]
+code = "istocno_sarajevo"
+kind = "flag"
+wikidata_id = "Q147556"
+commons_filename = "Flag of East Sarajevo.svg"
+
+[[visual_assets.admin_areas]]
+code = "istocno_sarajevo"
+kind = "coat"
+wikidata_id = "Q147556"
+commons_filename = "Veliki grb Istočnog Sarajeva.png"

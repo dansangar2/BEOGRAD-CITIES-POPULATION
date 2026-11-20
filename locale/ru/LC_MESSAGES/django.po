@@ -1950,3 +1950,52 @@ msgstr "Ranking capital"
 
 msgid "Ranking ciudad mas poblada"
 msgstr "Ranking ciudad mas poblada"
+
+#, python-format
+msgid "El grupo %(group)s de %(country)s ya esta asignado en este pais nuevo a %(owners)s. Quita esa asignacion antes de usarlo en otra entidad."
+msgstr "Группа %(group)s из %(country)s уже назначена в этой новой стране сущности %(owners)s. Удалите это назначение, прежде чем использовать группу в другой сущности."
+
+#, python-format
+msgid "%(config)s: no se pudo sincronizar la resta automatica: %(error)s"
+msgstr "%(config)s: не удалось синхронизировать автоматическое вычитание: %(error)s"
+
+msgid "Nuevo"
+msgstr "Новый"
+
+msgid "Sin popular"
+msgstr "Не заполнено"
+
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/new_country_detail.html
+msgid "ID"
+msgstr "ID"
+
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/new_country_detail.html
+msgid "Sin selección, se suman los datos de los hijos."
+msgstr "Если ничего не выбрано, суммируются данные всех дочерних элементов."
+
+
+#: ciudades_del_mundo/templates/ciudades_del_mundo/new_country_detail.html
+msgid "La entidad padre no pertenece a este país."
+msgstr "Родительский элемент не принадлежит этой стране."
+
+
+msgid "Subdivisiones originales"
+msgstr "Исходные подразделения"
+
+
+msgid "Plantilla"
+msgstr "Шаблон"
+
+
+msgid "Registro"
+msgstr "Запись"
+
+
+msgid "Introduce población y terreno a mano. Si dejas un campo vacío, se suman los valores de los hijos."
+msgstr "Введите население и площадь. Для пустого поля суммируются значения дочерних единиц."
+
+
+msgid "Selecciona grupos o subdivisiones para calcular la población y el terreno."
+msgstr "Выберите группы или подразделения для расчёта населения и площади."

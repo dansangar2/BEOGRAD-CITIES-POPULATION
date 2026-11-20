@@ -1,0 +1,22 @@
+Objetivo territorial de Austria
+
+Nivel 0: Austria, pais.
+Nivel 1: estados federados, incluido Wien.
+Nivel 2: distritos; Wien se representa como distrito/ciudad capital.
+Nivel 3: ciudades/comunas; Wien debe tener su propia fila de ciudad.
+Nivel 4: localidades/pueblos cuando existan en la fuente.
+
+Mantener los mismos niveles por funcion territorial en todas las ramas,
+independientemente de la presentacion de CityPopulation.
+
+Ejemplo ordinario:
+Vorarlberg (L1) > Bregenz distrito (L2) > Bregenz ciudad/comuna (L3) > Bregenz localidad (L4).
+
+Caso de Viena:
+Wien estado (L1) > Wien distrito/ciudad capital (L2) > Wien ciudad (L3).
+Estas repeticiones son intencionadas: conservar filas e IDs distintos aunque
+compartan nombre, QID y poblacion. No inventar localidades debajo de Wien.
+Los 23 distritos municipales se conservan bajo Wien ciudad, en L4, manteniendo
+sus IDs y su tipo de distrito. No son distritos regionales de L2 ni localidades
+inventadas. Wien estado debe tener un solo hijo directo (Wien capital, L2),
+y este un solo hijo (Wien ciudad, L3), que contiene los 23 distritos municipales.
