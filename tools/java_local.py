@@ -373,7 +373,7 @@ def start(port, backend="java"):
                 spawn([python_exe(), "-B", str(ROOT / "manage.py"), "runserver",
                        f"127.0.0.1:{public}", "--noreload", "--insecure"], django_env)
             else:
-                spawn([python_exe(), "-B", str(ROOT / "manage.py"), "runserver",
+                spawn([python_exe(), "-B", str(ROOT / "backend-python/manage.py"), "runserver",
                        f"127.0.0.1:{public}", "--noreload", "--insecure"])
             timeout = max(1, min(120, int(config.get("startup_timeout", 45))))
             wait_ready(f"http://127.0.0.1:{public}/internal/ready", processes, timeout)

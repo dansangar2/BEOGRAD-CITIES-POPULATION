@@ -27,7 +27,7 @@ def verify(python: str) -> None:
                                              "historical_divisions_old", "new_subdivisions_old"})
             return excluded
 
-        for name in ("ciudades_del_mundo", "tools", "tests", "locale"):
+        for name in ("ciudades_del_mundo", "backend-python", "tools", "tests", "locale"):
             shutil.copytree(ROOT / name, destination / name, ignore=ignore)
         env = os.environ.copy()
         env.pop("PYTHONPATH", None)

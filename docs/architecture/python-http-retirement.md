@@ -73,12 +73,14 @@ comprueba sus dependencias por separado. Ninguna hace scraping o reparaciones.
 
 ## Código y mantenimiento
 
-Los propietarios activos están en [web](../../ciudades_del_mundo/web/).
-[old-backend-python](../../old-backend-python/README.md) es una copia histórica
-sin importarse en ejecución. Toda mejora HTTP debe implementarse y verificarse
+El backend [Python](../../backend-python/README.md) tiene el mismo estatus de
+mantenimiento que Java. Su entrada `backend-python/manage.py` ejecuta los
+propietarios activos de [web](../../ciudades_del_mundo/web/), compartidos con la
+UI Django. Se conserva una sola implementación Python. Toda mejora HTTP debe implementarse y verificarse
 en ambos backends con prioridad Java, conservando contratos compartidos.
 La migración Java continúa incompleta. El [inventario](java-api-inventory.md)
-conserva evidencia histórica; la allowlist activa está en el código.
+se genera desde los propietarios activos y la allowlist del código; es evidencia
+estática y no acredita equivalencia en ejecución.
 
 ## Verificación offline
 

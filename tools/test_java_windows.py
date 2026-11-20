@@ -33,6 +33,8 @@ class WindowsDeploymentTests(unittest.TestCase):
         shutil.copytree(ROOT / 'ciudades_del_mundo', cls.project / 'ciudades_del_mundo',
                         ignore=shutil.ignore_patterns('__pycache__', '*.pyc', 'tests', 'subdivisions', 'new_country_configs', 'autoconfig_specs'))
         shutil.copytree(ROOT / 'locale', cls.project / 'locale')
+        shutil.copytree(ROOT / 'backend-python', cls.project / 'backend-python',
+                        ignore=shutil.ignore_patterns('__pycache__', '*.pyc', 'characterization'))
         shutil.copyfile(ROOT / 'manage.py', cls.project / 'manage.py')
         (cls.project / 'tools').mkdir()
         for name in ('__init__.py', 'java_local.py'):
@@ -300,7 +302,7 @@ class WindowsDeploymentTests(unittest.TestCase):
 
     def test_combined_mode_overrides_obsolete_opt_out_and_settings(self):
         self.assertTrue((self.project / 'ciudades_del_mundo').exists())
-        self.assertFalse((self.project / 'old-backend-python').exists())
+        self.assertTrue((self.project / 'backend-python/manage.py').is_file())
         original = self.env.copy()
         try:
             self.env.update({'BEOGRAD_JAVA_ENABLED': '0', 'DJANGO_SETTINGS_MODULE': 'does.not.exist'})

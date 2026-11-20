@@ -37,9 +37,9 @@ def content() -> str:
         raise ValueError("No compiled gettext catalogs found")
     data = {
         "languages": languages,
-        "countries_es": literal_assignment(ROOT / "old-backend-python/ciudades_del_mundo/web/view_support.py", "COUNTRY_NAME_ES_BY_CODE"),
+        "countries_es": literal_assignment(ROOT / "ciudades_del_mundo/web/view_support.py", "COUNTRY_NAME_ES_BY_CODE"),
         "wikidata": literal_assignment(ROOT / "ciudades_del_mundo/infrastructure/wikidata_countries.py", "COUNTRY_WIKIDATA_IDS"),
-        "spain_names": literal_assignment(ROOT / "old-backend-python/ciudades_del_mundo/web/spain_translations.py", "SPAIN_NAME_LABELS"),
+        "spain_names": literal_assignment(ROOT / "ciudades_del_mundo/web/spain_translations.py", "SPAIN_NAME_LABELS"),
     }
     return json.dumps(data, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
 

@@ -8,4 +8,4 @@ contracts, including nine languages, seven methods and Accept variants.
 `*-database.json` contains complete SQL statements for a new temporary SQLite
 database. `*-responses.json` deduplicates expected responses and references
 them from individual request cases. Java loads these directly; neither Python,
-Django nor old-backend-python is executed during Maven verification.
+Django nor backend-python is executed during Maven verification.

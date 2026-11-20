@@ -10,8 +10,10 @@
   port and Java on the next port; Django forwards only the explicit migrated
   route allowlist. Closing/reopening restarts both and rebuilds changed Java.
   Python mode starts Django alone. Python HTTP owners
-  are restored under `ciudades_del_mundo/web/`; `old-backend-python/` is a
-  historical snapshot, not a runtime dependency. Java never proxies to Python;
+  live under `ciudades_del_mundo/web/`; `backend-python/manage.py` is the
+  Python entry point, with the same maintained status as `backend-java/`.
+  Keep one active Python implementation, shared with the Django UI.
+  Java never proxies to Python;
   pending routes retain their Django owners, without fallback on Java failures.
 - Every HTTP improvement/fix must be implemented and verified in both backends,
   prioritizing Java and preserving shared response contracts. Record any remaining

@@ -12,8 +12,19 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-WEB = ROOT / "old-backend-python/ciudades_del_mundo/web"
-IMPLEMENTED = {"api_country_summary", "dashboard_population_data", "api_derived_summary", "dashboard_derived_data", "config_export_data_csv"}
+WEB = ROOT / "ciudades_del_mundo/web"
+
+
+def java_route_names() -> set[str]:
+    """Read the runtime allowlist without importing Django."""
+    tree = ast.parse((WEB / "java_routing.py").read_text(encoding="utf-8-sig"))
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(isinstance(n, ast.Name) and n.id == "JAVA_ROUTE_NAMES" for n in node.targets):
+            return set(ast.literal_eval(node.value.args[0]))
+    raise ValueError("Missing JAVA_ROUTE_NAMES")
+
+
+IMPLEMENTED = java_route_names()
 
 
 def inventory() -> dict:
@@ -40,7 +51,7 @@ def inventory() -> dict:
         route = ast.literal_eval(call.args[0])
         owner = ast.unparse(call.args[1])
         name = next((ast.literal_eval(k.value) for k in call.keywords if k.arg == "name"), "")
-        record = {"name": name, "url": "/" + route, "owner": owner, "python_state": "archived and disabled", "java_status": "disabled; Python HTTP archived"}
+        record = {"name": name, "url": "/" + route, "owner": owner, "python_state": "maintained; active in Python mode", "java_status": "Django owner in Java mode; native Java implementation pending"}
         if name in IMPLEMENTED:
             record["java_status"] = "native Java; seven HTTP methods characterized against synthetic Django schema"
         if owner in handlers:
@@ -66,24 +77,24 @@ def inventory() -> dict:
                 "inputs_observed": request_values,
                 "responses_and_errors_observed": responses,
                 "permissions": [ast.unparse(n) for n in node.decorator_list],
-                "security": "Historical Django middleware evidence; the Python endpoint is disabled. Native Java routes own their HTTP security.",
+                "security": "Django middleware protects the public origin in both modes. Native Java routes also own their HTTP security.",
                 "calls": sorted({ast.unparse(n.func) for n in calls}),
                 "direct_effects_observed": sorted({ast.unparse(n.func) for n in calls if re.search(r"\.(save|delete|update|create|start|cancel|write|unlink|mkdir)$", ast.unparse(n.func))}),
                 "imports": imports,
                 "consumers": [p for p, text in consumers.items() if name in text or (route and route in text)],
                 "existing_test_references": [p for p, text in test_sources.items() if name in text or (route and route in text)],
-                "equivalence": "EquivalenceTest with frozen synthetic SQL/HTTP contracts; no Python execution (nine languages, seven methods, Accept variants)" if name in IMPLEMENTED else "disabled; pending Java implementation and characterization",
+                "equivalence": "EquivalenceTest with frozen synthetic SQL/HTTP contracts; no Python execution (nine languages, seven methods, Accept variants)" if name in IMPLEMENTED else "Django implementation active in both modes; native Java characterization pending",
             })
         routes.append(record)
     return {
-        "scope": "Historical Python web urlpatterns. Python HTTP is archived and disabled; only the five implemented Java routes remain active.",
-        "limitations": "Historical static evidence only; pending routes are disabled, not migrated or proxied. No archived code is executed by the normal build/startup.",
-        "platform_routes": ["/admin/ (disabled)", "/i18n/ (disabled)", "/static/ (Python UI disabled)", "/media/ (native Java, configured root containment)"],
+        "scope": "Maintained Python web urlpatterns. Python serves all routes; Java mode forwards only JAVA_ROUTE_NAMES to native Java.",
+        "limitations": "Static evidence, not runtime equivalence. Pending Java routes retain Django owners. Java migration remains incomplete.",
+        "platform_routes": ["/admin/ (Django)", "/i18n/ (Django)", "/static/ (Django UI)", "/media/ (Django public origin; Java also serves configured media)"],
         "new_operational_routes": [
-            {"method": "GET", "url": "/internal/ready/", "owner": "org.beograd.web.OperationsController.ready", "origin": "public loopback JVM", "response": "JSON status ready or error, 200/503", "effects": "Read-only Java readiness checks; no SQL writes"},
-            {"method": "GET", "url": "/internal/live", "owner": "org.beograd.web.OperationsController.live", "origin": "public loopback JVM", "response": "JSON status up, 200", "effects": "None"},
-            {"method": "GET", "url": "/internal/ready", "owner": "org.beograd.web.OperationsController.ready", "origin": "public loopback JVM", "response": "JSON status ready or error, 200/503", "effects": "Read-only SQL dependency checks"},
-            {"method": "POST", "url": "/internal/shutdown", "owner": "org.beograd.web.OperationsController.stop", "origin": "public loopback JVM", "response": "202 accepted or 404", "permissions": "Per-launch ephemeral shutdown token", "effects": "Graceful JVM shutdown; no SQL writes"},
+            {"method": "GET", "url": "/internal/ready/", "owner": "ciudades_del_mundo.local_urls.ready", "origin": "public loopback Django in both modes", "response": "JSON status ready or error, 200/503", "effects": "Read-only Django readiness checks; no SQL writes"},
+            {"method": "GET", "url": "/internal/live", "owner": "org.beograd.web.OperationsController.live", "origin": "internal loopback JVM in Java mode", "response": "JSON status up, 200", "effects": "None"},
+            {"method": "GET", "url": "/internal/ready", "owner": "org.beograd.web.OperationsController.ready", "origin": "internal loopback JVM in Java mode", "response": "JSON status ready or error, 200/503", "effects": "Read-only SQL dependency checks"},
+            {"method": "POST", "url": "/internal/shutdown", "owner": "org.beograd.web.OperationsController.stop", "origin": "internal loopback JVM in Java mode", "response": "202 accepted or 404", "permissions": "Per-launch ephemeral shutdown token", "effects": "Graceful JVM shutdown; no SQL writes"},
         ],
         "routes": routes,
     }
@@ -103,14 +114,14 @@ def main() -> None:
     else:
         print(content)
     if args.markdown:
-        rows = ["# Inventario de rutas para la migración Java", "", 
+        rows = ["# Inventario de rutas de los backends Java y Python", "",
                 "Evidencia estática regenerable con `py -B tools/inventory_java_api.py --output docs/architecture/java-api-inventory.json --markdown docs/architecture/java-api-inventory.md`.", "",
-                "107 rutas Python históricas. La API antigua está archivada y deshabilitada; las rutas pendientes no se ejecutan ni se reenvían a Django. Solo están activas las cinco rutas Java implementadas, además de comprobaciones operativas y media. Las pruebas Java usan contratos congelados, nueve idiomas y siete métodos HTTP sin ejecutar Python.", "",
+                f"{len(result['routes'])} rutas Python mantenidas. Python sirve todas las rutas; en modo Java se reenvían {len(IMPLEMENTED)} rutas de la allowlist a la JVM. Las pendientes mantienen su propietario Django. La migración Java continúa incompleta. Este inventario es evidencia estática; no acredita equivalencia en ejecución.", "",
                 "Los detalles de entradas, respuestas, errores, middleware, llamadas, consumidores y referencias de pruebas están en [el JSON](java-api-inventory.json). `sin restricción observada` significa que el controlador no limita el método; CSRF se aplica a métodos inseguros. Las ramas son comprobaciones estáticas, no una declaración OpenAPI inferida.", "",
                 "| URL | Métodos/ramas observados | Tipo de respuesta | Controlador | Java |",
                 "| --- | --- | --- | --- | --- |"]
         for route in result['routes']:
-            rows.append(f"| `{route['url']}` | {', '.join(route.get('method_branches', [])) or 'sin restricción observada'} | {', '.join(route.get('classification', ['redirect']))} | `{route['owner']}` | {'Implementado en Java' if route['name'] in IMPLEMENTED else 'Deshabilitada'} |")
+            rows.append(f"| `{route['url']}` | {', '.join(route.get('method_branches', [])) or 'sin restricción observada'} | {', '.join(route.get('classification', ['redirect']))} | `{route['owner']}` | {'Implementado en Java' if route['name'] in IMPLEMENTED else 'Django; implementación Java pendiente'} |")
         args.markdown.write_text('\n'.join(rows) + '\n', encoding='utf-8')
 
 

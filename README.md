@@ -64,6 +64,10 @@ rutas de este editor siguen en Django en ambos modos. Consulta
 
 ## Backend Python
 
+[`backend-python`](backend-python/README.md) es la alternativa mantenida a
+`backend-java`, con el mismo estatus de mantenimiento. Su entrada de ejecución
+usa el código activo de `ciudades_del_mundo`, compartido con la UI Django.
+
 Selecciona Python en `backend.toml` antes de usar `manage.py runserver`.
 El lanzador común configura el perfil local y la base existente.
 

@@ -126,9 +126,10 @@ Las skills de proyecto versionadas reúnen decisiones reutilizables:
 [derivados](../.agents/skills/beograd-derived-data/SKILL.md).
 
 El [registro inicial de configs](DOCUMENTACION_CAMBIOS_CONFIGS.md) conserva
-historia. El inventario Java generado también retrata la etapa de retirada
-HTTP: no es la matriz de ejecución vigente. Sus estados históricos no anulan
-el selector, la restauración Python o la allowlist actual.
+historia. El inventario Java generado inspecciona los propietarios Python activos
+y la allowlist Java. Python tiene el mismo estatus de mantenimiento que Java;
+`backend-python/manage.py` comparte el código Django de `ciudades_del_mundo`.
+El inventario es evidencia estática, no una comprobación de equivalencia HTTP.
 
 ## Verificación y pendientes
 

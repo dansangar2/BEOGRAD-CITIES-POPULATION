@@ -18,6 +18,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class BackendSelectionTests(unittest.TestCase):
+    def test_python_entrypoint_from_another_directory_overrides_java_flags(self):
+        with tempfile.TemporaryDirectory() as directory:
+            env = {**os.environ, 'PYTHONDONTWRITEBYTECODE': '1',
+                   'BEOGRAD_BACKEND': 'java', 'BEOGRAD_JAVA_ENABLED': '1'}
+            result = subprocess.run(
+                [sys.executable, '-B', str(ROOT / 'backend-python/manage.py'),
+                 'shell', '--settings=ciudades_del_mundo.tests.isolated_settings', '-c',
+                 "import os; assert os.environ['BEOGRAD_BACKEND'] == 'python'; "
+                 "assert os.environ['BEOGRAD_JAVA_ENABLED'] == '0'"],
+                cwd=directory, env=env, capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_defaults_file_override_and_invalid_values(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(java_local, 'ROOT', Path(directory)), patch.dict(os.environ, {}, clear=True):
             self.assertEqual(java_local.selected_backend(), 'java')
